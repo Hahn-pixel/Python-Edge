@@ -254,7 +254,8 @@ def _health_filter_rules(
             kept.append(r)
             continue
 
-        if (med <= float(health_med_min)) or (es5 <= float(health_es5_min)):
+        # Retire only if BOTH median and tail are below thresholds (Phase-2 sane default)
+        if (med <= float(health_med_min)) and (es5 <= float(health_es5_min)):
             retired.append(RetiredRule(sig, sup, med, es5))
         else:
             kept.append(r)
@@ -449,7 +450,15 @@ def main() -> int:
     print(f"[GLOBAL] library_size={len(agg)} (fold_count>=2)")
     print(f"[GLOBAL] long_kept={int((agg['direction']=='long').sum())} short_kept(after payoff-gate)={int((agg['direction']=='short').sum())}")
 
-    lib_w: Dict[str, float] = {str(r["signature"]): float(r["weight"]) for _, r in agg.iterrows()}
+    # Build weights by CANONICAL signature (stable w.r.t. Rule objects)
+    lib_w: Dict[str, float] = {}
+    for _, r in agg.iterrows():
+        # df_oos.signature should already be canonical in your event_mining.py,
+        # but we still normalize for safety.
+        sig = str(r["signature"]).strip()
+        if not sig:
+            continue
+        lib_w[sig] = float(r["weight"])
 
     # ---------- RANK per fold ----------
     fwd_col = f"fwd_{cfg.fwd_days}d_ret"
@@ -462,12 +471,17 @@ def main() -> int:
         df_te = all_df[all_df["date"].isin(te_dates)].copy()
 
         rules_fold = fold_rules_by_id.get(fold_id, [])
-        # keep only rules present in global library signatures
-        rules_fold = [r for r in rules_fold if getattr(r, "signature", None) in lib_w]
+
+        # Keep only rules whose CANONICAL signature exists in GLOBAL library
+        rules_fold_kept: List[Any] = []
+        for r in rules_fold:
+            sig = _rule_signature(r)
+            if sig in lib_w:
+                rules_fold_kept.append(r)
 
         # split by direction
-        fold_long_rules = [r for r in rules_fold if getattr(r, "direction", None) == "long"]
-        fold_short_rules = [r for r in rules_fold if getattr(r, "direction", None) == "short"]
+        fold_long_rules = [r for r in rules_fold_kept if getattr(r, "direction", None) == "long"]
+        fold_short_rules = [r for r in rules_fold_kept if getattr(r, "direction", None) == "short"]
 
         print("\n" + "=" * 80)
         print(f"[RANK/FOLD {fold_id}] OOS window={min(te_dates)}..{max(te_dates)}  rows={len(df_te)}")
@@ -486,6 +500,11 @@ def main() -> int:
                 health_es5_min=HEALTH_ES5_MIN,
             )
             print(f"[HEALTH] long: before={n0} after={len(fold_long_rules)} retired={len(retired_l)}")
+            # Explicit failsafe: never allow fold to go "dead" silently
+            MIN_ACTIVE = int(_env_int("HEALTH_MIN_ACTIVE", 5))
+            if len(fold_long_rules) < MIN_ACTIVE:
+                print(f"[HEALTH][FAILSAFE] long kept={len(fold_long_rules)} < {MIN_ACTIVE} -> bypass health for this fold (explicit)")
+                fold_long_rules = [r for r in rules_fold_kept if getattr(r, "direction", None) == "long"]
             for rr in retired_l[:5]:
                 print(f"[HEALTH] retired_long sig={rr.signature} support={rr.support} med={_fmt(rr.median_signed,4)} es5={_fmt(rr.es5_signed,4)}")
 
@@ -497,7 +516,8 @@ def main() -> int:
         fires_short = 0
 
         for r in fold_long_rules:
-            w = float(lib_w.get(r.signature, 0.0))
+            sig = _rule_signature(r)
+            w = float(lib_w.get(sig, 0.0))
             if w <= 0:
                 continue
             m = _apply_rule_mask(df_te, r).to_numpy(dtype=bool, copy=False)
@@ -507,7 +527,8 @@ def main() -> int:
                 long_score[m] += w
 
         for r in fold_short_rules:
-            w = float(lib_w.get(r.signature, 0.0))
+            sig = _rule_signature(r)
+            w = float(lib_w.get(sig, 0.0))
             if w <= 0:
                 continue
             m = _apply_rule_mask(df_te, r).to_numpy(dtype=bool, copy=False)
