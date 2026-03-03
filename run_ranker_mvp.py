@@ -314,6 +314,14 @@ def main() -> int:
     HEALTH_ES5_MIN = _env_float("HEALTH_ES5_MIN", -0.01)
 
     WEIGHT_P95_TARGET = _env_float("WEIGHT_P95_TARGET", 0.0)  # 0 disables
+    RECENCY_ENABLE = (_env_int("RECENCY_ENABLE", 1) == 1)
+    RECENCY_DECAY = _env_float("RECENCY_DECAY", 0.75)  # higher => focus more on latest fold
+    MUST_PASS_LATEST = (_env_int("MUST_PASS_LATEST", 1) == 1)
+    LATEST_LIFT_MIN = _env_float("LATEST_LIFT_MIN", 1.00)  # additional gate on latest fold lift
+    LATEST_MED_MIN = _env_float("LATEST_MED_MIN", 0.0)
+    LATEST_ES5_MIN = _env_float("LATEST_ES5_MIN", -0.08)
+    RUNTIME_LONG_TOPN = _env_int("RUNTIME_LONG_TOPN", 40)
+    RUNTIME_SHORT_TOPN = _env_int("RUNTIME_SHORT_TOPN", 20)
 
     train_days = _env_int("WF_TRAIN_DAYS", 420)
     test_days = _env_int("WF_TEST_DAYS", 90)
@@ -328,6 +336,9 @@ def main() -> int:
     print(f"[CFG] OOS filter: support>={cfg.min_support} lift>={OOS_LIFT_MIN}")
     print(f"[CFG] short payoff-gate: mean>{SHORT_GATE_MEAN_MIN} p>0>{SHORT_GATE_PPOS_MIN}")
     print(f"[CFG] rank: K={K}")
+    if RECENCY_ENABLE:
+        print(f"[CFG] recency: enable=1 decay={_fmt(RECENCY_DECAY,3)} must_pass_latest={int(MUST_PASS_LATEST)} latest_lift_min={_fmt(LATEST_LIFT_MIN,3)} latest_med_min={_fmt(LATEST_MED_MIN,4)} latest_es5_min={_fmt(LATEST_ES5_MIN,4)}")
+    print(f"[CFG] runtime caps: long_topn={RUNTIME_LONG_TOPN} short_topn={RUNTIME_SHORT_TOPN}")
     if HEALTH_ENABLE:
         print(f"[CFG] health: win={HEALTH_WIN} min_n={HEALTH_MIN_N} med_min={_fmt(HEALTH_MED_MIN,4)} es5_min={_fmt(HEALTH_ES5_MIN,4)}")
 
@@ -413,19 +424,84 @@ def main() -> int:
 
     df_oos_all = pd.concat(fold_oos_rows, ignore_index=True)
 
-    agg = (
-        df_oos_all.groupby(["direction", "signature"], as_index=False)
+    # Build per-(direction, signature, fold) table, then recency-weight aggregates.
+    # Goal: runtime focuses on "what works now" (latest fold), not historical average.
+    df_fold = df_oos_all.copy()
+
+    last_fold_id = int(df_fold["fold_id"].max())
+    df_fold["recency_w"] = np.exp(-float(RECENCY_DECAY) * (last_fold_id - df_fold["fold_id"].astype(int)))
+
+    # Latest fold metrics for hard gate / diagnostics
+    df_last = df_fold[df_fold["fold_id"] == last_fold_id].copy()
+    last_metrics = (
+        df_last.groupby(["direction", "signature"], as_index=False)
         .agg(
-            fold_count=("fold_id", "nunique"),
-            avg_lift=("lift", "mean"),
-            avg_es5=("es5_signed", "mean"),
-            avg_mean=("mean_signed", "mean"),
-            avg_median=("median_signed", "mean"),
-            avg_ppos=("p_pos_signed", "mean"),
-            support=("support", "mean"),
+            last_lift=("lift", "mean"),
+            last_es5=("es5_signed", "mean"),
+            last_mean=("mean_signed", "mean"),
+            last_median=("median_signed", "mean"),
+            last_ppos=("p_pos_signed", "mean"),
+            last_support=("support", "mean"),
         )
         .copy()
     )
+
+    def _wavg(g: pd.DataFrame, col: str) -> float:
+        w = g["recency_w"].to_numpy(dtype=float)
+        x = g[col].to_numpy(dtype=float)
+        msk = np.isfinite(w) & np.isfinite(x) & (w > 0)
+        if not np.any(msk):
+            return float("nan")
+        return float(np.sum(w[msk] * x[msk]) / np.sum(w[msk]))
+
+    agg_rows: List[Dict[str, Any]] = []
+    for (direction, signature), g in df_fold.groupby(["direction", "signature"], sort=False):
+        fold_count = int(g["fold_id"].nunique())
+        agg_rows.append(
+            {
+                "direction": direction,
+                "signature": signature,
+                "fold_count": fold_count,
+                "w_lift": _wavg(g, "lift"),
+                "w_es5": _wavg(g, "es5_signed"),
+                "w_mean": _wavg(g, "mean_signed"),
+                "w_median": _wavg(g, "median_signed"),
+                "w_ppos": _wavg(g, "p_pos_signed"),
+                "w_support": _wavg(g, "support"),
+            }
+        )
+
+    agg = pd.DataFrame(agg_rows)
+
+    # attach latest fold metrics (NaN => rule absent in latest fold)
+    agg = agg.merge(last_metrics, on=["direction", "signature"], how="left")
+
+    # stability + OOS gate
+    agg = agg[agg["fold_count"] >= 2].copy()
+    agg = agg[agg["w_lift"] >= OOS_LIFT_MIN].copy()
+
+    # "works now" gate (latest fold)
+    if MUST_PASS_LATEST:
+        agg = agg[agg["last_lift"].notna()].copy()
+        agg = agg[agg["last_lift"] >= float(LATEST_LIFT_MIN)].copy()
+        agg = agg[agg["last_median"] >= float(LATEST_MED_MIN)].copy()
+        agg = agg[agg["last_es5"] >= float(LATEST_ES5_MIN)].copy()
+
+    # short payoff gate uses weighted means (more relevant to current regime)
+    is_short = agg["direction"] == "short"
+    if is_short.any():
+        agg_short = agg[is_short].copy()
+        agg_long = agg[~is_short].copy()
+        agg_short = agg_short[
+            (agg_short["w_mean"] > SHORT_GATE_MEAN_MIN) & (agg_short["w_ppos"] > SHORT_GATE_PPOS_MIN)
+        ].copy()
+        agg = pd.concat([agg_long, agg_short], ignore_index=True)
+
+    # weight from RECENCY-weighted metrics
+    agg["weight"] = [
+        _weight_from_metrics(float(r["w_lift"]), int(r["fold_count"]), float(r["w_es5"]), float(OOS_LIFT_MIN))
+        for _, r in agg.iterrows()
+    ]
 
     agg = agg[agg["fold_count"] >= 2].copy()
     agg = agg[agg["avg_lift"] >= OOS_LIFT_MIN].copy()
@@ -451,10 +527,25 @@ def main() -> int:
     print(f"[GLOBAL] long_kept={int((agg['direction']=='long').sum())} short_kept(after payoff-gate)={int((agg['direction']=='short').sum())}")
 
     # Build weights by CANONICAL signature (stable w.r.t. Rule objects)
+    # Runtime uses only the best rules (by recency-weighted weight, then latest fold lift).
     lib_w: Dict[str, float] = {}
-    for _, r in agg.iterrows():
-        # df_oos.signature should already be canonical in your event_mining.py,
-        # but we still normalize for safety.
+
+    sort_cols = ["direction", "weight"]
+    if "last_lift" in agg.columns:
+        sort_cols.append("last_lift")
+    if "w_lift" in agg.columns:
+        sort_cols.append("w_lift")
+
+    asc = [True] + [False] * (len(sort_cols) - 1)
+    agg_sorted = agg.sort_values(sort_cols, ascending=asc).copy()
+
+    # Per-direction caps (defensive against rule explosion + stale rules)
+    long_df = agg_sorted[agg_sorted["direction"] == "long"].head(int(RUNTIME_LONG_TOPN))
+    short_df = agg_sorted[agg_sorted["direction"] == "short"].head(int(RUNTIME_SHORT_TOPN))
+
+    agg_use = pd.concat([long_df, short_df], ignore_index=True)
+
+    for _, r in agg_use.iterrows():
         sig = str(r["signature"]).strip()
         if not sig:
             continue
