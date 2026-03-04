@@ -204,7 +204,19 @@ def main() -> int:
 
     # Imports AFTER sys.path injection to ensure we use local src/.
     from python_edge.data.ingest_aggs import load_aggs, to_daily_index
-    from python_edge.features import build_features_daily as _bfd
+    # ---- build_features compatibility binding (supports both naming conventions) ----
+    build_features_fn = None
+    feature_cfg = None
+    try:
+        # Variant A (newer in some branches): DailyFeatureConfig + build_daily_features
+        from python_edge.features.build_features_daily import DailyFeatureConfig as _DFC, build_daily_features as _BDF
+        build_features_fn = _BDF
+        feature_cfg = _DFC()
+    except Exception:
+        # Variant B: FeatureConfig + build_features_daily
+        from python_edge.features.build_features_daily import FeatureConfig as _FC, build_features_daily as _BFD
+        build_features_fn = _BFD
+        feature_cfg = _FC()
 
     # --- Robust import compatibility layer ---
     # Some repo versions expose FeatureConfig/build_features_daily.
@@ -282,31 +294,50 @@ def main() -> int:
         f"[CFG] perm: trials={cfg.perm_trials} topk={cfg.perm_topk} gate={int(cfg.perm_gate_enabled)} margin={cfg.perm_gate_margin}"
     )
     print(f"[CFG] OOS filter: support>={cfg.min_support} lift>={OOS_LIFT_MIN}")
-    print(f"[CFG] short payoff-gate: mean>{SHORT_GATE_MEAN_MIN} p>0>{SHORT_GATE_PPOS_MIN}")
-    print(f"[CFG] rank: K={K}")
-    print(
-        f"[CFG] health: enabled={int(cfg_health.enabled)} win={cfg_health.win} min_n={cfg_health.min_n} "
-        f"med_min={_fmt(cfg_health.med_min,4)} es5_min={_fmt(cfg_health.es5_min,4)}"
-    )
-    print(f"[CFG] recency: MUST_PASS_LATEST={int(MUST_PASS_LATEST)} LATEST_ONLY={int(LATEST_ONLY)}")
-
-    # ---- Load data ----
-    panels: List[pd.DataFrame] = []
-    for t in tickers:
-        r = load_aggs(dataset_root=dataset_root, symbol=t, tf="1d", start=start, end=end, prefer_full=True)
-        df = to_daily_index(r.df)
+    print(f"[CFG] shodf = to_daily_index(r.df)
         if df.empty:
             continue
 
-        # Expect massive-style daily columns o,h,l,c,v. If your pipeline already normalizes, keep it.
-        d = df[["date", "o", "h", "l", "c", "v"]].copy()
+        # ---- Build-features input: be compatible with both 'close'-based and 'c'-based implementations ----
+        # We intentionally pass BOTH 'c' and 'close' (plus o/h/l/v if present) to avoid brittle coupling.
+        base_cols = ["date", "o", "h", "l", "c", "v", "close", "open", "high", "low", "volume"]
+        have = [c for c in base_cols if c in df.columns]
+        d = df[have].copy()
+
+        # Normalize canonical names if only one side exists
+        if "c" in d.columns and "close" not in d.columns:
+            d["close"] = d["c"]
+        if "close" in d.columns and "c" not in d.columns:
+            d["c"] = d["close"]
+
+        if "o" not in d.columns and "open" in d.columns:
+            d["o"] = d["open"]
+        if "h" not in d.columns and "high" in d.columns:
+            d["h"] = d["high"]
+        if "l" not in d.columns and "low" in d.columns:
+            d["l"] = d["low"]
+        if "v" not in d.columns and "volume" in d.columns:
+            d["v"] = d["volume"]
+
+        # Keep required minimal columns
+        if "date" not in d.columns:
+            raise RuntimeError("build_features input missing 'date' after normalization")
+        if "close" not in d.columns and "c" not in d.columns:
+            raise RuntimeError("build_features input missing both 'close' and 'c' after normalization")
+
+        d = d.copy()
         d["symbol"] = t
 
-        # Build features (whichever interface is available)
-        try:
-            d = build_features_daily(d, FeatureConfig())
-        except TypeError:
-            # Some versions require explicit cfg positional, but still named FeatureConfig
+        # Call whichever build_features variant was successfully bound earlier in the script
+        d = build_features_fn(d, feature_cfg)
+
+        # Ensure forward-return base column exists for _forward_return()
+        if "close" not in d.columns and "c" in d.columns:
+            d["close"] = d["c"]
+
+        d[f"fwd_{cfg.fwd_days}d_ret"] = _forward_return(d, cfg.fwd_days)
+        panels.append(d)
+eConfig
             d = build_features_daily(d, FeatureConfig())
 
         # Make sure we have close for the ranker alignment below
