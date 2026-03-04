@@ -62,6 +62,7 @@ Exit codes:
 
 import os
 import sys
+import re
 import math
 import traceback
 from dataclasses import dataclass
@@ -72,6 +73,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 import sys
+import re
 
 ROOT = Path(__file__).resolve().parents[1]     # ...\Python-Edge
 SRC  = ROOT / "src"
@@ -243,6 +245,7 @@ class RunCfg:
     oos_support_min: int
 
     # short payoff-gate
+    short_gate: bool
     short_mean_min: float
     short_p_pos_min: float
 
@@ -295,6 +298,7 @@ def load_cfg() -> RunCfg:
         perm_margin=_env_float("PERM_MARGIN", 0.15),
         oos_lift_min=_env_float("OOS_LIFT_MIN", 1.35),
         oos_support_min=_env_int("OOS_SUPPORT_MIN", 200),
+        short_gate=_env_bool("SHORT_GATE", False),
         short_mean_min=_env_float("SHORT_MEAN_MIN", 0.0),
         short_p_pos_min=_env_float("SHORT_PPOS_MIN", 0.5),
         K=_env_int("RANK_K", 3),
@@ -561,7 +565,7 @@ def main() -> int:
         )
     )
     _p(f"[CFG] OOS filter: support>={cfg.oos_support_min} lift>={cfg.oos_lift_min}")
-    _p(f"[CFG] short payoff-gate: mean>{cfg.short_mean_min} p>0>{cfg.short_p_pos_min}")
+    _p(f"[CFG] short payoff-gate: enabled={int(bool(cfg.short_gate))} mean>{cfg.short_mean_min} p>0>{cfg.short_p_pos_min}")
     _p(f"[CFG] rank: K={cfg.K}")
     _p(
         "[CFG] health: enabled={e} win={w} min_n={n} med_min={mm:.4f} es5_min={es:.4f}".format(
@@ -574,23 +578,68 @@ def main() -> int:
         )
     )
 
-    # Universe from folders
+    # Universe from folders (only symbols that actually have aggs_{tf}_*.json)
     if not cfg.dataset_root.exists():
         raise FileNotFoundError(f"Missing dataset_root: {cfg.dataset_root}")
-    symbols = sorted([p.name for p in cfg.dataset_root.iterdir() if p.is_dir()])
-    if not symbols:
+
+    # Dataset uses JSON files: aggs_1d_YYYY-MM-DD_YYYY-MM-DD(.json / __FULL.json)
+    tf_token = str(cfg.tf).strip().lower()
+    json_rx = re.compile(rf"^aggs_{re.escape(tf_token)}_\d{{4}}-\d{{2}}-\d{{2}}_\d{{4}}-\d{{2}}-\d{{2}}(__FULL)?\.json$", re.IGNORECASE)
+
+    all_dirs = sorted([p for p in cfg.dataset_root.iterdir() if p.is_dir()], key=lambda p: p.name)
+    if not all_dirs:
         raise RuntimeError(f"No symbol folders under {cfg.dataset_root}")
 
+    symbols: List[str] = []
+    missing_tf: List[str] = []
+
+    for p in all_dirs:
+        has_tf = False
+        try:
+            for f in p.iterdir():
+                if f.is_file() and f.suffix.lower() == ".json" and json_rx.match(f.name):
+                    has_tf = True
+                    break
+        except Exception:
+            # If directory unreadable, treat as missing and proceed deterministically
+            has_tf = False
+
+        if has_tf:
+            symbols.append(p.name)
+        else:
+            missing_tf.append(p.name)
+
+    if missing_tf:
+        _p(f"[DATA] skip_missing_tf={len(missing_tf)} tf={cfg.tf} example={missing_tf[:10]}")
+    _p(f"[DATA] universe_symbols={len(symbols)} tf={cfg.tf}")
+
+    if not symbols:
+        raise RuntimeError(f"No symbols with aggs_{tf_token}_*.json under {cfg.dataset_root}")
+
     dfs: List[pd.DataFrame] = []
+    loaded_ok = 0
+    loaded_empty = 0
+    loaded_fail = 0
+
     for sym in symbols:
-        r = load_aggs(cfg.dataset_root, sym, cfg.tf, cfg.start, cfg.end)
-        d = to_daily_index(r.df)
-        if d.empty:
+        try:
+            r = load_aggs(cfg.dataset_root, sym, cfg.tf, cfg.start, cfg.end)
+            d = to_daily_index(r.df)
+        except Exception as e:
+            loaded_fail += 1
+            _p(f"[DATA][SKIP] sym={sym} reason=load_fail err={type(e).__name__}: {e}")
             continue
-        # keep essential columns
+
+        if d.empty:
+            loaded_empty += 1
+            continue
+
+        loaded_ok += 1
         d = d[["date", "o", "h", "l", "c", "v"]].copy()
         d["symbol"] = sym
         dfs.append(d)
+
+    _p(f"[DATA] loaded_ok={loaded_ok} loaded_empty={loaded_empty} loaded_fail={loaded_fail}")
 
     if not dfs:
         raise RuntimeError("No data loaded (all symbols empty)")
@@ -685,6 +734,11 @@ def main() -> int:
         oos = oos[pd.to_numeric(oos["lift"], errors="coerce").astype(float) >= float(cfg.oos_lift_min)]
 
         _p(f"[LIB/FOLD {i}] OOS eval={len(oos_long)+len(oos_short)} pass(lift>={cfg.oos_lift_min})={len(oos)}")
+        if not oos.empty and ("direction" in oos.columns):
+            nL = int((oos["direction"].astype(str) == "long").sum())
+            nS = int((oos["direction"].astype(str) == "short").sum())
+            _p(f"[LIB/FOLD {i}] pass_breakdown long={nL} short={nS}")
+
 
         if i == len(folds):
             latest_pass_sigs = set(oos["signature"].astype(str).tolist())
@@ -754,7 +808,7 @@ def main() -> int:
     agg = agg[pd.to_numeric(agg["avg_lift"], errors="coerce").astype(float) >= float(cfg.oos_lift_min)].copy()
 
     # Short payoff-gate
-    if not agg.empty:
+    if bool(cfg.short_gate) and (not agg.empty):
         is_short = agg["direction"].astype(str) == "short"
         if is_short.any():
             s = agg[is_short].copy()
