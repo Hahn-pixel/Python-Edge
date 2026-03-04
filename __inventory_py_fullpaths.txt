@@ -1,0 +1,15 @@
+C:\Users\Dmytro Govor\Documents\Python-Edge\scripts\download_massive_aggs.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\scripts\run_mvp_daily_rules.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\scripts\run_mvp.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\scripts\run_ranker_hold_sim.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\scripts\run_ranker_mvp.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\scripts\run_rule_lab_event_mining.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\__init__.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\config.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\backtest\walkforward_rules.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\data\ingest_aggs.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\features\build_features_daily.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\portfolio\portfolio_overlay.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\reports\report_text.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\rules\event_mining.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\rules\rule_miner.py

@@ -1,0 +1,527 @@
+# scripts/run_ranker_mvp.py
+# Double-click runnable. Never auto-closes.
+#
+# Builds a global OOS-stable rule library (by canonical signature),
+# applies payoff-gate for short rules, then produces daily cross-sectional
+# ranking (top-K long/short) on OOS windows using fold-specific thresholds.
+
+from __future__ import annotations
+
+import os
+import sys
+import traceback
+from pathlib import Path
+from typing import Dict, List, Tuple, Set
+
+import numpy as np
+import pandas as pd
+
+
+def _press_enter_exit(code: int) -> None:
+    try:
+        print(f"\n[EXIT] code={code}")
+        input("Press Enter to exit...")
+    except Exception:
+        pass
+    raise SystemExit(code)
+
+
+def _add_src_to_syspath() -> None:
+    root = Path(__file__).resolve().parents[1]
+    src = root / "src"
+    if src.exists():
+        sys.path.insert(0, str(src))
+
+
+def _env_str(name: str, default: str = "") -> str:
+    v = os.environ.get(name, default)
+    return (v if v is not None else default).strip()
+
+
+def _env_int(name: str, default: int) -> int:
+    v = os.environ.get(name)
+    if v is None or not str(v).strip():
+        return default
+    try:
+        return int(float(str(v).strip()))
+    except Exception:
+        return default
+
+
+def _env_float(name: str, default: float) -> float:
+    v = os.environ.get(name)
+    if v is None or not str(v).strip():
+        return default
+    try:
+        return float(str(v).strip())
+    except Exception:
+        return default
+
+
+def _fmt(x: float, nd: int = 4) -> str:
+    if x != x:
+        return "nan"
+    return f"{x:.{nd}f}"
+
+
+def _fmt_pct(x: float) -> str:
+    if x != x:
+        return "nan"
+    return f"{x*100:.2f}%"
+
+
+def _load_universe(root: Path) -> List[str]:
+    p = root / "data" / "universe_etf_first_30.txt"
+    txt = p.read_text(encoding="utf-8", errors="ignore")
+    out = []
+    for line in txt.splitlines():
+        s = line.strip()
+        if not s or s.startswith("#"):
+            continue
+        out.append(s.upper())
+    return out
+
+
+def _make_folds(dates: List[str], train_days: int, test_days: int, purge_days: int, max_folds: int = 6) -> List[Tuple[int, int, int, int, int]]:
+    folds: List[Tuple[int, int, int, int, int]] = []
+    t_end = train_days
+    fid = 0
+    step = test_days
+    while True:
+        train_end = t_end
+        test_start = train_end + purge_days
+        test_end = test_start + test_days
+        train_start = max(0, train_end - train_days)
+        if test_end > len(dates):
+            break
+        fid += 1
+        folds.append((fid, train_start, train_end, test_start, test_end))
+        t_end += step
+        if fid >= max_folds:
+            break
+    return folds
+
+
+def _weight_from_metrics(avg_lift: float, fold_count: int, avg_es5: float, oos_lift_min: float) -> float:
+    # Core weight: stability * edge / (1 + tail_penalty)
+    edge = max(0.0, avg_lift - oos_lift_min)
+    stability = 1.25 if fold_count >= 3 else 1.0
+    tail_pen = max(0.0, (-avg_es5) - 0.10)  # penalize ES worse than -10%
+    w = stability * edge / (1.0 + 5.0 * tail_pen)
+    return float(w)
+
+
+def main() -> int:
+    _add_src_to_syspath()
+
+    from python_edge.data.ingest_aggs import load_aggs, to_daily_index
+    from python_edge.features.build_features_daily import DailyFeatureConfig, build_daily_features
+    from python_edge.rules.event_mining import EventMiningConfig, label_events, mine_event_rules, evaluate_rules_oos, score_rule_event
+
+    root = Path(__file__).resolve().parents[1]
+
+    start = _env_str("DATA_START", "")
+    end = _env_str("DATA_END", "")
+    if not start or not end:
+        raise RuntimeError("Missing DATA_START/DATA_END. Example: 2023-01-01 / 2026-02-28")
+
+    dataset_root = Path(_env_str("DATA_OUT_DIR", str(root / "data" / "raw" / "massive_dataset")))
+    tickers = _load_universe(root)
+
+    # Config aligned to your last runs
+    cfg = EventMiningConfig(
+        fwd_days=_env_int("LAB_FWD_DAYS", 5),
+        k_sigma=_env_float("LAB_K_SIGMA", 1.5),
+        max_rules_try=_env_int("LAB_MAX_RULES_TRY", 6000),
+        max_rules_keep=_env_int("LAB_MAX_RULES_KEEP", 800),
+        min_support=_env_int("LAB_MIN_SUPPORT", 200),
+        min_event_hits=_env_int("LAB_MIN_EVENT_HITS", 30),
+        max_conds=_env_int("LAB_MAX_CONDS", 3),
+        seed=_env_int("LAB_SEED", 7),
+        perm_trials=_env_int("LAB_PERM_TRIALS", 50),
+        perm_topk=_env_int("LAB_PERM_TOPK", 20),
+        perm_gate_enabled=(_env_int("LAB_PERM_GATE", 1) == 1),
+        perm_gate_margin=_env_float("LAB_PERM_GATE_MARGIN", 0.15),
+    )
+
+    OOS_LIFT_MIN = _env_float("LAB_OOS_LIFT_MIN", 1.35)
+    K = _env_int("RANK_K", 3)
+
+    # Short payoff-gate
+    SHORT_GATE_MEAN_MIN = _env_float("SHORT_GATE_MEAN", 0.0)
+    SHORT_GATE_PPOS_MIN = _env_float("SHORT_GATE_PPOS", 0.50)
+
+    # ---- Phase 2: Rolling health (MVP) ----
+    HEALTH_ENABLE   = (_env_int("HEALTH_ENABLE", 0) == 1)
+    HEALTH_WIN      = _env_int("HEALTH_WIN", 60)
+    HEALTH_MIN_N    = _env_int("HEALTH_MIN_N", 30)
+    HEALTH_MED_MIN  = _env_float("HEALTH_MED_MIN", 0.0)
+    HEALTH_ES5_MIN  = _env_float("HEALTH_ES5_MIN", -0.02)
+
+    def _health_filter_rules(df_tr, rules_in, direction: str):
+        """
+        MVP health: evaluate each rule on the LAST HEALTH_WIN train dates.
+        Retire if support>=HEALTH_MIN_N and (median<=MED_MIN or ES5<=ES5_MIN).
+        """
+        if not HEALTH_ENABLE or not rules_in:
+            return rules_in, []
+
+        if "date" not in df_tr.columns:
+            raise RuntimeError("HEALTH_ENABLE=1 requires 'date' column in df_tr")
+
+        # last HEALTH_WIN unique dates
+        dts = sorted(df_tr["date"].unique().tolist())
+        if not dts:
+            return rules_in, []
+        win_dts = dts[-max(1, HEALTH_WIN):]
+        df_h = df_tr[df_tr["date"].isin(win_dts)].copy()
+
+        fwd_col = f"fwd_{cfg.fwd_days}d_ret"
+        event_col = "event_up" if direction == "long" else "event_dn"
+
+        kept = []
+        retired = []
+        for r in rules_in:
+            st = score_rule_event(df_h, r, event_col=event_col, fwd_col=fwd_col)
+            if st is None or int(st.support) < int(HEALTH_MIN_N):
+                kept.append(r)
+                continue
+            med = float(st.median_signed)
+            es5 = float(st.es5_signed)
+            if (med <= float(HEALTH_MED_MIN)) or (es5 <= float(HEALTH_ES5_MIN)):
+                retired.append((st.signature, int(st.support), med, es5))
+            else:
+                kept.append(r)
+
+        retired.sort(key=lambda x: (x[2], x[3]))  # worst first
+        return kept, retired
+
+
+    # fold setup
+    train_days = _env_int("WF_TRAIN_DAYS", 420)
+    test_days = _env_int("WF_TEST_DAYS", 90)
+    purge_days = _env_int("WF_PURGE_DAYS", 10)
+    max_folds = _env_int("WF_MAX_FOLDS", 6)
+
+    print(f"[CFG] vendor=massive dataset_root={dataset_root}")
+    print(f"[CFG] universe={len(tickers)} start={start} end={end}")
+    print(f"[CFG] event: fwd_days={cfg.fwd_days} k_sigma={cfg.k_sigma} sigma_lookback={cfg.sigma_lookback}")
+    print(f"[CFG] rules: try={cfg.max_rules_try} keep={cfg.max_rules_keep} min_support={cfg.min_support} min_event_hits={cfg.min_event_hits}")
+    print(f"[CFG] perm: trials={cfg.perm_trials} topk={cfg.perm_topk} gate={cfg.perm_gate_enabled} margin={cfg.perm_gate_margin}")
+    print(f"[CFG] OOS filter: support>={cfg.min_support} lift>={OOS_LIFT_MIN}")
+    print(f"[CFG] short payoff-gate: mean>{SHORT_GATE_MEAN_MIN} p>0>{SHORT_GATE_PPOS_MIN}")
+    print(f"[CFG] rank: K={K}")
+
+    # ---- Build pooled daily panel ----
+    panels = []
+    for t in tickers:
+        r = load_aggs(dataset_root=dataset_root, symbol=t, tf="1d", start=start, end=end, prefer_full=True)
+        df = to_daily_index(r.df)
+        if df.empty:
+            print(f"[WARN] {t} empty 1d")
+            continue
+        df = df[["date", "o", "h", "l", "c", "v"]].copy()
+        df["symbol"] = t
+        df = build_daily_features(df, DailyFeatureConfig(fwd_days=cfg.fwd_days))
+        panels.append(df)
+
+    if not panels:
+        raise RuntimeError("No data loaded.")
+
+    all_df = pd.concat(panels, ignore_index=True).sort_values(["date", "symbol"]).reset_index(drop=True)
+    all_df = label_events(all_df, cfg)
+
+    feature_cols = [
+        "mom_1d", "mom_3d", "mom_5d", "mom_10d", "mom_20d",
+        "ema_dist", "ema_fast_slope", "ema_slow_slope",
+        "atr_pct", "rv_10", "compression",
+    ]
+    feature_cols = [c for c in feature_cols if c in all_df.columns]
+
+    need = feature_cols + [f"fwd_{cfg.fwd_days}d_ret", "ret_1d", "event_up", "event_dn", "event_thr"]
+    all_df = all_df.dropna(subset=need).copy()
+
+    print(f"[DATA] pooled rows={len(all_df)} dates={all_df['date'].nunique()} symbols={all_df['symbol'].nunique()}")
+    print(f"[DATA] base_rate up={float(all_df['event_up'].mean()):.4%} dn={float(all_df['event_dn'].mean()):.4%}")
+
+    dates = sorted(all_df["date"].unique().tolist())
+    folds = _make_folds(dates, train_days=train_days, test_days=test_days, purge_days=purge_days, max_folds=max_folds)
+    if not folds:
+        raise RuntimeError("No folds produced. Need more date coverage.")
+
+    # ---- Pass 1: Build GLOBAL library by canonical signature from OOS ----
+    lib: Dict[str, Dict[str, object]] = {}
+
+    def _acc(sig: str, direction: str, row: pd.Series, fold_id: int) -> None:
+        d = lib.get(sig)
+        if d is None:
+            d = {
+                "signature": sig,
+                "direction": direction,
+                "folds": set(),
+                "n": 0,
+                "sum_support": 0.0,
+                "sum_lift": 0.0,
+                "sum_prec": 0.0,
+                "sum_mean": 0.0,
+                "sum_median": 0.0,
+                "sum_ppos": 0.0,
+                "sum_es5": 0.0,
+            }
+            lib[sig] = d
+        d["folds"].add(fold_id)
+        d["n"] += 1
+        d["sum_support"] += float(row["support"])
+        d["sum_lift"] += float(row["lift"])
+        d["sum_prec"] += float(row["precision"])
+        d["sum_mean"] += float(row["mean_signed"])
+        d["sum_median"] += float(row["median_signed"])
+        d["sum_ppos"] += float(row["p_pos_signed"])
+        d["sum_es5"] += float(row["es5_signed"])
+
+    per_fold_counts: List[Tuple[int, int, int]] = []
+
+    for (fold_id, i0, i1, j0, j1) in folds:
+        tr_dates = dates[i0:i1]
+        te_dates = dates[j0:j1]
+
+        df_tr = all_df[all_df["date"].isin(tr_dates)].copy()
+        df_te = all_df[all_df["date"].isin(te_dates)].copy()
+
+        print("\n" + "=" * 80)
+        print(f"[LIB/FOLD {fold_id}] train={tr_dates[0]}..{tr_dates[-1]}  test={te_dates[0]}..{te_dates[-1]}")
+        print(f"[LIB/FOLD {fold_id}] train rows={len(df_tr)} test rows={len(df_te)}")
+
+        rules, stats_map, perm = mine_event_rules(df_tr, feature_cols, cfg)
+        print(f"[LIB/FOLD {fold_id}] mined_rules={len(rules)} perm_p95={_fmt(float(perm.get('perm_topk_p95', float('nan'))), 3)}")
+
+        if not rules:
+            per_fold_counts.append((fold_id, 0, 0))
+            continue
+
+        oos = evaluate_rules_oos(df_te, rules, cfg)
+        if oos.empty:
+            per_fold_counts.append((fold_id, 0, 0))
+            continue
+
+        big_eval = int((oos["support"] >= cfg.min_support).sum())
+        oos_f = oos[(oos["support"] >= cfg.min_support) & (oos["lift"].fillna(0.0) >= OOS_LIFT_MIN)].copy()
+        passed = int(len(oos_f))
+        per_fold_counts.append((fold_id, big_eval, passed))
+        print(f"[LIB/FOLD {fold_id}] OOS big-eval={big_eval} pass(lift>={OOS_LIFT_MIN})={passed}")
+
+        if not oos_f.empty:
+            for _, r in oos_f.iterrows():
+                _acc(str(r["signature"]), str(r["direction"]), r, fold_id)
+
+    print("\n" + "=" * 80)
+    print("[GLOBAL] Rule Library (OOS-filtered across folds)")
+    print("[GLOBAL] Fold pass counts: " + " | ".join([f"F{fid}: {p}/{e}" for (fid, e, p) in per_fold_counts]))
+
+    if not lib:
+        print("[GLOBAL] No rules passed OOS filters.")
+        return 0
+
+    rows = []
+    for sig, d in lib.items():
+        n = int(d["n"])
+        folds_set: Set[int] = d["folds"]
+        fold_count = len(folds_set)
+        rows.append({
+            "signature": sig,
+            "direction": d["direction"],
+            "fold_count": fold_count,
+            "n_obs": n,
+            "avg_support": float(d["sum_support"]) / n,
+            "avg_lift": float(d["sum_lift"]) / n,
+            "avg_precision": float(d["sum_prec"]) / n,
+            "avg_mean": float(d["sum_mean"]) / n,
+            "avg_median": float(d["sum_median"]) / n,
+            "avg_p_pos": float(d["sum_ppos"]) / n,
+            "avg_es5": float(d["sum_es5"]) / n,
+            "folds": ",".join([str(x) for x in sorted(list(folds_set))]),
+        })
+
+    df_lib = pd.DataFrame(rows)
+    df_lib = df_lib[df_lib["fold_count"] >= 2].copy()
+    if df_lib.empty:
+        print("[GLOBAL] Rules exist but none appear in >=2 folds (after OOS filters).")
+        return 0
+
+    # Apply short payoff-gate (keep longs as-is)
+    df_long = df_lib[df_lib["direction"] == "long"].copy()
+    df_short = df_lib[df_lib["direction"] == "short"].copy()
+
+    df_short_g = df_short[(df_short["avg_mean"] > SHORT_GATE_MEAN_MIN) & (df_short["avg_p_pos"] > SHORT_GATE_PPOS_MIN)].copy()
+
+    # Build weights
+    df_long["weight"] = [
+    _weight_from_metrics(float(r["avg_lift"]), int(r["fold_count"]), float(r["avg_es5"]), OOS_LIFT_MIN)
+    for _, r in df_long.iterrows()
+]
+    df_short_g["weight"] = [
+    _weight_from_metrics(float(r["avg_lift"]), int(r["fold_count"]), float(r["avg_es5"]), OOS_LIFT_MIN)
+    for _, r in df_short_g.iterrows()
+]
+
+    df_long = df_long.sort_values(["fold_count", "weight", "avg_lift"], ascending=[False, False, False]).reset_index(drop=True)
+    df_short_g = df_short_g.sort_values(["fold_count", "weight", "avg_lift"], ascending=[False, False, False]).reset_index(drop=True)
+
+    print(f"[GLOBAL] library_size={len(df_lib)} (fold_count>=2)")
+    print(f"[GLOBAL] long_kept={len(df_long)} short_kept(after payoff-gate)={len(df_short_g)}")
+
+    # Select top-N rules for runtime to keep it fast/robust
+    TOPN_LONG = _env_int("RUNTIME_TOPN_LONG", 40)
+    TOPN_SHORT = _env_int("RUNTIME_TOPN_SHORT", 30)
+
+    long_sigs = df_long.head(TOPN_LONG)["signature"].tolist()
+    short_sigs = df_short_g.head(TOPN_SHORT)["signature"].tolist()
+
+    w_by_sig: Dict[str, float] = {}
+    for _, r in df_long.head(TOPN_LONG).iterrows():
+        w_by_sig[str(r["signature"])] = float(r["weight"])
+    for _, r in df_short_g.head(TOPN_SHORT).iterrows():
+        w_by_sig[str(r["signature"])] = float(r["weight"])
+
+    print(f"[RUNTIME] use signatures: long={len(long_sigs)} short={len(short_sigs)}")
+
+    # ---- Pass 2: For each fold, compute daily cross-sectional ranks on OOS window ----
+    for (fold_id, i0, i1, j0, j1) in folds:
+        tr_dates = dates[i0:i1]
+        te_dates = dates[j0:j1]
+        df_tr = all_df[all_df["date"].isin(tr_dates)].copy()
+        df_te = all_df[all_df["date"].isin(te_dates)].copy()
+
+        print("\n" + "=" * 80)
+        print(f"[RANK/FOLD {fold_id}] OOS window={te_dates[0]}..{te_dates[-1]}  rows={len(df_te)}")
+
+        rules, stats_map, perm = mine_event_rules(df_tr, feature_cols, cfg)
+        if not rules or df_te.empty:
+            print(f"[RANK/FOLD {fold_id}] skip (no rules or empty OOS).")
+            continue
+
+        # Keep only fold-rules whose CANONICAL signature is in runtime set
+        # We'll score on df_te with fold-specific numeric thresholds.
+        fold_long_rules = []
+        fold_short_rules = []
+        for r in rules:
+            # canonical signature is computed inside score_rule_event; we replicate by calling evaluate on tiny slice is costly.
+            # Instead, we can compute canonical signature from r.conds here:
+            parts = []
+            for feat, op, meta_key in r.conds:
+                tag = meta_key.split("__")[-1] if "__" in meta_key else meta_key
+                parts.append(f"{feat}{op}{tag}")
+            sig = r.direction + "|" + "|".join(sorted(parts))
+            if r.direction == "long" and sig in long_sigs:
+                fold_long_rules.append((r, sig))
+            elif r.direction == "short" and sig in short_sigs:
+                fold_short_rules.append((r, sig))
+
+        
+        # ---- Phase 2: health filter (MVP) on last HEALTH_WIN train dates ----
+        if HEALTH_ENABLE:
+            print(f"[HEALTH] enabled=1 win={HEALTH_WIN} min_n={HEALTH_MIN_N} med_min={_fmt(HEALTH_MED_MIN,4)} es5_min={_fmt(HEALTH_ES5_MIN,4)}")
+            n0l = len(fold_long_rules)
+            fold_long_rules, retired_l = _health_filter_rules(df_tr, fold_long_rules, direction="long")
+            n1l = len(fold_long_rules)
+            print(f"[HEALTH] long: before={n0l} after={n1l} retired={len(retired_l)}")
+            if retired_l:
+                for (sig, sup, med, es5) in retired_l[:5]:
+                    print(f"[HEALTH] retired_long sig={sig} support={sup} med={_fmt(med,4)} es5={_fmt(es5,4)}")
+        else:
+            # keep output deterministic for compact logs
+            pass
+print(f"[RANK/FOLD {fold_id}] fold_rules kept: long={len(fold_long_rules)} short={len(fold_short_rules)}")
+
+        # Compute row-level scores
+        # df_te rows are per (date, symbol)
+        long_score = np.zeros(len(df_te), dtype=float)
+        short_score = np.zeros(len(df_te), dtype=float)
+
+        # local helper: apply rule mask quickly
+        def _apply_mask(rule_obj) -> np.ndarray:
+            mask = np.ones(len(df_te), dtype=bool)
+            for feat, op, meta_key in rule_obj.conds:
+                thr = rule_obj.meta[meta_key]
+                col = df_te[feat].to_numpy(dtype=float)
+                if op == ">":
+                    mask &= (col > thr)
+                else:
+                    mask &= (col < thr)
+            return mask
+
+        fires_long_total = 0
+        for r, sig in fold_long_rules:
+            w = w_by_sig.get(sig, 0.0)
+            if w <= 0:
+                continue
+            m = _apply_mask(r)
+            c = int(np.sum(m))
+            fires_long_total += c
+            long_score[m] += w
+
+        fires_short_total = 0
+        for r, sig in fold_short_rules:
+            w = w_by_sig.get(sig, 0.0)
+            if w <= 0:
+                continue
+            m = _apply_mask(r)
+            c = int(np.sum(m))
+            fires_short_total += c
+            short_score[m] += w
+
+        df_out = df_te[["date", "symbol"]].copy()
+        df_out["score_long"] = long_score
+        df_out["score_short"] = short_score
+        df_out["net_score"] = df_out["score_long"] - df_out["score_short"]
+
+        # Debug: how many rows have non-zero
+        nz = int((df_out["net_score"].abs() > 0).sum())
+        print(f"[RANK/FOLD {fold_id}] scored_rows(nonzero)={nz}/{len(df_out)} fires_long={fires_long_total} fires_short={fires_short_total}")
+
+        # Print first N days of OOS to keep console sane
+        SHOW_DAYS = _env_int("RANK_SHOW_DAYS", 20)
+        uniq_dates = df_out["date"].unique().tolist()
+        for d in uniq_dates[:SHOW_DAYS]:
+            day = df_out[df_out["date"] == d].copy()
+            # Long: highest net_score
+            day = day.sort_values("net_score", ascending=False)
+            top_long = day.head(K)
+            # Short: lowest net_score (only meaningful if we have short rules)
+            top_short = day.tail(K).sort_values("net_score", ascending=True)
+
+            print(f"\n[RANK {d}]")
+            print(f"  LONG top-{K}:")
+            for _, rr in top_long.iterrows():
+                print(f"    {rr['symbol']:6s} net={_fmt(float(rr['net_score']),4)} L={_fmt(float(rr['score_long']),4)} S={_fmt(float(rr['score_short']),4)}")
+            if len(short_sigs) > 0:
+                print(f"  SHORT top-{K}:")
+                for _, rr in top_short.iterrows():
+                    print(f"    {rr['symbol']:6s} net={_fmt(float(rr['net_score']),4)} L={_fmt(float(rr['score_long']),4)} S={_fmt(float(rr['score_short']),4)}")
+
+        # Minimal sanity: average fwd return of top longs
+        fwd_col = f"fwd_{cfg.fwd_days}d_ret"
+        if fwd_col in df_te.columns:
+            merged = df_te[["date", "symbol", fwd_col]].merge(df_out, on=["date", "symbol"], how="inner")
+            # For each day, take top K longs by net_score
+            longs = (
+                merged.sort_values(["date", "net_score"], ascending=[True, False])
+                .groupby("date", as_index=False)
+                .head(K)
+            )
+            mean_fwd = float(longs[fwd_col].mean()) if len(longs) else float("nan")
+            med_fwd = float(longs[fwd_col].median()) if len(longs) else float("nan")
+            ppos = float((longs[fwd_col] > 0).mean()) if len(longs) else float("nan")
+            print(f"\n[RANK/FOLD {fold_id}] LONG top-{K} fwd_{cfg.fwd_days}d: mean={_fmt(mean_fwd,4)} med={_fmt(med_fwd,4)} p>0={_fmt_pct(ppos)}")
+
+    print("\n[DONE] Ranker MVP completed.")
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        rc = main()
+    except Exception:
+        traceback.print_exc()
+        rc = 1
+    _press_enter_exit(int(rc))
