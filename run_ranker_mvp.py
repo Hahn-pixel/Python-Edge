@@ -70,7 +70,15 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
+from pathlib import Path
+import sys
 
+ROOT = Path(__file__).resolve().parents[1]     # ...\Python-Edge
+SRC  = ROOT / "src"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 # =========================
 # Printing helpers
@@ -125,22 +133,27 @@ def _env_bool(name: str, default: bool = False) -> bool:
 # Robust imports
 # =========================
 
-def _import_ingest() -> Tuple[Any, Any]:
+def _import_ingest():
+    # 1) Package path (expected)
     try:
         from python_edge.data.ingest_aggs import load_aggs, to_daily_index  # type: ignore
-
         return load_aggs, to_daily_index
     except Exception:
         pass
 
+    # 2) Legacy alt path (if you ever had python_edge.data.ingest_aggs elsewhere)
+    try:
+        from python_edge.data.ingest_aggs import load_aggs, to_daily_index  # type: ignore
+        return load_aggs, to_daily_index
+    except Exception:
+        pass
+
+    # 3) Repo-root fallback (only if file exists in root)
     try:
         from ingest_aggs import load_aggs, to_daily_index  # type: ignore
-
-        _p("[DBG] import ingest_aggs from repo-root")
         return load_aggs, to_daily_index
     except Exception as e:
         raise ImportError("Cannot import ingest_aggs (package or repo-root)") from e
-
 
 def _import_features() -> Tuple[Any, Any]:
     # Repo-root (current) naming:
