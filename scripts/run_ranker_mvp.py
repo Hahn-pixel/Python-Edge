@@ -875,6 +875,14 @@ def main() -> int:
         d_te = df0[(df0["date"] >= te0) & (df0["date"] <= te1)].copy()
 
         net, dbg = _score_fold(d_te, lib, cfg)
+
+        # auto-switch tail if library contains only short rules
+        if not lib.empty:
+            n_long = int((lib["direction"] == "long").sum())
+            n_short = int((lib["direction"] == "short").sum())
+            if n_long == 0 and n_short > 0:
+                net = -net
+
         scored_rows = int((net != 0.0).sum())
 
         mean, med, ppos = _topk_eval(d_te, net, cfg)

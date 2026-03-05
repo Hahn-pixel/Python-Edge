@@ -36,32 +36,24 @@
 [RANK/FOLD 1] OOS window=2024-04-05..2024-11-15
 [RANK/FOLD 1] fold_rules kept: long=0 short=5
 [RANK/FOLD 1] scored_rows(nonzero)=804/4553 fires_long=0 fires_short=1225
-[RANK/FOLD 1] NET  top-10 fwd_5d: mean=0.0189 med=0.0181 p>0=90.00%
+[RANK/FOLD 1] NET  top-10 fwd_5d: mean=-0.0012 med=0.0079 p>0=60.00%
 [RANK/FOLD 1] BASE top-10 fwd_5d: mean=-0.0007 med=-0.0044 p>0=40.00% seed=1337
-[RANK/FOLD 1] BASE_DIST trials=2000 mean=0.0024 p50=0.0020 p95=0.0178 | NET_percentile=95.50% (higher=better)
+[RANK/FOLD 1] BASE_DIST trials=2000 mean=0.0024 p50=0.0020 p95=0.0178 | NET_percentile=33.90% (higher=better)
 ================================================================================
 [RANK/FOLD 2] OOS window=2024-11-18..2025-07-08
 [RANK/FOLD 2] fold_rules kept: long=0 short=5
 [RANK/FOLD 2] scored_rows(nonzero)=851/4553 fires_long=0 fires_short=1299
-[RANK/FOLD 2] NET  top-10 fwd_5d: mean=0.0062 med=0.0053 p>0=70.00%
+[RANK/FOLD 2] NET  top-10 fwd_5d: mean=-0.0075 med=0.0004 p>0=50.00%
 [RANK/FOLD 2] BASE top-10 fwd_5d: mean=-0.0102 med=-0.0060 p>0=50.00% seed=1337
-[RANK/FOLD 2] BASE_DIST trials=2000 mean=0.0025 p50=0.0025 p95=0.0189 | NET_percentile=64.80% (higher=better)
+[RANK/FOLD 2] BASE_DIST trials=2000 mean=0.0025 p50=0.0025 p95=0.0189 | NET_percentile=14.80% (higher=better)
 ================================================================================
 [RANK/FOLD 3] OOS window=2025-07-09..2026-02-20
 [RANK/FOLD 3] fold_rules kept: long=0 short=5
 [RANK/FOLD 3] scored_rows(nonzero)=1078/4472 fires_long=0 fires_short=1755
-[RANK/FOLD 3] NET  top-10 fwd_5d: mean=0.0032 med=0.0005 p>0=70.00%
+[RANK/FOLD 3] NET  top-10 fwd_5d: mean=0.0089 med=0.0128 p>0=60.00%
 [RANK/FOLD 3] BASE top-10 fwd_5d: mean=0.0151 med=0.0161 p>0=70.00% seed=1337
-[RANK/FOLD 3] BASE_DIST trials=2000 mean=0.0050 p50=0.0043 p95=0.0225 | NET_percentile=44.40% (higher=better)
-
-
-
-
-
-
-
-
-
+[RANK/FOLD 3] BASE_DIST trials=2000 mean=0.0050 p50=0.0043 p95=0.0225 | NET_percentile=68.25% (higher=better)
+================================================================================
 
 
 
@@ -105,20 +97,20 @@
 [RANK/FOLD 1] OOS window=2024-04-05..2024-11-15
 [RANK/FOLD 1] fold_rules kept: long=0 short=5
 [RANK/FOLD 1] scored_rows(nonzero)=804/4553 fires_long=0 fires_short=1225
-[RANK/FOLD 1] NET  top-30 fwd_5d: mean=0.0070 med=0.0070 p>0=76.67%
+[RANK/FOLD 1] NET  top-30 fwd_5d: mean=0.0031 med=0.0095 p>0=60.00%
 [RANK/FOLD 1] BASE top-30 fwd_5d: mean=0.0001 med=0.0013 p>0=50.00% seed=1337
-[RANK/FOLD 1] BASE_DIST trials=2000 mean=0.0024 p50=0.0023 p95=0.0116 | NET_percentile=80.75% (higher=better)
+[RANK/FOLD 1] BASE_DIST trials=2000 mean=0.0024 p50=0.0023 p95=0.0116 | NET_percentile=56.35% (higher=better)
 ================================================================================
 [RANK/FOLD 2] OOS window=2024-11-18..2025-07-08
 [RANK/FOLD 2] fold_rules kept: long=0 short=5
 [RANK/FOLD 2] scored_rows(nonzero)=851/4553 fires_long=0 fires_short=1299
-[RANK/FOLD 2] NET  top-30 fwd_5d: mean=0.0085 med=0.0049 p>0=63.33%
+[RANK/FOLD 2] NET  top-30 fwd_5d: mean=-0.0044 med=-0.0063 p>0=43.33%
 [RANK/FOLD 2] BASE top-30 fwd_5d: mean=0.0020 med=0.0058 p>0=60.00% seed=1337
-[RANK/FOLD 2] BASE_DIST trials=2000 mean=0.0024 p50=0.0024 p95=0.0118 | NET_percentile=85.15% (higher=better)
+[RANK/FOLD 2] BASE_DIST trials=2000 mean=0.0024 p50=0.0024 p95=0.0118 | NET_percentile=12.30% (higher=better)
 ================================================================================
 [RANK/FOLD 3] OOS window=2025-07-09..2026-02-20
 [RANK/FOLD 3] fold_rules kept: long=0 short=5
 [RANK/FOLD 3] scored_rows(nonzero)=1078/4472 fires_long=0 fires_short=1755
-[RANK/FOLD 3] NET  top-30 fwd_5d: mean=0.0034 med=0.0018 p>0=60.00%
+[RANK/FOLD 3] NET  top-30 fwd_5d: mean=0.0131 med=0.0165 p>0=66.67%
 [RANK/FOLD 3] BASE top-30 fwd_5d: mean=0.0090 med=0.0121 p>0=66.67% seed=1337
-[RANK/FOLD 3] BASE_DIST trials=2000 mean=0.0051 p50=0.0048 p95=0.0152 | NET_percentile=38.60% (higher=better)
+[RANK/FOLD 3] BASE_DIST trials=2000 mean=0.0051 p50=0.0048 p95=0.0152 | NET_percentile=91.45% (higher=better)
