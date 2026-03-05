@@ -1,3 +1,4 @@
+
 [CFG] vendor=massive dataset_root=C:\Users\Dmytro Govor\Documents\Python-Edge\data\raw\massive_dataset
 [CFG] start=2023-01-01 end=2026-02-28 tf=1D folds=3
 [CFG] event: fwd_days=5 k_sigma=1.5 sigma_lookback=60
@@ -16,35 +17,37 @@
 ================================================================================
 [LIB/FOLD 1] train=2023-01-04..2024-04-04  test=2024-04-05..2024-11-15
 [LIB/FOLD 1] train rows=9106 test rows=4553
-[LIB/FOLD 1] mined_rules=22 perm_p95=1.362 status=ok
-[LIB/FOLD 1] OOS eval=22 pass(lift>=1.35)=5
+[LIB/FOLD 1] mined_rules=16 perm_p95=1.370 status=ok
+[LIB/FOLD 1] OOS eval=16 pass(lift>=1.35)=5
 [LIB/FOLD 1] pass_breakdown long=0 short=5
 ================================================================================
 [LIB/FOLD 2] train=2023-01-04..2024-11-15  test=2024-11-18..2025-07-08
 [LIB/FOLD 2] train rows=13659 test rows=4553
-[LIB/FOLD 2] mined_rules=48 perm_p95=1.401 status=ok
-[LIB/FOLD 2] OOS eval=48 pass(lift>=1.35)=0
+[LIB/FOLD 2] mined_rules=50 perm_p95=1.375 status=ok
+[LIB/FOLD 2] OOS eval=50 pass(lift>=1.35)=2
+[LIB/FOLD 2] pass_breakdown long=2 short=0
 ================================================================================
 [LIB/FOLD 3] train=2023-01-04..2025-07-08  test=2025-07-09..2026-02-20
 [LIB/FOLD 3] train rows=18212 test rows=4472
-[LIB/FOLD 3] mined_rules=11 perm_p95=1.398 status=ok
-[LIB/FOLD 3] OOS eval=11 pass(lift>=1.35)=0
+[LIB/FOLD 3] mined_rules=20 perm_p95=1.393 status=ok
+[LIB/FOLD 3] OOS eval=20 pass(lift>=1.35)=3
+[LIB/FOLD 3] pass_breakdown long=2 short=1
 ================================================================================
 [GLOBAL] Rule Library (OOS-filtered across folds)
-[GLOBAL] library_size=5
-[GLOBAL] long_kept=0 short_kept(after payoff-gate)=5
+[GLOBAL] library_size=9
+[GLOBAL] long_kept=3 short_kept(after payoff-gate)=6
 ================================================================================
 [RANK/FOLD 1] OOS window=2024-04-05..2024-11-15
 [RANK/FOLD 1] fold_rules kept: long=0 short=5
-[RANK/FOLD 1] scored_rows(nonzero)=436/4553 fires_long=0 fires_short=1516
-[RANK/FOLD 1] LONG top-3 fwd_5d: mean=0.0010 med=0.0030 p>0=56.26%
+[RANK/FOLD 1] scored_rows(nonzero)=464/4553 fires_long=0 fires_short=1208
+[RANK/FOLD 1] LONG top-3 fwd_5d: mean=0.0010 med=0.0030 p>0=56.69%
 ================================================================================
 [RANK/FOLD 2] OOS window=2024-11-18..2025-07-08
-[RANK/FOLD 2] fold_rules kept: long=0 short=5
-[RANK/FOLD 2] scored_rows(nonzero)=492/4553 fires_long=0 fires_short=1749
-[RANK/FOLD 2] LONG top-3 fwd_5d: mean=0.0000 med=0.0019 p>0=53.50%
+[RANK/FOLD 2] fold_rules kept: long=3 short=4
+[RANK/FOLD 2] scored_rows(nonzero)=941/4553 fires_long=659 fires_short=1008
+[RANK/FOLD 2] LONG top-3 fwd_5d: mean=0.0006 med=0.0029 p>0=55.41%
 ================================================================================
 [RANK/FOLD 3] OOS window=2025-07-09..2026-02-20
-[RANK/FOLD 3] fold_rules kept: long=0 short=0
-[RANK/FOLD 3] scored_rows(nonzero)=0/4472 fires_long=0 fires_short=0
-[RANK/FOLD 3] LONG top-3 fwd_5d: mean=0.0000 med=0.0000 p>0=0.00%
+[RANK/FOLD 3] fold_rules kept: long=3 short=1
+[RANK/FOLD 3] scored_rows(nonzero)=630/4472 fires_long=636 fires_short=220
+[RANK/FOLD 3] LONG top-3 fwd_5d: mean=0.0096 med=0.0060 p>0=62.21%
