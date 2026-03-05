@@ -1,4 +1,6 @@
 
+[CFG] vendor=massive dataset_root=C:\Users\Dmytro Govor\Documents\Python-Edge\data\raw\massive_dataset
+[CFG] start=2023-01-01 end=2026-02-28 tf=1D folds=3
 [CFG] event: fwd_days=5 k_sigma=1.5 sigma_lookback=60
 [CFG] rules: try=60000 keep=800 min_support=200 min_event_hits=30
 [CFG] perm: trials=50 topk=20 gate=0 margin=0.15
@@ -45,15 +47,16 @@
 [RANK/FOLD 1] fold_rules kept: long=143 short=49
 [RANK/FOLD 1] scored_rows(nonzero)=3814/4553 fires_long=61179 fires_short=13680
 [RANK/FOLD 1] NET  top-3 fwd_5d: mean=0.0375 med=0.0335 p>0=100.00%
+[RANK/FOLD 1] BASE top-3 fwd_5d: mean=-0.0031 med=-0.0001 p>0=33.33% seed=1337
 ================================================================================
 [RANK/FOLD 2] OOS window=2024-11-18..2025-07-08
 [RANK/FOLD 2] fold_rules kept: long=143 short=49
 [RANK/FOLD 2] scored_rows(nonzero)=3826/4553 fires_long=61059 fires_short=14682
 [RANK/FOLD 2] NET  top-3 fwd_5d: mean=0.0110 med=0.0185 p>0=66.67%
+[RANK/FOLD 2] BASE top-3 fwd_5d: mean=-0.0251 med=-0.0220 p>0=33.33% seed=1337
 ================================================================================
 [RANK/FOLD 3] OOS window=2025-07-09..2026-02-20
 [RANK/FOLD 3] fold_rules kept: long=143 short=49
 [RANK/FOLD 3] scored_rows(nonzero)=3867/4472 fires_long=64900 fires_short=18126
 [RANK/FOLD 3] NET  top-3 fwd_5d: mean=0.0119 med=-0.0092 p>0=33.33%
-================================================================================
-[DONE] Ranker MVP completed.
+[RANK/FOLD 3] BASE top-3 fwd_5d: mean=0.0226 med=0.0291 p>0=66.67% seed=1337

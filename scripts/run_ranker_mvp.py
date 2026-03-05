@@ -576,6 +576,32 @@ def _topk_eval(df_oos: pd.DataFrame, net_score: pd.Series, cfg: RunCfg) -> Tuple
     return mean, med, ppos
 
 
+def _topk_baseline(df_oos: pd.DataFrame, cfg: RunCfg) -> Tuple[float, float, float, int]:
+    """Baseline: pick K random rows from the same OOS window.
+
+    Deterministic across runs via BASELINE_SEED (default 1337) so console diffs are stable.
+    """
+    if df_oos.empty:
+        return 0.0, 0.0, 0.0, int(_env_int("BASELINE_SEED", 1337))
+
+    fwd_col = f"fwd_{int(cfg.fwd_days)}d_ret"
+    if fwd_col not in df_oos.columns:
+        return 0.0, 0.0, 0.0, int(_env_int("BASELINE_SEED", 1337))
+
+    seed = int(_env_int("BASELINE_SEED", 1337))
+    rs = np.random.RandomState(seed)
+
+    n = int(len(df_oos))
+    k = int(min(max(1, int(cfg.K)), n))
+    idx = rs.choice(n, size=k, replace=False)
+
+    fwd = pd.to_numeric(df_oos.iloc[idx][fwd_col], errors="coerce").fillna(0.0)
+    mean = float(fwd.mean())
+    med = float(fwd.median())
+    ppos = float((fwd > 0).mean())
+    return mean, med, ppos, seed
+
+
 # ============================================================
 # OOS diagnostics (pre-filter)
 # ============================================================
@@ -819,6 +845,9 @@ def main() -> int:
         _p(f"[RANK/FOLD {i}] fold_rules kept: long={(lib['direction']=='long').sum() if not lib.empty else 0} short={(lib['direction']=='short').sum() if not lib.empty else 0}")
         _p(f"[RANK/FOLD {i}] scored_rows(nonzero)={scored_rows}/{len(d_te)} fires_long={dbg['fires_long']} fires_short={dbg['fires_short']}")
         _p(f"[RANK/FOLD {i}] NET  top-{cfg.K} fwd_{cfg.fwd_days}d: mean={mean:.4f} med={med:.4f} p>0={ppos*100.0:.2f}%")
+
+        b_mean, b_med, b_ppos, b_seed = _topk_baseline(d_te, cfg)
+        _p(f"[RANK/FOLD {i}] BASE top-{cfg.K} fwd_{cfg.fwd_days}d: mean={b_mean:.4f} med={b_med:.4f} p>0={b_ppos*100.0:.2f}% seed={b_seed}")
 
         _banner()
 
