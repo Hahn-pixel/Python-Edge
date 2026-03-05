@@ -1,13 +1,55 @@
-Traceback (most recent call last):
-  File "C:\Users\Dmytro Govor\Documents\Python-Edge\scripts\run_ranker_mvp.py", line 914, in <module>
-    rc = main()
-  File "C:\Users\Dmytro Govor\Documents\Python-Edge\scripts\run_ranker_mvp.py", line 834, in main
-    rules, stats_by_id, perm_stats = em.mine_event_rules(df_tr_l, feature_cols, emcfg, direction=None)
-                                     ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\rules\event_mining.py", line 382, in mine_event_rules
-    thrs: Dict[str, Dict[str, float]] = {c: _quantile_thresholds(df_train[c]) for c in feature_cols}
-                                            ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
-  File "C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\rules\event_mining.py", line 114, in _quantile_thresholds
-    out[t] = float(s2.quantile(q))
-             ~~~~~^^^^^^^^^^^^^^^^
-TypeError: float() argument must be a string or a real number, not 'Timestamp'
+
+[CFG] vendor=massive dataset_root=C:\Users\Dmytro Govor\Documents\Python-Edge\data\raw\massive_dataset
+[CFG] start=2023-01-01 end=2026-02-28 tf=1D folds=3
+[CFG] event: fwd_days=5 k_sigma=1.5 sigma_lookback=60
+[CFG] rules: try=60000 keep=800 min_support=200 min_event_hits=30
+[CFG] perm: trials=50 topk=20 gate=0 margin=0.15
+[CFG] OOS filter: support>=200 lift>=1.35
+[CFG] short payoff-gate: mean>0.0 p>0>0.5
+[CFG] rank: K=3
+[CFG] health: enabled=0 win=60 min_n=50 med_min=0.0000 es5_min=-0.0800
+[CFG] recency: MUST_PASS_LATEST=0 LATEST_ONLY=0
+[DATA] universe_symbols=29 tf=1D
+[DATA] loaded_ok=29 loaded_empty=0 loaded_fail=0
+[DATA] pooled rows=22684 (dropped=174) dates=785 symbols=29
+[DATA] base_rate up=6.8462% dn=5.2989%
+[DBG] feature_cols_n=9
+================================================================================
+[LIB/FOLD 1] train=2023-01-04..2024-04-04  test=2024-04-05..2024-11-15
+[LIB/FOLD 1] train rows=9106 test rows=4553
+[LIB/FOLD 1] mined_rules=800 perm_p95=1.504 status=ok
+[LIB/FOLD 1] OOS eval=800 pass(lift>=1.35)=67
+[LIB/FOLD 1] pass_breakdown long=42 short=24
+================================================================================
+[LIB/FOLD 2] train=2023-01-04..2024-11-15  test=2024-11-18..2025-07-08
+[LIB/FOLD 2] train rows=13659 test rows=4553
+[LIB/FOLD 2] mined_rules=800 perm_p95=1.495 status=ok
+[LIB/FOLD 2] OOS eval=800 pass(lift>=1.35)=111
+[LIB/FOLD 2] pass_breakdown long=75 short=1
+================================================================================
+[LIB/FOLD 3] train=2023-01-04..2025-07-08  test=2025-07-09..2026-02-20
+[LIB/FOLD 3] train rows=18212 test rows=4472
+[LIB/FOLD 3] mined_rules=800 perm_p95=1.490 status=ok
+[LIB/FOLD 3] OOS eval=800 pass(lift>=1.35)=176
+[LIB/FOLD 3] pass_breakdown long=47 short=25
+================================================================================
+[GLOBAL] Rule Library (OOS-filtered across folds)
+[GLOBAL] library_size=192
+[GLOBAL] long_kept=143 short_kept(after payoff-gate)=49
+================================================================================
+[RANK/FOLD 1] OOS window=2024-04-05..2024-11-15
+[RANK/FOLD 1] fold_rules kept: long=143 short=49
+[RANK/FOLD 1] scored_rows(nonzero)=3814/4553 fires_long=61179 fires_short=13680
+[RANK/FOLD 1] NET  top-3 fwd_5d: mean=0.0375 med=0.0335 p>0=100.00%
+================================================================================
+[RANK/FOLD 2] OOS window=2024-11-18..2025-07-08
+[RANK/FOLD 2] fold_rules kept: long=143 short=49
+[RANK/FOLD 2] scored_rows(nonzero)=3826/4553 fires_long=61059 fires_short=14682
+[RANK/FOLD 2] NET  top-3 fwd_5d: mean=0.0110 med=0.0185 p>0=66.67%
+================================================================================
+[RANK/FOLD 3] OOS window=2025-07-09..2026-02-20
+[RANK/FOLD 3] fold_rules kept: long=143 short=49
+[RANK/FOLD 3] scored_rows(nonzero)=3867/4472 fires_long=64900 fires_short=18126
+[RANK/FOLD 3] NET  top-3 fwd_5d: mean=0.0119 med=-0.0092 p>0=33.33%
+================================================================================
+[DONE] Ranker MVP completed.
