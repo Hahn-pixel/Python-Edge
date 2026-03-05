@@ -353,7 +353,9 @@ def label_events(df: pd.DataFrame, cfg: EventMiningConfig) -> pd.DataFrame:
 
     out = df.copy()
 
-    sig = out["ret_1d"].rolling(int(cfg.sigma_lookback)).std()
+    sig = out.groupby("symbol", sort=False)["ret_1d"].rolling(int(cfg.sigma_lookback)).std()
+    sig = sig.reset_index(level=0, drop=True)
+
     thr = float(cfg.k_sigma) * sig * float(np.sqrt(float(cfg.fwd_days)))
 
     out["sigma_roll"] = sig
