@@ -4,28 +4,35 @@ from __future__ import annotations
 
 FULL FILE REWRITE (requested).
 
-Goal: expand rule candidate space WITHOUT relaxing downstream WF/OOS/permutation filters.
+Goal
+----
+Expand rule candidate space WITHOUT relaxing downstream WF/OOS/permutation filters.
 
-Key expansions vs previous versions:
+Key expansions vs previous versions
+---------------------------------
 - Quantile grid q10..q90 (instead of only q20/q50/q80)
 - Allow unary rules (1 condition) as well as 2–3 condition rules
-- Add "band" constraints (q40<x<q60 etc.) by emitting 2 inequalities on the same feature
-- Keep canonical signatures cross-fold comparable by using quantile tags in signatures
+- Add "band" constraints (q40..q60 etc.)
 
-Public API (kept stable):
-- EventMiningConfig
-- Rule
-- RuleStats
-- label_events(df, cfg)
+Public API
+----------
+- label_events(df, cfg) -> DataFrame
 - mine_event_rules(df_train, feature_cols, cfg, direction=None) -> (rules, stats_by_rule_id, perm_stats)
 - evaluate_rules_oos(df_oos, rules, cfg) -> DataFrame
 
-Notes:
-- This module assumes the upstream pipeline already computed:
-    - ret_1d
-    - fwd_{fwd_days}d_ret
-    - feature_cols are present on df_train/df_oos
-- No interaction features are introduced here to avoid train/OOS schema mismatches.
+Notes
+-----
+This module assumes the upstream pipeline already computed:
+- ret_1d
+- fwd_{fwd_days}d_ret
+- feature_cols are present on df_train/df_oos
+
+No interaction features are introduced here to avoid train/OOS schema mismatches.
+
+IMPORTANT FIX
+-------------
+label_events() now computes rolling sigma *per symbol* (groupby('symbol')) to avoid
+cross-symbol contamination when the pipeline uses a pooled multi-symbol DataFrame.
 """
 
 from dataclasses import dataclass
@@ -107,7 +114,6 @@ def _quantile_thresholds(s: pd.Series) -> Dict[str, float]:
     s2 = s.replace([np.inf, -np.inf], np.nan).dropna()
     if len(s2) == 0:
         return {t: 0.0 for t in _QTAGS}
-
     out: Dict[str, float] = {}
     for t in _QTAGS:
         q = int(t[1:]) / 100.0
@@ -195,10 +201,10 @@ def _make_rule_diverse(
 
     while len(conds) < target:
         remaining = target - len(conds)
-
         avail = [f for f in feature_cols if f not in used]
         if not avail:
             break
+
         feat = str(rng.choice(avail))
         used.add(feat)
 
@@ -236,12 +242,14 @@ def _score_rule_event(df: pd.DataFrame, rule: Rule, event_col: str, fwd_col: str
 
     ev = pd.to_numeric(df[event_col], errors="coerce").fillna(0).to_numpy(dtype=int)
     hits = int(np.sum(ev[m] == 1))
+
     base_rate = float(np.mean(ev == 1)) if ev.size else 0.0
     precision = float(hits / support) if support > 0 else 0.0
     lift = float(precision / base_rate) if base_rate > 0 else float("nan")
 
     fwd = pd.to_numeric(df[fwd_col], errors="coerce").to_numpy(dtype=float)
     signed = fwd if rule.direction == "long" else (-fwd)
+
     xs = signed[m]
     xs = xs[np.isfinite(xs)]
 
@@ -277,6 +285,7 @@ def _permutation_sanity(df_train: pd.DataFrame, rules: List[Rule], cfg: EventMin
         }
 
     rng = np.random.default_rng(int(cfg.seed) + 100)
+
     masks: Dict[str, np.ndarray] = {r.rule_id: _apply_rule_mask(df_train, r).to_numpy(dtype=bool) for r in rules}
 
     ev_up = pd.to_numeric(df_train["event_up"], errors="coerce").fillna(0).to_numpy(dtype=int)
@@ -347,23 +356,40 @@ def label_events(df: pd.DataFrame, cfg: EventMiningConfig) -> pd.DataFrame:
     """Adds sigma_roll, event_thr, event_up, event_dn.
 
     Requires columns:
-      - ret_1d
-      - fwd_{cfg.fwd_days}d_ret
+    - ret_1d
+    - fwd_{cfg.fwd_days}d_ret
+
+    If column 'symbol' is present, sigma_roll is computed per symbol.
     """
 
     out = df.copy()
 
-    sig = out.groupby("symbol", sort=False)["ret_1d"].rolling(int(cfg.sigma_lookback)).std()
-    sig = sig.reset_index(level=0, drop=True)
+    if "ret_1d" not in out.columns:
+        raise ValueError("label_events: missing required column ret_1d")
+
+    fwd_col = f"fwd_{int(cfg.fwd_days)}d_ret"
+    if fwd_col not in out.columns:
+        raise ValueError(f"label_events: missing required column {fwd_col}")
+
+    lookback = int(cfg.sigma_lookback)
+
+    # FIX: per-symbol rolling std to avoid cross-symbol contamination in pooled df
+    if "symbol" in out.columns:
+        sig = (
+            out.groupby("symbol", sort=False)["ret_1d"]
+            .rolling(lookback)
+            .std()
+            .reset_index(level=0, drop=True)
+        )
+    else:
+        sig = out["ret_1d"].rolling(lookback).std()
 
     thr = float(cfg.k_sigma) * sig * float(np.sqrt(float(cfg.fwd_days)))
 
     out["sigma_roll"] = sig
     out["event_thr"] = thr
 
-    fwd_col = f"fwd_{int(cfg.fwd_days)}d_ret"
     fwd = pd.to_numeric(out[fwd_col], errors="coerce")
-
     out["event_up"] = (fwd > thr).astype("Int64")
     out["event_dn"] = (fwd < -thr).astype("Int64")
 
@@ -383,7 +409,6 @@ def mine_event_rules(
     # thresholds per feature
     thrs: Dict[str, Dict[str, float]] = {c: _quantile_thresholds(df_train[c]) for c in feature_cols}
 
-    dirs: List[str]
     if direction in ("long", "short"):
         dirs = [direction]
     else:
@@ -409,6 +434,7 @@ def mine_event_rules(
 
     # Score + strict filters + dedup by canonical signature
     fwd_col = f"fwd_{int(cfg.fwd_days)}d_ret"
+
     best_by_sig: Dict[str, Tuple[Rule, RuleStats]] = {}
 
     for r in candidates:
@@ -416,7 +442,6 @@ def mine_event_rules(
         st = _score_rule_event(df_train, r, event_col=event_col, fwd_col=fwd_col)
         if st is None:
             continue
-
         if st.support < int(cfg.min_support):
             continue
         if st.event_hits < int(cfg.min_event_hits):
@@ -447,12 +472,12 @@ def mine_event_rules(
     perm_p95 = float(perm.get("perm_topk_p95", float("nan")))
 
     if bool(cfg.perm_gate_enabled) and np.isfinite(perm_p95):
-        thr = float(perm_p95) + float(cfg.perm_gate_margin)
+        gate_thr = float(perm_p95) + float(cfg.perm_gate_margin)
         gated_rules: List[Rule] = []
         gated_stats: Dict[str, RuleStats] = {}
         for r in rules:
             st = stats[r.rule_id]
-            if st.lift > thr:
+            if st.lift > gate_thr:
                 gated_rules.append(r)
                 gated_stats[r.rule_id] = st
         rules, stats = gated_rules, gated_stats
@@ -478,6 +503,7 @@ def evaluate_rules_oos(df_oos: pd.DataFrame, rules: List[Rule], cfg: EventMining
         return pd.DataFrame()
 
     fwd_col = f"fwd_{int(cfg.fwd_days)}d_ret"
+
     rows: List[Dict[str, object]] = []
 
     for r in rules:
