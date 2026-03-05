@@ -2,17 +2,28 @@ from __future__ import annotations
 
 """Python-Edge :: Ranker MVP (daily)
 
-This script mines event rules on an expanding walk-forward scheme, filters them OOS,
-builds a GLOBAL library, then scores each OOS fold by a net score:
+Goal
+----
+Mine event rules on expanding walk-forward folds, apply OOS filters, build a GLOBAL
+rule library (with optional RECENCY gating), then score each OOS fold.
 
-    net_score = long_score - short_score
+This file is intentionally self-contained and robust to repo layout.
 
-Key properties:
-- Robust to module layout: ensures repo/src is on sys.path
-- No silent fail-open: any fallback import is explicit
+Key properties
+--------------
+- Robust imports: ensures repo/src is on sys.path
+- No silent fail-open: fallbacks are explicit
 - Double-click runnable: waits for input() at the end (even on success)
 
-Environment variables (key ones):
+New in this version
+-------------------
+OOS diagnostics printed BEFORE strict OOS filtering, to answer: “are we close?”
+
+Controlled by env:
+  DEBUG_OOS_DIAG=1 (default)
+
+Environment variables (key ones)
+--------------------------------
   DATASET_ROOT      path to massive dataset root
   DATA_START        YYYY-MM-DD
   DATA_END          YYYY-MM-DD
@@ -53,20 +64,21 @@ Environment variables (key ones):
   LATEST_ONLY       0/1
 
   # Debug
-  DEBUG_IMPORTS     0/1  (prints module __file__ paths)
+  DEBUG_IMPORTS     0/1 (prints module __file__ paths)
+  DEBUG_OOS_DIAG    0/1 (prints pre-filter lift/support diagnostics per fold)
 
-Exit codes:
+Exit codes
+----------
   0 success
   1 failure
 """
 
 import os
 import sys
-import math
 import traceback
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -250,6 +262,7 @@ class RunCfg:
     recency: RecencyCfg
 
     debug_imports: bool
+    debug_oos_diag: bool
 
 
 def load_cfg() -> RunCfg:
@@ -298,6 +311,7 @@ def load_cfg() -> RunCfg:
         health=health,
         recency=rec,
         debug_imports=_env_bool("DEBUG_IMPORTS", False),
+        debug_oos_diag=_env_bool("DEBUG_OOS_DIAG", True),
     )
 
 
@@ -472,7 +486,6 @@ def _score_fold(df_oos: pd.DataFrame, rules_global: pd.DataFrame, cfg: RunCfg) -
         parts = str(signature).split("|")
         conds: List[Tuple[str, str, str]] = []
         for p in parts[1:]:
-            # feat can contain underscores; we match last 3 chars qNN
             if len(p) < 4:
                 continue
             op = ">" if ">" in p else ("<" if "<" in p else "")
@@ -564,6 +577,64 @@ def _topk_eval(df_oos: pd.DataFrame, net_score: pd.Series, cfg: RunCfg) -> Tuple
 
 
 # ============================================================
+# OOS diagnostics (pre-filter)
+# ============================================================
+
+
+def _print_oos_diag(df_oos_all: pd.DataFrame, cfg: RunCfg, fold_i: int) -> None:
+    """Print diagnostic stats BEFORE strict OOS filtering.
+
+    This answers whether rules are:
+      - non-existent,
+      - present but below threshold,
+      - failing support gate.
+    """
+    if df_oos_all is None or df_oos_all.empty:
+        _p(f"[DIAG/FOLD {fold_i}] oos_all=0")
+        return
+
+    x = df_oos_all.copy()
+
+    # Ensure numeric
+    x["lift"] = pd.to_numeric(x["lift"], errors="coerce")
+    x["support"] = pd.to_numeric(x["support"], errors="coerce")
+
+    n = int(len(x))
+    lift = x["lift"].replace([np.inf, -np.inf], np.nan).dropna()
+    sup = x["support"].replace([np.inf, -np.inf], np.nan).dropna()
+
+    best_lift = float(lift.max()) if not lift.empty else float("nan")
+    med_lift = float(lift.median()) if not lift.empty else float("nan")
+    p90_lift = float(lift.quantile(0.90)) if not lift.empty else float("nan")
+
+    best_sup = int(sup.max()) if not sup.empty else -1
+    med_sup = float(sup.median()) if not sup.empty else float("nan")
+
+    # Near-miss counts
+    def _cnt(lift_thr: float, sup_thr: int) -> int:
+        y = x[(x["lift"] >= lift_thr) & (x["support"] >= sup_thr)]
+        return int(len(y))
+
+    c135 = _cnt(float(cfg.oos_lift_min), int(cfg.oos_support_min))
+    c130 = _cnt(1.30, int(cfg.oos_support_min))
+    c125 = _cnt(1.25, int(cfg.oos_support_min))
+
+    # Best rules preview (top by lift)
+    top = x.sort_values(["lift", "support"], ascending=[False, False]).head(3)
+    top_s = []
+    for _, r in top.iterrows():
+        top_s.append(f"{str(r.get('direction','?'))}:{float(r['lift']):.3f}@{int(r['support'])}:{str(r.get('signature',''))[:60]}")
+
+    _p(
+        f"[DIAG/FOLD {fold_i}] oos_all={n} lift_best={best_lift:.3f} lift_med={med_lift:.3f} lift_p90={p90_lift:.3f} "
+        f"sup_best={best_sup} sup_med={med_sup:.1f} "
+        f"cnt(lift>=thr,sup>=thr)={c135} cnt(lift>=1.30,sup>=thr)={c130} cnt(lift>=1.25,sup>=thr)={c125}"
+    )
+    if top_s:
+        _p(f"[DIAG/FOLD {fold_i}] top3: " + " | ".join(top_s))
+
+
+# ============================================================
 # Main
 # ============================================================
 
@@ -579,7 +650,10 @@ def main() -> int:
     _p(f"[CFG] OOS filter: support>={cfg.oos_support_min} lift>={cfg.oos_lift_min}")
     _p(f"[CFG] short payoff-gate: mean>{cfg.short_mean_min} p>0>{cfg.short_p_pos_min}")
     _p(f"[CFG] rank: K={cfg.K}")
-    _p(f"[CFG] health: enabled={int(cfg.health.enabled)} win={cfg.health.win} min_n={cfg.health.min_n} med_min={cfg.health.med_min:.4f} es5_min={cfg.health.es5_min:.4f}")
+    _p(
+        f"[CFG] health: enabled={int(cfg.health.enabled)} win={cfg.health.win} min_n={cfg.health.min_n} "
+        f"med_min={cfg.health.med_min:.4f} es5_min={cfg.health.es5_min:.4f}"
+    )
     _p(f"[CFG] recency: MUST_PASS_LATEST={int(cfg.recency.must_pass_latest)} LATEST_ONLY={int(cfg.recency.latest_only)}")
 
     load_aggs, to_daily_index = _import_ingest()
@@ -609,6 +683,7 @@ def main() -> int:
             if rdf is None:
                 loaded_empty += 1
                 continue
+
             d = to_daily_index(rdf)
             if d is None or getattr(d, "empty", True):
                 loaded_empty += 1
@@ -631,7 +706,7 @@ def main() -> int:
     df = pd.concat(dfs, axis=0, ignore_index=True)
     df = _ensure_close_cols(df)
 
-    # add ret_1d + forward returns
+    # ret_1d + forward returns
     df = _add_fwd_returns(df, cfg.fwd_days)
 
     # build features
@@ -654,8 +729,9 @@ def main() -> int:
     df = em.label_events(df, cfg_event)
 
     fwd_col = f"fwd_{cfg.fwd_days}d_ret"
-    need_cols = ["date", "symbol", "ret_1d", fwd_col, "event_up", "event_dn"]
-    df0 = df.dropna(subset=[c for c in need_cols if c in df.columns]).copy()
+
+    # Drop rows without fwd ret
+    df0 = df.replace([np.inf, -np.inf], np.nan).dropna(subset=["date", "symbol", "ret_1d", fwd_col]).copy()
 
     dates = sorted(set(df0["date"].astype(str).tolist()))
     _p(f"[DATA] pooled rows={len(df0)} (dropped={len(df)-len(df0)}) dates={len(dates)} symbols={len(symbols)}")
@@ -666,6 +742,7 @@ def main() -> int:
 
     folds = _make_folds(dates, cfg.fold_count)
 
+    # features for mining
     feature_cols = [c for c in df0.columns if c.endswith("__pct")]
     _p(f"[DBG] feature_cols_n={len(feature_cols)}")
 
@@ -680,7 +757,6 @@ def main() -> int:
 
         _p(f"[LIB/FOLD {i}] train rows={len(d_tr)} test rows={len(d_te)}")
 
-        # seed per fold
         cfg_event_fold = em.EventMiningConfig(
             fwd_days=cfg_event.fwd_days,
             sigma_lookback=cfg_event.sigma_lookback,
@@ -697,16 +773,21 @@ def main() -> int:
             perm_gate_margin=getattr(cfg_event, "perm_gate_margin", 0.15),
         )
 
-        rules, stats_by_id, perm_stats = em.mine_event_rules(d_tr, feature_cols, cfg_event_fold, direction=None)
+        rules, _stats_by_id, perm_stats = em.mine_event_rules(d_tr, feature_cols, cfg_event_fold, direction=None)
 
         perm_p95 = float(perm_stats.get("perm_topk_p95", float("nan")))
         status = "ok" if len(rules) > 0 else "empty"
         _p(f"[LIB/FOLD {i}] mined_rules={len(rules)} perm_p95={perm_p95:.3f} status={status}")
 
-        oos = em.evaluate_rules_oos(d_te, rules, cfg_event_fold)
-        _p(f"[LIB/FOLD {i}] OOS eval={len(oos)} pass(lift>={cfg.oos_lift_min})={(oos['lift'] >= cfg.oos_lift_min).sum() if not oos.empty else 0}")
+        oos_all = em.evaluate_rules_oos(d_te, rules, cfg_event_fold)
 
-        oos = _oos_filter(oos, cfg)
+        # >>> NEW: diagnostics BEFORE strict OOS filtering
+        if cfg.debug_oos_diag:
+            _print_oos_diag(oos_all, cfg, i)
+
+        _p(f"[LIB/FOLD {i}] OOS eval={len(oos_all)} pass(lift>={cfg.oos_lift_min})={(oos_all['lift'] >= cfg.oos_lift_min).sum() if not oos_all.empty else 0}")
+
+        oos = _oos_filter(oos_all, cfg)
         oos = _apply_short_payoff_gate(oos, cfg)
 
         if not oos.empty:
@@ -722,7 +803,7 @@ def main() -> int:
     _p("[GLOBAL] Rule Library (OOS-filtered across folds)")
     lib = _pool_fold_rules(per_fold_oos, cfg)
     _p(f"[GLOBAL] library_size={len(lib)}")
-    _p(f"[GLOBAL] long_kept={(lib['direction'] == 'long').sum() if not lib.empty else 0} short_kept(after payoff-gate)={(lib['direction'] == 'short').sum() if not lib.empty else 0}")
+    _p(f"[GLOBAL] long_kept={(lib['direction']=='long').sum() if not lib.empty else 0} short_kept(after payoff-gate)={(lib['direction']=='short').sum() if not lib.empty else 0}")
 
     _banner()
 

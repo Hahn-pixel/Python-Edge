@@ -1,4 +1,3 @@
-
 [CFG] vendor=massive dataset_root=C:\Users\Dmytro Govor\Documents\Python-Edge\data\raw\massive_dataset
 [CFG] start=2023-01-01 end=2026-02-28 tf=1D folds=3
 [CFG] event: fwd_days=5 k_sigma=1.5 sigma_lookback=60
@@ -18,18 +17,24 @@
 [LIB/FOLD 1] train=2023-01-04..2024-04-04  test=2024-04-05..2024-11-15
 [LIB/FOLD 1] train rows=9106 test rows=4553
 [LIB/FOLD 1] mined_rules=800 perm_p95=1.504 status=ok
+[DIAG/FOLD 1] oos_all=800 lift_best=2.177 lift_med=1.014 lift_p90=1.330 sup_best=3611 sup_med=461.0 cnt(lift>=thr,sup>=thr)=66 cnt(lift>=1.30,sup>=thr)=90 cnt(lift>=1.25,sup>=thr)=129
+[DIAG/FOLD 1] top3: long:2.177@250:long|ema_slow_slope__pct<q20|rv_10__pct<q60|rv_10__pct>q20 | long:2.037@278:long|ema_slow_slope__pct<q20|rv_10__pct<q70|rv_10__pct>q30 | long:1.950@205:long|ema_slow_slope__pct<q20|mom_3d__pct<q70|mom_3d__pct>q30
 [LIB/FOLD 1] OOS eval=800 pass(lift>=1.35)=67
 [LIB/FOLD 1] pass_breakdown long=42 short=24
 ================================================================================
 [LIB/FOLD 2] train=2023-01-04..2024-11-15  test=2024-11-18..2025-07-08
 [LIB/FOLD 2] train rows=13659 test rows=4553
 [LIB/FOLD 2] mined_rules=800 perm_p95=1.495 status=ok
+[DIAG/FOLD 2] oos_all=800 lift_best=2.354 lift_med=1.020 lift_p90=1.404 sup_best=3611 sup_med=314.0 cnt(lift>=thr,sup>=thr)=76 cnt(lift>=1.30,sup>=thr)=107 cnt(lift>=1.25,sup>=thr)=132
+[DIAG/FOLD 2] top3: long:2.354@126:long|ema_slow_slope__pct<q20|rv_10__pct<q60|rv_10__pct>q40 | long:2.161@113:long|atr_pct__pct<q60|atr_pct__pct>q40|ema_slow_slope__pct<q | long:2.093@125:long|compression__pct<q60|compression__pct>q20|ema_slow_slop
 [LIB/FOLD 2] OOS eval=800 pass(lift>=1.35)=111
 [LIB/FOLD 2] pass_breakdown long=75 short=1
 ================================================================================
 [LIB/FOLD 3] train=2023-01-04..2025-07-08  test=2025-07-09..2026-02-20
 [LIB/FOLD 3] train rows=18212 test rows=4472
 [LIB/FOLD 3] mined_rules=800 perm_p95=1.490 status=ok
+[DIAG/FOLD 3] oos_all=800 lift_best=3.955 lift_med=1.082 lift_p90=1.721 sup_best=3682 sup_med=331.0 cnt(lift>=thr,sup>=thr)=72 cnt(lift>=1.30,sup>=thr)=94 cnt(lift>=1.25,sup>=thr)=111
+[DIAG/FOLD 3] top3: short:3.955@159:short|mom_3d__pct>q80|mom_5d_minus_mom_1d__pct>q80|rel_rv_to | short:3.955@159:short|compression__pct<q30|mom_3d__pct>q80|mom_5d_minus_mom_ | short:3.740@137:short|compression__pct<q20|ema_slow_slope__pct>q80|mom_5d__p
 [LIB/FOLD 3] OOS eval=800 pass(lift>=1.35)=176
 [LIB/FOLD 3] pass_breakdown long=47 short=25
 ================================================================================
@@ -51,5 +56,3 @@
 [RANK/FOLD 3] fold_rules kept: long=143 short=49
 [RANK/FOLD 3] scored_rows(nonzero)=3867/4472 fires_long=64900 fires_short=18126
 [RANK/FOLD 3] NET  top-3 fwd_5d: mean=0.0119 med=-0.0092 p>0=33.33%
-================================================================================
-[DONE] Ranker MVP completed.
