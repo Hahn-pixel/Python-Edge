@@ -5,49 +5,45 @@
 [CFG] rules: try=6000 keep=800 min_support=200 min_event_hits=30
 [CFG] perm: trials=50 topk=20 gate=1 margin=0.15
 [CFG] OOS filter: support>=200 lift>=1.35
-[CFG] short payoff-gate: enabled=0 mean>0.0 p>0>0.5
+[CFG] short payoff-gate: disabled
 [CFG] rank: K=3
 [CFG] health: enabled=0 win=60 min_n=50 med_min=0.0000 es5_min=-0.0800
 [CFG] recency: MUST_PASS_LATEST=0 LATEST_ONLY=0
+[DATA][SKIP] sym=DBA reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
+[DATA][SKIP] sym=DBC reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
+[DATA][SKIP] sym=DIA reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
+[DATA][SKIP] sym=EEM reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
+[DATA][SKIP] sym=EWJ reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
+[DATA][SKIP] sym=FXI reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
+[DATA][SKIP] sym=GLD reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
+[DATA][SKIP] sym=HYG reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
+[DATA][SKIP] sym=IEF reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
+[DATA][SKIP] sym=IWM reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
+[DATA][SKIP] sym=LQD reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
+[DATA][SKIP] sym=PPLT reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
+[DATA][SKIP] sym=QQQ reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
+[DATA][SKIP] sym=SHY reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
+[DATA][SKIP] sym=SLV reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
+[DATA][SKIP] sym=SPLG reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
+[DATA][SKIP] sym=SPY reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
+[DATA][SKIP] sym=TLT reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
+[DATA][SKIP] sym=UNG reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
+[DATA][SKIP] sym=USO reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
+[DATA][SKIP] sym=VGK reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
+[DATA][SKIP] sym=VTI reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
+[DATA][SKIP] sym=XLE reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
+[DATA][SKIP] sym=XLF reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
+[DATA][SKIP] sym=XLI reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
+[DATA][SKIP] sym=XLK reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
+[DATA][SKIP] sym=XLP reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
+[DATA][SKIP] sym=XLV reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
+[DATA][SKIP] sym=XLY reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
 [DATA] universe_symbols=29 tf=1D
-[DATA] loaded_ok=29 loaded_empty=0 loaded_fail=0
-[DATA] pooled rows=22684 (dropped=174) dates=785 symbols=29
-[DATA] base_rate up=6.8462% dn=5.2989%
-[DBG] feature_cols_n=9
-================================================================================
-[LIB/FOLD 1] train=2023-01-04..2024-04-04  test=2024-04-05..2024-11-15
-[LIB/FOLD 1] train rows=9106 test rows=4553
-[LIB/FOLD 1] mined_rules=26 perm_p95=1.361 status=ok
-[LIB/FOLD 1] OOS eval=26 pass(lift>=1.35)=8
-[LIB/FOLD 1] pass_breakdown long=1 short=7
-================================================================================
-[LIB/FOLD 2] train=2023-01-04..2024-11-15  test=2024-11-18..2025-07-08
-[LIB/FOLD 2] train rows=13659 test rows=4553
-[LIB/FOLD 2] mined_rules=50 perm_p95=1.398 status=ok
-[LIB/FOLD 2] OOS eval=50 pass(lift>=1.35)=8
-[LIB/FOLD 2] pass_breakdown long=8 short=0
-================================================================================
-[LIB/FOLD 3] train=2023-01-04..2025-07-08  test=2025-07-09..2026-02-20
-[LIB/FOLD 3] train rows=18212 test rows=4472
-[LIB/FOLD 3] mined_rules=21 perm_p95=1.384 status=ok
-[LIB/FOLD 3] OOS eval=21 pass(lift>=1.35)=3
-[LIB/FOLD 3] pass_breakdown long=3 short=0
-================================================================================
-[GLOBAL] Rule Library (OOS-filtered across folds)
-[GLOBAL] library_size=15
-[GLOBAL] long_kept=8 short_kept(after payoff-gate)=7
-================================================================================
-[RANK/FOLD 1] OOS window=2024-04-05..2024-11-15
-[RANK/FOLD 1] fold_rules kept: long=1 short=7
-[RANK/FOLD 1] scored_rows(nonzero)=617/4553 fires_long=205 fires_short=1714
-[RANK/FOLD 1] LONG top-3 fwd_5d: mean=0.0020 med=0.0029 p>0=56.05%
-================================================================================
-[RANK/FOLD 2] OOS window=2024-11-18..2025-07-08
-[RANK/FOLD 2] fold_rules kept: long=8 short=6
-[RANK/FOLD 2] scored_rows(nonzero)=976/4553 fires_long=2328 fires_short=1684
-[RANK/FOLD 2] LONG top-3 fwd_5d: mean=0.0019 med=0.0035 p>0=58.39%
-================================================================================
-[RANK/FOLD 3] OOS window=2025-07-09..2026-02-20
-[RANK/FOLD 3] fold_rules kept: long=7 short=0
-[RANK/FOLD 3] scored_rows(nonzero)=585/4472 fires_long=1731 fires_short=0
-[RANK/FOLD 3] LONG top-3 fwd_5d: mean=0.0077 med=0.0047 p>0=61.78%
+[DATA] loaded_ok=0 loaded_empty=0 loaded_fail=29
+[ERROR] Unhandled exception:
+Traceback (most recent call last):
+  File "C:\Users\Dmytro Govor\Documents\Python-Edge\scripts\run_ranker_mvp.py", line 908, in <module>
+    rc = main()
+  File "C:\Users\Dmytro Govor\Documents\Python-Edge\scripts\run_ranker_mvp.py", line 757, in main
+    raise RuntimeError("No data loaded (all symbols empty)")
+RuntimeError: No data loaded (all symbols empty)

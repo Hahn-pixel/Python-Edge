@@ -2,20 +2,30 @@ from __future__ import annotations
 
 """python_edge.rules.event_mining
 
-Next-step expansion:
-- Wider quantile grid (q10..q90)
-- Unary rules (1 condition)
-- Mid-quantile bands (q40–q60 etc.) implemented as two inequalities on the same feature
-- Keeps the public API stable for scripts/run_ranker_mvp.py:
-    - EventMiningConfig
-    - Rule / RuleStats
-    - label_events()
-    - mine_event_rules()
-    - evaluate_rules_oos()
+FULL FILE REWRITE (requested).
 
-Design goals:
-- Increase candidate diversity without relaxing downstream WF/OOS/permutation filters.
-- Keep canonical signatures cross-fold comparable (use quantile tags, not raw thresholds).
+Goal: expand rule candidate space WITHOUT relaxing downstream WF/OOS/permutation filters.
+
+Key expansions vs previous versions:
+- Quantile grid q10..q90 (instead of only q20/q50/q80)
+- Allow unary rules (1 condition) as well as 2–3 condition rules
+- Add "band" constraints (q40<x<q60 etc.) by emitting 2 inequalities on the same feature
+- Keep canonical signatures cross-fold comparable by using quantile tags in signatures
+
+Public API (kept stable):
+- EventMiningConfig
+- Rule
+- RuleStats
+- label_events(df, cfg)
+- mine_event_rules(df_train, feature_cols, cfg, direction=None) -> (rules, stats_by_rule_id, perm_stats)
+- evaluate_rules_oos(df_oos, rules, cfg) -> DataFrame
+
+Notes:
+- This module assumes the upstream pipeline already computed:
+    - ret_1d
+    - fwd_{fwd_days}d_ret
+    - feature_cols are present on df_train/df_oos
+- No interaction features are introduced here to avoid train/OOS schema mismatches.
 """
 
 from dataclasses import dataclass
@@ -56,7 +66,7 @@ class EventMiningConfig:
 class Rule:
     rule_id: str
     direction: str  # "long" predicts UP events, "short" predicts DOWN events
-    # cond: (feature, op, meta_key); op in {">","<"}; meta_key like "mom_5d__q80"
+    # cond: (feature, op, meta_key) where op in {">","<"}, meta_key stores threshold
     conds: List[Tuple[str, str, str]]
     meta: Dict[str, float]
 
@@ -74,11 +84,11 @@ class RuleStats:
     median_signed: float
     p_pos_signed: float
     es5_signed: float
-    signature: str  # canonical signature (cross-fold comparable)
+    signature: str
 
 
 # ============================================================
-# Helpers
+# Internals
 # ============================================================
 
 
@@ -105,14 +115,6 @@ def _quantile_thresholds(s: pd.Series) -> Dict[str, float]:
     return out
 
 
-def _to_datestr(s: pd.Series) -> pd.Series:
-    if pd.api.types.is_datetime64_any_dtype(s):
-        return pd.to_datetime(s).dt.strftime("%Y-%m-%d")
-    if pd.api.types.is_numeric_dtype(s):
-        return pd.to_datetime(s, unit="ms", utc=True).dt.strftime("%Y-%m-%d")
-    return pd.to_datetime(s, errors="coerce").dt.strftime("%Y-%m-%d")
-
-
 def _apply_rule_mask(df: pd.DataFrame, rule: Rule) -> pd.Series:
     mask = pd.Series(True, index=df.index)
     for feat, op, meta_key in rule.conds:
@@ -128,7 +130,7 @@ def _apply_rule_mask(df: pd.DataFrame, rule: Rule) -> pd.Series:
 
 
 def _canonical_signature(direction: str, conds: List[Tuple[str, str, str]]) -> str:
-    # Use quantile tags, not numeric thresholds.
+    """Signature uses quantile tags (q10..q90) not numeric thresholds."""
     parts: List[str] = []
     for feat, op, meta_key in conds:
         tag = meta_key.split("__")[-1] if "__" in meta_key else meta_key
@@ -138,7 +140,7 @@ def _canonical_signature(direction: str, conds: List[Tuple[str, str, str]]) -> s
 
 
 def _pick_tail_tag(rng: np.random.Generator, side: str) -> str:
-    # side: "low" or "high"; bias to more extreme tails but allow mid-ish tails.
+    # side: "low" or "high"
     if side == "high":
         tags = ["q60", "q70", "q80", "q90"]
         p = np.array([0.20, 0.25, 0.35, 0.20], dtype=float)
@@ -150,7 +152,7 @@ def _pick_tail_tag(rng: np.random.Generator, side: str) -> str:
 
 
 def _pick_band(rng: np.random.Generator) -> Tuple[str, str]:
-    # Mix tight mid-bands and wider regime bands.
+    # Mix tight mid-bands and wide regime bands.
     bands = [
         ("q40", "q60"),
         ("q30", "q70"),
@@ -174,13 +176,13 @@ def _make_rule_diverse(
     """Generate a diverse rule.
 
     - Allows unary rules.
-    - Adds band constraints ~30% of the time when there is budget for 2 conds.
-    - Keeps some "paradox" probability by allowing either op sign.
+    - Adds band constraints (2 inequalities on same feature) ~30% when budget allows.
+    - Allows some "paradox" op choice (not forced by direction).
     """
 
     kmax = int(max(1, max_conds))
 
-    # Heavier on 1–2 conditions for generalization.
+    # Weighted choice for number of conditions (prefers 1–2 for generalization)
     choices = [c for c in (1, 2, 3) if c <= kmax]
     base_p = {1: 0.35, 2: 0.45, 3: 0.20}
     probs = np.array([base_p[c] for c in choices], dtype=float)
@@ -212,7 +214,7 @@ def _make_rule_diverse(
             conds.append((feat, "<", hi_key))
             continue
 
-        # Single-threshold condition with slight bias by direction, but not forced.
+        # Single threshold with slight bias by direction (but not forced)
         if direction == "long":
             op = str(rng.choice([">", "<"], p=[0.55, 0.45]))
         else:
@@ -342,12 +344,9 @@ def _permutation_sanity(df_train: pd.DataFrame, rules: List[Rule], cfg: EventMin
 
 
 def label_events(df: pd.DataFrame, cfg: EventMiningConfig) -> pd.DataFrame:
-    """Adds:
-      - sigma_roll
-      - event_thr
-      - event_up / event_dn
+    """Adds sigma_roll, event_thr, event_up, event_dn.
 
-    Requires:
+    Requires columns:
       - ret_1d
       - fwd_{cfg.fwd_days}d_ret
     """
@@ -375,15 +374,11 @@ def mine_event_rules(
     cfg: EventMiningConfig,
     direction: Optional[str] = None,
 ) -> Tuple[List[Rule], Dict[str, RuleStats], Dict[str, float]]:
-    """Mine diverse quantile/band rules on df_train.
-
-    Output:
-      - rules: list[Rule]
-      - stats_by_rule_id: dict
-      - perm_stats: dict with perm_topk_p95 etc.
-    """
+    """Mine diverse quantile/band rules on df_train."""
 
     rng = np.random.default_rng(int(cfg.seed))
+
+    # thresholds per feature
     thrs: Dict[str, Dict[str, float]] = {c: _quantile_thresholds(df_train[c]) for c in feature_cols}
 
     dirs: List[str]
@@ -392,10 +387,10 @@ def mine_event_rules(
     else:
         dirs = ["long", "short"]
 
-    # Candidate generation
-    candidates: List[Rule] = []
     max_conds = int(max(1, cfg.max_conds))
 
+    # Generate candidates
+    candidates: List[Rule] = []
     for k in range(int(cfg.max_rules_try)):
         d = dirs[k % len(dirs)]
         rid = f"E{d[0].upper()}{k:05d}"
@@ -410,7 +405,7 @@ def mine_event_rules(
             )
         )
 
-    # Score + strict filters + dedup by signature
+    # Score + strict filters + dedup by canonical signature
     fwd_col = f"fwd_{int(cfg.fwd_days)}d_ret"
     best_by_sig: Dict[str, Tuple[Rule, RuleStats]] = {}
 
@@ -425,7 +420,7 @@ def mine_event_rules(
         if st.event_hits < int(cfg.min_event_hits):
             continue
 
-        # Keep a mild in-sample gate; downstream OOS/perm remain the real filter.
+        # Mild in-sample gate; the real strictness is WF+OOS+perm.
         if (not np.isfinite(st.lift)) or st.lift <= 1.05:
             continue
         if (not np.isfinite(st.mean_signed)) or st.mean_signed <= 0.0:
@@ -445,7 +440,7 @@ def mine_event_rules(
     rules = [v[0] for v in best_by_sig.values()]
     stats = {v[0].rule_id: v[1] for v in best_by_sig.values()}
 
-    # Permutation sanity + optional gate
+    # permutation sanity + optional gate
     perm = _permutation_sanity(df_train, rules, cfg)
     perm_p95 = float(perm.get("perm_topk_p95", float("nan")))
 
@@ -460,7 +455,7 @@ def mine_event_rules(
                 gated_stats[r.rule_id] = st
         rules, stats = gated_rules, gated_stats
 
-    # Final keep: deterministic ranking
+    # deterministic final ranking
     def _rank_key(rr: Rule) -> float:
         st = stats[rr.rule_id]
         return (
@@ -488,6 +483,7 @@ def evaluate_rules_oos(df_oos: pd.DataFrame, rules: List[Rule], cfg: EventMining
         st = _score_rule_event(df_oos, r, event_col=event_col, fwd_col=fwd_col)
         if st is None:
             continue
+
         rows.append(
             {
                 "rule_id": st.rule_id,
