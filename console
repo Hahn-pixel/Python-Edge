@@ -1,55 +1,13 @@
-
-[CFG] vendor=massive dataset_root=C:\Users\Dmytro Govor\Documents\Python-Edge\data\raw\massive_dataset
-[CFG] start=2023-01-01 end=2026-02-28 tf=1D folds=3
-[CFG] event: fwd_days=5 k_sigma=1.5 sigma_lookback=60
-[CFG] rules: try=60000 keep=800 min_support=200 min_event_hits=30
-[CFG] perm: trials=50 topk=20 gate=1 margin=0.15
-[CFG] OOS filter: support>=200 lift>=1.35
-[CFG] short payoff-gate: disabled
-[CFG] rank: K=3
-[CFG] health: enabled=0 win=60 min_n=50 med_min=0.0000 es5_min=-0.0800
-[CFG] recency: MUST_PASS_LATEST=0 LATEST_ONLY=0
-[DATA][SKIP] sym=DBA reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
-[DATA][SKIP] sym=DBC reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
-[DATA][SKIP] sym=DIA reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
-[DATA][SKIP] sym=EEM reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
-[DATA][SKIP] sym=EWJ reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
-[DATA][SKIP] sym=FXI reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
-[DATA][SKIP] sym=GLD reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
-[DATA][SKIP] sym=HYG reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
-[DATA][SKIP] sym=IEF reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
-[DATA][SKIP] sym=IWM reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
-[DATA][SKIP] sym=LQD reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
-[DATA][SKIP] sym=PPLT reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
-[DATA][SKIP] sym=QQQ reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
-[DATA][SKIP] sym=SHY reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
-[DATA][SKIP] sym=SLV reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
-[DATA][SKIP] sym=SPLG reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
-[DATA][SKIP] sym=SPY reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
-[DATA][SKIP] sym=TLT reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
-[DATA][SKIP] sym=UNG reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
-[DATA][SKIP] sym=USO reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
-[DATA][SKIP] sym=VGK reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
-[DATA][SKIP] sym=VTI reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
-[DATA][SKIP] sym=XLE reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
-[DATA][SKIP] sym=XLF reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
-[DATA][SKIP] sym=XLI reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
-[DATA][SKIP] sym=XLK reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
-[DATA][SKIP] sym=XLP reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
-[DATA][SKIP] sym=XLV reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
-[DATA][SKIP] sym=XLY reason=load_fail err=AttributeError: 'AggsLoadResult' object has no attribute 'empty'
-[DATA] universe_symbols=29 tf=1D
-[DATA] loaded_ok=0 loaded_empty=0 loaded_fail=29
-[ERROR] Unhandled exception:
 Traceback (most recent call last):
-  File "C:\Users\Dmytro Govor\Documents\Python-Edge\scripts\run_ranker_mvp.py", line 908, in <module>
+  File "C:\Users\Dmytro Govor\Documents\Python-Edge\scripts\run_ranker_mvp.py", line 914, in <module>
     rc = main()
-  File "C:\Users\Dmytro Govor\Documents\Python-Edge\scripts\run_ranker_mvp.py", line 757, in main
-    raise RuntimeError("No data loaded (all symbols empty)")
-RuntimeError: No data loaded (all symbols empty)
-
-[END] Press Enter to exit...
-
-
-
-
+  File "C:\Users\Dmytro Govor\Documents\Python-Edge\scripts\run_ranker_mvp.py", line 834, in main
+    rules, stats_by_id, perm_stats = em.mine_event_rules(df_tr_l, feature_cols, emcfg, direction=None)
+                                     ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\rules\event_mining.py", line 382, in mine_event_rules
+    thrs: Dict[str, Dict[str, float]] = {c: _quantile_thresholds(df_train[c]) for c in feature_cols}
+                                            ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\rules\event_mining.py", line 114, in _quantile_thresholds
+    out[t] = float(s2.quantile(q))
+             ~~~~~^^^^^^^^^^^^^^^^
+TypeError: float() argument must be a string or a real number, not 'Timestamp'

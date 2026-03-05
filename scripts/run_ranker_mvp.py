@@ -731,24 +731,30 @@ def main() -> int:
     for sym in symbols:
         try:
             r = load_aggs(cfg.dataset_root, sym, cfg.tf, cfg.start, cfg.end)
-            if r is None or r.empty:
-                loaded_empty += 1
-                continue
-            df_sym = to_daily_index(r)
-            if df_sym is None or df_sym.empty:
+
+            # load_aggs may return either a DataFrame OR an AggsLoadResult-like object with .df
+            rdf = getattr(r, "df", r)
+            if rdf is None:
                 loaded_empty += 1
                 continue
 
-            # Ensure required columns
-            df_sym = df_sym.copy()
-            if "symbol" not in df_sym.columns:
-                df_sym["symbol"] = sym
-
-            loaded.append(df_sym)
-            loaded_ok += 1
+            d = to_daily_index(rdf)
         except Exception as e:
             loaded_fail += 1
             _p(f"[DATA][SKIP] sym={sym} reason=load_fail err={type(e).__name__}: {e}")
+            continue
+
+        if d is None or getattr(d, "empty", True):
+            loaded_empty += 1
+            continue
+
+        # Ensure required columns
+        d = d.copy()
+        if "symbol" not in d.columns:
+            d["symbol"] = sym
+
+        loaded.append(d)
+        loaded_ok += 1
 
     _p(f"[DATA] universe_symbols={len(symbols)} tf={cfg.tf}")
     _p(f"[DATA] loaded_ok={loaded_ok} loaded_empty={loaded_empty} loaded_fail={loaded_fail}")
