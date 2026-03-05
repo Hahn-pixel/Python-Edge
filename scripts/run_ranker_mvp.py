@@ -2,75 +2,79 @@ from __future__ import annotations
 
 """Python-Edge :: Ranker MVP (daily)
 
-Goal
-----
-Mine event rules on expanding walk-forward folds, apply OOS filters, build a GLOBAL
-rule library (with optional RECENCY gating), then score each OOS fold.
+This script:
+1) Loads daily bars from the massive dataset
+2) Builds daily features
+3) Labels events (event_up/event_dn)
+4) Mines event rules per fold
+5) Evaluates rules OOS and applies strict OOS filters
+6) Builds a GLOBAL rule library
+7) Scores each OOS fold by net score = long_score - short_score
+8) Evaluates top-K forward returns and compares vs a RANDOM baseline distribution
 
-This file is intentionally self-contained and robust to repo layout.
+Notes
+-----
+- No algorithmic behavior is changed by diagnostics/baselines; they only add evaluation.
+- Double-click runnable: always waits for input() at the end (even on success).
 
-Key properties
---------------
-- Robust imports: ensures repo/src is on sys.path
-- No silent fail-open: fallbacks are explicit
-- Double-click runnable: waits for input() at the end (even on success)
+Env vars
+--------
+DATASET_ROOT      path to massive dataset root
+DATA_START        YYYY-MM-DD
+DATA_END          YYYY-MM-DD
+TF                timeframe (default 1D)
+FOLD_COUNT        number of folds (default 3)
 
-New in this version
--------------------
-OOS diagnostics printed BEFORE strict OOS filtering, to answer: “are we close?”
+# Event mining
+FWD_DAYS          default 5
+SIGMA_LOOKBACK    default 60
+K_SIGMA           default 1.5
+RULES_TRY         default 6000
+RULES_KEEP        default 800
+MIN_SUPPORT       default 200
+MIN_EVENT_HITS    default 30
 
-Controlled by env:
-  DEBUG_OOS_DIAG=1 (default)
+# Permutation gate
+PERM_TRIALS       default 50
+PERM_TOPK         default 20
+PERM_GATE         default 1
+PERM_MARGIN       default 0.15
 
-Environment variables (key ones)
---------------------------------
-  DATASET_ROOT      path to massive dataset root
-  DATA_START        YYYY-MM-DD
-  DATA_END          YYYY-MM-DD
-  TF                timeframe (default 1D)
-  FOLD_COUNT        number of folds (default 3)
+# OOS filters
+OOS_LIFT_MIN      default 1.35
+OOS_SUPPORT_MIN   default 200
 
-  # Event mining
-  FWD_DAYS          default 5
-  SIGMA_LOOKBACK    default 60
-  K_SIGMA           default 1.5
-  RULES_TRY         default 6000
-  RULES_KEEP        default 800
-  MIN_SUPPORT       default 200
-  MIN_EVENT_HITS    default 30
+# Short payoff gate (optional)
+SHORT_GATE        0/1
+SHORT_MEAN_MIN    default 0.0
+SHORT_PPOS_MIN    default 0.5
 
-  # OOS filters
-  OOS_LIFT_MIN      default 1.35
-  OOS_SUPPORT_MIN   default 200
+# Rank
+RANK_K            default 3
 
-  # Rank
-  RANK_K            default 3
+# Health
+HEALTH            0/1
+HEALTH_WIN        default 60
+HEALTH_MIN_N      default 50
+HEALTH_MED_MIN    default 0.0
+HEALTH_ES5_MIN    default -0.08
 
-  # Permutation
-  PERM_TRIALS       default 50
-  PERM_TOPK         default 20
-  PERM_GATE         default 1
-  PERM_MARGIN       default 0.15
+# Recency
+MUST_PASS_LATEST  0/1
+LATEST_ONLY       0/1
 
-  # HEALTH
-  HEALTH            0/1
-  HEALTH_WIN        default 60
-  HEALTH_MIN_N      default 50
-  HEALTH_MED_MIN    default 0.0
-  HEALTH_ES5_MIN    default -0.08
+# Debug
+DEBUG_IMPORTS     0/1
+DEBUG_OOS_DIAG    0/1  (default 1)
 
-  # RECENCY
-  MUST_PASS_LATEST  0/1
-  LATEST_ONLY       0/1
-
-  # Debug
-  DEBUG_IMPORTS     0/1 (prints module __file__ paths)
-  DEBUG_OOS_DIAG    0/1 (prints pre-filter lift/support diagnostics per fold)
+# Baseline
+BASELINE_SEED     default 1337 (used for the single baseline sample line)
+BASELINE_TRIALS   default 2000 (distribution trials)
 
 Exit codes
 ----------
-  0 success
-  1 failure
+0 success
+1 failure
 """
 
 import os
@@ -78,7 +82,7 @@ import sys
 import traceback
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -153,7 +157,6 @@ def _env_bool(name: str, default: bool = False) -> bool:
 
 
 def _import_ingest():
-    # Preferred package path
     try:
         from python_edge.data.ingest_aggs import load_aggs, to_daily_index  # type: ignore
 
@@ -161,7 +164,6 @@ def _import_ingest():
     except Exception:
         pass
 
-    # Repo-root fallback (only if someone runs with repo-root modules)
     try:
         from ingest_aggs import load_aggs, to_daily_index  # type: ignore
 
@@ -185,7 +187,7 @@ def _import_features() -> Tuple[Any, Any]:
         _p("[DBG] import build_features_daily from repo-root")
         return FeatureConfig, build_features_daily
     except Exception as e:
-        raise ImportError("Cannot import build_features_daily FeatureConfig/build_features_daily") from e
+        raise ImportError("Cannot import build_features_daily") from e
 
 
 def _import_event_mining() -> Any:
@@ -202,7 +204,7 @@ def _import_event_mining() -> Any:
         _p("[DBG] import event_mining from repo-root")
         return em
     except Exception as e:
-        raise ImportError("Cannot import event_mining (package or repo-root)") from e
+        raise ImportError("Cannot import event_mining") from e
 
 
 # ============================================================
@@ -264,6 +266,9 @@ class RunCfg:
     debug_imports: bool
     debug_oos_diag: bool
 
+    baseline_seed: int
+    baseline_trials: int
+
 
 def load_cfg() -> RunCfg:
     ds = Path(_env_str("DATASET_ROOT", str(ROOT / "data" / "raw" / "massive_dataset")))
@@ -312,6 +317,8 @@ def load_cfg() -> RunCfg:
         recency=rec,
         debug_imports=_env_bool("DEBUG_IMPORTS", False),
         debug_oos_diag=_env_bool("DEBUG_OOS_DIAG", True),
+        baseline_seed=_env_int("BASELINE_SEED", 1337),
+        baseline_trials=_env_int("BASELINE_TRIALS", 2000),
     )
 
 
@@ -459,6 +466,54 @@ def _pool_fold_rules(per_fold: List[pd.DataFrame], cfg: RunCfg) -> pd.DataFrame:
 
 
 # ============================================================
+# OOS diagnostics
+# ============================================================
+
+
+def _oos_diag_summary(df_oos_all: pd.DataFrame, cfg: RunCfg) -> str:
+    if df_oos_all is None or df_oos_all.empty:
+        return "oos_all=0"
+
+    x = df_oos_all.copy()
+    x["lift"] = pd.to_numeric(x.get("lift"), errors="coerce")
+    x["support"] = pd.to_numeric(x.get("support"), errors="coerce")
+
+    lift = x["lift"].replace([np.inf, -np.inf], np.nan).dropna()
+    sup = x["support"].replace([np.inf, -np.inf], np.nan).dropna()
+
+    best_lift = float(lift.max()) if not lift.empty else float("nan")
+    med_lift = float(lift.median()) if not lift.empty else float("nan")
+    p90_lift = float(lift.quantile(0.90)) if not lift.empty else float("nan")
+
+    best_sup = int(sup.max()) if not sup.empty else -1
+    med_sup = float(sup.median()) if not sup.empty else float("nan")
+
+    def _cnt(lift_thr: float, sup_thr: int) -> int:
+        y = x[(x["lift"] >= float(lift_thr)) & (x["support"] >= int(sup_thr))]
+        return int(len(y))
+
+    c_thr = _cnt(float(cfg.oos_lift_min), int(cfg.oos_support_min))
+    c130 = _cnt(1.30, int(cfg.oos_support_min))
+    c125 = _cnt(1.25, int(cfg.oos_support_min))
+
+    top = x.sort_values(["lift", "support"], ascending=[False, False]).head(3)
+    top_s = []
+    for _, r in top.iterrows():
+        top_s.append(
+            f"{str(r.get('direction','?'))}:{float(r['lift']):.3f}@{int(r['support'])}:{str(r.get('signature',''))[:50]}"
+        )
+
+    s = (
+        f"oos_all={len(x)} lift_best={best_lift:.3f} lift_med={med_lift:.3f} lift_p90={p90_lift:.3f} "
+        f"sup_best={best_sup} sup_med={med_sup:.1f} "
+        f"cnt(thr)={c_thr} cnt(>=1.30)={c130} cnt(>=1.25)={c125}"
+    )
+    if top_s:
+        s += " | top3=" + " | ".join(top_s)
+    return s
+
+
+# ============================================================
 # Scoring
 # ============================================================
 
@@ -481,7 +536,6 @@ def _score_fold(df_oos: pd.DataFrame, rules_global: pd.DataFrame, cfg: RunCfg) -
     if df_oos.empty or rules_global.empty:
         return pd.Series(0.0, index=df_oos.index), dbg
 
-    # Parse signature: "dir|feat>q80|feat2<q20" (canonical format)
     def _sig_to_conds(signature: str) -> List[Tuple[str, str, str]]:
         parts = str(signature).split("|")
         conds: List[Tuple[str, str, str]] = []
@@ -557,7 +611,7 @@ def _score_fold(df_oos: pd.DataFrame, rules_global: pd.DataFrame, cfg: RunCfg) -
     return net, dbg
 
 
-def _topk_eval(df_oos: pd.DataFrame, net_score: pd.Series, cfg: RunCfg) -> Tuple[float, float, float]:
+def _topk_eval(df_oos: pd.DataFrame, score: pd.Series, cfg: RunCfg) -> Tuple[float, float, float]:
     if df_oos.empty:
         return 0.0, 0.0, 0.0
 
@@ -566,7 +620,7 @@ def _topk_eval(df_oos: pd.DataFrame, net_score: pd.Series, cfg: RunCfg) -> Tuple
         return 0.0, 0.0, 0.0
 
     df = df_oos.copy()
-    df["_score"] = pd.to_numeric(net_score, errors="coerce").fillna(0.0)
+    df["_score"] = pd.to_numeric(score, errors="coerce").fillna(0.0)
     df = df.sort_values("_score", ascending=False).head(int(cfg.K))
 
     fwd = pd.to_numeric(df[fwd_col], errors="coerce").fillna(0.0)
@@ -576,19 +630,15 @@ def _topk_eval(df_oos: pd.DataFrame, net_score: pd.Series, cfg: RunCfg) -> Tuple
     return mean, med, ppos
 
 
-def _topk_baseline(df_oos: pd.DataFrame, cfg: RunCfg) -> Tuple[float, float, float, int]:
-    """Baseline: pick K random rows from the same OOS window.
-
-    Deterministic across runs via BASELINE_SEED (default 1337) so console diffs are stable.
-    """
+def _baseline_one(df_oos: pd.DataFrame, cfg: RunCfg) -> Tuple[float, float, float, int]:
     if df_oos.empty:
-        return 0.0, 0.0, 0.0, int(_env_int("BASELINE_SEED", 1337))
+        return 0.0, 0.0, 0.0, int(cfg.baseline_seed)
 
     fwd_col = f"fwd_{int(cfg.fwd_days)}d_ret"
     if fwd_col not in df_oos.columns:
-        return 0.0, 0.0, 0.0, int(_env_int("BASELINE_SEED", 1337))
+        return 0.0, 0.0, 0.0, int(cfg.baseline_seed)
 
-    seed = int(_env_int("BASELINE_SEED", 1337))
+    seed = int(cfg.baseline_seed)
     rs = np.random.RandomState(seed)
 
     n = int(len(df_oos))
@@ -602,62 +652,55 @@ def _topk_baseline(df_oos: pd.DataFrame, cfg: RunCfg) -> Tuple[float, float, flo
     return mean, med, ppos, seed
 
 
-# ============================================================
-# OOS diagnostics (pre-filter)
-# ============================================================
+def _baseline_distribution(df_oos: pd.DataFrame, cfg: RunCfg) -> Dict[str, float]:
+    """Baseline distribution over random top-K selections.
 
-
-def _print_oos_diag(df_oos_all: pd.DataFrame, cfg: RunCfg, fold_i: int) -> None:
-    """Print diagnostic stats BEFORE strict OOS filtering.
-
-    This answers whether rules are:
-      - non-existent,
-      - present but below threshold,
-      - failing support gate.
+    Returns mean/p50/p95 of the *mean forward return* across trials,
+    plus percentile of NET vs baseline (computed outside).
     """
-    if df_oos_all is None or df_oos_all.empty:
-        _p(f"[DIAG/FOLD {fold_i}] oos_all=0")
-        return
+    out = {
+        "trials": float(cfg.baseline_trials),
+        "mean": 0.0,
+        "p50": 0.0,
+        "p95": 0.0,
+    }
 
-    x = df_oos_all.copy()
+    if df_oos.empty or cfg.baseline_trials <= 0:
+        return out
 
-    # Ensure numeric
-    x["lift"] = pd.to_numeric(x["lift"], errors="coerce")
-    x["support"] = pd.to_numeric(x["support"], errors="coerce")
+    fwd_col = f"fwd_{int(cfg.fwd_days)}d_ret"
+    if fwd_col not in df_oos.columns:
+        return out
 
-    n = int(len(x))
-    lift = x["lift"].replace([np.inf, -np.inf], np.nan).dropna()
-    sup = x["support"].replace([np.inf, -np.inf], np.nan).dropna()
+    n = int(len(df_oos))
+    k = int(min(max(1, int(cfg.K)), n))
 
-    best_lift = float(lift.max()) if not lift.empty else float("nan")
-    med_lift = float(lift.median()) if not lift.empty else float("nan")
-    p90_lift = float(lift.quantile(0.90)) if not lift.empty else float("nan")
+    fwd = pd.to_numeric(df_oos[fwd_col], errors="coerce").fillna(0.0).to_numpy(dtype=float)
+    if fwd.size != n:
+        fwd = fwd[:n]
 
-    best_sup = int(sup.max()) if not sup.empty else -1
-    med_sup = float(sup.median()) if not sup.empty else float("nan")
+    rs = np.random.RandomState(int(cfg.baseline_seed))
 
-    # Near-miss counts
-    def _cnt(lift_thr: float, sup_thr: int) -> int:
-        y = x[(x["lift"] >= lift_thr) & (x["support"] >= sup_thr)]
-        return int(len(y))
+    means: List[float] = []
+    t = int(cfg.baseline_trials)
 
-    c135 = _cnt(float(cfg.oos_lift_min), int(cfg.oos_support_min))
-    c130 = _cnt(1.30, int(cfg.oos_support_min))
-    c125 = _cnt(1.25, int(cfg.oos_support_min))
+    # vectorization is possible, but keep it simple/robust.
+    for _ in range(t):
+        idx = rs.choice(n, size=k, replace=False)
+        means.append(float(np.mean(fwd[idx])))
 
-    # Best rules preview (top by lift)
-    top = x.sort_values(["lift", "support"], ascending=[False, False]).head(3)
-    top_s = []
-    for _, r in top.iterrows():
-        top_s.append(f"{str(r.get('direction','?'))}:{float(r['lift']):.3f}@{int(r['support'])}:{str(r.get('signature',''))[:60]}")
+    arr = np.asarray(means, dtype=float)
+    out["mean"] = float(np.mean(arr))
+    out["p50"] = float(np.quantile(arr, 0.50))
+    out["p95"] = float(np.quantile(arr, 0.95))
+    return out
 
-    _p(
-        f"[DIAG/FOLD {fold_i}] oos_all={n} lift_best={best_lift:.3f} lift_med={med_lift:.3f} lift_p90={p90_lift:.3f} "
-        f"sup_best={best_sup} sup_med={med_sup:.1f} "
-        f"cnt(lift>=thr,sup>=thr)={c135} cnt(lift>=1.30,sup>=thr)={c130} cnt(lift>=1.25,sup>=thr)={c125}"
-    )
-    if top_s:
-        _p(f"[DIAG/FOLD {fold_i}] top3: " + " | ".join(top_s))
+
+def _percentile_of_value(samples: np.ndarray, value: float) -> float:
+    """Percent of samples <= value (in [0,1])."""
+    if samples.size == 0:
+        return 0.0
+    return float(np.mean(samples <= float(value)))
 
 
 # ============================================================
@@ -681,6 +724,7 @@ def main() -> int:
         f"med_min={cfg.health.med_min:.4f} es5_min={cfg.health.es5_min:.4f}"
     )
     _p(f"[CFG] recency: MUST_PASS_LATEST={int(cfg.recency.must_pass_latest)} LATEST_ONLY={int(cfg.recency.latest_only)}")
+    _p(f"[CFG] baseline: seed={cfg.baseline_seed} trials={cfg.baseline_trials}")
 
     load_aggs, to_daily_index = _import_ingest()
     FeatureConfig, build_features_daily = _import_features()
@@ -689,7 +733,6 @@ def main() -> int:
     if cfg.debug_imports:
         _p(f"[DBG][imports] event_mining={getattr(em, '__file__', '<?>')}")
 
-    # Universe from folders
     if not cfg.dataset_root.exists():
         raise FileNotFoundError(f"Missing dataset_root: {cfg.dataset_root}")
 
@@ -732,13 +775,10 @@ def main() -> int:
     df = pd.concat(dfs, axis=0, ignore_index=True)
     df = _ensure_close_cols(df)
 
-    # ret_1d + forward returns
     df = _add_fwd_returns(df, cfg.fwd_days)
 
-    # build features
     df = build_features_daily(df, FeatureConfig())
 
-    # label events
     cfg_event = em.EventMiningConfig(
         fwd_days=cfg.fwd_days,
         sigma_lookback=cfg.sigma_lookback,
@@ -752,11 +792,10 @@ def main() -> int:
         perm_gate_enabled=bool(cfg.perm_gate),
         perm_gate_margin=cfg.perm_margin,
     )
+
     df = em.label_events(df, cfg_event)
 
     fwd_col = f"fwd_{cfg.fwd_days}d_ret"
-
-    # Drop rows without fwd ret
     df0 = df.replace([np.inf, -np.inf], np.nan).dropna(subset=["date", "symbol", "ret_1d", fwd_col]).copy()
 
     dates = sorted(set(df0["date"].astype(str).tolist()))
@@ -768,7 +807,6 @@ def main() -> int:
 
     folds = _make_folds(dates, cfg.fold_count)
 
-    # features for mining
     feature_cols = [c for c in df0.columns if c.endswith("__pct")]
     _p(f"[DBG] feature_cols_n={len(feature_cols)}")
 
@@ -806,12 +844,12 @@ def main() -> int:
         _p(f"[LIB/FOLD {i}] mined_rules={len(rules)} perm_p95={perm_p95:.3f} status={status}")
 
         oos_all = em.evaluate_rules_oos(d_te, rules, cfg_event_fold)
-
-        # >>> NEW: diagnostics BEFORE strict OOS filtering
         if cfg.debug_oos_diag:
-            _print_oos_diag(oos_all, cfg, i)
+            _p(f"[DIAG/FOLD {i}] " + _oos_diag_summary(oos_all, cfg))
 
-        _p(f"[LIB/FOLD {i}] OOS eval={len(oos_all)} pass(lift>={cfg.oos_lift_min})={(oos_all['lift'] >= cfg.oos_lift_min).sum() if not oos_all.empty else 0}")
+        _p(
+            f"[LIB/FOLD {i}] OOS eval={len(oos_all)} pass(lift>={cfg.oos_lift_min})={(oos_all['lift'] >= cfg.oos_lift_min).sum() if not oos_all.empty else 0}"
+        )
 
         oos = _oos_filter(oos_all, cfg)
         oos = _apply_short_payoff_gate(oos, cfg)
@@ -846,8 +884,32 @@ def main() -> int:
         _p(f"[RANK/FOLD {i}] scored_rows(nonzero)={scored_rows}/{len(d_te)} fires_long={dbg['fires_long']} fires_short={dbg['fires_short']}")
         _p(f"[RANK/FOLD {i}] NET  top-{cfg.K} fwd_{cfg.fwd_days}d: mean={mean:.4f} med={med:.4f} p>0={ppos*100.0:.2f}%")
 
-        b_mean, b_med, b_ppos, b_seed = _topk_baseline(d_te, cfg)
+        # single baseline sample (kept for visual intuition)
+        b_mean, b_med, b_ppos, b_seed = _baseline_one(d_te, cfg)
         _p(f"[RANK/FOLD {i}] BASE top-{cfg.K} fwd_{cfg.fwd_days}d: mean={b_mean:.4f} med={b_med:.4f} p>0={b_ppos*100.0:.2f}% seed={b_seed}")
+
+        # baseline distribution for robustness
+        if cfg.baseline_trials > 0:
+            # build distribution of random-K means using the SAME RNG seed stream
+            fwd_col = f"fwd_{int(cfg.fwd_days)}d_ret"
+            fwd = pd.to_numeric(d_te[fwd_col], errors="coerce").fillna(0.0).to_numpy(dtype=float)
+            n = int(len(fwd))
+            k = int(min(max(1, int(cfg.K)), n))
+            rs = np.random.RandomState(int(cfg.baseline_seed))
+            t = int(cfg.baseline_trials)
+            means_arr = np.empty(t, dtype=float)
+            for ti in range(t):
+                idx = rs.choice(n, size=k, replace=False)
+                means_arr[ti] = float(np.mean(fwd[idx]))
+
+            base_mean = float(np.mean(means_arr))
+            base_p50 = float(np.quantile(means_arr, 0.50))
+            base_p95 = float(np.quantile(means_arr, 0.95))
+            net_pct = _percentile_of_value(means_arr, mean)
+            _p(
+                f"[RANK/FOLD {i}] BASE_DIST trials={t} mean={base_mean:.4f} p50={base_p50:.4f} p95={base_p95:.4f} | "
+                f"NET_percentile={net_pct*100.0:.2f}% (higher=better)"
+            )
 
         _banner()
 
