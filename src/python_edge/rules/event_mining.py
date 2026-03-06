@@ -4,11 +4,10 @@ from __future__ import annotations
 
 FULL FILE REWRITE.
 
-This version keeps the working pipeline structure and makes the rule generator
-MORE SELECTIVE / TIGHTER, because the latest diagnostics show:
-- long has started to appear,
-- but rank coverage is still fairly dense,
-- and fold stability suggests rules are still too broad.
+Goal
+----
+Add a first controlled layer of "interaction / schizophrenic" rule space without
+weakening downstream statistical filters.
 
 What changes vs prior working version
 -------------------------------------
@@ -17,11 +16,14 @@ What changes vs prior working version
       max_rules_try_long / max_rules_try_short
 3) Keeps top-2 per canonical signature
 4) Keeps per-symbol rolling sigma in label_events()
-5) Makes generation tighter:
-   - prefers 2-condition rules over 1-condition rules
-   - increases band-rule probability
-   - biases thresholds toward more extreme tails
-   - narrows bands (q40..q60, q30..q70 favored over very wide bands)
+5) Keeps tight rule generation mode
+6) NEW: adds derived interaction features INSIDE mining / OOS evaluation:
+   - mom_gap__pct          = mom_5d__pct - mom_1d__pct
+   - risk_gap__pct         = rv_10__pct - atr_pct__pct
+   - trend_vol_gap__pct    = ema_slow_slope__pct - rv_10__pct
+   - trend_comp_gap__pct   = ema_slow_slope__pct - compression__pct
+
+These are computed both on train and OOS, so schema remains consistent.
 
 What does NOT change
 --------------------
@@ -111,8 +113,6 @@ class RuleStats:
 
 
 _QTAGS: Tuple[str, ...] = ("q10", "q20", "q30", "q40", "q50", "q60", "q70", "q80", "q90")
-_LOW_TAGS: Tuple[str, ...] = ("q10", "q20", "q30", "q40")
-_HIGH_TAGS: Tuple[str, ...] = ("q60", "q70", "q80", "q90")
 
 
 def _es5(x: np.ndarray) -> float:
@@ -134,6 +134,15 @@ def _quantile_thresholds(s: pd.Series) -> Dict[str, float]:
     return out
 
 
+def _canonical_signature(direction: str, conds: List[Tuple[str, str, str]]) -> str:
+    parts: List[str] = []
+    for feat, op, meta_key in conds:
+        tag = meta_key.split("__")[-1] if "__" in meta_key else meta_key
+        parts.append(f"{feat}{op}{tag}")
+    parts.sort()
+    return direction + "|" + "|".join(parts)
+
+
 def _apply_rule_mask(df: pd.DataFrame, rule: Rule) -> pd.Series:
     mask = pd.Series(True, index=df.index)
     for feat, op, meta_key in rule.conds:
@@ -148,17 +157,8 @@ def _apply_rule_mask(df: pd.DataFrame, rule: Rule) -> pd.Series:
     return mask.fillna(False)
 
 
-def _canonical_signature(direction: str, conds: List[Tuple[str, str, str]]) -> str:
-    parts: List[str] = []
-    for feat, op, meta_key in conds:
-        tag = meta_key.split("__")[-1] if "__" in meta_key else meta_key
-        parts.append(f"{feat}{op}{tag}")
-    parts.sort()
-    return direction + "|" + "|".join(parts)
-
-
 def _pick_tail_tag(rng: np.random.Generator, side: str) -> str:
-    # tighter: bias more strongly to q10/q20 and q80/q90
+    # tighter: stronger bias to extremes
     if side == "high":
         tags = ["q60", "q70", "q80", "q90"]
         p = np.array([0.10, 0.20, 0.40, 0.30], dtype=float)
@@ -170,7 +170,7 @@ def _pick_tail_tag(rng: np.random.Generator, side: str) -> str:
 
 
 def _pick_band(rng: np.random.Generator) -> Tuple[str, str]:
-    # tighter: prefer mid-tight and moderate bands, de-emphasize very wide bands
+    # tighter: prefer narrower / moderate bands
     bands = [
         ("q40", "q60"),
         ("q40", "q60"),
@@ -185,6 +185,28 @@ def _pick_band(rng: np.random.Generator) -> Tuple[str, str]:
     return lo, hi
 
 
+def _augment_interaction_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Add a first batch of derived interaction features.
+
+    Only creates a feature if all required source columns exist.
+    Safe to call on both train and OOS.
+    """
+    out = df.copy()
+
+    def _mk(name: str, a: str, b: str) -> None:
+        if a in out.columns and b in out.columns and name not in out.columns:
+            xa = pd.to_numeric(out[a], errors="coerce")
+            xb = pd.to_numeric(out[b], errors="coerce")
+            out[name] = xa - xb
+
+    _mk("mom_gap__pct", "mom_5d__pct", "mom_1d__pct")
+    _mk("risk_gap__pct", "rv_10__pct", "atr_pct__pct")
+    _mk("trend_vol_gap__pct", "ema_slow_slope__pct", "rv_10__pct")
+    _mk("trend_comp_gap__pct", "ema_slow_slope__pct", "compression__pct")
+
+    return out
+
+
 def _make_rule_diverse(
     rng: np.random.Generator,
     rule_id: str,
@@ -193,10 +215,10 @@ def _make_rule_diverse(
     thrs: Dict[str, Dict[str, float]],
     max_conds: int,
 ) -> Rule:
-    """Generate a tighter / more selective rule."""
+    """Generate a tighter / more selective rule with interaction-ready space."""
     kmax = int(max(1, max_conds))
 
-    # tighter: prefer 2 conditions, reduce unary share
+    # Prefer 2-condition rules, reduce unary share.
     choices = [c for c in (1, 2, 3) if c <= kmax]
     base_p = {1: 0.15, 2: 0.60, 3: 0.25}
     probs = np.array([base_p[c] for c in choices], dtype=float)
@@ -215,7 +237,7 @@ def _make_rule_diverse(
         feat = str(rng.choice(avail))
         used.add(feat)
 
-        # tighter: higher band probability when room allows
+        # Higher band probability.
         do_band = (remaining >= 2) and (rng.random() < 0.45)
         if do_band:
             lo_tag, hi_tag = _pick_band(rng)
@@ -227,7 +249,7 @@ def _make_rule_diverse(
             conds.append((feat, "<", hi_key))
             continue
 
-        # keep paradox option, but with mild directional bias
+        # Keep paradox option, but with mild directional bias.
         if direction == "long":
             op = str(rng.choice([">", "<"], p=[0.55, 0.45]))
         else:
@@ -397,7 +419,11 @@ def mine_event_rules(
 ) -> Tuple[List[Rule], Dict[str, RuleStats], Dict[str, float]]:
     rng = np.random.default_rng(int(cfg.seed))
 
-    thrs: Dict[str, Dict[str, float]] = {c: _quantile_thresholds(df_train[c]) for c in feature_cols}
+    # NEW: add interaction features inside mining pipeline
+    df_train = _augment_interaction_features(df_train)
+    feature_cols_aug = sorted(set(feature_cols + [c for c in df_train.columns if c.endswith("__pct") and c not in feature_cols]))
+
+    thrs: Dict[str, Dict[str, float]] = {c: _quantile_thresholds(df_train[c]) for c in feature_cols_aug}
     fwd_col = f"fwd_{int(cfg.fwd_days)}d_ret"
 
     candidates: List[Rule] = []
@@ -408,12 +434,12 @@ def mine_event_rules(
     if direction in (None, "long"):
         for k in range(try_long):
             rid = f"EL{k:05d}"
-            candidates.append(_make_rule_diverse(rng, rid, "long", feature_cols, thrs, int(cfg.max_conds)))
+            candidates.append(_make_rule_diverse(rng, rid, "long", feature_cols_aug, thrs, int(cfg.max_conds)))
 
     if direction in (None, "short"):
         for k in range(try_short):
             rid = f"ES{k:05d}"
-            candidates.append(_make_rule_diverse(rng, rid, "short", feature_cols, thrs, int(cfg.max_conds)))
+            candidates.append(_make_rule_diverse(rng, rid, "short", feature_cols_aug, thrs, int(cfg.max_conds)))
 
     # keep top-2 variants per signature
     best_by_sig: Dict[str, List[Tuple[Rule, RuleStats]]] = {}
@@ -480,6 +506,9 @@ def mine_event_rules(
 def evaluate_rules_oos(df_oos: pd.DataFrame, rules: List[Rule], cfg: EventMiningConfig) -> pd.DataFrame:
     if df_oos.empty or not rules:
         return pd.DataFrame()
+
+    # NEW: same interaction features in OOS
+    df_oos = _augment_interaction_features(df_oos)
 
     fwd_col = f"fwd_{int(cfg.fwd_days)}d_ret"
     rows: List[Dict[str, object]] = []
