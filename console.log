@@ -1,0 +1,67 @@
+
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_ranker_mvp.py
+[CFG] vendor=massive dataset_root=C:\Users\Dmytro Govor\Documents\Python-Edge\data\raw\massive_dataset
+[CFG] start=2023-01-01 end=2026-02-28 tf=1D folds=3
+[CFG] event: fwd_days=5 k_sigma=1.5 sigma_lookback=60
+[CFG] rules: try=6000 keep=800 min_support=200 min_event_hits=30
+[CFG] perm: trials=50 topk=20 gate=1 margin=0.15
+[CFG] OOS filter: support>=200 lift>=1.35
+[CFG] short payoff-gate: mean>0.0 p>0>0.5
+[CFG] rank: K=30
+[CFG] health: enabled=0 win=60 min_n=50 med_min=0.0000 es5_min=-0.0800
+[CFG] recency: MUST_PASS_LATEST=0 LATEST_ONLY=0
+[CFG] baseline: seed=1337 trials=2000
+[DBG][imports] event_mining=C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\rules\event_mining.py
+[DATA] universe_symbols=29 tf=1D
+[DATA] loaded_ok=29 loaded_empty=0 loaded_fail=0
+[DATA] pooled rows=22684 (dropped=174) dates=785 symbols=29
+[DATA] base_rate up=6.8462% dn=5.2989%
+[DBG] feature_cols_n=9
+================================================================================
+[LIB/FOLD 1] train=2023-01-04..2024-04-04  test=2024-04-05..2024-11-15
+[LIB/FOLD 1] train rows=9106 test rows=4553
+[LIB/FOLD 1] mined_rules=25 perm_p95=1.434 status=ok
+[DIAG/FOLD 1] oos_all=25 lift_best=1.569 lift_med=1.023 lift_p90=1.505 sup_best=486 sup_med=234.0 cnt(thr)=7 cnt(>=1.30)=10 cnt(>=1.25)=11 | top3=short:1.569@219:short|compression__pct>q80|ema_slow_slope__pct<q30 | short:1.569@219:short|ema_slow_slope__pct<q30|rel_rv_to_atr__pct>q | short:1.530@234:short|compression__pct>q70|mom_5d_minus_mom_1d__pc
+[LIB/FOLD 1] OOS eval=25 pass(lift>=1.35)=7
+[LIB/FOLD 1] pass_breakdown long=0 short=7
+================================================================================
+[LIB/FOLD 2] train=2023-01-04..2024-11-15  test=2024-11-18..2025-07-08
+[LIB/FOLD 2] train rows=13659 test rows=4553
+[LIB/FOLD 2] mined_rules=24 perm_p95=1.374 status=ok
+[DIAG/FOLD 2] oos_all=24 lift_best=1.780 lift_med=0.699 lift_p90=1.449 sup_best=437 sup_med=169.5 cnt(thr)=1 cnt(>=1.30)=1 cnt(>=1.25)=1 | top3=long:1.780@147:long|ema_slow_slope__pct<q10|mom_1d__pct<q80|mom_1 | long:1.612@184:long|ema_slow_slope__pct<q30|rv_10__pct<q60|rv_10_ | long:1.477@437:long|ema_slow_slope__pct<q20|mom_1d__pct<q80|mom_1
+[LIB/FOLD 2] OOS eval=24 pass(lift>=1.35)=4
+[LIB/FOLD 2] pass_breakdown long=1 short=0
+================================================================================
+[LIB/FOLD 3] train=2023-01-04..2025-07-08  test=2025-07-09..2026-02-20
+[LIB/FOLD 3] train rows=18212 test rows=4472
+[LIB/FOLD 3] mined_rules=12 perm_p95=1.356 status=ok
+[DIAG/FOLD 3] oos_all=12 lift_best=3.204 lift_med=1.961 lift_p90=3.163 sup_best=189 sup_med=130.5 cnt(thr)=0 cnt(>=1.30)=0 cnt(>=1.25)=0 | top3=short:3.204@189:short|atr_pct__pct>q80|ema_slow_slope__pct>q80 | short:3.204@189:short|atr_pct__pct>q80|ema_slow_slope__pct>q80 | short:2.788@142:short|ema_slow_slope__pct>q80|mom_5d__pct>q90
+[LIB/FOLD 3] OOS eval=12 pass(lift>=1.35)=11
+[LIB/FOLD 3] pass_breakdown long=0 short=0
+================================================================================
+[GLOBAL] Rule Library (OOS-filtered across folds)
+[GLOBAL] library_size=8
+[GLOBAL] long_kept=1 short_kept(after payoff-gate)=7
+================================================================================
+[RANK/FOLD 1] OOS window=2024-04-05..2024-11-15
+[RANK/FOLD 1] fold_rules kept: long=1 short=7
+[RANK/FOLD 1] scored_rows(nonzero)=1002/4553 fires_long=384 fires_short=2200
+[RANK/FOLD 1] NET  top-30 fwd_5d: mean=0.0095 med=0.0099 p>0=70.00%
+[RANK/FOLD 1] BASE top-30 fwd_5d: mean=0.0001 med=0.0013 p>0=50.00% seed=1337
+[RANK/FOLD 1] BASE_DIST trials=2000 mean=0.0024 p50=0.0023 p95=0.0116 | NET_percentile=90.20% (higher=better)
+================================================================================
+[RANK/FOLD 2] OOS window=2024-11-18..2025-07-08
+[RANK/FOLD 2] fold_rules kept: long=1 short=7
+[RANK/FOLD 2] scored_rows(nonzero)=1041/4553 fires_long=437 fires_short=2282
+[RANK/FOLD 2] NET  top-30 fwd_5d: mean=0.0006 med=0.0007 p>0=53.33%
+[RANK/FOLD 2] BASE top-30 fwd_5d: mean=0.0020 med=0.0058 p>0=60.00% seed=1337
+[RANK/FOLD 2] BASE_DIST trials=2000 mean=0.0024 p50=0.0024 p95=0.0118 | NET_percentile=37.40% (higher=better)
+================================================================================
+[RANK/FOLD 3] OOS window=2025-07-09..2026-02-20
+[RANK/FOLD 3] fold_rules kept: long=1 short=7
+[RANK/FOLD 3] scored_rows(nonzero)=1136/4472 fires_long=405 fires_short=2791
+[RANK/FOLD 3] NET  top-30 fwd_5d: mean=0.0051 med=0.0048 p>0=60.00%
+[RANK/FOLD 3] BASE top-30 fwd_5d: mean=0.0090 med=0.0121 p>0=66.67% seed=1337
+[RANK/FOLD 3] BASE_DIST trials=2000 mean=0.0051 p50=0.0048 p95=0.0152 | NET_percentile=52.45% (higher=better)
+================================================================================
+[DONE] Ranker MVP completed.
