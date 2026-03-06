@@ -417,8 +417,24 @@ def _make_folds(dates: List[str], n_folds: int) -> List[Tuple[str, str, str, str
 def _oos_filter(df_oos: pd.DataFrame, cfg: RunCfg) -> pd.DataFrame:
     if df_oos.empty:
         return df_oos
+
     out = df_oos.copy()
-    out = out[(out["support"] >= int(cfg.oos_support_min)) & (out["lift"] >= float(cfg.oos_lift_min))]
+
+    # Direction-specific OOS lift thresholds:
+    # long edges tend to be weaker than short edges on this pipeline.
+    long_lift_min = float(_env_float("OOS_LIFT_MIN_LONG", 1.25))
+    short_lift_min = float(_env_float("OOS_LIFT_MIN_SHORT", cfg.oos_lift_min))
+
+    out = out[out["support"] >= int(cfg.oos_support_min)].copy()
+
+    m_long = out["direction"] == "long"
+    m_short = out["direction"] == "short"
+
+    out = out[
+        (m_long & (out["lift"] >= long_lift_min)) |
+        (m_short & (out["lift"] >= short_lift_min))
+    ].copy()
+
     return out
 
 
@@ -519,19 +535,25 @@ def _oos_diag_summary(df_oos_all: pd.DataFrame, cfg: RunCfg) -> str:
 
 
 def _weight_from_metrics(lift: float, fold_count: int, es5: float, oos_lift_min: float) -> float:
+    """More selective rule weighting.
+
+    Strongly separates rules that barely clear OOS threshold from rules that
+    materially exceed it, while keeping the same 0..10 clamp.
+    """
     if not np.isfinite(lift):
         return 0.0
 
+    # Distance above OOS threshold
     x = max(0.0, float(lift) - float(oos_lift_min))
 
-    # stronger separation above threshold
+    # Stronger separation: 1.36 and 1.80 should not look similar
     lift_term = (x ** 2) * 25.0
 
-    # mild stability boost by fold count
+    # Mild stability boost by fold count
     fc = max(1, int(fold_count))
     fc_boost = 1.0 + 0.05 * float(min(5, fc - 1))
 
-    # tail penalty
+    # Tail penalty: worse ES5 => lower effective weight
     tail_adj = 1.0
     if np.isfinite(es5):
         tail_adj = 1.0 / (1.0 + max(0.0, -float(es5)) * 10.0)
@@ -578,6 +600,9 @@ def _score_fold(df_oos: pd.DataFrame, rules_global: pd.DataFrame, cfg: RunCfg) -
     long_score = pd.Series(0.0, index=df_oos.index)
     short_score = pd.Series(0.0, index=df_oos.index)
 
+    long_count = pd.Series(0.0, index=df_oos.index)
+    short_count = pd.Series(0.0, index=df_oos.index)
+
     for _, rr in rules_global.iterrows():
         sig = str(rr["signature"])
         direction = str(rr["direction"])
@@ -611,11 +636,14 @@ def _score_fold(df_oos: pd.DataFrame, rules_global: pd.DataFrame, cfg: RunCfg) -
         if direction == "long":
             dbg["fires_long"] += int(mask.sum())
             long_score[mask] += w
+            long_count[mask] += 1.0
         else:
             dbg["fires_short"] += int(mask.sum())
             short_score[mask] += w
+            short_count[mask] += 1.0
 
-    net = long_score - short_score
+    # Experiment: consensus ranking by count first, weight second.
+    net = (long_count - short_count) + 0.01 * (long_score - short_score)
     dbg["rows_scored"] = int((net != 0.0).sum())
     return net, dbg
 
