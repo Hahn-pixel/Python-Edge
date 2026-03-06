@@ -521,13 +521,22 @@ def _oos_diag_summary(df_oos_all: pd.DataFrame, cfg: RunCfg) -> str:
 def _weight_from_metrics(lift: float, fold_count: int, es5: float, oos_lift_min: float) -> float:
     if not np.isfinite(lift):
         return 0.0
+
     x = max(0.0, float(lift) - float(oos_lift_min))
+
+    # stronger separation above threshold
+    lift_term = (x ** 2) * 25.0
+
+    # mild stability boost by fold count
     fc = max(1, int(fold_count))
     fc_boost = 1.0 + 0.05 * float(min(5, fc - 1))
+
+    # tail penalty
     tail_adj = 1.0
     if np.isfinite(es5):
         tail_adj = 1.0 / (1.0 + max(0.0, -float(es5)) * 10.0)
-    w = (x * 10.0) * fc_boost * tail_adj
+
+    w = lift_term * fc_boost * tail_adj
     return float(max(0.0, min(10.0, w)))
 
 
