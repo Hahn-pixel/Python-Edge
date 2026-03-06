@@ -15,7 +15,7 @@ cache/
 *.jsonl
 *.csv
 *.log
-!console.log
+!console*.log
 github.txt
 nppBackup/
 *.bak
