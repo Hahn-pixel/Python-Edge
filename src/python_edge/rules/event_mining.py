@@ -2,22 +2,32 @@ from __future__ import annotations
 
 """python_edge.rules.event_mining
 
-Restored full version with:
-- q10..q90 quantile grid
-- unary rules + band rules
-- per-symbol rolling sigma in label_events()
-- permutation sanity / gate
-- backward compatibility with old caller passing max_rules_try
-- optional directional budgets:
-    max_rules_try_long
-    max_rules_try_short
+FULL FILE REWRITE.
 
-Compatibility contract
-----------------------
-run_ranker_mvp.py may still instantiate EventMiningConfig(max_rules_try=...).
-This file preserves that API while also allowing separate long/short budgets.
-If max_rules_try_long / max_rules_try_short are not provided, they are derived
-from max_rules_try.
+This version keeps the working pipeline structure and makes the rule generator
+MORE SELECTIVE / TIGHTER, because the latest diagnostics show:
+- long has started to appear,
+- but rank coverage is still fairly dense,
+- and fold stability suggests rules are still too broad.
+
+What changes vs prior working version
+-------------------------------------
+1) Keeps backward compatibility with EventMiningConfig(max_rules_try=...)
+2) Keeps directional budgets:
+      max_rules_try_long / max_rules_try_short
+3) Keeps top-2 per canonical signature
+4) Keeps per-symbol rolling sigma in label_events()
+5) Makes generation tighter:
+   - prefers 2-condition rules over 1-condition rules
+   - increases band-rule probability
+   - biases thresholds toward more extreme tails
+   - narrows bands (q40..q60, q30..q70 favored over very wide bands)
+
+What does NOT change
+--------------------
+- support / event_hits / lift in-sample filters
+- permutation gate
+- public API
 """
 
 from dataclasses import dataclass
@@ -74,8 +84,7 @@ class EventMiningConfig:
 @dataclass(frozen=True)
 class Rule:
     rule_id: str
-    direction: str  # "long" predicts UP events, "short" predicts DOWN events
-    # cond: (feature, op, meta_key) where op in {">","<"}, meta_key stores threshold
+    direction: str
     conds: List[Tuple[str, str, str]]
     meta: Dict[str, float]
 
@@ -97,11 +106,13 @@ class RuleStats:
 
 
 # ============================================================
-# Internals
+# Helpers
 # ============================================================
 
 
 _QTAGS: Tuple[str, ...] = ("q10", "q20", "q30", "q40", "q50", "q60", "q70", "q80", "q90")
+_LOW_TAGS: Tuple[str, ...] = ("q10", "q20", "q30", "q40")
+_HIGH_TAGS: Tuple[str, ...] = ("q60", "q70", "q80", "q90")
 
 
 def _es5(x: np.ndarray) -> float:
@@ -116,7 +127,6 @@ def _quantile_thresholds(s: pd.Series) -> Dict[str, float]:
     s2 = s.replace([np.inf, -np.inf], np.nan).dropna()
     if len(s2) == 0:
         return {t: 0.0 for t in _QTAGS}
-
     out: Dict[str, float] = {}
     for t in _QTAGS:
         q = int(t[1:]) / 100.0
@@ -139,7 +149,6 @@ def _apply_rule_mask(df: pd.DataFrame, rule: Rule) -> pd.Series:
 
 
 def _canonical_signature(direction: str, conds: List[Tuple[str, str, str]]) -> str:
-    """Signature uses quantile tags (q10..q90) not numeric thresholds."""
     parts: List[str] = []
     for feat, op, meta_key in conds:
         tag = meta_key.split("__")[-1] if "__" in meta_key else meta_key
@@ -149,24 +158,28 @@ def _canonical_signature(direction: str, conds: List[Tuple[str, str, str]]) -> s
 
 
 def _pick_tail_tag(rng: np.random.Generator, side: str) -> str:
+    # tighter: bias more strongly to q10/q20 and q80/q90
     if side == "high":
         tags = ["q60", "q70", "q80", "q90"]
-        p = np.array([0.20, 0.25, 0.35, 0.20], dtype=float)
+        p = np.array([0.10, 0.20, 0.40, 0.30], dtype=float)
     else:
         tags = ["q10", "q20", "q30", "q40"]
-        p = np.array([0.20, 0.35, 0.25, 0.20], dtype=float)
+        p = np.array([0.30, 0.40, 0.20, 0.10], dtype=float)
     p = p / p.sum()
     return str(rng.choice(tags, p=p))
 
 
 def _pick_band(rng: np.random.Generator) -> Tuple[str, str]:
+    # tighter: prefer mid-tight and moderate bands, de-emphasize very wide bands
     bands = [
         ("q40", "q60"),
+        ("q40", "q60"),
         ("q30", "q70"),
-        ("q20", "q80"),
-        ("q10", "q90"),
+        ("q30", "q70"),
         ("q20", "q60"),
         ("q40", "q80"),
+        ("q20", "q80"),
+        ("q10", "q90"),
     ]
     lo, hi = bands[int(rng.integers(0, len(bands)))]
     return lo, hi
@@ -180,16 +193,12 @@ def _make_rule_diverse(
     thrs: Dict[str, Dict[str, float]],
     max_conds: int,
 ) -> Rule:
-    """Generate a diverse rule.
-
-    - Allows unary rules.
-    - Adds band constraints (2 inequalities on same feature) ~30% when budget allows.
-    - Allows some "paradox" op choice (not forced by direction).
-    """
+    """Generate a tighter / more selective rule."""
     kmax = int(max(1, max_conds))
 
+    # tighter: prefer 2 conditions, reduce unary share
     choices = [c for c in (1, 2, 3) if c <= kmax]
-    base_p = {1: 0.35, 2: 0.45, 3: 0.20}
+    base_p = {1: 0.15, 2: 0.60, 3: 0.25}
     probs = np.array([base_p[c] for c in choices], dtype=float)
     probs = probs / probs.sum()
     target = int(rng.choice(choices, p=probs))
@@ -206,7 +215,8 @@ def _make_rule_diverse(
         feat = str(rng.choice(avail))
         used.add(feat)
 
-        do_band = (remaining >= 2) and (rng.random() < 0.30)
+        # tighter: higher band probability when room allows
+        do_band = (remaining >= 2) and (rng.random() < 0.45)
         if do_band:
             lo_tag, hi_tag = _pick_band(rng)
             lo_key = f"{feat}__{lo_tag}"
@@ -217,6 +227,7 @@ def _make_rule_diverse(
             conds.append((feat, "<", hi_key))
             continue
 
+        # keep paradox option, but with mild directional bias
         if direction == "long":
             op = str(rng.choice([">", "<"], p=[0.55, 0.45]))
         else:
@@ -404,7 +415,7 @@ def mine_event_rules(
             rid = f"ES{k:05d}"
             candidates.append(_make_rule_diverse(rng, rid, "short", feature_cols, thrs, int(cfg.max_conds)))
 
-    # keep best 2 variants per signature
+    # keep top-2 variants per signature
     best_by_sig: Dict[str, List[Tuple[Rule, RuleStats]]] = {}
 
     def _score_key(st: RuleStats) -> Tuple[float, float, int, float]:
