@@ -1,6 +1,4 @@
 
-PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:RANK_K="10"
-PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_ranker_mvp.py
 [CFG] vendor=massive dataset_root=C:\Users\Dmytro Govor\Documents\Python-Edge\data\raw\massive_dataset
 [CFG] start=2023-01-01 end=2026-02-28 tf=1D folds=3
 [CFG] event: fwd_days=5 k_sigma=1.5 sigma_lookback=60
@@ -8,7 +6,7 @@ PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_ranker_mvp.
 [CFG] perm: trials=50 topk=20 gate=1 margin=0.15
 [CFG] OOS filter: support>=200 lift>=1.35
 [CFG] short payoff-gate: mean>0.0 p>0>0.5
-[CFG] rank: K=10
+[CFG] rank: K=20
 [CFG] health: enabled=0 win=60 min_n=50 med_min=0.0000 es5_min=-0.0800
 [CFG] recency: MUST_PASS_LATEST=0 LATEST_ONLY=0
 [CFG] baseline: seed=1337 trials=2000
@@ -46,29 +44,29 @@ PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_ranker_mvp.
 [RANK/FOLD 1] OOS window=2024-04-05..2024-11-15
 [RANK/FOLD 1] fold_rules kept: long=7 short=2
 [RANK/FOLD 1] scored_rows(nonzero)=951/4553 fires_long=921 fires_short=556
-[RANK/FOLD 1] NET  top-10 fwd_5d: mean=0.0270 med=0.0281 p>0=90.00%
-[RANK/FOLD 1] BASE top-10 fwd_5d: mean=-0.0007 med=-0.0044 p>0=40.00% seed=1337
-[RANK/FOLD 1] BASE_DIST trials=2000 mean=0.0024 p50=0.0020 p95=0.0178 | NET_percentile=99.25% (higher=better)
+[RANK/FOLD 1] NET  top-20 fwd_5d: mean=0.0228 med=0.0244 p>0=85.00%
+[RANK/FOLD 1] BASE top-20 fwd_5d: mean=0.0005 med=0.0016 p>0=50.00% seed=1337
+[RANK/FOLD 1] BASE_DIST trials=2000 mean=0.0025 p50=0.0022 p95=0.0132 | NET_percentile=99.75% (higher=better)
 ================================================================================
 [RANK/FOLD 2] OOS window=2024-11-18..2025-07-08
 [RANK/FOLD 2] fold_rules kept: long=7 short=2
 [RANK/FOLD 2] scored_rows(nonzero)=987/4553 fires_long=1010 fires_short=589
-[RANK/FOLD 2] NET  top-10 fwd_5d: mean=0.0003 med=0.0040 p>0=60.00%
-[RANK/FOLD 2] BASE top-10 fwd_5d: mean=-0.0102 med=-0.0060 p>0=50.00% seed=1337
-[RANK/FOLD 2] BASE_DIST trials=2000 mean=0.0025 p50=0.0025 p95=0.0189 | NET_percentile=40.40% (higher=better)
+[RANK/FOLD 2] NET  top-20 fwd_5d: mean=0.0129 med=0.0097 p>0=60.00%
+[RANK/FOLD 2] BASE top-20 fwd_5d: mean=-0.0018 med=0.0047 p>0=55.00% seed=1337
+[RANK/FOLD 2] BASE_DIST trials=2000 mean=0.0024 p50=0.0024 p95=0.0142 | NET_percentile=92.95% (higher=better)
 ================================================================================
 [RANK/FOLD 3] OOS window=2025-07-09..2026-02-20
 [RANK/FOLD 3] fold_rules kept: long=7 short=2
 [RANK/FOLD 3] scored_rows(nonzero)=1019/4472 fires_long=1018 fires_short=694
-[RANK/FOLD 3] NET  top-10 fwd_5d: mean=0.0065 med=0.0132 p>0=60.00%
-[RANK/FOLD 3] BASE top-10 fwd_5d: mean=0.0151 med=0.0161 p>0=70.00% seed=1337
-[RANK/FOLD 3] BASE_DIST trials=2000 mean=0.0050 p50=0.0043 p95=0.0225 | NET_percentile=58.45% (higher=better)
+[RANK/FOLD 3] NET  top-20 fwd_5d: mean=0.0089 med=0.0138 p>0=70.00%
+[RANK/FOLD 3] BASE top-20 fwd_5d: mean=0.0105 med=0.0121 p>0=70.00% seed=1337
+[RANK/FOLD 3] BASE_DIST trials=2000 mean=0.0051 p50=0.0049 p95=0.0175 | NET_percentile=71.00% (higher=better)
 ================================================================================
 [DONE] Ranker MVP completed.
 
 Press Enter to exit...
 PS C:\Users\Dmytro Govor\Documents\Python-Edge>
-PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:RANK_K="30"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:RANK_K="40"
 PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_ranker_mvp.py
 [CFG] vendor=massive dataset_root=C:\Users\Dmytro Govor\Documents\Python-Edge\data\raw\massive_dataset
 [CFG] start=2023-01-01 end=2026-02-28 tf=1D folds=3
@@ -77,7 +75,7 @@ PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_ranker_mvp.
 [CFG] perm: trials=50 topk=20 gate=1 margin=0.15
 [CFG] OOS filter: support>=200 lift>=1.35
 [CFG] short payoff-gate: mean>0.0 p>0>0.5
-[CFG] rank: K=30
+[CFG] rank: K=40
 [CFG] health: enabled=0 win=60 min_n=50 med_min=0.0000 es5_min=-0.0800
 [CFG] recency: MUST_PASS_LATEST=0 LATEST_ONLY=0
 [CFG] baseline: seed=1337 trials=2000
@@ -115,22 +113,22 @@ PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_ranker_mvp.
 [RANK/FOLD 1] OOS window=2024-04-05..2024-11-15
 [RANK/FOLD 1] fold_rules kept: long=7 short=2
 [RANK/FOLD 1] scored_rows(nonzero)=951/4553 fires_long=921 fires_short=556
-[RANK/FOLD 1] NET  top-30 fwd_5d: mean=0.0168 med=0.0126 p>0=83.33%
-[RANK/FOLD 1] BASE top-30 fwd_5d: mean=0.0001 med=0.0013 p>0=50.00% seed=1337
-[RANK/FOLD 1] BASE_DIST trials=2000 mean=0.0024 p50=0.0023 p95=0.0116 | NET_percentile=99.60% (higher=better)
+[RANK/FOLD 1] NET  top-40 fwd_5d: mean=0.0151 med=0.0103 p>0=80.00%
+[RANK/FOLD 1] BASE top-40 fwd_5d: mean=0.0044 med=0.0053 p>0=57.50% seed=1337
+[RANK/FOLD 1] BASE_DIST trials=2000 mean=0.0025 p50=0.0023 p95=0.0104 | NET_percentile=99.70% (higher=better)
 ================================================================================
 [RANK/FOLD 2] OOS window=2024-11-18..2025-07-08
 [RANK/FOLD 2] fold_rules kept: long=7 short=2
 [RANK/FOLD 2] scored_rows(nonzero)=987/4553 fires_long=1010 fires_short=589
-[RANK/FOLD 2] NET  top-30 fwd_5d: mean=0.0091 med=0.0093 p>0=66.67%
-[RANK/FOLD 2] BASE top-30 fwd_5d: mean=0.0020 med=0.0058 p>0=60.00% seed=1337
-[RANK/FOLD 2] BASE_DIST trials=2000 mean=0.0024 p50=0.0024 p95=0.0118 | NET_percentile=88.00% (higher=better)
+[RANK/FOLD 2] NET  top-40 fwd_5d: mean=0.0106 med=0.0119 p>0=65.00%
+[RANK/FOLD 2] BASE top-40 fwd_5d: mean=0.0023 med=0.0058 p>0=60.00% seed=1337
+[RANK/FOLD 2] BASE_DIST trials=2000 mean=0.0023 p50=0.0025 p95=0.0104 | NET_percentile=95.15% (higher=better)
 ================================================================================
 [RANK/FOLD 3] OOS window=2025-07-09..2026-02-20
 [RANK/FOLD 3] fold_rules kept: long=7 short=2
 [RANK/FOLD 3] scored_rows(nonzero)=1019/4472 fires_long=1018 fires_short=694
-[RANK/FOLD 3] NET  top-30 fwd_5d: mean=0.0080 med=0.0103 p>0=63.33%
-[RANK/FOLD 3] BASE top-30 fwd_5d: mean=0.0090 med=0.0121 p>0=66.67% seed=1337
-[RANK/FOLD 3] BASE_DIST trials=2000 mean=0.0051 p50=0.0048 p95=0.0152 | NET_percentile=70.30% (higher=better)
+[RANK/FOLD 3] NET  top-40 fwd_5d: mean=0.0084 med=0.0103 p>0=65.00%
+[RANK/FOLD 3] BASE top-40 fwd_5d: mean=0.0096 med=0.0101 p>0=67.50% seed=1337
+[RANK/FOLD 3] BASE_DIST trials=2000 mean=0.0050 p50=0.0049 p95=0.0138 | NET_percentile=74.65% (higher=better)
 ================================================================================
 [DONE] Ranker MVP completed.
