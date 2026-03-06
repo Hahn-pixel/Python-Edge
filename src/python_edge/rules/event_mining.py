@@ -4,32 +4,32 @@ from __future__ import annotations
 
 FULL FILE REWRITE.
 
-Goal
-----
-Add a first controlled layer of "interaction / schizophrenic" rule space without
-weakening downstream statistical filters.
+This version extends the prior interaction-feature approach with a second,
+more regime-oriented batch of derived features.
 
-What changes vs prior working version
--------------------------------------
-1) Keeps backward compatibility with EventMiningConfig(max_rules_try=...)
-2) Keeps directional budgets:
-      max_rules_try_long / max_rules_try_short
-3) Keeps top-2 per canonical signature
-4) Keeps per-symbol rolling sigma in label_events()
-5) Keeps tight rule generation mode
-6) NEW: adds derived interaction features INSIDE mining / OOS evaluation:
-   - mom_gap__pct          = mom_5d__pct - mom_1d__pct
-   - risk_gap__pct         = rv_10__pct - atr_pct__pct
-   - trend_vol_gap__pct    = ema_slow_slope__pct - rv_10__pct
-   - trend_comp_gap__pct   = ema_slow_slope__pct - compression__pct
+Goals
+-----
+- keep the current working pipeline intact
+- keep directional budgets
+- keep top-2 per signature
+- keep tight rule generation
+- add a richer but still controlled "schizophrenic" feature layer
 
-These are computed both on train and OOS, so schema remains consistent.
+New interaction features (v2)
+-----------------------------
+Existing v1:
+- mom_gap__pct        = mom_5d__pct - mom_1d__pct
+- risk_gap__pct       = rv_10__pct - atr_pct__pct
+- trend_vol_gap__pct  = ema_slow_slope__pct - rv_10__pct
+- trend_comp_gap__pct = ema_slow_slope__pct - compression__pct
 
-What does NOT change
---------------------
-- support / event_hits / lift in-sample filters
-- permutation gate
-- public API
+Added v2:
+- trend_risk_sum__pct = ema_slow_slope__pct + rv_10__pct
+- reversal_mix__pct   = mom_1d__pct - ema_slow_slope__pct
+- breakout_bias__pct  = compression__pct + mom_5d__pct
+- risk_pressure__pct  = atr_pct__pct + rv_10__pct - ema_slow_slope__pct
+
+These are computed both on train and OOS, so schema stays consistent.
 """
 
 from dataclasses import dataclass
@@ -39,14 +39,8 @@ import numpy as np
 import pandas as pd
 
 
-# ============================================================
-# Config / structs
-# ============================================================
-
-
 @dataclass(frozen=True)
 class EventMiningConfig:
-    # event definition
     fwd_days: int = 5
     sigma_lookback: int = 60
     k_sigma: float = 1.5
@@ -64,7 +58,6 @@ class EventMiningConfig:
     max_conds: int = 3
     seed: int = 7
 
-    # permutation sanity / gate
     perm_trials: int = 50
     perm_topk: int = 20
     perm_gate_enabled: bool = True
@@ -105,11 +98,6 @@ class RuleStats:
     p_pos_signed: float
     es5_signed: float
     signature: str
-
-
-# ============================================================
-# Helpers
-# ============================================================
 
 
 _QTAGS: Tuple[str, ...] = ("q10", "q20", "q30", "q40", "q50", "q60", "q70", "q80", "q90")
@@ -158,7 +146,6 @@ def _apply_rule_mask(df: pd.DataFrame, rule: Rule) -> pd.Series:
 
 
 def _pick_tail_tag(rng: np.random.Generator, side: str) -> str:
-    # tighter: stronger bias to extremes
     if side == "high":
         tags = ["q60", "q70", "q80", "q90"]
         p = np.array([0.10, 0.20, 0.40, 0.30], dtype=float)
@@ -170,7 +157,6 @@ def _pick_tail_tag(rng: np.random.Generator, side: str) -> str:
 
 
 def _pick_band(rng: np.random.Generator) -> Tuple[str, str]:
-    # tighter: prefer narrower / moderate bands
     bands = [
         ("q40", "q60"),
         ("q40", "q60"),
@@ -186,23 +172,40 @@ def _pick_band(rng: np.random.Generator) -> Tuple[str, str]:
 
 
 def _augment_interaction_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Add a first batch of derived interaction features.
-
-    Only creates a feature if all required source columns exist.
-    Safe to call on both train and OOS.
-    """
     out = df.copy()
 
-    def _mk(name: str, a: str, b: str) -> None:
+    def _mk_diff(name: str, a: str, b: str) -> None:
         if a in out.columns and b in out.columns and name not in out.columns:
             xa = pd.to_numeric(out[a], errors="coerce")
             xb = pd.to_numeric(out[b], errors="coerce")
             out[name] = xa - xb
 
-    _mk("mom_gap__pct", "mom_5d__pct", "mom_1d__pct")
-    _mk("risk_gap__pct", "rv_10__pct", "atr_pct__pct")
-    _mk("trend_vol_gap__pct", "ema_slow_slope__pct", "rv_10__pct")
-    _mk("trend_comp_gap__pct", "ema_slow_slope__pct", "compression__pct")
+    def _mk_sum(name: str, a: str, b: str) -> None:
+        if a in out.columns and b in out.columns and name not in out.columns:
+            xa = pd.to_numeric(out[a], errors="coerce")
+            xb = pd.to_numeric(out[b], errors="coerce")
+            out[name] = xa + xb
+
+    def _mk_mix(name: str, a: str, b: str, c: Optional[str] = None) -> None:
+        if c is None:
+            return
+        if a in out.columns and b in out.columns and c in out.columns and name not in out.columns:
+            xa = pd.to_numeric(out[a], errors="coerce")
+            xb = pd.to_numeric(out[b], errors="coerce")
+            xc = pd.to_numeric(out[c], errors="coerce")
+            out[name] = xa + xb - xc
+
+    # v1
+    _mk_diff("mom_gap__pct", "mom_5d__pct", "mom_1d__pct")
+    _mk_diff("risk_gap__pct", "rv_10__pct", "atr_pct__pct")
+    _mk_diff("trend_vol_gap__pct", "ema_slow_slope__pct", "rv_10__pct")
+    _mk_diff("trend_comp_gap__pct", "ema_slow_slope__pct", "compression__pct")
+
+    # v2 regime mixes
+    _mk_sum("trend_risk_sum__pct", "ema_slow_slope__pct", "rv_10__pct")
+    _mk_diff("reversal_mix__pct", "mom_1d__pct", "ema_slow_slope__pct")
+    _mk_sum("breakout_bias__pct", "compression__pct", "mom_5d__pct")
+    _mk_mix("risk_pressure__pct", "atr_pct__pct", "rv_10__pct", "ema_slow_slope__pct")
 
     return out
 
@@ -215,10 +218,9 @@ def _make_rule_diverse(
     thrs: Dict[str, Dict[str, float]],
     max_conds: int,
 ) -> Rule:
-    """Generate a tighter / more selective rule with interaction-ready space."""
     kmax = int(max(1, max_conds))
 
-    # Prefer 2-condition rules, reduce unary share.
+    # tighter: prefer 2-condition rules, reduce unary share
     choices = [c for c in (1, 2, 3) if c <= kmax]
     base_p = {1: 0.15, 2: 0.60, 3: 0.25}
     probs = np.array([base_p[c] for c in choices], dtype=float)
@@ -237,7 +239,6 @@ def _make_rule_diverse(
         feat = str(rng.choice(avail))
         used.add(feat)
 
-        # Higher band probability.
         do_band = (remaining >= 2) and (rng.random() < 0.45)
         if do_band:
             lo_tag, hi_tag = _pick_band(rng)
@@ -249,7 +250,6 @@ def _make_rule_diverse(
             conds.append((feat, "<", hi_key))
             continue
 
-        # Keep paradox option, but with mild directional bias.
         if direction == "long":
             op = str(rng.choice([">", "<"], p=[0.55, 0.45]))
         else:
@@ -373,11 +373,6 @@ def _permutation_sanity(df_train: pd.DataFrame, rules: List[Rule], cfg: EventMin
     }
 
 
-# ============================================================
-# Public API
-# ============================================================
-
-
 def label_events(df: pd.DataFrame, cfg: EventMiningConfig) -> pd.DataFrame:
     out = df.copy()
 
@@ -419,15 +414,15 @@ def mine_event_rules(
 ) -> Tuple[List[Rule], Dict[str, RuleStats], Dict[str, float]]:
     rng = np.random.default_rng(int(cfg.seed))
 
-    # NEW: add interaction features inside mining pipeline
     df_train = _augment_interaction_features(df_train)
     feature_cols_aug = sorted(set(feature_cols + [c for c in df_train.columns if c.endswith("__pct") and c not in feature_cols]))
+    print(f"[DBG][event_mining] feature_cols_in={len(feature_cols)} feature_cols_aug={len(feature_cols_aug)} added={len(feature_cols_aug)-len(feature_cols)}", flush=True)
+    print(f"[DBG][event_mining] added_features={[c for c in feature_cols_aug if c not in feature_cols]}", flush=True)
 
     thrs: Dict[str, Dict[str, float]] = {c: _quantile_thresholds(df_train[c]) for c in feature_cols_aug}
     fwd_col = f"fwd_{int(cfg.fwd_days)}d_ret"
 
     candidates: List[Rule] = []
-
     try_long = int(cfg.resolved_try_long())
     try_short = int(cfg.resolved_try_short())
 
@@ -441,7 +436,6 @@ def mine_event_rules(
             rid = f"ES{k:05d}"
             candidates.append(_make_rule_diverse(rng, rid, "short", feature_cols_aug, thrs, int(cfg.max_conds)))
 
-    # keep top-2 variants per signature
     best_by_sig: Dict[str, List[Tuple[Rule, RuleStats]]] = {}
 
     def _score_key(st: RuleStats) -> Tuple[float, float, int, float]:
@@ -507,9 +501,7 @@ def evaluate_rules_oos(df_oos: pd.DataFrame, rules: List[Rule], cfg: EventMining
     if df_oos.empty or not rules:
         return pd.DataFrame()
 
-    # NEW: same interaction features in OOS
     df_oos = _augment_interaction_features(df_oos)
-
     fwd_col = f"fwd_{int(cfg.fwd_days)}d_ret"
     rows: List[Dict[str, object]] = []
 
