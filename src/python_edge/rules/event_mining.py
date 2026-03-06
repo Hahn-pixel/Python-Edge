@@ -2,35 +2,22 @@ from __future__ import annotations
 
 """python_edge.rules.event_mining
 
-FULL FILE REWRITE.
+Restored full version with:
+- q10..q90 quantile grid
+- unary rules + band rules
+- per-symbol rolling sigma in label_events()
+- permutation sanity / gate
+- backward compatibility with old caller passing max_rules_try
+- optional directional budgets:
+    max_rules_try_long
+    max_rules_try_short
 
-Goal
-----
-Expand rule candidate space WITHOUT relaxing downstream WF/OOS/permutation filters.
-
-This version keeps the current expanded rule search (q10..q90, unary, bands)
-and changes one important thing in rule selection:
-
-    top-2 per canonical signature   (instead of top-1)
-
-Why
----
-Keeping only one best rule per signature is often too aggressive for rule mining.
-Close variants of the same logical pattern can survive differently OOS. Allowing the
-best two variants per signature usually increases stability without exploding the
-library.
-
-Other important behavior preserved
-----------------------------------
-- label_events() computes rolling sigma per symbol if column 'symbol' exists
-- permutation gate remains in place
-- public API remains unchanged
-
-Public API
-----------
-- label_events(df, cfg) -> DataFrame
-- mine_event_rules(df_train, feature_cols, cfg, direction=None) -> (rules, stats_by_rule_id, perm_stats)
-- evaluate_rules_oos(df_oos, rules, cfg) -> DataFrame
+Compatibility contract
+----------------------
+run_ranker_mvp.py may still instantiate EventMiningConfig(max_rules_try=...).
+This file preserves that API while also allowing separate long/short budgets.
+If max_rules_try_long / max_rules_try_short are not provided, they are derived
+from max_rules_try.
 """
 
 from dataclasses import dataclass
@@ -52,8 +39,13 @@ class EventMiningConfig:
     sigma_lookback: int = 60
     k_sigma: float = 1.5
 
-    # mining
+    # backward-compatible total budget
     max_rules_try: int = 6000
+
+    # optional directional budgets; if None, derived from max_rules_try
+    max_rules_try_long: Optional[int] = None
+    max_rules_try_short: Optional[int] = None
+
     max_rules_keep: int = 800
     min_support: int = 200
     min_event_hits: int = 30
@@ -65,6 +57,18 @@ class EventMiningConfig:
     perm_topk: int = 20
     perm_gate_enabled: bool = True
     perm_gate_margin: float = 0.15
+
+    def resolved_try_long(self) -> int:
+        if self.max_rules_try_long is not None:
+            return int(self.max_rules_try_long)
+        total = int(self.max_rules_try)
+        return total // 2
+
+    def resolved_try_short(self) -> int:
+        if self.max_rules_try_short is not None:
+            return int(self.max_rules_try_short)
+        total = int(self.max_rules_try)
+        return total - (total // 2)
 
 
 @dataclass(frozen=True)
@@ -112,6 +116,7 @@ def _quantile_thresholds(s: pd.Series) -> Dict[str, float]:
     s2 = s.replace([np.inf, -np.inf], np.nan).dropna()
     if len(s2) == 0:
         return {t: 0.0 for t in _QTAGS}
+
     out: Dict[str, float] = {}
     for t in _QTAGS:
         q = int(t[1:]) / 100.0
@@ -175,6 +180,12 @@ def _make_rule_diverse(
     thrs: Dict[str, Dict[str, float]],
     max_conds: int,
 ) -> Rule:
+    """Generate a diverse rule.
+
+    - Allows unary rules.
+    - Adds band constraints (2 inequalities on same feature) ~30% when budget allows.
+    - Allows some "paradox" op choice (not forced by direction).
+    """
     kmax = int(max(1, max_conds))
 
     choices = [c for c in (1, 2, 3) if c <= kmax]
@@ -192,7 +203,6 @@ def _make_rule_diverse(
         avail = [f for f in feature_cols if f not in used]
         if not avail:
             break
-
         feat = str(rng.choice(avail))
         used.add(feat)
 
@@ -336,14 +346,6 @@ def _permutation_sanity(df_train: pd.DataFrame, rules: List[Rule], cfg: EventMin
 
 
 def label_events(df: pd.DataFrame, cfg: EventMiningConfig) -> pd.DataFrame:
-    """Adds sigma_roll, event_thr, event_up, event_dn.
-
-    Requires columns:
-    - ret_1d
-    - fwd_{cfg.fwd_days}d_ret
-
-    If column 'symbol' is present, sigma_roll is computed per symbol.
-    """
     out = df.copy()
 
     if "ret_1d" not in out.columns:
@@ -385,29 +387,24 @@ def mine_event_rules(
     rng = np.random.default_rng(int(cfg.seed))
 
     thrs: Dict[str, Dict[str, float]] = {c: _quantile_thresholds(df_train[c]) for c in feature_cols}
-
-    dirs = [direction] if direction in ("long", "short") else ["long", "short"]
-    max_conds = int(max(1, cfg.max_conds))
-
-    candidates: List[Rule] = []
-    for k in range(int(cfg.max_rules_try)):
-        d = dirs[k % len(dirs)]
-        rid = f"E{d[0].upper()}{k:05d}"
-        candidates.append(
-            _make_rule_diverse(
-                rng,
-                rule_id=rid,
-                direction=d,
-                feature_cols=feature_cols,
-                thrs=thrs,
-                max_conds=max_conds,
-            )
-        )
-
     fwd_col = f"fwd_{int(cfg.fwd_days)}d_ret"
 
-    # NEW: keep top-2 variants per signature instead of top-1
-    # best_by_sig[signature] = list[(Rule, RuleStats)] sorted by descending key
+    candidates: List[Rule] = []
+
+    try_long = int(cfg.resolved_try_long())
+    try_short = int(cfg.resolved_try_short())
+
+    if direction in (None, "long"):
+        for k in range(try_long):
+            rid = f"EL{k:05d}"
+            candidates.append(_make_rule_diverse(rng, rid, "long", feature_cols, thrs, int(cfg.max_conds)))
+
+    if direction in (None, "short"):
+        for k in range(try_short):
+            rid = f"ES{k:05d}"
+            candidates.append(_make_rule_diverse(rng, rid, "short", feature_cols, thrs, int(cfg.max_conds)))
+
+    # keep best 2 variants per signature
     best_by_sig: Dict[str, List[Tuple[Rule, RuleStats]]] = {}
 
     def _score_key(st: RuleStats) -> Tuple[float, float, int, float]:
