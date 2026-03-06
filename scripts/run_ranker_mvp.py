@@ -876,7 +876,7 @@ def main() -> int:
 
         net, dbg = _score_fold(d_te, lib, cfg)
 
-        # auto-switch tail if library contains only short rules
+        # If library contains only short rules, flip so TOP-K picks strongest short setups.
         if not lib.empty:
             n_long = int((lib["direction"] == "long").sum())
             n_short = int((lib["direction"] == "short").sum())
@@ -884,7 +884,6 @@ def main() -> int:
                 net = -net
 
         scored_rows = int((net != 0.0).sum())
-
         mean, med, ppos = _topk_eval(d_te, net, cfg)
 
         _p(f"[RANK/FOLD {i}] OOS window={te0}..{te1}")

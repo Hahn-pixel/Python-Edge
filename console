@@ -1,5 +1,6 @@
+
 PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:RANK_K="10"
->> python .\scripts\run_ranker_mvp.py
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_ranker_mvp.py
 [CFG] vendor=massive dataset_root=C:\Users\Dmytro Govor\Documents\Python-Edge\data\raw\massive_dataset
 [CFG] start=2023-01-01 end=2026-02-28 tf=1D folds=3
 [CFG] event: fwd_days=5 k_sigma=1.5 sigma_lookback=60
@@ -11,6 +12,7 @@ PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:RANK_K="10"
 [CFG] health: enabled=0 win=60 min_n=50 med_min=0.0000 es5_min=-0.0800
 [CFG] recency: MUST_PASS_LATEST=0 LATEST_ONLY=0
 [CFG] baseline: seed=1337 trials=2000
+[DBG][imports] event_mining=C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\rules\event_mining.py
 [DATA] universe_symbols=29 tf=1D
 [DATA] loaded_ok=29 loaded_empty=0 loaded_fail=0
 [DATA] pooled rows=22684 (dropped=174) dates=785 symbols=29
@@ -66,10 +68,9 @@ PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:RANK_K="10"
 [DONE] Ranker MVP completed.
 
 Press Enter to exit...
-PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:RANK_K="30"
 PS C:\Users\Dmytro Govor\Documents\Python-Edge>
 PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:RANK_K="30"
->> python .\scripts\run_ranker_mvp.py
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_ranker_mvp.py
 [CFG] vendor=massive dataset_root=C:\Users\Dmytro Govor\Documents\Python-Edge\data\raw\massive_dataset
 [CFG] start=2023-01-01 end=2026-02-28 tf=1D folds=3
 [CFG] event: fwd_days=5 k_sigma=1.5 sigma_lookback=60
@@ -81,6 +82,7 @@ PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:RANK_K="30"
 [CFG] health: enabled=0 win=60 min_n=50 med_min=0.0000 es5_min=-0.0800
 [CFG] recency: MUST_PASS_LATEST=0 LATEST_ONLY=0
 [CFG] baseline: seed=1337 trials=2000
+[DBG][imports] event_mining=C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\rules\event_mining.py
 [DATA] universe_symbols=29 tf=1D
 [DATA] loaded_ok=29 loaded_empty=0 loaded_fail=0
 [DATA] pooled rows=22684 (dropped=174) dates=785 symbols=29
