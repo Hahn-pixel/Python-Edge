@@ -1,0 +1,265 @@
+FullName
+--------
+C:\Users\Dmytro Govor\Documents\Python-Edge\scripts\build_feature_matrix.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\scripts\download_massive_aggs.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\scripts\run_mvp_daily_rules.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\scripts\run_mvp.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\scripts\run_ranker_hold_sim.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\scripts\run_ranker_mvp.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\scripts\run_ranker_wf.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\scripts\run_rule_lab_event_mining.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\__init__.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\config.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\backtest\walkforward_rules.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\data\__init__.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\data\load_local_aggs.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\data\schema_checks.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\data\sessionize.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\data\universe.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\features\__init__.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\features\add_intraday_pressure.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\features\add_intraday_rs.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\features\add_ivol_20d.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\features\add_liq_rank.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\features\add_market_breadth.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\features\add_momentum_20d.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\features\add_overnight_drift_20d.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\features\add_str_3d.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\features\add_vol_compression.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\features\add_volume_shock.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\features\build_feature_matrix.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\features\build_features_daily.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\features\diagnostics.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\model\__init__.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\model\cs_normalize.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\model\ranker_linear.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\model\targets.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\portfolio\__init__.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\portfolio\construct.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\portfolio\portfolio_overlay.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\reports\report_text.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\rules\event_mining.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\rules\health.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\rules\rule_miner.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\wf\__init__.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\wf\evaluate_ranker.py
+C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\wf\splits.py
+
+
+
+
+
+
+D:\massive_dataset\AAPL\aggs_1d_2012-01-01_2021-12-28__FULL.json
+{
+  "ticker": "AAPL",
+  "multiplier": 1,
+  "timespan": "day",
+  "from": "2012-01-01",
+  "to": "2021-12-28",
+  "adjusted": true,
+  "sort": "asc",
+  "resultsCount": 206,
+  "results": [
+    {
+      "v": 154376610.0,
+      "vw": 117.9393,
+      "o": 120.93,
+      "c": 116.36,
+      "h": 121,
+      "l": 116.21,
+      "t": 1615179600000,
+      "n": 1540729
+    },
+    {
+      "v": 129272780.0,
+      "vw": 120.6902,
+      "o": 119.03,
+      "c": 121.085,
+      "h": 122.06,
+      "l": 118.79,
+      "t": 1615266000000,
+      "n": 1009102
+    },
+
+
+
+D:\massive_dataset\AAPL\aggs_15m_2022-01-01_2022-04-30__FULL.json
+{
+  "ticker": "AAPL",
+  "multiplier": 15,
+  "timespan": "minute",
+  "from": "2022-01-01",
+  "to": "2022-04-30",
+  "adjusted": true,
+  "sort": "asc",
+  "resultsCount": 5239,
+  "results": [
+    {
+      "v": 15259,
+      "vw": 178.086,
+      "o": 178.26,
+      "c": 178.08,
+      "h": 178.34,
+      "l": 177.76,
+      "t": 1641200400000,
+      "n": 541
+    },
+    {
+      "v": 15625,
+      "vw": 177.9563,
+      "o": 178.08,
+      "c": 177.82,
+      "h": 178.12,
+      "l": 177.81,
+      "t": 1641201300000,
+      "n": 467
+    },
+
+
+тільки 1d і 15m
+
+
+
+# Core broad-market ETFs
+SPY
+QQQ
+IWM
+DIA
+
+# Sector ETFs
+XLF
+XLE
+XLI
+XLK
+XLV
+XLY
+XLP
+XLU
+XLB
+XLRE
+
+# Thematic / semis / banks / commodities / rates
+ARKK
+SMH
+SOXX
+KRE
+TAN
+URA
+SLV
+GLD
+USO
+DBA
+DBC
+TLT
+IEF
+HYG
+LQD
+TIP
+
+# International / country ETFs
+EEM
+EWJ
+FXI
+EWZ
+INDA
+EFA
+VEA
+VWO
+
+# Volatility proxies / regime
+VIXY
+VXX
+UVXY
+SVXY
+
+# Optional VIX index ticker (may require index coverage on your Massive plan)
+VIXCBOE
+
+# Mega-caps
+AAPL
+MSFT
+NVDA
+AMZN
+GOOGL
+META
+TSLA
+AVGO
+AMD
+NFLX
+
+# Liquid financials
+JPM
+BAC
+WFC
+GS
+MS
+C
+BLK
+SCHW
+
+# Energy
+XOM
+CVX
+COP
+SLB
+EOG
+
+# Healthcare
+UNH
+LLY
+JNJ
+MRK
+ABBV
+
+# Staples / consumer
+PG
+KO
+PEP
+MCD
+COST
+WMT
+
+# Discretionary / industrial / retail
+DIS
+HD
+LOW
+BA
+CAT
+DE
+NKE
+SBUX
+
+# Chips / software / comms
+INTC
+QCOM
+TXN
+MU
+ADBE
+CRM
+ORCL
+CSCO
+
+# Transport / misc liquid names
+UPS
+FDX
+GE
+HON
+RTX
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
