@@ -4,11 +4,11 @@ import pandas as pd
 
 
 CONDITIONAL_FEATURE_COLS = [
-    "cond_momentum_trend",
-    "cond_str_range",
-    "cond_overnight_breadth_weak",
+    "cond_breadth_trend_intraday_rs",
+    "cond_breadth_trend_mom_compression",
+    "cond_breadth_range_str",
+    "cond_breadth_weak_overnight",
     "cond_ivol_lowliq_penalty",
-    "cond_vol_compression_trend",
 ]
 
 
@@ -30,15 +30,15 @@ def add_conditional_factors(df: pd.DataFrame) -> pd.DataFrame:
     if missing:
         raise RuntimeError(f"add_conditional_factors: missing columns: {missing}")
 
-    breadth_high = (out["market_breadth"] >= 0.55).astype("float64")
-    breadth_low = (out["market_breadth"] <= 0.45).astype("float64")
-    intraday_trend = (out["intraday_rs"] > 0).astype("float64")
+    breadth_trend = (out["market_breadth"] >= 0.55).astype("float64")
+    breadth_range = ((out["market_breadth"] > 0.45) & (out["market_breadth"] < 0.55)).astype("float64")
+    breadth_weak = (out["market_breadth"] <= 0.45).astype("float64")
     liq_low = (out["liq_rank"] <= 0.35).astype("float64")
 
-    out["cond_momentum_trend"] = out["momentum_20d"] * breadth_high * intraday_trend
-    out["cond_str_range"] = out["str_3d"] * (1.0 - breadth_high)
-    out["cond_overnight_breadth_weak"] = out["overnight_drift_20d"] * breadth_low
+    out["cond_breadth_trend_intraday_rs"] = out["intraday_rs"] * breadth_trend
+    out["cond_breadth_trend_mom_compression"] = out["momentum_20d"] * out["vol_compression"] * breadth_trend
+    out["cond_breadth_range_str"] = out["str_3d"] * breadth_range
+    out["cond_breadth_weak_overnight"] = out["overnight_drift_20d"] * breadth_weak
     out["cond_ivol_lowliq_penalty"] = (-1.0) * out["ivol_20d"] * liq_low
-    out["cond_vol_compression_trend"] = out["vol_compression"] * breadth_high * intraday_trend
 
     return out

@@ -7,32 +7,13 @@ import pandas as pd
 
 from python_edge.model.conditional_factors import CONDITIONAL_FEATURE_COLS, add_conditional_factors
 from python_edge.model.cs_normalize import cs_zscore
-from python_edge.model.ranker_linear import apply_linear_score, fit_corr_weights, print_fit_summary
+from python_edge.model.ranker_linear import apply_linear_score, fit_corr_weights
 from python_edge.portfolio.construct import build_long_short_portfolio
 from python_edge.wf.evaluate_ranker import evaluate_long_short, print_summary, summarize_daily_returns
 from python_edge.wf.splits import build_walkforward_splits, print_split_summary
 
 
 FEATURE_FILE = Path("data") / "features" / "feature_matrix_v1.parquet"
-BASE_FEATURES = [
-    "momentum_20d",
-    "str_3d",
-    "overnight_drift_20d",
-    "volume_shock",
-    "ivol_20d",
-    "vol_compression",
-    "intraday_rs",
-    "intraday_pressure",
-    "liq_rank",
-    "market_breadth",
-    "mom_x_volume_shock",
-    "intraday_rs_x_volume_shock",
-    "mom_x_vol_compression",
-    "mom_x_market_breadth",
-    "intraday_pressure_x_volume_shock",
-    "liq_rank_x_intraday_rs",
-]
-FEATURES = BASE_FEATURES + CONDITIONAL_FEATURE_COLS
 TARGET_COL = "target_fwd_ret_1d"
 TRAIN_DAYS = 252
 TEST_DAYS = 63
@@ -41,18 +22,45 @@ TOP_PCT = 0.10
 MIN_TRAIN_ROWS = 500
 MIN_TEST_ROWS = 100
 
+INTRADAY_CORE_FEATURES = [
+    "intraday_rs",
+    "volume_shock",
+    "intraday_pressure",
+    "intraday_rs_x_volume_shock",
+    "intraday_pressure_x_volume_shock",
+    "liq_rank_x_intraday_rs",
+]
+
+REGIME_BREADTH_FEATURES = [
+    "cond_breadth_trend_intraday_rs",
+    "cond_breadth_trend_mom_compression",
+    "cond_breadth_range_str",
+    "cond_breadth_weak_overnight",
+]
+
+RISK_FILTER_FEATURES = [
+    "cond_ivol_lowliq_penalty",
+]
+
+ABLATIONS: dict[str, list[str]] = {
+    "full_reduced": INTRADAY_CORE_FEATURES + REGIME_BREADTH_FEATURES + RISK_FILTER_FEATURES,
+    "intraday_core_only": INTRADAY_CORE_FEATURES,
+    "intraday_plus_breadth_regime": INTRADAY_CORE_FEATURES + REGIME_BREADTH_FEATURES,
+    "intraday_plus_risk": INTRADAY_CORE_FEATURES + RISK_FILTER_FEATURES,
+}
 
 
-def _prepare_base_frame(df: pd.DataFrame) -> pd.DataFrame:
+
+def _prepare_base_frame(df: pd.DataFrame, features: list[str]) -> pd.DataFrame:
     out = df.copy()
     if "date" not in out.columns:
         raise RuntimeError("_prepare_base_frame: missing date")
 
     out = add_conditional_factors(out)
-    out = cs_zscore(out, FEATURES)
+    out = cs_zscore(out, features)
 
-    zcols = [f"z_{f}" for f in FEATURES]
-    needed = ["date", "symbol", TARGET_COL] + FEATURES + zcols
+    zcols = [f"z_{f}" for f in features]
+    needed = ["date", "symbol", TARGET_COL] + features + zcols
     missing = [c for c in needed if c not in out.columns]
     if missing:
         raise RuntimeError(f"_prepare_base_frame: missing columns: {missing}")
@@ -65,11 +73,12 @@ def _slice_by_date(df: pd.DataFrame, start_date: object, end_date: object) -> pd
 
 
 
-def _weights_to_frame(fold_id: int, weights: dict[str, float]) -> pd.DataFrame:
+def _weights_to_frame(model_name: str, fold_id: int, weights: dict[str, float]) -> pd.DataFrame:
     rows = []
     for feature_name, weight_value in weights.items():
         rows.append(
             {
+                "model": model_name,
                 "fold_id": fold_id,
                 "feature": feature_name,
                 "weight": float(weight_value),
@@ -81,9 +90,9 @@ def _weights_to_frame(fold_id: int, weights: dict[str, float]) -> pd.DataFrame:
 
 
 
-def _print_weight_stability(weights_df: pd.DataFrame) -> None:
+def _print_weight_stability(model_name: str, weights_df: pd.DataFrame) -> None:
     if weights_df.empty:
-        print("[WF][WEIGHTS][WARN] empty weights_df")
+        print(f"[WF][{model_name}][WEIGHTS][WARN] empty weights_df")
         return
 
     grouped = weights_df.groupby("feature", as_index=False).agg(
@@ -97,8 +106,59 @@ def _print_weight_stability(weights_df: pd.DataFrame) -> None:
     )
     grouped = grouped.sort_values(["mean_abs_weight", "feature"], ascending=[False, True]).reset_index(drop=True)
 
-    print("[WF][WEIGHTS][STABILITY]")
+    print(f"[WF][{model_name}][WEIGHTS][STABILITY]")
     print(grouped.to_string(index=False))
+
+
+
+def _run_one_model(model_name: str, raw_df: pd.DataFrame, features: list[str]) -> tuple[pd.DataFrame, pd.DataFrame]:
+    print(f"[WF][{model_name}] features={features}")
+    df = _prepare_base_frame(raw_df, features)
+    splits = build_walkforward_splits(df["date"], train_days=TRAIN_DAYS, test_days=TEST_DAYS, step_days=STEP_DAYS)
+    print_split_summary(splits)
+
+    all_test_daily: list[pd.DataFrame] = []
+    all_weight_frames: list[pd.DataFrame] = []
+
+    for sp in splits:
+        print(f"[WF][{model_name}][FOLD {sp.fold_id}] start")
+        train_df = _slice_by_date(df, sp.train_start, sp.train_end)
+        test_df = _slice_by_date(df, sp.test_start, sp.test_end)
+
+        print(f"[WF][{model_name}][FOLD {sp.fold_id}] train_rows={len(train_df)} test_rows={len(test_df)}")
+        if len(train_df) < MIN_TRAIN_ROWS:
+            raise RuntimeError(f"[WF][{model_name}][FOLD {sp.fold_id}] train_rows too small: {len(train_df)}")
+        if len(test_df) < MIN_TEST_ROWS:
+            raise RuntimeError(f"[WF][{model_name}][FOLD {sp.fold_id}] test_rows too small: {len(test_df)}")
+
+        zcols = [f"z_{f}" for f in features]
+        fit = fit_corr_weights(train_df=train_df, zcols=zcols, target_col=TARGET_COL)
+        all_weight_frames.append(_weights_to_frame(model_name, sp.fold_id, fit.weights))
+
+        scored_test = apply_linear_score(test_df, fit=fit, out_col="score")
+        port_test = build_long_short_portfolio(scored_test, top_pct=TOP_PCT)
+        daily_test = evaluate_long_short(port_test, target_col=TARGET_COL)
+        daily_test["fold_id"] = sp.fold_id
+        daily_test["model"] = model_name
+
+        fold_summary = summarize_daily_returns(daily_test)
+        print_summary(f"[WF][{model_name}][FOLD {sp.fold_id}][SUMMARY]", fold_summary)
+        all_test_daily.append(daily_test)
+
+    if not all_test_daily:
+        raise RuntimeError(f"[WF][{model_name}] no test daily results were produced")
+
+    overall = pd.concat(all_test_daily, axis=0, ignore_index=True)
+    overall = overall.sort_values(["date", "fold_id"]).reset_index(drop=True)
+    overall_summary = summarize_daily_returns(overall)
+    print_summary(f"[WF][{model_name}][OVERALL]", overall_summary)
+
+    weights_df = pd.concat(all_weight_frames, axis=0, ignore_index=True) if all_weight_frames else pd.DataFrame()
+    _print_weight_stability(model_name, weights_df)
+
+    print(f"[WF][{model_name}][TAIL]")
+    print(overall.tail(10).to_string(index=False))
+    return overall, weights_df
 
 
 
@@ -111,55 +171,28 @@ def main() -> int:
         raise FileNotFoundError(f"Feature file not found: {FEATURE_FILE}")
 
     print("[LOAD] feature matrix")
-    df = pd.read_parquet(FEATURE_FILE)
-    if df.empty:
+    raw_df = pd.read_parquet(FEATURE_FILE)
+    if raw_df.empty:
         raise RuntimeError("Loaded feature matrix is empty")
 
-    df = _prepare_base_frame(df)
-    splits = build_walkforward_splits(df["date"], train_days=TRAIN_DAYS, test_days=TEST_DAYS, step_days=STEP_DAYS)
-    print_split_summary(splits)
+    model_summaries: list[dict[str, float | str]] = []
+    for model_name, features in ABLATIONS.items():
+        overall, _weights_df = _run_one_model(model_name, raw_df, features)
+        summary = summarize_daily_returns(overall)
+        model_summaries.append(
+            {
+                "model": model_name,
+                "days": int(summary["days"]),
+                "avg_daily_ret": float(summary["avg_daily_ret"]),
+                "std_daily_ret": float(summary["std_daily_ret"]),
+                "win_rate_days": float(summary["win_rate_days"]),
+                "cum_ret": float(summary["cum_ret"]),
+            }
+        )
 
-    all_test_daily: list[pd.DataFrame] = []
-    all_weight_frames: list[pd.DataFrame] = []
-
-    for sp in splits:
-        print(f"[WF][FOLD {sp.fold_id}] start")
-        train_df = _slice_by_date(df, sp.train_start, sp.train_end)
-        test_df = _slice_by_date(df, sp.test_start, sp.test_end)
-
-        print(f"[WF][FOLD {sp.fold_id}] train_rows={len(train_df)} test_rows={len(test_df)}")
-        if len(train_df) < MIN_TRAIN_ROWS:
-            raise RuntimeError(f"[WF][FOLD {sp.fold_id}] train_rows too small: {len(train_df)}")
-        if len(test_df) < MIN_TEST_ROWS:
-            raise RuntimeError(f"[WF][FOLD {sp.fold_id}] test_rows too small: {len(test_df)}")
-
-        zcols = [f"z_{f}" for f in FEATURES]
-        fit = fit_corr_weights(train_df=train_df, zcols=zcols, target_col=TARGET_COL)
-        print_fit_summary(fit)
-        all_weight_frames.append(_weights_to_frame(sp.fold_id, fit.weights))
-
-        scored_test = apply_linear_score(test_df, fit=fit, out_col="score")
-        port_test = build_long_short_portfolio(scored_test, top_pct=TOP_PCT)
-        daily_test = evaluate_long_short(port_test, target_col=TARGET_COL)
-        daily_test["fold_id"] = sp.fold_id
-
-        fold_summary = summarize_daily_returns(daily_test)
-        print_summary(f"[WF][FOLD {sp.fold_id}][SUMMARY]", fold_summary)
-        all_test_daily.append(daily_test)
-
-    if not all_test_daily:
-        raise RuntimeError("No test daily results were produced")
-
-    overall = pd.concat(all_test_daily, axis=0, ignore_index=True)
-    overall = overall.sort_values(["date", "fold_id"]).reset_index(drop=True)
-    overall_summary = summarize_daily_returns(overall)
-    print_summary("[WF][OVERALL]", overall_summary)
-
-    weights_df = pd.concat(all_weight_frames, axis=0, ignore_index=True) if all_weight_frames else pd.DataFrame()
-    _print_weight_stability(weights_df)
-
-    print("[WF][TAIL]")
-    print(overall.tail(10).to_string(index=False))
+    summary_df = pd.DataFrame(model_summaries).sort_values(["cum_ret", "avg_daily_ret"], ascending=[False, False]).reset_index(drop=True)
+    print("[WF][ABLATION][SUMMARY]")
+    print(summary_df.to_string(index=False))
     return 0
 
 
