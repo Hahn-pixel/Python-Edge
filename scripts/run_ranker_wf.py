@@ -8,6 +8,7 @@ import pandas as pd
 from python_edge.execution.cost_model import attach_execution_costs
 from python_edge.model.conditional_factors import add_conditional_factors
 from python_edge.model.cs_normalize import cs_zscore
+from python_edge.model.neutralize import add_beta_proxy, neutralize_score_cross_section
 from python_edge.model.ranker_linear import apply_linear_score, fit_corr_weights
 from python_edge.portfolio.construct import build_long_short_portfolio
 from python_edge.portfolio.holding_inertia import apply_holding_inertia
@@ -57,14 +58,22 @@ ABLATIONS: dict[str, dict[str, object]] = {
     "intraday_core_only": {
         "features": INTRADAY_CORE_FEATURES,
         "portfolio_mode": "plain_inertia",
+        "neutralize": False,
     },
     "intraday_plus_breadth_regime": {
         "features": INTRADAY_CORE_FEATURES + REGIME_BREADTH_FEATURES,
         "portfolio_mode": "regime_inertia",
+        "neutralize": False,
     },
     "full_regime_stack": {
         "features": INTRADAY_CORE_FEATURES + REGIME_BREADTH_FEATURES + RECOVERED_DAILY_FEATURES + RISK_FILTER_FEATURES,
         "portfolio_mode": "regime_inertia",
+        "neutralize": False,
+    },
+    "full_regime_stack_neutralized": {
+        "features": INTRADAY_CORE_FEATURES + REGIME_BREADTH_FEATURES + RECOVERED_DAILY_FEATURES + RISK_FILTER_FEATURES,
+        "portfolio_mode": "regime_inertia",
+        "neutralize": True,
     },
 }
 
@@ -72,12 +81,25 @@ ABLATIONS: dict[str, dict[str, object]] = {
 
 def _prepare_base_frame(df: pd.DataFrame, features: list[str]) -> pd.DataFrame:
     out = df.copy()
+    if "symbol" not in out.columns:
+        if "ticker" in out.columns:
+            out = out.rename(columns={"ticker": "symbol"})
+        elif "sym" in out.columns:
+            out = out.rename(columns={"sym": "symbol"})
+
     if "date" not in out.columns:
         raise RuntimeError("_prepare_base_frame: missing date")
+    if "symbol" not in out.columns:
+        raise RuntimeError("_prepare_base_frame: missing symbol before transforms")
+
     out = add_conditional_factors(out)
+    out = add_beta_proxy(out, lookback=60)
+    if "symbol" not in out.columns:
+        raise RuntimeError("_prepare_base_frame: symbol disappeared after add_beta_proxy")
+
     out = cs_zscore(out, features)
     zcols = [f"z_{f}" for f in features]
-    needed = ["date", "symbol", TARGET_COL, "market_breadth", "meta_dollar_volume", "meta_price"] + features + zcols
+    needed = ["date", "symbol", TARGET_COL, "market_breadth", "meta_dollar_volume", "meta_price", "liq_rank", "beta_proxy_60d"] + features + zcols
     missing = [c for c in needed if c not in out.columns]
     if missing:
         raise RuntimeError(f"_prepare_base_frame: missing columns: {missing}")
@@ -126,16 +148,19 @@ def _print_weight_stability(model_name: str, weights_df: pd.DataFrame) -> None:
 
 
 
-def _build_portfolio(test_df: pd.DataFrame, portfolio_mode: str) -> pd.DataFrame:
+def _build_portfolio(test_df: pd.DataFrame, portfolio_mode: str, score_col: str) -> pd.DataFrame:
+    temp = test_df.copy()
+    if score_col != "score":
+        temp["score"] = pd.to_numeric(temp[score_col], errors="coerce")
+
     if portfolio_mode == "plain":
-        return build_long_short_portfolio(test_df, top_pct=TOP_PCT)
+        return build_long_short_portfolio(temp, top_pct=TOP_PCT)
     if portfolio_mode == "regime":
-        return build_regime_aware_long_short_portfolio(test_df)
+        return build_regime_aware_long_short_portfolio(temp)
     if portfolio_mode == "plain_inertia":
-        return apply_holding_inertia(test_df, enter_pct=ENTER_PCT, exit_pct=EXIT_PCT)
+        return apply_holding_inertia(temp, enter_pct=ENTER_PCT, exit_pct=EXIT_PCT)
     if portfolio_mode == "regime_inertia":
-        reg = build_regime_aware_long_short_portfolio(test_df)
-        # use regime-aware score universe, then re-apply hysteresis on score ranks
+        reg = build_regime_aware_long_short_portfolio(temp)
         reg = reg.drop(columns=[c for c in ["rank", "side"] if c in reg.columns])
         return apply_holding_inertia(reg, enter_pct=ENTER_PCT, exit_pct=EXIT_PCT)
     raise RuntimeError(f"Unknown portfolio_mode={portfolio_mode!r}")
@@ -152,8 +177,8 @@ def _apply_execution_layer(port_df: pd.DataFrame) -> pd.DataFrame:
 
 
 
-def _run_one_model(model_name: str, raw_df: pd.DataFrame, features: list[str], portfolio_mode: str) -> tuple[pd.DataFrame, pd.DataFrame]:
-    print(f"[WF][{model_name}] portfolio_mode={portfolio_mode} features={features}")
+def _run_one_model(model_name: str, raw_df: pd.DataFrame, features: list[str], portfolio_mode: str, neutralize: bool) -> tuple[pd.DataFrame, pd.DataFrame]:
+    print(f"[WF][{model_name}] portfolio_mode={portfolio_mode} neutralize={neutralize} features={features}")
     df = _prepare_base_frame(raw_df, features)
     splits = build_walkforward_splits(df["date"], train_days=TRAIN_DAYS, test_days=TEST_DAYS, step_days=STEP_DAYS)
     print_split_summary(splits)
@@ -176,7 +201,12 @@ def _run_one_model(model_name: str, raw_df: pd.DataFrame, features: list[str], p
         all_weight_frames.append(_weights_to_frame(model_name, sp.fold_id, fit.weights))
 
         scored_test = apply_linear_score(test_df, fit=fit, out_col="score")
-        port_test = _build_portfolio(scored_test, portfolio_mode=portfolio_mode)
+        score_col = "score"
+        if neutralize:
+            scored_test = neutralize_score_cross_section(scored_test, score_col="score", exposure_cols=["liq_rank", "beta_proxy_60d"], out_col="score_neutral")
+            score_col = "score_neutral"
+
+        port_test = _build_portfolio(scored_test, portfolio_mode=portfolio_mode, score_col=score_col)
         port_test = _apply_execution_layer(port_test)
 
         daily_test = evaluate_long_short(port_test, target_col=TARGET_COL)
@@ -222,12 +252,14 @@ def main() -> int:
     for model_name, cfg in ABLATIONS.items():
         features = list(cfg["features"])
         portfolio_mode = str(cfg["portfolio_mode"])
-        overall, _weights_df = _run_one_model(model_name, raw_df, features, portfolio_mode)
+        neutralize = bool(cfg["neutralize"])
+        overall, _weights_df = _run_one_model(model_name, raw_df, features, portfolio_mode, neutralize)
         summary = summarize_daily_returns(overall)
         model_summaries.append(
             {
                 "model": model_name,
                 "portfolio_mode": portfolio_mode,
+                "neutralize": neutralize,
                 "days": int(summary["days"]),
                 "avg_daily_ret": float(summary["avg_daily_ret"]),
                 "std_daily_ret": float(summary["std_daily_ret"]),
