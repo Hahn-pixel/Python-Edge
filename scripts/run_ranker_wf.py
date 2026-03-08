@@ -5,11 +5,14 @@ from pathlib import Path
 
 import pandas as pd
 
+from python_edge.execution.cost_model import attach_execution_costs
 from python_edge.model.conditional_factors import CONDITIONAL_FEATURE_COLS, add_conditional_factors
 from python_edge.model.cs_normalize import cs_zscore
 from python_edge.model.ranker_linear import apply_linear_score, fit_corr_weights
 from python_edge.portfolio.construct import build_long_short_portfolio
+from python_edge.portfolio.position_limits import apply_position_filters, normalize_gross_exposure
 from python_edge.portfolio.regime_allocation import build_regime_aware_long_short_portfolio
+from python_edge.portfolio.turnover_control import dampen_turnover
 from python_edge.wf.evaluate_ranker import evaluate_long_short, print_summary, summarize_daily_returns
 from python_edge.wf.splits import build_walkforward_splits, print_split_summary
 
@@ -31,21 +34,18 @@ INTRADAY_CORE_FEATURES = [
     "intraday_pressure_x_volume_shock",
     "liq_rank_x_intraday_rs",
 ]
-
 REGIME_BREADTH_FEATURES = [
     "cond_breadth_trend_intraday_rs",
     "cond_breadth_trend_mom_compression",
     "cond_breadth_range_str",
     "cond_breadth_weak_overnight",
 ]
-
 RECOVERED_DAILY_FEATURES = [
     "cond_momentum_liq_trend",
     "cond_str_weak_breadth",
     "cond_overnight_trend_follow",
     "cond_vol_compression_liq_breakout",
 ]
-
 RISK_FILTER_FEATURES = [
     "cond_ivol_lowliq_penalty",
 ]
@@ -53,10 +53,6 @@ RISK_FILTER_FEATURES = [
 ABLATIONS: dict[str, dict[str, object]] = {
     "intraday_core_only": {
         "features": INTRADAY_CORE_FEATURES,
-        "portfolio_mode": "plain",
-    },
-    "intraday_plus_risk": {
-        "features": INTRADAY_CORE_FEATURES + RISK_FILTER_FEATURES,
         "portfolio_mode": "plain",
     },
     "intraday_plus_breadth_regime": {
@@ -75,12 +71,10 @@ def _prepare_base_frame(df: pd.DataFrame, features: list[str]) -> pd.DataFrame:
     out = df.copy()
     if "date" not in out.columns:
         raise RuntimeError("_prepare_base_frame: missing date")
-
     out = add_conditional_factors(out)
     out = cs_zscore(out, features)
-
     zcols = [f"z_{f}" for f in features]
-    needed = ["date", "symbol", TARGET_COL, "market_breadth"] + features + zcols
+    needed = ["date", "symbol", TARGET_COL, "market_breadth", "meta_dollar_volume", "meta_price"] + features + zcols
     missing = [c for c in needed if c not in out.columns]
     if missing:
         raise RuntimeError(f"_prepare_base_frame: missing columns: {missing}")
@@ -114,7 +108,6 @@ def _print_weight_stability(model_name: str, weights_df: pd.DataFrame) -> None:
     if weights_df.empty:
         print(f"[WF][{model_name}][WEIGHTS][WARN] empty weights_df")
         return
-
     grouped = weights_df.groupby("feature", as_index=False).agg(
         folds=("fold_id", "nunique"),
         mean_weight=("weight", "mean"),
@@ -125,7 +118,6 @@ def _print_weight_stability(model_name: str, weights_df: pd.DataFrame) -> None:
         zero_folds=("sign", lambda s: int((s == 0).sum())),
     )
     grouped = grouped.sort_values(["mean_abs_weight", "feature"], ascending=[False, True]).reset_index(drop=True)
-
     print(f"[WF][{model_name}][WEIGHTS][STABILITY]")
     print(grouped.to_string(index=False))
 
@@ -137,6 +129,16 @@ def _build_portfolio(test_df: pd.DataFrame, portfolio_mode: str) -> pd.DataFrame
     if portfolio_mode == "regime":
         return build_regime_aware_long_short_portfolio(test_df)
     raise RuntimeError(f"Unknown portfolio_mode={portfolio_mode!r}")
+
+
+
+def _apply_execution_layer(port_df: pd.DataFrame) -> pd.DataFrame:
+    out = port_df.copy()
+    out = apply_position_filters(out, min_price=5.0, min_dollar_volume=1_000_000.0)
+    out = dampen_turnover(out, max_turnover_unit=1.5)
+    out = normalize_gross_exposure(out, gross_target=1.0)
+    out = attach_execution_costs(out, fee_bps=1.0, slippage_bps=2.0, borrow_bps=1.0)
+    return out
 
 
 
@@ -153,7 +155,6 @@ def _run_one_model(model_name: str, raw_df: pd.DataFrame, features: list[str], p
         print(f"[WF][{model_name}][FOLD {sp.fold_id}] start")
         train_df = _slice_by_date(df, sp.train_start, sp.train_end)
         test_df = _slice_by_date(df, sp.test_start, sp.test_end)
-
         print(f"[WF][{model_name}][FOLD {sp.fold_id}] train_rows={len(train_df)} test_rows={len(test_df)}")
         if len(train_df) < MIN_TRAIN_ROWS:
             raise RuntimeError(f"[WF][{model_name}][FOLD {sp.fold_id}] train_rows too small: {len(train_df)}")
@@ -166,6 +167,8 @@ def _run_one_model(model_name: str, raw_df: pd.DataFrame, features: list[str], p
 
         scored_test = apply_linear_score(test_df, fit=fit, out_col="score")
         port_test = _build_portfolio(scored_test, portfolio_mode=portfolio_mode)
+        port_test = _apply_execution_layer(port_test)
+
         daily_test = evaluate_long_short(port_test, target_col=TARGET_COL)
         daily_test["fold_id"] = sp.fold_id
         daily_test["model"] = model_name
@@ -219,6 +222,8 @@ def main() -> int:
                 "std_daily_ret": float(summary["std_daily_ret"]),
                 "win_rate_days": float(summary["win_rate_days"]),
                 "cum_ret": float(summary["cum_ret"]),
+                "avg_turnover": float(summary.get("avg_turnover", 0.0)),
+                "avg_costs": float(summary.get("avg_costs", 0.0)),
             }
         )
 
