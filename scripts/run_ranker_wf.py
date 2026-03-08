@@ -9,6 +9,7 @@ from python_edge.model.conditional_factors import CONDITIONAL_FEATURE_COLS, add_
 from python_edge.model.cs_normalize import cs_zscore
 from python_edge.model.ranker_linear import apply_linear_score, fit_corr_weights
 from python_edge.portfolio.construct import build_long_short_portfolio
+from python_edge.portfolio.regime_allocation import build_regime_aware_long_short_portfolio
 from python_edge.wf.evaluate_ranker import evaluate_long_short, print_summary, summarize_daily_returns
 from python_edge.wf.splits import build_walkforward_splits, print_split_summary
 
@@ -38,15 +39,34 @@ REGIME_BREADTH_FEATURES = [
     "cond_breadth_weak_overnight",
 ]
 
+RECOVERED_DAILY_FEATURES = [
+    "cond_momentum_liq_trend",
+    "cond_str_weak_breadth",
+    "cond_overnight_trend_follow",
+    "cond_vol_compression_liq_breakout",
+]
+
 RISK_FILTER_FEATURES = [
     "cond_ivol_lowliq_penalty",
 ]
 
-ABLATIONS: dict[str, list[str]] = {
-    "full_reduced": INTRADAY_CORE_FEATURES + REGIME_BREADTH_FEATURES + RISK_FILTER_FEATURES,
-    "intraday_core_only": INTRADAY_CORE_FEATURES,
-    "intraday_plus_breadth_regime": INTRADAY_CORE_FEATURES + REGIME_BREADTH_FEATURES,
-    "intraday_plus_risk": INTRADAY_CORE_FEATURES + RISK_FILTER_FEATURES,
+ABLATIONS: dict[str, dict[str, object]] = {
+    "intraday_core_only": {
+        "features": INTRADAY_CORE_FEATURES,
+        "portfolio_mode": "plain",
+    },
+    "intraday_plus_risk": {
+        "features": INTRADAY_CORE_FEATURES + RISK_FILTER_FEATURES,
+        "portfolio_mode": "plain",
+    },
+    "intraday_plus_breadth_regime": {
+        "features": INTRADAY_CORE_FEATURES + REGIME_BREADTH_FEATURES,
+        "portfolio_mode": "regime",
+    },
+    "full_regime_stack": {
+        "features": INTRADAY_CORE_FEATURES + REGIME_BREADTH_FEATURES + RECOVERED_DAILY_FEATURES + RISK_FILTER_FEATURES,
+        "portfolio_mode": "regime",
+    },
 }
 
 
@@ -60,7 +80,7 @@ def _prepare_base_frame(df: pd.DataFrame, features: list[str]) -> pd.DataFrame:
     out = cs_zscore(out, features)
 
     zcols = [f"z_{f}" for f in features]
-    needed = ["date", "symbol", TARGET_COL] + features + zcols
+    needed = ["date", "symbol", TARGET_COL, "market_breadth"] + features + zcols
     missing = [c for c in needed if c not in out.columns]
     if missing:
         raise RuntimeError(f"_prepare_base_frame: missing columns: {missing}")
@@ -111,8 +131,17 @@ def _print_weight_stability(model_name: str, weights_df: pd.DataFrame) -> None:
 
 
 
-def _run_one_model(model_name: str, raw_df: pd.DataFrame, features: list[str]) -> tuple[pd.DataFrame, pd.DataFrame]:
-    print(f"[WF][{model_name}] features={features}")
+def _build_portfolio(test_df: pd.DataFrame, portfolio_mode: str) -> pd.DataFrame:
+    if portfolio_mode == "plain":
+        return build_long_short_portfolio(test_df, top_pct=TOP_PCT)
+    if portfolio_mode == "regime":
+        return build_regime_aware_long_short_portfolio(test_df)
+    raise RuntimeError(f"Unknown portfolio_mode={portfolio_mode!r}")
+
+
+
+def _run_one_model(model_name: str, raw_df: pd.DataFrame, features: list[str], portfolio_mode: str) -> tuple[pd.DataFrame, pd.DataFrame]:
+    print(f"[WF][{model_name}] portfolio_mode={portfolio_mode} features={features}")
     df = _prepare_base_frame(raw_df, features)
     splits = build_walkforward_splits(df["date"], train_days=TRAIN_DAYS, test_days=TEST_DAYS, step_days=STEP_DAYS)
     print_split_summary(splits)
@@ -136,7 +165,7 @@ def _run_one_model(model_name: str, raw_df: pd.DataFrame, features: list[str]) -
         all_weight_frames.append(_weights_to_frame(model_name, sp.fold_id, fit.weights))
 
         scored_test = apply_linear_score(test_df, fit=fit, out_col="score")
-        port_test = build_long_short_portfolio(scored_test, top_pct=TOP_PCT)
+        port_test = _build_portfolio(scored_test, portfolio_mode=portfolio_mode)
         daily_test = evaluate_long_short(port_test, target_col=TARGET_COL)
         daily_test["fold_id"] = sp.fold_id
         daily_test["model"] = model_name
@@ -176,12 +205,15 @@ def main() -> int:
         raise RuntimeError("Loaded feature matrix is empty")
 
     model_summaries: list[dict[str, float | str]] = []
-    for model_name, features in ABLATIONS.items():
-        overall, _weights_df = _run_one_model(model_name, raw_df, features)
+    for model_name, cfg in ABLATIONS.items():
+        features = list(cfg["features"])
+        portfolio_mode = str(cfg["portfolio_mode"])
+        overall, _weights_df = _run_one_model(model_name, raw_df, features, portfolio_mode)
         summary = summarize_daily_returns(overall)
         model_summaries.append(
             {
                 "model": model_name,
+                "portfolio_mode": portfolio_mode,
                 "days": int(summary["days"]),
                 "avg_daily_ret": float(summary["avg_daily_ret"]),
                 "std_daily_ret": float(summary["std_daily_ret"]),
