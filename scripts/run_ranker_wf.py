@@ -6,10 +6,11 @@ from pathlib import Path
 import pandas as pd
 
 from python_edge.execution.cost_model import attach_execution_costs
-from python_edge.model.conditional_factors import CONDITIONAL_FEATURE_COLS, add_conditional_factors
+from python_edge.model.conditional_factors import add_conditional_factors
 from python_edge.model.cs_normalize import cs_zscore
 from python_edge.model.ranker_linear import apply_linear_score, fit_corr_weights
 from python_edge.portfolio.construct import build_long_short_portfolio
+from python_edge.portfolio.holding_inertia import apply_holding_inertia
 from python_edge.portfolio.position_limits import apply_position_filters, normalize_gross_exposure
 from python_edge.portfolio.regime_allocation import build_regime_aware_long_short_portfolio
 from python_edge.portfolio.turnover_control import dampen_turnover
@@ -23,6 +24,8 @@ TRAIN_DAYS = 252
 TEST_DAYS = 63
 STEP_DAYS = 63
 TOP_PCT = 0.10
+ENTER_PCT = 0.10
+EXIT_PCT = 0.20
 MIN_TRAIN_ROWS = 500
 MIN_TEST_ROWS = 100
 
@@ -53,15 +56,15 @@ RISK_FILTER_FEATURES = [
 ABLATIONS: dict[str, dict[str, object]] = {
     "intraday_core_only": {
         "features": INTRADAY_CORE_FEATURES,
-        "portfolio_mode": "plain",
+        "portfolio_mode": "plain_inertia",
     },
     "intraday_plus_breadth_regime": {
         "features": INTRADAY_CORE_FEATURES + REGIME_BREADTH_FEATURES,
-        "portfolio_mode": "regime",
+        "portfolio_mode": "regime_inertia",
     },
     "full_regime_stack": {
         "features": INTRADAY_CORE_FEATURES + REGIME_BREADTH_FEATURES + RECOVERED_DAILY_FEATURES + RISK_FILTER_FEATURES,
-        "portfolio_mode": "regime",
+        "portfolio_mode": "regime_inertia",
     },
 }
 
@@ -128,6 +131,13 @@ def _build_portfolio(test_df: pd.DataFrame, portfolio_mode: str) -> pd.DataFrame
         return build_long_short_portfolio(test_df, top_pct=TOP_PCT)
     if portfolio_mode == "regime":
         return build_regime_aware_long_short_portfolio(test_df)
+    if portfolio_mode == "plain_inertia":
+        return apply_holding_inertia(test_df, enter_pct=ENTER_PCT, exit_pct=EXIT_PCT)
+    if portfolio_mode == "regime_inertia":
+        reg = build_regime_aware_long_short_portfolio(test_df)
+        # use regime-aware score universe, then re-apply hysteresis on score ranks
+        reg = reg.drop(columns=[c for c in ["rank", "side"] if c in reg.columns])
+        return apply_holding_inertia(reg, enter_pct=ENTER_PCT, exit_pct=EXIT_PCT)
     raise RuntimeError(f"Unknown portfolio_mode={portfolio_mode!r}")
 
 
@@ -135,7 +145,7 @@ def _build_portfolio(test_df: pd.DataFrame, portfolio_mode: str) -> pd.DataFrame
 def _apply_execution_layer(port_df: pd.DataFrame) -> pd.DataFrame:
     out = port_df.copy()
     out = apply_position_filters(out, min_price=5.0, min_dollar_volume=1_000_000.0)
-    out = dampen_turnover(out, max_turnover_unit=1.5)
+    out = dampen_turnover(out, max_turnover_unit=0.60)
     out = normalize_gross_exposure(out, gross_target=1.0)
     out = attach_execution_costs(out, fee_bps=1.0, slippage_bps=2.0, borrow_bps=1.0)
     return out
@@ -198,6 +208,7 @@ def main() -> int:
     print(f"[CFG] feature_file={FEATURE_FILE}")
     print(f"[CFG] target_col={TARGET_COL}")
     print(f"[CFG] train_days={TRAIN_DAYS} test_days={TEST_DAYS} step_days={STEP_DAYS} top_pct={TOP_PCT}")
+    print(f"[CFG] enter_pct={ENTER_PCT} exit_pct={EXIT_PCT}")
 
     if not FEATURE_FILE.exists():
         raise FileNotFoundError(f"Feature file not found: {FEATURE_FILE}")

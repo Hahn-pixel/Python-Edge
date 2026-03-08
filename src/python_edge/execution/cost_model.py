@@ -17,29 +17,32 @@ def attach_execution_costs(
     if missing:
         raise RuntimeError(f"attach_execution_costs: missing columns: {missing}")
 
-    abs_side = pd.to_numeric(out["side"], errors="coerce").abs().fillna(0.0)
+    side = pd.to_numeric(out["side"], errors="coerce").fillna(0.0)
+    abs_side = side.abs()
     px = pd.to_numeric(out["meta_price"], errors="coerce")
     dv = pd.to_numeric(out["meta_dollar_volume"], errors="coerce")
 
     fee_cost = abs_side * (fee_bps / 10000.0)
-    base_slip = abs_side * (slippage_bps / 10000.0)
 
-    liquidity_penalty = pd.Series(0.0, index=out.index, dtype="float64")
-    low_liq = dv < 2_000_000.0
-    mid_liq = (dv >= 2_000_000.0) & (dv < 10_000_000.0)
-    liquidity_penalty.loc[mid_liq] = abs_side.loc[mid_liq] * (1.0 / 10000.0)
-    liquidity_penalty.loc[low_liq] = abs_side.loc[low_liq] * (3.0 / 10000.0)
+    base_slip = pd.Series(slippage_bps / 10000.0, index=out.index, dtype="float64")
+    liq_slip = pd.Series(0.0, index=out.index, dtype="float64")
+    liq_slip.loc[dv < 20_000_000.0] = 1.0 / 10000.0
+    liq_slip.loc[dv < 10_000_000.0] = 2.0 / 10000.0
+    liq_slip.loc[dv < 5_000_000.0] = 4.0 / 10000.0
+    liq_slip.loc[dv < 2_000_000.0] = 8.0 / 10000.0
 
-    price_penalty = pd.Series(0.0, index=out.index, dtype="float64")
-    cheap = px < 10.0
-    price_penalty.loc[cheap] = abs_side.loc[cheap] * (2.0 / 10000.0)
+    price_slip = pd.Series(0.0, index=out.index, dtype="float64")
+    price_slip.loc[px < 20.0] = 1.0 / 10000.0
+    price_slip.loc[px < 10.0] = 3.0 / 10000.0
 
     short_borrow = pd.Series(0.0, index=out.index, dtype="float64")
-    short_mask = pd.to_numeric(out["side"], errors="coerce") < 0
+    short_mask = side < 0.0
     short_borrow.loc[short_mask] = abs_side.loc[short_mask] * (borrow_bps / 10000.0)
 
+    total_slip_rate = base_slip + liq_slip + price_slip
+
     out["cost_fee"] = fee_cost
-    out["cost_slippage"] = base_slip + liquidity_penalty + price_penalty
+    out["cost_slippage"] = abs_side * total_slip_rate
     out["cost_borrow"] = short_borrow
     out["cost_total"] = out["cost_fee"] + out["cost_slippage"] + out["cost_borrow"]
     return out
