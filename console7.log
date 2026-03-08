@@ -1,0 +1,123 @@
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> Set-StrictMode -Version Latest
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $ErrorActionPreference = "Stop"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> cd C:\Users\Dmytro Govor\Documents\Python-Edge
+Set-Location: A positional parameter cannot be found that accepts argument 'Govor\Documents\Python-Edge'.
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:PYTHONPATH=".\src"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_ranker_wf.py
+[CFG] feature_file=data\features\feature_matrix_v1.parquet
+[CFG] target_col=target_fwd_ret_1d
+[CFG] train_days=252 test_days=63 step_days=63 top_pct=0.1
+[LOAD] feature matrix
+[WF] folds=8
+[WF][FOLD 1] train=2023-01-03 00:00:00..2024-01-03 00:00:00 test=2024-01-04 00:00:00..2024-04-04 00:00:00
+[WF][FOLD 2] train=2023-04-04 00:00:00..2024-04-04 00:00:00 test=2024-04-05 00:00:00..2024-07-05 00:00:00
+[WF][FOLD 3] train=2023-07-06 00:00:00..2024-07-05 00:00:00 test=2024-07-08 00:00:00..2024-10-03 00:00:00
+[WF][FOLD 4] train=2023-10-04 00:00:00..2024-10-03 00:00:00 test=2024-10-04 00:00:00..2025-01-03 00:00:00
+[WF][FOLD 5] train=2024-01-04 00:00:00..2025-01-03 00:00:00 test=2025-01-06 00:00:00..2025-04-07 00:00:00
+[WF][FOLD 6] train=2024-04-05 00:00:00..2025-04-07 00:00:00 test=2025-04-08 00:00:00..2025-07-09 00:00:00
+[WF][FOLD 7] train=2024-07-08 00:00:00..2025-07-09 00:00:00 test=2025-07-10 00:00:00..2025-10-07 00:00:00
+[WF][FOLD 8] train=2024-10-04 00:00:00..2025-10-07 00:00:00 test=2025-10-08 00:00:00..2026-01-07 00:00:00
+[WF][FOLD 1] start
+[WF][FOLD 1] train_rows=24444 test_rows=6111
+[RANKER] target_col=target_fwd_ret_1d
+[RANKER] zcols=['z_momentum_20d', 'z_str_3d', 'z_overnight_drift_20d', 'z_volume_shock', 'z_ivol_20d']
+[RANKER][WEIGHT] z_momentum_20d=0.004477
+[RANKER][WEIGHT] z_str_3d=0.003353
+[RANKER][WEIGHT] z_overnight_drift_20d=0.013285
+[RANKER][WEIGHT] z_volume_shock=0.012332
+[RANKER][WEIGHT] z_ivol_20d=-0.017174
+[WF][FOLD 1][SUMMARY] days=63 avg_daily_ret=0.000271 std_daily_ret=0.001184 win_rate_days=0.6508 cum_ret=0.017199
+[WF][FOLD 2] start
+[WF][FOLD 2] train_rows=24444 test_rows=6111
+[RANKER] target_col=target_fwd_ret_1d
+[RANKER] zcols=['z_momentum_20d', 'z_str_3d', 'z_overnight_drift_20d', 'z_volume_shock', 'z_ivol_20d']
+[RANKER][WEIGHT] z_momentum_20d=0.018630
+[RANKER][WEIGHT] z_str_3d=0.008746
+[RANKER][WEIGHT] z_overnight_drift_20d=0.024714
+[RANKER][WEIGHT] z_volume_shock=0.013694
+[RANKER][WEIGHT] z_ivol_20d=-0.018600
+[WF][FOLD 2][SUMMARY] days=63 avg_daily_ret=0.000048 std_daily_ret=0.001483 win_rate_days=0.4921 cum_ret=0.002960
+[WF][FOLD 3] start
+[WF][FOLD 3] train_rows=24444 test_rows=6111
+[RANKER] target_col=target_fwd_ret_1d
+[RANKER] zcols=['z_momentum_20d', 'z_str_3d', 'z_overnight_drift_20d', 'z_volume_shock', 'z_ivol_20d']
+[RANKER][WEIGHT] z_momentum_20d=0.007208
+[RANKER][WEIGHT] z_str_3d=0.008474
+[RANKER][WEIGHT] z_overnight_drift_20d=0.023675
+[RANKER][WEIGHT] z_volume_shock=0.007142
+[RANKER][WEIGHT] z_ivol_20d=-0.010615
+[WF][FOLD 3][SUMMARY] days=63 avg_daily_ret=-0.001061 std_daily_ret=0.002994 win_rate_days=0.3651 cum_ret=-0.064924
+[WF][FOLD 4] start
+[WF][FOLD 4] train_rows=24444 test_rows=6111
+[RANKER] target_col=target_fwd_ret_1d
+[RANKER] zcols=['z_momentum_20d', 'z_str_3d', 'z_overnight_drift_20d', 'z_volume_shock', 'z_ivol_20d']
+[RANKER][WEIGHT] z_momentum_20d=-0.002733
+[RANKER][WEIGHT] z_str_3d=-0.012082
+[RANKER][WEIGHT] z_overnight_drift_20d=-0.008296
+[RANKER][WEIGHT] z_volume_shock=0.004073
+[RANKER][WEIGHT] z_ivol_20d=-0.009090
+[WF][FOLD 4][SUMMARY] days=63 avg_daily_ret=0.000006 std_daily_ret=0.001857 win_rate_days=0.4762 cum_ret=0.000278
+[WF][FOLD 5] start
+[WF][FOLD 5] train_rows=24444 test_rows=6111
+[RANKER] target_col=target_fwd_ret_1d
+[RANKER] zcols=['z_momentum_20d', 'z_str_3d', 'z_overnight_drift_20d', 'z_volume_shock', 'z_ivol_20d']
+[RANKER][WEIGHT] z_momentum_20d=-0.010221
+[RANKER][WEIGHT] z_str_3d=-0.006942
+[RANKER][WEIGHT] z_overnight_drift_20d=-0.014110
+[RANKER][WEIGHT] z_volume_shock=0.006531
+[RANKER][WEIGHT] z_ivol_20d=-0.003308
+[WF][FOLD 5][SUMMARY] days=63 avg_daily_ret=-0.000191 std_daily_ret=0.003172 win_rate_days=0.6508 cum_ret=-0.012251
+[WF][FOLD 6] start
+[WF][FOLD 6] train_rows=24444 test_rows=6111
+[RANKER] target_col=target_fwd_ret_1d
+[RANKER] zcols=['z_momentum_20d', 'z_str_3d', 'z_overnight_drift_20d', 'z_volume_shock', 'z_ivol_20d']
+[RANKER][WEIGHT] z_momentum_20d=-0.015903
+[RANKER][WEIGHT] z_str_3d=-0.021077
+[RANKER][WEIGHT] z_overnight_drift_20d=-0.006822
+[RANKER][WEIGHT] z_volume_shock=0.011254
+[RANKER][WEIGHT] z_ivol_20d=0.010858
+[WF][FOLD 6][SUMMARY] days=63 avg_daily_ret=-0.000139 std_daily_ret=0.002995 win_rate_days=0.5079 cum_ret=-0.008978
+[WF][FOLD 7] start
+[WF][FOLD 7] train_rows=24444 test_rows=6111
+[RANKER] target_col=target_fwd_ret_1d
+[RANKER] zcols=['z_momentum_20d', 'z_str_3d', 'z_overnight_drift_20d', 'z_volume_shock', 'z_ivol_20d']
+[RANKER][WEIGHT] z_momentum_20d=-0.018456
+[RANKER][WEIGHT] z_str_3d=-0.006320
+[RANKER][WEIGHT] z_overnight_drift_20d=-0.016675
+[RANKER][WEIGHT] z_volume_shock=0.011160
+[RANKER][WEIGHT] z_ivol_20d=0.000287
+[WF][FOLD 7][SUMMARY] days=63 avg_daily_ret=-0.000258 std_daily_ret=0.001554 win_rate_days=0.4127 cum_ret=-0.016177
+[WF][FOLD 8] start
+[WF][FOLD 8] train_rows=24444 test_rows=6111
+[RANKER] target_col=target_fwd_ret_1d
+[RANKER] zcols=['z_momentum_20d', 'z_str_3d', 'z_overnight_drift_20d', 'z_volume_shock', 'z_ivol_20d']
+[RANKER][WEIGHT] z_momentum_20d=0.001903
+[RANKER][WEIGHT] z_str_3d=0.000070
+[RANKER][WEIGHT] z_overnight_drift_20d=0.024921
+[RANKER][WEIGHT] z_volume_shock=0.009538
+[RANKER][WEIGHT] z_ivol_20d=0.003871
+[WF][FOLD 8][SUMMARY] days=63 avg_daily_ret=0.000089 std_daily_ret=0.002069 win_rate_days=0.5079 cum_ret=0.005518
+[WF][OVERALL] days=504 avg_daily_ret=-0.000154 std_daily_ret=0.002299 win_rate_days=0.5079 cum_ret=-0.075955
+[WF][TAIL]
+      date  portfolio_ret  positions  fold_id
+2025-12-23      -0.000061         19        8
+2025-12-24       0.000791         19        8
+2025-12-26      -0.000462         19        8
+2025-12-29       0.000338         19        8
+2025-12-30      -0.002040         19        8
+2025-12-31       0.003632         19        8
+2026-01-02      -0.000083         19        8
+2026-01-05       0.000953         19        8
+2026-01-06      -0.000892         19        8
+2026-01-07      -0.000032         19        8
+
+
+
+
+
+
+
+прибрати помилку Set-Location: A positional parameter cannot be found that accepts argument 'Govor\Documents\Python-Edge'.
