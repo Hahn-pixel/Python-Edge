@@ -19,12 +19,19 @@ FEATURES = [
     "overnight_drift_20d",
     "volume_shock",
     "ivol_20d",
+    "vol_compression",
+    "intraday_rs",
+    "intraday_pressure",
+    "liq_rank",
+    "market_breadth",
 ]
 TARGET_COL = "target_fwd_ret_1d"
 TRAIN_DAYS = 252
 TEST_DAYS = 63
 STEP_DAYS = 63
 TOP_PCT = 0.10
+MIN_TRAIN_ROWS = 500
+MIN_TEST_ROWS = 100
 
 
 
@@ -47,6 +54,41 @@ def _slice_by_date(df: pd.DataFrame, start_date: object, end_date: object) -> pd
 
 
 
+def _weights_to_frame(fold_id: int, weights: dict[str, float]) -> pd.DataFrame:
+    rows = []
+    for feature_name, weight_value in weights.items():
+        rows.append({
+            "fold_id": fold_id,
+            "feature": feature_name,
+            "weight": float(weight_value),
+            "abs_weight": abs(float(weight_value)),
+            "sign": 0 if float(weight_value) == 0.0 else (1 if float(weight_value) > 0.0 else -1),
+        })
+    return pd.DataFrame(rows)
+
+
+
+def _print_weight_stability(weights_df: pd.DataFrame) -> None:
+    if weights_df.empty:
+        print("[WF][WEIGHTS][WARN] empty weights_df")
+        return
+
+    grouped = weights_df.groupby("feature", as_index=False).agg(
+        folds=("fold_id", "nunique"),
+        mean_weight=("weight", "mean"),
+        std_weight=("weight", "std"),
+        mean_abs_weight=("abs_weight", "mean"),
+        pos_folds=("sign", lambda s: int((s > 0).sum())),
+        neg_folds=("sign", lambda s: int((s < 0).sum())),
+        zero_folds=("sign", lambda s: int((s == 0).sum())),
+    )
+    grouped = grouped.sort_values(["mean_abs_weight", "feature"], ascending=[False, True]).reset_index(drop=True)
+
+    print("[WF][WEIGHTS][STABILITY]")
+    print(grouped.to_string(index=False))
+
+
+
 def main() -> int:
     print(f"[CFG] feature_file={FEATURE_FILE}")
     print(f"[CFG] target_col={TARGET_COL}")
@@ -65,6 +107,7 @@ def main() -> int:
     print_split_summary(splits)
 
     all_test_daily: list[pd.DataFrame] = []
+    all_weight_frames: list[pd.DataFrame] = []
 
     for sp in splits:
         print(f"[WF][FOLD {sp.fold_id}] start")
@@ -72,14 +115,15 @@ def main() -> int:
         test_df = _slice_by_date(df, sp.test_start, sp.test_end)
 
         print(f"[WF][FOLD {sp.fold_id}] train_rows={len(train_df)} test_rows={len(test_df)}")
-        if train_df.empty:
-            raise RuntimeError(f"[WF][FOLD {sp.fold_id}] empty train_df")
-        if test_df.empty:
-            raise RuntimeError(f"[WF][FOLD {sp.fold_id}] empty test_df")
+        if len(train_df) < MIN_TRAIN_ROWS:
+            raise RuntimeError(f"[WF][FOLD {sp.fold_id}] train_rows too small: {len(train_df)}")
+        if len(test_df) < MIN_TEST_ROWS:
+            raise RuntimeError(f"[WF][FOLD {sp.fold_id}] test_rows too small: {len(test_df)}")
 
         zcols = [f"z_{f}" for f in FEATURES]
         fit = fit_corr_weights(train_df=train_df, zcols=zcols, target_col=TARGET_COL)
         print_fit_summary(fit)
+        all_weight_frames.append(_weights_to_frame(sp.fold_id, fit.weights))
 
         scored_test = apply_linear_score(test_df, fit=fit, out_col="score")
         port_test = build_long_short_portfolio(scored_test, top_pct=TOP_PCT)
@@ -97,6 +141,9 @@ def main() -> int:
     overall = overall.sort_values(["date", "fold_id"]).reset_index(drop=True)
     overall_summary = summarize_daily_returns(overall)
     print_summary("[WF][OVERALL]", overall_summary)
+
+    weights_df = pd.concat(all_weight_frames, axis=0, ignore_index=True) if all_weight_frames else pd.DataFrame()
+    _print_weight_stability(weights_df)
 
     print("[WF][TAIL]")
     print(overall.tail(10).to_string(index=False))
