@@ -1,0 +1,257 @@
+[CFG] feature_file=data\features\feature_matrix_v1.parquet
+[CFG] target_col=target_fwd_ret_1d
+[CFG] train_days=252 test_days=63 step_days=63 top_pct=0.1
+[LOAD] feature matrix
+[WF] folds=8
+[WF][FOLD 1] train=2023-01-03 00:00:00..2024-01-03 00:00:00 test=2024-01-04 00:00:00..2024-04-04 00:00:00
+[WF][FOLD 2] train=2023-04-04 00:00:00..2024-04-04 00:00:00 test=2024-04-05 00:00:00..2024-07-05 00:00:00
+[WF][FOLD 3] train=2023-07-06 00:00:00..2024-07-05 00:00:00 test=2024-07-08 00:00:00..2024-10-03 00:00:00
+[WF][FOLD 4] train=2023-10-04 00:00:00..2024-10-03 00:00:00 test=2024-10-04 00:00:00..2025-01-03 00:00:00
+[WF][FOLD 5] train=2024-01-04 00:00:00..2025-01-03 00:00:00 test=2025-01-06 00:00:00..2025-04-07 00:00:00
+[WF][FOLD 6] train=2024-04-05 00:00:00..2025-04-07 00:00:00 test=2025-04-08 00:00:00..2025-07-09 00:00:00
+[WF][FOLD 7] train=2024-07-08 00:00:00..2025-07-09 00:00:00 test=2025-07-10 00:00:00..2025-10-07 00:00:00
+[WF][FOLD 8] train=2024-10-04 00:00:00..2025-10-07 00:00:00 test=2025-10-08 00:00:00..2026-01-07 00:00:00
+[WF][FOLD 1] start
+[WF][FOLD 1] train_rows=24444 test_rows=6111
+[RANKER] target_col=target_fwd_ret_1d
+[RANKER] zcols=['z_momentum_20d', 'z_str_3d', 'z_overnight_drift_20d', 'z_volume_shock', 'z_ivol_20d', 'z_vol_compression', 'z_intraday_rs', 'z_intraday_pressure', 'z_liq_rank', 'z_market_breadth', 'z_mom_x_volume_shock', 'z_intraday_rs_x_volume_shock', 'z_mom_x_vol_compression', 'z_mom_x_market_breadth', 'z_intraday_pressure_x_volume_shock', 'z_liq_rank_x_intraday_rs', 'z_cond_momentum_trend', 'z_cond_str_range', 'z_cond_overnight_breadth_weak', 'z_cond_ivol_lowliq_penalty', 'z_cond_vol_compression_trend']
+[RANKER][WEIGHT] z_momentum_20d=0.004477
+[RANKER][WEIGHT] z_str_3d=0.003353
+[RANKER][WEIGHT] z_overnight_drift_20d=0.013285
+[RANKER][WEIGHT] z_volume_shock=0.012332
+[RANKER][WEIGHT] z_ivol_20d=-0.017174
+[RANKER][WEIGHT] z_vol_compression=0.009632
+[RANKER][WEIGHT] z_intraday_rs=0.086314
+[RANKER][WEIGHT] z_intraday_pressure=0.005559
+[RANKER][WEIGHT] z_liq_rank=0.035183
+[RANKER][WEIGHT] z_market_breadth=0.000000
+[RANKER][WEIGHT] z_mom_x_volume_shock=-0.000794
+[RANKER][WEIGHT] z_intraday_rs_x_volume_shock=0.082889
+[RANKER][WEIGHT] z_mom_x_vol_compression=-0.000785
+[RANKER][WEIGHT] z_mom_x_market_breadth=0.004477
+[RANKER][WEIGHT] z_intraday_pressure_x_volume_shock=0.008797
+[RANKER][WEIGHT] z_liq_rank_x_intraday_rs=0.084683
+[RANKER][WEIGHT] z_cond_momentum_trend=0.039079
+[RANKER][WEIGHT] z_cond_str_range=0.068866
+[RANKER][WEIGHT] z_cond_overnight_breadth_weak=0.000255
+[RANKER][WEIGHT] z_cond_ivol_lowliq_penalty=0.040258
+[RANKER][WEIGHT] z_cond_vol_compression_trend=0.046683
+[WF][FOLD 1][SUMMARY] days=63 avg_daily_ret=0.000771 std_daily_ret=0.001533 win_rate_days=0.7143 cum_ret=0.049657
+[WF][FOLD 2] start
+[WF][FOLD 2] train_rows=24444 test_rows=6111
+[RANKER] target_col=target_fwd_ret_1d
+[RANKER] zcols=['z_momentum_20d', 'z_str_3d', 'z_overnight_drift_20d', 'z_volume_shock', 'z_ivol_20d', 'z_vol_compression', 'z_intraday_rs', 'z_intraday_pressure', 'z_liq_rank', 'z_market_breadth', 'z_mom_x_volume_shock', 'z_intraday_rs_x_volume_shock', 'z_mom_x_vol_compression', 'z_mom_x_market_breadth', 'z_intraday_pressure_x_volume_shock', 'z_liq_rank_x_intraday_rs', 'z_cond_momentum_trend', 'z_cond_str_range', 'z_cond_overnight_breadth_weak', 'z_cond_ivol_lowliq_penalty', 'z_cond_vol_compression_trend']
+[RANKER][WEIGHT] z_momentum_20d=0.018630
+[RANKER][WEIGHT] z_str_3d=0.008746
+[RANKER][WEIGHT] z_overnight_drift_20d=0.024714
+[RANKER][WEIGHT] z_volume_shock=0.013694
+[RANKER][WEIGHT] z_ivol_20d=-0.018600
+[RANKER][WEIGHT] z_vol_compression=0.014341
+[RANKER][WEIGHT] z_intraday_rs=0.110808
+[RANKER][WEIGHT] z_intraday_pressure=0.004833
+[RANKER][WEIGHT] z_liq_rank=0.031275
+[RANKER][WEIGHT] z_market_breadth=0.000000
+[RANKER][WEIGHT] z_mom_x_volume_shock=0.015539
+[RANKER][WEIGHT] z_intraday_rs_x_volume_shock=0.102571
+[RANKER][WEIGHT] z_mom_x_vol_compression=0.017779
+[RANKER][WEIGHT] z_mom_x_market_breadth=0.018630
+[RANKER][WEIGHT] z_intraday_pressure_x_volume_shock=0.007165
+[RANKER][WEIGHT] z_liq_rank_x_intraday_rs=0.099722
+[RANKER][WEIGHT] z_cond_momentum_trend=0.034725
+[RANKER][WEIGHT] z_cond_str_range=0.063415
+[RANKER][WEIGHT] z_cond_overnight_breadth_weak=0.007615
+[RANKER][WEIGHT] z_cond_ivol_lowliq_penalty=0.043912
+[RANKER][WEIGHT] z_cond_vol_compression_trend=0.052706
+[WF][FOLD 2][SUMMARY] days=63 avg_daily_ret=0.000572 std_daily_ret=0.001576 win_rate_days=0.6032 cum_ret=0.036613
+[WF][FOLD 3] start
+[WF][FOLD 3] train_rows=24444 test_rows=6111
+[RANKER] target_col=target_fwd_ret_1d
+[RANKER] zcols=['z_momentum_20d', 'z_str_3d', 'z_overnight_drift_20d', 'z_volume_shock', 'z_ivol_20d', 'z_vol_compression', 'z_intraday_rs', 'z_intraday_pressure', 'z_liq_rank', 'z_market_breadth', 'z_mom_x_volume_shock', 'z_intraday_rs_x_volume_shock', 'z_mom_x_vol_compression', 'z_mom_x_market_breadth', 'z_intraday_pressure_x_volume_shock', 'z_liq_rank_x_intraday_rs', 'z_cond_momentum_trend', 'z_cond_str_range', 'z_cond_overnight_breadth_weak', 'z_cond_ivol_lowliq_penalty', 'z_cond_vol_compression_trend']
+[RANKER][WEIGHT] z_momentum_20d=0.007208
+[RANKER][WEIGHT] z_str_3d=0.008474
+[RANKER][WEIGHT] z_overnight_drift_20d=0.023675
+[RANKER][WEIGHT] z_volume_shock=0.007142
+[RANKER][WEIGHT] z_ivol_20d=-0.010615
+[RANKER][WEIGHT] z_vol_compression=0.008474
+[RANKER][WEIGHT] z_intraday_rs=0.126279
+[RANKER][WEIGHT] z_intraday_pressure=0.000939
+[RANKER][WEIGHT] z_liq_rank=0.029173
+[RANKER][WEIGHT] z_market_breadth=0.000000
+[RANKER][WEIGHT] z_mom_x_volume_shock=0.003089
+[RANKER][WEIGHT] z_intraday_rs_x_volume_shock=0.119019
+[RANKER][WEIGHT] z_mom_x_vol_compression=0.005483
+[RANKER][WEIGHT] z_mom_x_market_breadth=0.007208
+[RANKER][WEIGHT] z_intraday_pressure_x_volume_shock=0.001700
+[RANKER][WEIGHT] z_liq_rank_x_intraday_rs=0.114318
+[RANKER][WEIGHT] z_cond_momentum_trend=0.025061
+[RANKER][WEIGHT] z_cond_str_range=0.045138
+[RANKER][WEIGHT] z_cond_overnight_breadth_weak=0.022151
+[RANKER][WEIGHT] z_cond_ivol_lowliq_penalty=0.036675
+[RANKER][WEIGHT] z_cond_vol_compression_trend=0.039671
+[WF][FOLD 3][SUMMARY] days=63 avg_daily_ret=0.000244 std_daily_ret=0.003863 win_rate_days=0.5873 cum_ret=0.015001
+[WF][FOLD 4] start
+[WF][FOLD 4] train_rows=24444 test_rows=6111
+[RANKER] target_col=target_fwd_ret_1d
+[RANKER] zcols=['z_momentum_20d', 'z_str_3d', 'z_overnight_drift_20d', 'z_volume_shock', 'z_ivol_20d', 'z_vol_compression', 'z_intraday_rs', 'z_intraday_pressure', 'z_liq_rank', 'z_market_breadth', 'z_mom_x_volume_shock', 'z_intraday_rs_x_volume_shock', 'z_mom_x_vol_compression', 'z_mom_x_market_breadth', 'z_intraday_pressure_x_volume_shock', 'z_liq_rank_x_intraday_rs', 'z_cond_momentum_trend', 'z_cond_str_range', 'z_cond_overnight_breadth_weak', 'z_cond_ivol_lowliq_penalty', 'z_cond_vol_compression_trend']
+[RANKER][WEIGHT] z_momentum_20d=-0.002733
+[RANKER][WEIGHT] z_str_3d=-0.012082
+[RANKER][WEIGHT] z_overnight_drift_20d=-0.008296
+[RANKER][WEIGHT] z_volume_shock=0.004073
+[RANKER][WEIGHT] z_ivol_20d=-0.009090
+[RANKER][WEIGHT] z_vol_compression=-0.003209
+[RANKER][WEIGHT] z_intraday_rs=0.120593
+[RANKER][WEIGHT] z_intraday_pressure=0.005738
+[RANKER][WEIGHT] z_liq_rank=0.014397
+[RANKER][WEIGHT] z_market_breadth=0.000000
+[RANKER][WEIGHT] z_mom_x_volume_shock=-0.000874
+[RANKER][WEIGHT] z_intraday_rs_x_volume_shock=0.116774
+[RANKER][WEIGHT] z_mom_x_vol_compression=-0.001772
+[RANKER][WEIGHT] z_mom_x_market_breadth=-0.002733
+[RANKER][WEIGHT] z_intraday_pressure_x_volume_shock=0.003891
+[RANKER][WEIGHT] z_liq_rank_x_intraday_rs=0.108250
+[RANKER][WEIGHT] z_cond_momentum_trend=0.002855
+[RANKER][WEIGHT] z_cond_str_range=0.005703
+[RANKER][WEIGHT] z_cond_overnight_breadth_weak=-0.046847
+[RANKER][WEIGHT] z_cond_ivol_lowliq_penalty=0.020684
+[RANKER][WEIGHT] z_cond_vol_compression_trend=0.028363
+[WF][FOLD 4][SUMMARY] days=63 avg_daily_ret=0.000472 std_daily_ret=0.002242 win_rate_days=0.5397 cum_ret=0.030044
+[WF][FOLD 5] start
+[WF][FOLD 5] train_rows=24444 test_rows=6111
+[RANKER] target_col=target_fwd_ret_1d
+[RANKER] zcols=['z_momentum_20d', 'z_str_3d', 'z_overnight_drift_20d', 'z_volume_shock', 'z_ivol_20d', 'z_vol_compression', 'z_intraday_rs', 'z_intraday_pressure', 'z_liq_rank', 'z_market_breadth', 'z_mom_x_volume_shock', 'z_intraday_rs_x_volume_shock', 'z_mom_x_vol_compression', 'z_mom_x_market_breadth', 'z_intraday_pressure_x_volume_shock', 'z_liq_rank_x_intraday_rs', 'z_cond_momentum_trend', 'z_cond_str_range', 'z_cond_overnight_breadth_weak', 'z_cond_ivol_lowliq_penalty', 'z_cond_vol_compression_trend']
+[RANKER][WEIGHT] z_momentum_20d=-0.010221
+[RANKER][WEIGHT] z_str_3d=-0.006942
+[RANKER][WEIGHT] z_overnight_drift_20d=-0.014110
+[RANKER][WEIGHT] z_volume_shock=0.006531
+[RANKER][WEIGHT] z_ivol_20d=-0.003308
+[RANKER][WEIGHT] z_vol_compression=-0.008214
+[RANKER][WEIGHT] z_intraday_rs=0.119231
+[RANKER][WEIGHT] z_intraday_pressure=0.003278
+[RANKER][WEIGHT] z_liq_rank=0.015756
+[RANKER][WEIGHT] z_market_breadth=0.000000
+[RANKER][WEIGHT] z_mom_x_volume_shock=-0.007934
+[RANKER][WEIGHT] z_intraday_rs_x_volume_shock=0.116259
+[RANKER][WEIGHT] z_mom_x_vol_compression=-0.006571
+[RANKER][WEIGHT] z_mom_x_market_breadth=-0.010221
+[RANKER][WEIGHT] z_intraday_pressure_x_volume_shock=0.005590
+[RANKER][WEIGHT] z_liq_rank_x_intraday_rs=0.116521
+[RANKER][WEIGHT] z_cond_momentum_trend=-0.003608
+[RANKER][WEIGHT] z_cond_str_range=-0.001797
+[RANKER][WEIGHT] z_cond_overnight_breadth_weak=-0.057510
+[RANKER][WEIGHT] z_cond_ivol_lowliq_penalty=0.015324
+[RANKER][WEIGHT] z_cond_vol_compression_trend=0.019337
+[WF][FOLD 5][SUMMARY] days=63 avg_daily_ret=0.000477 std_daily_ret=0.002714 win_rate_days=0.5556 cum_ret=0.030282
+[WF][FOLD 6] start
+[WF][FOLD 6] train_rows=24444 test_rows=6111
+[RANKER] target_col=target_fwd_ret_1d
+[RANKER] zcols=['z_momentum_20d', 'z_str_3d', 'z_overnight_drift_20d', 'z_volume_shock', 'z_ivol_20d', 'z_vol_compression', 'z_intraday_rs', 'z_intraday_pressure', 'z_liq_rank', 'z_market_breadth', 'z_mom_x_volume_shock', 'z_intraday_rs_x_volume_shock', 'z_mom_x_vol_compression', 'z_mom_x_market_breadth', 'z_intraday_pressure_x_volume_shock', 'z_liq_rank_x_intraday_rs', 'z_cond_momentum_trend', 'z_cond_str_range', 'z_cond_overnight_breadth_weak', 'z_cond_ivol_lowliq_penalty', 'z_cond_vol_compression_trend']
+[RANKER][WEIGHT] z_momentum_20d=-0.015903
+[RANKER][WEIGHT] z_str_3d=-0.021077
+[RANKER][WEIGHT] z_overnight_drift_20d=-0.006822
+[RANKER][WEIGHT] z_volume_shock=0.011254
+[RANKER][WEIGHT] z_ivol_20d=0.010858
+[RANKER][WEIGHT] z_vol_compression=-0.010028
+[RANKER][WEIGHT] z_intraday_rs=0.097528
+[RANKER][WEIGHT] z_intraday_pressure=0.008119
+[RANKER][WEIGHT] z_liq_rank=-0.000017
+[RANKER][WEIGHT] z_market_breadth=0.000000
+[RANKER][WEIGHT] z_mom_x_volume_shock=-0.011166
+[RANKER][WEIGHT] z_intraday_rs_x_volume_shock=0.097316
+[RANKER][WEIGHT] z_mom_x_vol_compression=-0.013016
+[RANKER][WEIGHT] z_mom_x_market_breadth=-0.015903
+[RANKER][WEIGHT] z_intraday_pressure_x_volume_shock=0.011858
+[RANKER][WEIGHT] z_liq_rank_x_intraday_rs=0.097830
+[RANKER][WEIGHT] z_cond_momentum_trend=-0.010503
+[RANKER][WEIGHT] z_cond_str_range=-0.039630
+[RANKER][WEIGHT] z_cond_overnight_breadth_weak=-0.036406
+[RANKER][WEIGHT] z_cond_ivol_lowliq_penalty=-0.011778
+[RANKER][WEIGHT] z_cond_vol_compression_trend=0.009521
+[WF][FOLD 6][SUMMARY] days=63 avg_daily_ret=0.000036 std_daily_ret=0.003275 win_rate_days=0.5238 cum_ret=0.001933
+[WF][FOLD 7] start
+[WF][FOLD 7] train_rows=24444 test_rows=6111
+[RANKER] target_col=target_fwd_ret_1d
+[RANKER] zcols=['z_momentum_20d', 'z_str_3d', 'z_overnight_drift_20d', 'z_volume_shock', 'z_ivol_20d', 'z_vol_compression', 'z_intraday_rs', 'z_intraday_pressure', 'z_liq_rank', 'z_market_breadth', 'z_mom_x_volume_shock', 'z_intraday_rs_x_volume_shock', 'z_mom_x_vol_compression', 'z_mom_x_market_breadth', 'z_intraday_pressure_x_volume_shock', 'z_liq_rank_x_intraday_rs', 'z_cond_momentum_trend', 'z_cond_str_range', 'z_cond_overnight_breadth_weak', 'z_cond_ivol_lowliq_penalty', 'z_cond_vol_compression_trend']
+[RANKER][WEIGHT] z_momentum_20d=-0.018456
+[RANKER][WEIGHT] z_str_3d=-0.006320
+[RANKER][WEIGHT] z_overnight_drift_20d=-0.016675
+[RANKER][WEIGHT] z_volume_shock=0.011160
+[RANKER][WEIGHT] z_ivol_20d=0.000287
+[RANKER][WEIGHT] z_vol_compression=-0.015371
+[RANKER][WEIGHT] z_intraday_rs=0.061363
+[RANKER][WEIGHT] z_intraday_pressure=0.018864
+[RANKER][WEIGHT] z_liq_rank=-0.002646
+[RANKER][WEIGHT] z_market_breadth=0.000000
+[RANKER][WEIGHT] z_mom_x_volume_shock=-0.014326
+[RANKER][WEIGHT] z_intraday_rs_x_volume_shock=0.060299
+[RANKER][WEIGHT] z_mom_x_vol_compression=-0.014564
+[RANKER][WEIGHT] z_mom_x_market_breadth=-0.018456
+[RANKER][WEIGHT] z_intraday_pressure_x_volume_shock=0.022380
+[RANKER][WEIGHT] z_liq_rank_x_intraday_rs=0.067971
+[RANKER][WEIGHT] z_cond_momentum_trend=0.005889
+[RANKER][WEIGHT] z_cond_str_range=-0.002115
+[RANKER][WEIGHT] z_cond_overnight_breadth_weak=-0.069559
+[RANKER][WEIGHT] z_cond_ivol_lowliq_penalty=-0.010413
+[RANKER][WEIGHT] z_cond_vol_compression_trend=0.017970
+[WF][FOLD 7][SUMMARY] days=63 avg_daily_ret=0.000153 std_daily_ret=0.001725 win_rate_days=0.4921 cum_ret=0.009603
+[WF][FOLD 8] start
+[WF][FOLD 8] train_rows=24444 test_rows=6111
+[RANKER] target_col=target_fwd_ret_1d
+[RANKER] zcols=['z_momentum_20d', 'z_str_3d', 'z_overnight_drift_20d', 'z_volume_shock', 'z_ivol_20d', 'z_vol_compression', 'z_intraday_rs', 'z_intraday_pressure', 'z_liq_rank', 'z_market_breadth', 'z_mom_x_volume_shock', 'z_intraday_rs_x_volume_shock', 'z_mom_x_vol_compression', 'z_mom_x_market_breadth', 'z_intraday_pressure_x_volume_shock', 'z_liq_rank_x_intraday_rs', 'z_cond_momentum_trend', 'z_cond_str_range', 'z_cond_overnight_breadth_weak', 'z_cond_ivol_lowliq_penalty', 'z_cond_vol_compression_trend']
+[RANKER][WEIGHT] z_momentum_20d=0.001903
+[RANKER][WEIGHT] z_str_3d=0.000070
+[RANKER][WEIGHT] z_overnight_drift_20d=0.024921
+[RANKER][WEIGHT] z_volume_shock=0.009538
+[RANKER][WEIGHT] z_ivol_20d=0.003871
+[RANKER][WEIGHT] z_vol_compression=-0.009552
+[RANKER][WEIGHT] z_intraday_rs=0.060374
+[RANKER][WEIGHT] z_intraday_pressure=0.021516
+[RANKER][WEIGHT] z_liq_rank=0.013869
+[RANKER][WEIGHT] z_market_breadth=0.000000
+[RANKER][WEIGHT] z_mom_x_volume_shock=-0.000276
+[RANKER][WEIGHT] z_intraday_rs_x_volume_shock=0.062172
+[RANKER][WEIGHT] z_mom_x_vol_compression=0.003906
+[RANKER][WEIGHT] z_mom_x_market_breadth=0.001903
+[RANKER][WEIGHT] z_intraday_pressure_x_volume_shock=0.026735
+[RANKER][WEIGHT] z_liq_rank_x_intraday_rs=0.076503
+[RANKER][WEIGHT] z_cond_momentum_trend=0.032219
+[RANKER][WEIGHT] z_cond_str_range=0.003632
+[RANKER][WEIGHT] z_cond_overnight_breadth_weak=-0.005152
+[RANKER][WEIGHT] z_cond_ivol_lowliq_penalty=0.004016
+[RANKER][WEIGHT] z_cond_vol_compression_trend=0.020412
+[WF][FOLD 8][SUMMARY] days=63 avg_daily_ret=0.000078 std_daily_ret=0.002208 win_rate_days=0.6032 cum_ret=0.004751
+[WF][OVERALL] days=504 avg_daily_ret=0.000350 std_daily_ret=0.002512 win_rate_days=0.5774 cum_ret=0.191217
+[WF][WEIGHTS][STABILITY]
+                           feature  folds  mean_weight  std_weight  mean_abs_weight  pos_folds  neg_folds  zero_folds
+                     z_intraday_rs      8     0.097811    0.026239         0.097811          8          0           0
+          z_liq_rank_x_intraday_rs      8     0.095725    0.017797         0.095725          8          0           0
+      z_intraday_rs_x_volume_shock      8     0.094662    0.023884         0.094662          8          0           0
+     z_cond_overnight_breadth_weak      8    -0.023181    0.033684         0.030687          3          5           0
+      z_cond_vol_compression_trend      8     0.029333    0.015382         0.029333          8          0           0
+                  z_cond_str_range      8     0.017902    0.037534         0.028787          5          3           0
+        z_cond_ivol_lowliq_penalty      8     0.017335    0.022091         0.022883          6          2           0
+             z_cond_momentum_trend      8     0.015715    0.019234         0.019243          6          2           0
+                        z_liq_rank      8     0.017124    0.014021         0.017790          6          2           0
+             z_overnight_drift_20d      8     0.005087    0.018340         0.016562          4          4           0
+z_intraday_pressure_x_volume_shock      8     0.011015    0.008974         0.011015          8          0           0
+                    z_momentum_20d      8    -0.001887    0.012534         0.009941          4          4           0
+            z_mom_x_market_breadth      8    -0.001887    0.012534         0.009941          4          4           0
+                 z_vol_compression      8    -0.001741    0.011031         0.009853          3          5           0
+                    z_volume_shock      8     0.009466    0.003279         0.009466          8          0           0
+                        z_ivol_20d      8    -0.005471    0.010286         0.009225          3          5           0
+               z_intraday_pressure      8     0.008606    0.007474         0.008606          8          0           0
+                          z_str_3d      8    -0.003222    0.010384         0.008383          4          4           0
+           z_mom_x_vol_compression      8    -0.001193    0.010546         0.007984          3          5           0
+              z_mom_x_volume_shock      8    -0.002093    0.009337         0.006750          2          6           0
+                  z_market_breadth      8     0.000000    0.000000         0.000000          0          0           8
+[WF][TAIL]
+      date  portfolio_ret  positions  fold_id
+2025-12-23       0.000303         19        8
+2025-12-24       0.001315         19        8
+2025-12-26      -0.000757         19        8
+2025-12-29       0.000607         19        8
+2025-12-30      -0.000347         19        8
+2025-12-31      -0.004385         19        8
+2026-01-02       0.000679         19        8
+2026-01-05       0.000303         19        8
+2026-01-06      -0.000159         19        8
+2026-01-07      -0.002965         19        8

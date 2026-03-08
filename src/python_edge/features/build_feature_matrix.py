@@ -8,6 +8,7 @@ from python_edge.data.load_local_aggs import load_symbol_1d, load_symbol_15m
 from python_edge.data.schema_checks import run_all_schema_checks
 from python_edge.data.sessionize import prepare_1d_panel, prepare_15m_panel
 from python_edge.data.universe import discover_symbols, filter_symbols, print_universe_diagnostics
+from python_edge.features.add_interactions import INTERACTION_COLS, add_interactions
 from python_edge.features.add_intraday_pressure import add_intraday_pressure
 from python_edge.features.add_intraday_rs import add_intraday_rs
 from python_edge.features.add_ivol_20d import add_ivol_20d
@@ -22,7 +23,7 @@ from python_edge.features.diagnostics import print_feature_coverage, print_featu
 from python_edge.model.targets import add_all_forward_return_targets
 
 
-FEATURE_COLS = [
+BASE_FEATURE_COLS = [
     "momentum_20d",
     "str_3d",
     "overnight_drift_20d",
@@ -34,6 +35,8 @@ FEATURE_COLS = [
     "liq_rank",
     "market_breadth",
 ]
+
+FEATURE_COLS = BASE_FEATURE_COLS + INTERACTION_COLS
 
 
 
@@ -133,6 +136,7 @@ def build_feature_matrix(
 
     out = add_liq_rank(out)
     out = add_market_breadth(out)
+    out = add_interactions(out)
 
     print_feature_matrix_summary(out)
     print_feature_coverage(out, FEATURE_COLS)

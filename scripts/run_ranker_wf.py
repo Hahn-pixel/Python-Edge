@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from python_edge.model.conditional_factors import CONDITIONAL_FEATURE_COLS, add_conditional_factors
 from python_edge.model.cs_normalize import cs_zscore
 from python_edge.model.ranker_linear import apply_linear_score, fit_corr_weights, print_fit_summary
 from python_edge.portfolio.construct import build_long_short_portfolio
@@ -13,7 +14,7 @@ from python_edge.wf.splits import build_walkforward_splits, print_split_summary
 
 
 FEATURE_FILE = Path("data") / "features" / "feature_matrix_v1.parquet"
-FEATURES = [
+BASE_FEATURES = [
     "momentum_20d",
     "str_3d",
     "overnight_drift_20d",
@@ -24,7 +25,14 @@ FEATURES = [
     "intraday_pressure",
     "liq_rank",
     "market_breadth",
+    "mom_x_volume_shock",
+    "intraday_rs_x_volume_shock",
+    "mom_x_vol_compression",
+    "mom_x_market_breadth",
+    "intraday_pressure_x_volume_shock",
+    "liq_rank_x_intraday_rs",
 ]
+FEATURES = BASE_FEATURES + CONDITIONAL_FEATURE_COLS
 TARGET_COL = "target_fwd_ret_1d"
 TRAIN_DAYS = 252
 TEST_DAYS = 63
@@ -39,7 +47,10 @@ def _prepare_base_frame(df: pd.DataFrame) -> pd.DataFrame:
     out = df.copy()
     if "date" not in out.columns:
         raise RuntimeError("_prepare_base_frame: missing date")
+
+    out = add_conditional_factors(out)
     out = cs_zscore(out, FEATURES)
+
     zcols = [f"z_{f}" for f in FEATURES]
     needed = ["date", "symbol", TARGET_COL] + FEATURES + zcols
     missing = [c for c in needed if c not in out.columns]
@@ -57,13 +68,15 @@ def _slice_by_date(df: pd.DataFrame, start_date: object, end_date: object) -> pd
 def _weights_to_frame(fold_id: int, weights: dict[str, float]) -> pd.DataFrame:
     rows = []
     for feature_name, weight_value in weights.items():
-        rows.append({
-            "fold_id": fold_id,
-            "feature": feature_name,
-            "weight": float(weight_value),
-            "abs_weight": abs(float(weight_value)),
-            "sign": 0 if float(weight_value) == 0.0 else (1 if float(weight_value) > 0.0 else -1),
-        })
+        rows.append(
+            {
+                "fold_id": fold_id,
+                "feature": feature_name,
+                "weight": float(weight_value),
+                "abs_weight": abs(float(weight_value)),
+                "sign": 0 if float(weight_value) == 0.0 else (1 if float(weight_value) > 0.0 else -1),
+            }
+        )
     return pd.DataFrame(rows)
 
 
