@@ -4,7 +4,7 @@
 [CFG] train_days=252 test_days=63 step_days=63 top_pct=0.1
 [CFG] enter_pct=0.1 exit_pct=0.2
 [LOAD] feature matrix
-[WF][intraday_core_only] portfolio_mode=plain_inertia neutralize=False features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs']
+[WF][intraday_core_only] portfolio_mode=plain_inertia neutralize=False sizing=False features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs']
 [WF] folds=8
 [WF][FOLD 1] train=2023-01-03 00:00:00..2024-01-03 00:00:00 test=2024-01-04 00:00:00..2024-04-04 00:00:00
 [WF][FOLD 2] train=2023-04-04 00:00:00..2024-04-04 00:00:00 test=2024-04-05 00:00:00..2024-07-05 00:00:00
@@ -59,7 +59,7 @@ z_intraday_pressure_x_volume_shock      8     0.011015    0.008974         0.011
 2026-01-05       0.004577   0.004797       0.000180      0.000040 0.000220         34       0.6        8 intraday_core_only
 2026-01-06      -0.001431  -0.001206       0.000180      0.000044 0.000224         34       0.6        8 intraday_core_only
 2026-01-07      -0.010535  -0.010310       0.000180      0.000045 0.000225         37       0.6        8 intraday_core_only
-[WF][intraday_plus_breadth_regime] portfolio_mode=regime_inertia neutralize=False features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs', 'cond_breadth_trend_intraday_rs', 'cond_breadth_trend_mom_compression', 'cond_breadth_range_str', 'cond_breadth_weak_overnight']
+[WF][intraday_plus_breadth_regime] portfolio_mode=regime_inertia neutralize=False sizing=False features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs', 'cond_breadth_trend_intraday_rs', 'cond_breadth_trend_mom_compression', 'cond_breadth_range_str', 'cond_breadth_weak_overnight']
 [WF] folds=8
 [WF][FOLD 1] train=2023-01-03 00:00:00..2024-01-03 00:00:00 test=2024-01-04 00:00:00..2024-04-04 00:00:00
 [WF][FOLD 2] train=2023-04-04 00:00:00..2024-04-04 00:00:00 test=2024-04-05 00:00:00..2024-07-05 00:00:00
@@ -118,7 +118,7 @@ z_cond_breadth_trend_mom_compression      8     0.015565    0.031669         0.0
 2026-01-05       0.006087   0.006311       0.000180      0.000043 0.000223         34       0.6        8 intraday_plus_breadth_regime
 2026-01-06      -0.002896  -0.002669       0.000180      0.000047 0.000227         36       0.6        8 intraday_plus_breadth_regime
 2026-01-07      -0.011420  -0.011196       0.000180      0.000043 0.000223         39       0.6        8 intraday_plus_breadth_regime
-[WF][full_regime_stack] portfolio_mode=regime_inertia neutralize=False features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs', 'cond_breadth_trend_intraday_rs', 'cond_breadth_trend_mom_compression', 'cond_breadth_range_str', 'cond_breadth_weak_overnight', 'cond_momentum_liq_trend', 'cond_str_weak_breadth', 'cond_overnight_trend_follow', 'cond_vol_compression_liq_breakout', 'cond_ivol_lowliq_penalty']
+[WF][full_regime_stack] portfolio_mode=regime_inertia neutralize=False sizing=False features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs', 'cond_breadth_trend_intraday_rs', 'cond_breadth_trend_mom_compression', 'cond_breadth_range_str', 'cond_breadth_weak_overnight', 'cond_momentum_liq_trend', 'cond_str_weak_breadth', 'cond_overnight_trend_follow', 'cond_vol_compression_liq_breakout', 'cond_ivol_lowliq_penalty']
 [WF] folds=8
 [WF][FOLD 1] train=2023-01-03 00:00:00..2024-01-03 00:00:00 test=2024-01-04 00:00:00..2024-04-04 00:00:00
 [WF][FOLD 2] train=2023-04-04 00:00:00..2024-04-04 00:00:00 test=2024-04-05 00:00:00..2024-07-05 00:00:00
@@ -182,7 +182,7 @@ z_cond_breadth_trend_mom_compression      8     0.015565    0.031669         0.0
 2026-01-05       0.006606   0.006832       0.000180      0.000046 0.000226         35       0.6        8 full_regime_stack
 2026-01-06      -0.004055  -0.003825       0.000180      0.000050 0.000230         35       0.6        8 full_regime_stack
 2026-01-07      -0.010003  -0.009775       0.000180      0.000048 0.000228         39       0.6        8 full_regime_stack
-[WF][full_regime_stack_neutralized] portfolio_mode=regime_inertia neutralize=True features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs', 'cond_breadth_trend_intraday_rs', 'cond_breadth_trend_mom_compression', 'cond_breadth_range_str', 'cond_breadth_weak_overnight', 'cond_momentum_liq_trend', 'cond_str_weak_breadth', 'cond_overnight_trend_follow', 'cond_vol_compression_liq_breakout', 'cond_ivol_lowliq_penalty']
+[WF][full_regime_stack_neutralized] portfolio_mode=regime_inertia neutralize=True sizing=False features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs', 'cond_breadth_trend_intraday_rs', 'cond_breadth_trend_mom_compression', 'cond_breadth_range_str', 'cond_breadth_weak_overnight', 'cond_momentum_liq_trend', 'cond_str_weak_breadth', 'cond_overnight_trend_follow', 'cond_vol_compression_liq_breakout', 'cond_ivol_lowliq_penalty']
 [WF] folds=8
 [WF][FOLD 1] train=2023-01-03 00:00:00..2024-01-03 00:00:00 test=2024-01-04 00:00:00..2024-04-04 00:00:00
 [WF][FOLD 2] train=2023-04-04 00:00:00..2024-04-04 00:00:00 test=2024-04-05 00:00:00..2024-07-05 00:00:00
@@ -246,10 +246,75 @@ z_cond_breadth_trend_mom_compression      8     0.015565    0.031669         0.0
 2026-01-05       0.001855   0.002082       0.000180      0.000046 0.000226         35       0.6        8 full_regime_stack_neutralized
 2026-01-06      -0.002905  -0.002678       0.000180      0.000047 0.000227         32       0.6        8 full_regime_stack_neutralized
 2026-01-07      -0.008430  -0.008203       0.000180      0.000048 0.000228         37       0.6        8 full_regime_stack_neutralized
+[WF][full_regime_stack_neutralized_sized] portfolio_mode=regime_inertia neutralize=True sizing=True features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs', 'cond_breadth_trend_intraday_rs', 'cond_breadth_trend_mom_compression', 'cond_breadth_range_str', 'cond_breadth_weak_overnight', 'cond_momentum_liq_trend', 'cond_str_weak_breadth', 'cond_overnight_trend_follow', 'cond_vol_compression_liq_breakout', 'cond_ivol_lowliq_penalty']
+[WF] folds=8
+[WF][FOLD 1] train=2023-01-03 00:00:00..2024-01-03 00:00:00 test=2024-01-04 00:00:00..2024-04-04 00:00:00
+[WF][FOLD 2] train=2023-04-04 00:00:00..2024-04-04 00:00:00 test=2024-04-05 00:00:00..2024-07-05 00:00:00
+[WF][FOLD 3] train=2023-07-06 00:00:00..2024-07-05 00:00:00 test=2024-07-08 00:00:00..2024-10-03 00:00:00
+[WF][FOLD 4] train=2023-10-04 00:00:00..2024-10-03 00:00:00 test=2024-10-04 00:00:00..2025-01-03 00:00:00
+[WF][FOLD 5] train=2024-01-04 00:00:00..2025-01-03 00:00:00 test=2025-01-06 00:00:00..2025-04-07 00:00:00
+[WF][FOLD 6] train=2024-04-05 00:00:00..2025-04-07 00:00:00 test=2025-04-08 00:00:00..2025-07-09 00:00:00
+[WF][FOLD 7] train=2024-07-08 00:00:00..2025-07-09 00:00:00 test=2025-07-10 00:00:00..2025-10-07 00:00:00
+[WF][FOLD 8] train=2024-10-04 00:00:00..2025-10-07 00:00:00 test=2025-10-08 00:00:00..2026-01-07 00:00:00
+[WF][full_regime_stack_neutralized_sized][FOLD 1] start
+[WF][full_regime_stack_neutralized_sized][FOLD 1] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_sized][FOLD 1][SUMMARY] days=63 avg_daily_ret=0.000845 std_daily_ret=0.004285 win_rate_days=0.5238 cum_ret=0.054068 avg_turnover=0.600000 avg_gross_ret=0.001068 avg_trading_costs=0.000182 avg_borrow_costs=0.000042 avg_costs=0.000223
+[WF][full_regime_stack_neutralized_sized][FOLD 2] start
+[WF][full_regime_stack_neutralized_sized][FOLD 2] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_sized][FOLD 2][SUMMARY] days=63 avg_daily_ret=0.000922 std_daily_ret=0.004163 win_rate_days=0.6349 cum_ret=0.059177 avg_turnover=0.600000 avg_gross_ret=0.001144 avg_trading_costs=0.000181 avg_borrow_costs=0.000042 avg_costs=0.000222
+[WF][full_regime_stack_neutralized_sized][FOLD 3] start
+[WF][full_regime_stack_neutralized_sized][FOLD 3] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_sized][FOLD 3][SUMMARY] days=63 avg_daily_ret=-0.000922 std_daily_ret=0.005886 win_rate_days=0.5238 cum_ret=-0.057504 avg_turnover=0.600000 avg_gross_ret=-0.000699 avg_trading_costs=0.000181 avg_borrow_costs=0.000042 avg_costs=0.000223
+[WF][full_regime_stack_neutralized_sized][FOLD 4] start
+[WF][full_regime_stack_neutralized_sized][FOLD 4] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_sized][FOLD 4][SUMMARY] days=63 avg_daily_ret=0.000247 std_daily_ret=0.004939 win_rate_days=0.4921 cum_ret=0.014944 avg_turnover=0.600000 avg_gross_ret=0.000469 avg_trading_costs=0.000180 avg_borrow_costs=0.000041 avg_costs=0.000222
+[WF][full_regime_stack_neutralized_sized][FOLD 5] start
+[WF][full_regime_stack_neutralized_sized][FOLD 5] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_sized][FOLD 5][SUMMARY] days=63 avg_daily_ret=0.000260 std_daily_ret=0.004390 win_rate_days=0.5079 cum_ret=0.015883 avg_turnover=0.600000 avg_gross_ret=0.000482 avg_trading_costs=0.000181 avg_borrow_costs=0.000041 avg_costs=0.000222
+[WF][full_regime_stack_neutralized_sized][FOLD 6] start
+[WF][full_regime_stack_neutralized_sized][FOLD 6] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_sized][FOLD 6][SUMMARY] days=63 avg_daily_ret=0.000742 std_daily_ret=0.004159 win_rate_days=0.5714 cum_ret=0.047296 avg_turnover=0.600000 avg_gross_ret=0.000965 avg_trading_costs=0.000181 avg_borrow_costs=0.000042 avg_costs=0.000223
+[WF][full_regime_stack_neutralized_sized][FOLD 7] start
+[WF][full_regime_stack_neutralized_sized][FOLD 7] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_sized][FOLD 7][SUMMARY] days=63 avg_daily_ret=0.001178 std_daily_ret=0.004580 win_rate_days=0.6032 cum_ret=0.076277 avg_turnover=0.600000 avg_gross_ret=0.001401 avg_trading_costs=0.000181 avg_borrow_costs=0.000042 avg_costs=0.000223
+[WF][full_regime_stack_neutralized_sized][FOLD 8] start
+[WF][full_regime_stack_neutralized_sized][FOLD 8] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_sized][FOLD 8][SUMMARY] days=63 avg_daily_ret=0.000573 std_daily_ret=0.004390 win_rate_days=0.5397 cum_ret=0.036121 avg_turnover=0.600000 avg_gross_ret=0.000796 avg_trading_costs=0.000182 avg_borrow_costs=0.000041 avg_costs=0.000223
+[WF][full_regime_stack_neutralized_sized][OVERALL] days=504 avg_daily_ret=0.000481 std_daily_ret=0.004638 win_rate_days=0.5496 cum_ret=0.267088 avg_turnover=0.600000 avg_gross_ret=0.000703 avg_trading_costs=0.000181 avg_borrow_costs=0.000042 avg_costs=0.000223
+[WF][full_regime_stack_neutralized_sized][WEIGHTS][STABILITY]
+                             feature  folds  mean_weight  std_weight  mean_abs_weight  pos_folds  neg_folds  zero_folds
+    z_cond_breadth_trend_intraday_rs      8     0.118859    0.032822         0.118859          8          0           0
+                       z_intraday_rs      8     0.097811    0.026239         0.097811          8          0           0
+            z_liq_rank_x_intraday_rs      8     0.095725    0.017797         0.095725          8          0           0
+        z_intraday_rs_x_volume_shock      8     0.094662    0.023884         0.094662          8          0           0
+            z_cond_breadth_range_str      8     0.016087    0.040670         0.036774          5          3           0
+       z_cond_breadth_weak_overnight      8    -0.023181    0.033684         0.030687          3          5           0
+ z_cond_vol_compression_liq_breakout      8     0.030606    0.005259         0.030606          8          0           0
+z_cond_breadth_trend_mom_compression      8     0.015565    0.031669         0.028087          4          4           0
+          z_cond_ivol_lowliq_penalty      8     0.017335    0.022091         0.022883          6          2           0
+       z_cond_overnight_trend_follow      8     0.013414    0.015249         0.015604          6          2           0
+             z_cond_str_weak_breadth      8    -0.006764    0.014970         0.012658          4          4           0
+           z_cond_momentum_liq_trend      8     0.009714    0.010275         0.012023          7          1           0
+  z_intraday_pressure_x_volume_shock      8     0.011015    0.008974         0.011015          8          0           0
+                      z_volume_shock      8     0.009466    0.003279         0.009466          8          0           0
+                 z_intraday_pressure      8     0.008606    0.007474         0.008606          8          0           0
+[WF][full_regime_stack_neutralized_sized][TAIL]
+      date  portfolio_ret  gross_ret  trading_costs  borrow_costs    costs  positions  turnover  fold_id                               model
+2025-12-23       0.000487   0.000717       0.000182      0.000048 0.000230         32       0.6        8 full_regime_stack_neutralized_sized
+2025-12-24       0.005789   0.006029       0.000199      0.000041 0.000239         31       0.6        8 full_regime_stack_neutralized_sized
+2025-12-26      -0.004557  -0.004330       0.000182      0.000045 0.000227         33       0.6        8 full_regime_stack_neutralized_sized
+2025-12-29       0.005976   0.006207       0.000195      0.000036 0.000231         29       0.6        8 full_regime_stack_neutralized_sized
+2025-12-30       0.001890   0.002110       0.000180      0.000041 0.000221         30       0.6        8 full_regime_stack_neutralized_sized
+2025-12-31       0.000193   0.000414       0.000182      0.000039 0.000221         30       0.6        8 full_regime_stack_neutralized_sized
+2026-01-02      -0.000020   0.000202       0.000185      0.000037 0.000222         31       0.6        8 full_regime_stack_neutralized_sized
+2026-01-05       0.002838   0.003060       0.000180      0.000042 0.000222         33       0.6        8 full_regime_stack_neutralized_sized
+2026-01-06      -0.003529  -0.003304       0.000180      0.000044 0.000224         32       0.6        8 full_regime_stack_neutralized_sized
+2026-01-07      -0.008669  -0.008444       0.000180      0.000044 0.000224         34       0.6        8 full_regime_stack_neutralized_sized
 [WF][ABLATION][SUMMARY]
-                        model portfolio_mode  neutralize  days  avg_daily_ret  std_daily_ret  win_rate_days  cum_ret  avg_turnover  avg_gross_ret  avg_trading_costs  avg_borrow_costs  avg_costs
-full_regime_stack_neutralized regime_inertia        True   504       0.000538       0.004450       0.551587 0.305164           0.6       0.000761           0.000181          0.000042   0.000223
- intraday_plus_breadth_regime regime_inertia       False   504       0.000531       0.008466       0.561508 0.283461           0.6       0.000752           0.000181          0.000041   0.000221
-           intraday_core_only  plain_inertia       False   504       0.000503       0.008391       0.547619 0.265867           0.6       0.000724           0.000181          0.000041   0.000221
-            full_regime_stack regime_inertia       False   504       0.000473       0.008395       0.541667 0.247118           0.6       0.000695           0.000181          0.000041   0.000221
+                              model portfolio_mode  neutralize  sizing  days  avg_daily_ret  std_daily_ret  win_rate_days  cum_ret  avg_turnover  avg_gross_ret  avg_trading_costs  avg_borrow_costs  avg_costs
+      full_regime_stack_neutralized regime_inertia        True   False   504       0.000538       0.004450       0.551587 0.305164           0.6       0.000761           0.000181          0.000042   0.000223
+       intraday_plus_breadth_regime regime_inertia       False   False   504       0.000531       0.008466       0.561508 0.283461           0.6       0.000752           0.000181          0.000041   0.000221
+full_regime_stack_neutralized_sized regime_inertia        True    True   504       0.000481       0.004638       0.549603 0.267088           0.6       0.000703           0.000181          0.000042   0.000223
+                 intraday_core_only  plain_inertia       False   False   504       0.000503       0.008391       0.547619 0.265867           0.6       0.000724           0.000181          0.000041   0.000221
+                  full_regime_stack regime_inertia       False   False   504       0.000473       0.008395       0.541667 0.247118           0.6       0.000695           0.000181          0.000041   0.000221
 Press Enter to exit...

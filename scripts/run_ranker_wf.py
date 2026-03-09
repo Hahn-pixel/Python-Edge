@@ -12,8 +12,9 @@ from python_edge.model.neutralize import add_beta_proxy, neutralize_score_cross_
 from python_edge.model.ranker_linear import apply_linear_score, fit_corr_weights
 from python_edge.portfolio.construct import build_long_short_portfolio
 from python_edge.portfolio.holding_inertia import apply_holding_inertia
-from python_edge.portfolio.position_limits import apply_position_filters, normalize_gross_exposure
+from python_edge.portfolio.position_limits import apply_position_filters, cap_single_name_weight, normalize_gross_exposure
 from python_edge.portfolio.regime_allocation import build_regime_aware_long_short_portfolio
+from python_edge.portfolio.signal_sizing import apply_signal_strength_sizing
 from python_edge.portfolio.turnover_control import cap_daily_turnover
 from python_edge.wf.evaluate_ranker import evaluate_long_short, print_summary, summarize_daily_returns
 from python_edge.wf.splits import build_walkforward_splits, print_split_summary
@@ -36,10 +37,11 @@ RECOVERED_DAILY_FEATURES = ["cond_momentum_liq_trend", "cond_str_weak_breadth", 
 RISK_FILTER_FEATURES = ["cond_ivol_lowliq_penalty"]
 
 ABLATIONS: dict[str, dict[str, object]] = {
-    "intraday_core_only": {"features": INTRADAY_CORE_FEATURES, "portfolio_mode": "plain_inertia", "neutralize": False},
-    "intraday_plus_breadth_regime": {"features": INTRADAY_CORE_FEATURES + REGIME_BREADTH_FEATURES, "portfolio_mode": "regime_inertia", "neutralize": False},
-    "full_regime_stack": {"features": INTRADAY_CORE_FEATURES + REGIME_BREADTH_FEATURES + RECOVERED_DAILY_FEATURES + RISK_FILTER_FEATURES, "portfolio_mode": "regime_inertia", "neutralize": False},
-    "full_regime_stack_neutralized": {"features": INTRADAY_CORE_FEATURES + REGIME_BREADTH_FEATURES + RECOVERED_DAILY_FEATURES + RISK_FILTER_FEATURES, "portfolio_mode": "regime_inertia", "neutralize": True},
+    "intraday_core_only": {"features": INTRADAY_CORE_FEATURES, "portfolio_mode": "plain_inertia", "neutralize": False, "sizing": False},
+    "intraday_plus_breadth_regime": {"features": INTRADAY_CORE_FEATURES + REGIME_BREADTH_FEATURES, "portfolio_mode": "regime_inertia", "neutralize": False, "sizing": False},
+    "full_regime_stack": {"features": INTRADAY_CORE_FEATURES + REGIME_BREADTH_FEATURES + RECOVERED_DAILY_FEATURES + RISK_FILTER_FEATURES, "portfolio_mode": "regime_inertia", "neutralize": False, "sizing": False},
+    "full_regime_stack_neutralized": {"features": INTRADAY_CORE_FEATURES + REGIME_BREADTH_FEATURES + RECOVERED_DAILY_FEATURES + RISK_FILTER_FEATURES, "portfolio_mode": "regime_inertia", "neutralize": True, "sizing": False},
+    "full_regime_stack_neutralized_sized": {"features": INTRADAY_CORE_FEATURES + REGIME_BREADTH_FEATURES + RECOVERED_DAILY_FEATURES + RISK_FILTER_FEATURES, "portfolio_mode": "regime_inertia", "neutralize": True, "sizing": True},
 }
 
 
@@ -126,18 +128,26 @@ def _build_portfolio(test_df: pd.DataFrame, portfolio_mode: str, score_col: str)
 
 
 
-def _apply_execution_layer(port_df: pd.DataFrame) -> pd.DataFrame:
+def _apply_execution_layer(port_df: pd.DataFrame, use_signal_sizing: bool) -> pd.DataFrame:
     out = port_df.copy()
-    out = apply_position_filters(out, min_price=5.0, min_dollar_volume=1_000_000.0)
-    out = normalize_gross_exposure(out, gross_target=1.0)
+    side_col = "side"
+
+    out = apply_position_filters(out, side_col=side_col, min_price=5.0, min_dollar_volume=1_000_000.0)
+
+    if use_signal_sizing:
+        out = apply_signal_strength_sizing(out, side_col=side_col, score_col="score", out_col="side_sized")
+        side_col = "side_sized"
+
+    out = cap_single_name_weight(out, side_col=side_col, cap_abs_weight=0.08)
+    out = normalize_gross_exposure(out, side_col=side_col, gross_target=1.0)
     out = cap_daily_turnover(out, weight_col="weight", max_daily_turnover=0.60)
     out = attach_execution_costs(out, weight_col="weight", fee_bps=1.0, slippage_bps=2.0, borrow_bps_daily=1.0)
     return out
 
 
 
-def _run_one_model(model_name: str, raw_df: pd.DataFrame, features: list[str], portfolio_mode: str, neutralize: bool) -> tuple[pd.DataFrame, pd.DataFrame]:
-    print(f"[WF][{model_name}] portfolio_mode={portfolio_mode} neutralize={neutralize} features={features}")
+def _run_one_model(model_name: str, raw_df: pd.DataFrame, features: list[str], portfolio_mode: str, neutralize: bool, sizing: bool) -> tuple[pd.DataFrame, pd.DataFrame]:
+    print(f"[WF][{model_name}] portfolio_mode={portfolio_mode} neutralize={neutralize} sizing={sizing} features={features}")
     df = _prepare_base_frame(raw_df, features)
     splits = build_walkforward_splits(df["date"], train_days=TRAIN_DAYS, test_days=TEST_DAYS, step_days=STEP_DAYS)
     print_split_summary(splits)
@@ -166,7 +176,10 @@ def _run_one_model(model_name: str, raw_df: pd.DataFrame, features: list[str], p
             score_col = "score_neutral"
 
         port_test = _build_portfolio(scored_test, portfolio_mode=portfolio_mode, score_col=score_col)
-        port_test = _apply_execution_layer(port_test)
+        if score_col != "score":
+            port_test["score"] = pd.to_numeric(port_test[score_col], errors="coerce")
+
+        port_test = _apply_execution_layer(port_test, use_signal_sizing=sizing)
 
         daily_test = evaluate_long_short(port_test, target_col=TARGET_COL)
         daily_test["fold_id"] = sp.fold_id
@@ -212,13 +225,15 @@ def main() -> int:
         features = list(cfg["features"])
         portfolio_mode = str(cfg["portfolio_mode"])
         neutralize = bool(cfg["neutralize"])
-        overall, _weights_df = _run_one_model(model_name, raw_df, features, portfolio_mode, neutralize)
+        sizing = bool(cfg["sizing"])
+        overall, _weights_df = _run_one_model(model_name, raw_df, features, portfolio_mode, neutralize, sizing)
         summary = summarize_daily_returns(overall)
         model_summaries.append(
             {
                 "model": model_name,
                 "portfolio_mode": portfolio_mode,
                 "neutralize": neutralize,
+                "sizing": sizing,
                 "days": int(summary["days"]),
                 "avg_daily_ret": float(summary["avg_daily_ret"]),
                 "std_daily_ret": float(summary["std_daily_ret"]),
