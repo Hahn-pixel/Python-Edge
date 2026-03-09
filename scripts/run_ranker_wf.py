@@ -14,7 +14,7 @@ from python_edge.portfolio.construct import build_long_short_portfolio
 from python_edge.portfolio.holding_inertia import apply_holding_inertia
 from python_edge.portfolio.position_limits import apply_position_filters, normalize_gross_exposure
 from python_edge.portfolio.regime_allocation import build_regime_aware_long_short_portfolio
-from python_edge.portfolio.turnover_control import dampen_turnover
+from python_edge.portfolio.turnover_control import cap_daily_turnover
 from python_edge.wf.evaluate_ranker import evaluate_long_short, print_summary, summarize_daily_returns
 from python_edge.wf.splits import build_walkforward_splits, print_split_summary
 
@@ -30,51 +30,16 @@ EXIT_PCT = 0.20
 MIN_TRAIN_ROWS = 500
 MIN_TEST_ROWS = 100
 
-INTRADAY_CORE_FEATURES = [
-    "intraday_rs",
-    "volume_shock",
-    "intraday_pressure",
-    "intraday_rs_x_volume_shock",
-    "intraday_pressure_x_volume_shock",
-    "liq_rank_x_intraday_rs",
-]
-REGIME_BREADTH_FEATURES = [
-    "cond_breadth_trend_intraday_rs",
-    "cond_breadth_trend_mom_compression",
-    "cond_breadth_range_str",
-    "cond_breadth_weak_overnight",
-]
-RECOVERED_DAILY_FEATURES = [
-    "cond_momentum_liq_trend",
-    "cond_str_weak_breadth",
-    "cond_overnight_trend_follow",
-    "cond_vol_compression_liq_breakout",
-]
-RISK_FILTER_FEATURES = [
-    "cond_ivol_lowliq_penalty",
-]
+INTRADAY_CORE_FEATURES = ["intraday_rs", "volume_shock", "intraday_pressure", "intraday_rs_x_volume_shock", "intraday_pressure_x_volume_shock", "liq_rank_x_intraday_rs"]
+REGIME_BREADTH_FEATURES = ["cond_breadth_trend_intraday_rs", "cond_breadth_trend_mom_compression", "cond_breadth_range_str", "cond_breadth_weak_overnight"]
+RECOVERED_DAILY_FEATURES = ["cond_momentum_liq_trend", "cond_str_weak_breadth", "cond_overnight_trend_follow", "cond_vol_compression_liq_breakout"]
+RISK_FILTER_FEATURES = ["cond_ivol_lowliq_penalty"]
 
 ABLATIONS: dict[str, dict[str, object]] = {
-    "intraday_core_only": {
-        "features": INTRADAY_CORE_FEATURES,
-        "portfolio_mode": "plain_inertia",
-        "neutralize": False,
-    },
-    "intraday_plus_breadth_regime": {
-        "features": INTRADAY_CORE_FEATURES + REGIME_BREADTH_FEATURES,
-        "portfolio_mode": "regime_inertia",
-        "neutralize": False,
-    },
-    "full_regime_stack": {
-        "features": INTRADAY_CORE_FEATURES + REGIME_BREADTH_FEATURES + RECOVERED_DAILY_FEATURES + RISK_FILTER_FEATURES,
-        "portfolio_mode": "regime_inertia",
-        "neutralize": False,
-    },
-    "full_regime_stack_neutralized": {
-        "features": INTRADAY_CORE_FEATURES + REGIME_BREADTH_FEATURES + RECOVERED_DAILY_FEATURES + RISK_FILTER_FEATURES,
-        "portfolio_mode": "regime_inertia",
-        "neutralize": True,
-    },
+    "intraday_core_only": {"features": INTRADAY_CORE_FEATURES, "portfolio_mode": "plain_inertia", "neutralize": False},
+    "intraday_plus_breadth_regime": {"features": INTRADAY_CORE_FEATURES + REGIME_BREADTH_FEATURES, "portfolio_mode": "regime_inertia", "neutralize": False},
+    "full_regime_stack": {"features": INTRADAY_CORE_FEATURES + REGIME_BREADTH_FEATURES + RECOVERED_DAILY_FEATURES + RISK_FILTER_FEATURES, "portfolio_mode": "regime_inertia", "neutralize": False},
+    "full_regime_stack_neutralized": {"features": INTRADAY_CORE_FEATURES + REGIME_BREADTH_FEATURES + RECOVERED_DAILY_FEATURES + RISK_FILTER_FEATURES, "portfolio_mode": "regime_inertia", "neutralize": True},
 }
 
 
@@ -86,7 +51,6 @@ def _prepare_base_frame(df: pd.DataFrame, features: list[str]) -> pd.DataFrame:
             out = out.rename(columns={"ticker": "symbol"})
         elif "sym" in out.columns:
             out = out.rename(columns={"sym": "symbol"})
-
     if "date" not in out.columns:
         raise RuntimeError("_prepare_base_frame: missing date")
     if "symbol" not in out.columns:
@@ -94,10 +58,8 @@ def _prepare_base_frame(df: pd.DataFrame, features: list[str]) -> pd.DataFrame:
 
     out = add_conditional_factors(out)
     out = add_beta_proxy(out, lookback=60)
-    if "symbol" not in out.columns:
-        raise RuntimeError("_prepare_base_frame: symbol disappeared after add_beta_proxy")
-
     out = cs_zscore(out, features)
+
     zcols = [f"z_{f}" for f in features]
     needed = ["date", "symbol", TARGET_COL, "market_breadth", "meta_dollar_volume", "meta_price", "liq_rank", "beta_proxy_60d"] + features + zcols
     missing = [c for c in needed if c not in out.columns]
@@ -113,19 +75,17 @@ def _slice_by_date(df: pd.DataFrame, start_date: object, end_date: object) -> pd
 
 
 def _weights_to_frame(model_name: str, fold_id: int, weights: dict[str, float]) -> pd.DataFrame:
-    rows = []
-    for feature_name, weight_value in weights.items():
-        rows.append(
-            {
-                "model": model_name,
-                "fold_id": fold_id,
-                "feature": feature_name,
-                "weight": float(weight_value),
-                "abs_weight": abs(float(weight_value)),
-                "sign": 0 if float(weight_value) == 0.0 else (1 if float(weight_value) > 0.0 else -1),
-            }
-        )
-    return pd.DataFrame(rows)
+    return pd.DataFrame([
+        {
+            "model": model_name,
+            "fold_id": fold_id,
+            "feature": feature_name,
+            "weight": float(weight_value),
+            "abs_weight": abs(float(weight_value)),
+            "sign": 0 if float(weight_value) == 0.0 else (1 if float(weight_value) > 0.0 else -1),
+        }
+        for feature_name, weight_value in weights.items()
+    ])
 
 
 
@@ -152,7 +112,6 @@ def _build_portfolio(test_df: pd.DataFrame, portfolio_mode: str, score_col: str)
     temp = test_df.copy()
     if score_col != "score":
         temp["score"] = pd.to_numeric(temp[score_col], errors="coerce")
-
     if portfolio_mode == "plain":
         return build_long_short_portfolio(temp, top_pct=TOP_PCT)
     if portfolio_mode == "regime":
@@ -170,9 +129,9 @@ def _build_portfolio(test_df: pd.DataFrame, portfolio_mode: str, score_col: str)
 def _apply_execution_layer(port_df: pd.DataFrame) -> pd.DataFrame:
     out = port_df.copy()
     out = apply_position_filters(out, min_price=5.0, min_dollar_volume=1_000_000.0)
-    out = dampen_turnover(out, max_turnover_unit=0.60)
     out = normalize_gross_exposure(out, gross_target=1.0)
-    out = attach_execution_costs(out, fee_bps=1.0, slippage_bps=2.0, borrow_bps=1.0)
+    out = cap_daily_turnover(out, weight_col="weight", max_daily_turnover=0.60)
+    out = attach_execution_costs(out, weight_col="weight", fee_bps=1.0, slippage_bps=2.0, borrow_bps_daily=1.0)
     return out
 
 
@@ -266,6 +225,9 @@ def main() -> int:
                 "win_rate_days": float(summary["win_rate_days"]),
                 "cum_ret": float(summary["cum_ret"]),
                 "avg_turnover": float(summary.get("avg_turnover", 0.0)),
+                "avg_gross_ret": float(summary.get("avg_gross_ret", 0.0)),
+                "avg_trading_costs": float(summary.get("avg_trading_costs", 0.0)),
+                "avg_borrow_costs": float(summary.get("avg_borrow_costs", 0.0)),
                 "avg_costs": float(summary.get("avg_costs", 0.0)),
             }
         )

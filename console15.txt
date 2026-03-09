@@ -1,0 +1,59 @@
+
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> Set-StrictMode -Version Latest
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $ErrorActionPreference = "Stop"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> Set-Location -LiteralPath "C:\Users\Dmytro Govor\Documents\Python-Edge"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:PYTHONPATH = ".\src"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_ranker_wf.py
+[CFG] feature_file=data\features\feature_matrix_v1.parquet
+[CFG] target_col=target_fwd_ret_1d
+[CFG] train_days=252 test_days=63 step_days=63 top_pct=0.1
+[CFG] enter_pct=0.1 exit_pct=0.2
+[ERROR] Unhandled exception:
+
+Traceback (most recent call last):
+  File "C:\Users\Dmytro Govor\Documents\Python-Edge\scripts\run_ranker_wf.py", line 244, in <module>
+    rc = main()
+  File "C:\Users\Dmytro Govor\Documents\Python-Edge\scripts\run_ranker_wf.py", line 203, in main
+    raise FileNotFoundError(f"Feature file not found: {FEATURE_FILE}")
+FileNotFoundError: Feature file not found: data\features\feature_matrix_v1.parquet
+Press Enter to exit...
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> Set-StrictMode -Version Latest
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $ErrorActionPreference = "Stop"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> Set-Location -LiteralPath "C:\Users\Dmytro Govor\Documents\Python-Edge"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:PYTHONPATH = ".\src"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_ranker_wf.py
+[CFG] feature_file=data\features\feature_matrix_v1.parquet
+[CFG] target_col=target_fwd_ret_1d
+[CFG] train_days=252 test_days=63 step_days=63 top_pct=0.1
+[CFG] enter_pct=0.1 exit_pct=0.2
+[ERROR] Unhandled exception:
+
+Traceback (most recent call last):
+  File "C:\Users\Dmytro Govor\Documents\Python-Edge\scripts\run_ranker_wf.py", line 244, in <module>
+    rc = main()
+  File "C:\Users\Dmytro Govor\Documents\Python-Edge\scripts\run_ranker_wf.py", line 203, in main
+    raise FileNotFoundError(f"Feature file not found: {FEATURE_FILE}")
+FileNotFoundError: Feature file not found: data\features\feature_matrix_v1.parquet
+Press Enter to exit...
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> Get-ChildItem -LiteralPath ".\data\features"
+Get-ChildItem: Cannot find path 'C:\Users\Dmytro Govor\Documents\Python-Edge\data\features' because it does not exist.
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> Set-StrictMode -Version Latest
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $ErrorActionPreference = "Stop"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> Set-Location -LiteralPath "C:\Users\Dmytro Govor\Documents\Python-Edge"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:PYTHONPATH = ".\src"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\build_feature_matrix.py
+Traceback (most recent call last):
+  File "C:\Users\Dmytro Govor\Documents\Python-Edge\scripts\build_feature_matrix.py", line 7, in <module>
+    from python_edge.features.build_feature_matrix import FEATURE_COLS, build_feature_matrix
+  File "C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\features\build_feature_matrix.py", line 7, in <module>
+    from python_edge.data.load_local_aggs import load_symbol_1d, load_symbol_15m
+ModuleNotFoundError: No module named 'python_edge.data.load_local_aggs'
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> Get-ChildItem -Recurse -Filter *.parquet
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>

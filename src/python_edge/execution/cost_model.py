@@ -6,43 +6,42 @@ import pandas as pd
 
 def attach_execution_costs(
     df: pd.DataFrame,
+    weight_col: str = "weight",
     fee_bps: float = 1.0,
     slippage_bps: float = 2.0,
-    borrow_bps: float = 1.0,
+    borrow_bps_daily: float = 1.0,
 ) -> pd.DataFrame:
     out = df.copy()
 
-    required = ["side", "target_fwd_ret_1d", "meta_dollar_volume", "meta_price"]
+    required = [weight_col, "meta_dollar_volume", "meta_price", "trade_abs_after"]
     missing = [c for c in required if c not in out.columns]
     if missing:
         raise RuntimeError(f"attach_execution_costs: missing columns: {missing}")
 
-    side = pd.to_numeric(out["side"], errors="coerce").fillna(0.0)
-    abs_side = side.abs()
+    weight = pd.to_numeric(out[weight_col], errors="coerce").fillna(0.0)
+    trade_abs = pd.to_numeric(out["trade_abs_after"], errors="coerce").fillna(0.0)
     px = pd.to_numeric(out["meta_price"], errors="coerce")
     dv = pd.to_numeric(out["meta_dollar_volume"], errors="coerce")
 
-    fee_cost = abs_side * (fee_bps / 10000.0)
+    fee_cost = trade_abs * (fee_bps / 10000.0)
 
-    base_slip = pd.Series(slippage_bps / 10000.0, index=out.index, dtype="float64")
-    liq_slip = pd.Series(0.0, index=out.index, dtype="float64")
-    liq_slip.loc[dv < 20_000_000.0] = 1.0 / 10000.0
-    liq_slip.loc[dv < 10_000_000.0] = 2.0 / 10000.0
-    liq_slip.loc[dv < 5_000_000.0] = 4.0 / 10000.0
-    liq_slip.loc[dv < 2_000_000.0] = 8.0 / 10000.0
+    slip_rate = pd.Series(slippage_bps / 10000.0, index=out.index, dtype="float64")
+    slip_rate.loc[dv < 20_000_000.0] += 1.0 / 10000.0
+    slip_rate.loc[dv < 10_000_000.0] += 2.0 / 10000.0
+    slip_rate.loc[dv < 5_000_000.0] += 4.0 / 10000.0
+    slip_rate.loc[dv < 2_000_000.0] += 8.0 / 10000.0
+    slip_rate.loc[px < 20.0] += 1.0 / 10000.0
+    slip_rate.loc[px < 10.0] += 3.0 / 10000.0
 
-    price_slip = pd.Series(0.0, index=out.index, dtype="float64")
-    price_slip.loc[px < 20.0] = 1.0 / 10000.0
-    price_slip.loc[px < 10.0] = 3.0 / 10000.0
+    slippage_cost = trade_abs * slip_rate
 
-    short_borrow = pd.Series(0.0, index=out.index, dtype="float64")
-    short_mask = side < 0.0
-    short_borrow.loc[short_mask] = abs_side.loc[short_mask] * (borrow_bps / 10000.0)
-
-    total_slip_rate = base_slip + liq_slip + price_slip
+    borrow_cost = pd.Series(0.0, index=out.index, dtype="float64")
+    short_mask = weight < 0.0
+    borrow_cost.loc[short_mask] = weight.loc[short_mask].abs() * (borrow_bps_daily / 10000.0)
 
     out["cost_fee"] = fee_cost
-    out["cost_slippage"] = abs_side * total_slip_rate
-    out["cost_borrow"] = short_borrow
-    out["cost_total"] = out["cost_fee"] + out["cost_slippage"] + out["cost_borrow"]
+    out["cost_slippage"] = slippage_cost
+    out["cost_borrow"] = borrow_cost
+    out["cost_trading"] = out["cost_fee"] + out["cost_slippage"]
+    out["cost_total"] = out["cost_trading"] + out["cost_borrow"]
     return out

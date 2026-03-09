@@ -1,0 +1,66 @@
+__inventory_py_fullpaths.txt
+https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/__inventory_py_fullpaths.txt
+
+.gitattributes
+https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/.gitattributes
+
+.gitignore
+https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/.gitignore
+
+console3.log
+https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console3.log
+
+  experiments/console_01_pre_interactions_best.log
+  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/experiments/console_01_pre_interactions_best.log
+
+pyproject.toml
+https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/pyproject.toml
+
+README.md
+https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/README.md
+
+  scripts/download_massive_aggs.py
+  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/download_massive_aggs.py
+
+  scripts/run_mvp_daily_rules.py
+  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_mvp_daily_rules.py
+
+  scripts/run_mvp.py
+  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_mvp.py
+
+  scripts/run_ranker_hold_sim.py
+  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_ranker_hold_sim.py
+
+  scripts/run_ranker_mvp.py
+  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_ranker_mvp.py
+
+  scripts/run_rule_lab_event_mining.py
+  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_rule_lab_event_mining.py
+
+    src/python_edge/__init__.py
+    https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/__init__.py
+
+      src/python_edge/backtest/walkforward_rules.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/backtest/walkforward_rules.py
+
+    src/python_edge/config.py
+    https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/config.py
+
+      src/python_edge/features/build_features_daily.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/features/build_features_daily.py
+
+      src/python_edge/portfolio/portfolio_overlay.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/portfolio/portfolio_overlay.py
+
+      src/python_edge/reports/report_text.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/reports/report_text.py
+
+      src/python_edge/rules/event_mining.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/rules/event_mining.py
+
+      src/python_edge/rules/health.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/rules/health.py
+
+      src/python_edge/rules/rule_miner.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/rules/rule_miner.py
+

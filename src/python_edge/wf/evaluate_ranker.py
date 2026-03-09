@@ -5,35 +5,43 @@ import pandas as pd
 
 
 def evaluate_long_short(df: pd.DataFrame, target_col: str = "target_fwd_ret_1d") -> pd.DataFrame:
-    if "side" not in df.columns:
-        raise RuntimeError("evaluate_long_short: missing side")
     if target_col not in df.columns:
         raise RuntimeError(f"evaluate_long_short: missing target_col={target_col}")
     if "date" not in df.columns:
         raise RuntimeError("evaluate_long_short: missing date")
+    if "weight" not in df.columns:
+        raise RuntimeError("evaluate_long_short: missing weight")
 
     out = df.copy()
     out = out.loc[out[target_col].notna()].copy()
 
-    if "weight" in out.columns:
-        exposure = pd.to_numeric(out["weight"], errors="coerce").fillna(0.0)
-    else:
-        exposure = pd.to_numeric(out["side"], errors="coerce").fillna(0.0)
+    weight = pd.to_numeric(out["weight"], errors="coerce").fillna(0.0)
+    fwd = pd.to_numeric(out[target_col], errors="coerce").fillna(0.0)
+    out["gross_pnl"] = weight * fwd
 
-    out["gross_pnl"] = exposure * pd.to_numeric(out[target_col], errors="coerce").fillna(0.0)
+    if "cost_trading" not in out.columns:
+        out["cost_trading"] = 0.0
+    if "cost_borrow" not in out.columns:
+        out["cost_borrow"] = 0.0
+    if "cost_total" not in out.columns:
+        out["cost_total"] = pd.to_numeric(out["cost_trading"], errors="coerce").fillna(0.0) + pd.to_numeric(out["cost_borrow"], errors="coerce").fillna(0.0)
 
-    if "cost_total" in out.columns:
-        out["net_pnl"] = out["gross_pnl"] - pd.to_numeric(out["cost_total"], errors="coerce").fillna(0.0) * exposure.abs()
-    else:
-        out["net_pnl"] = out["gross_pnl"]
+    out["net_pnl"] = out["gross_pnl"] - pd.to_numeric(out["cost_total"], errors="coerce").fillna(0.0)
 
-    res = out.groupby("date", as_index=False).agg(
-        portfolio_ret=("net_pnl", "sum"),
-        gross_ret=("gross_pnl", "sum"),
-        positions=("side", lambda s: int((pd.to_numeric(s, errors="coerce").fillna(0.0) != 0).sum())),
-        turnover=("turnover_unit_after", "sum") if "turnover_unit_after" in out.columns else ("side", lambda s: 0.0),
-        costs=("cost_total", "sum") if "cost_total" in out.columns else ("side", lambda s: 0.0),
-    )
+    turnover_col = "trade_abs_after" if "trade_abs_after" in out.columns else None
+
+    agg_map = {
+        "portfolio_ret": ("net_pnl", "sum"),
+        "gross_ret": ("gross_pnl", "sum"),
+        "trading_costs": ("cost_trading", "sum"),
+        "borrow_costs": ("cost_borrow", "sum"),
+        "costs": ("cost_total", "sum"),
+        "positions": ("weight", lambda s: int((pd.to_numeric(s, errors="coerce").fillna(0.0) != 0.0).sum())),
+    }
+    if turnover_col is not None:
+        agg_map["turnover"] = (turnover_col, "sum")
+
+    res = out.groupby("date", as_index=False).agg(**agg_map)
     return res
 
 
@@ -48,29 +56,32 @@ def summarize_daily_returns(daily_df: pd.DataFrame) -> dict[str, float]:
     if s.empty:
         raise RuntimeError("summarize_daily_returns: no valid portfolio_ret values")
 
-    cum = float((1.0 + s).prod() - 1.0)
-    win_rate = float((s > 0).mean())
     out = {
         "days": float(len(s)),
         "avg_daily_ret": float(s.mean()),
         "std_daily_ret": float(s.std()),
-        "win_rate_days": win_rate,
-        "cum_ret": cum,
+        "win_rate_days": float((s > 0).mean()),
+        "cum_ret": float((1.0 + s).prod() - 1.0),
     }
-    if "turnover" in daily_df.columns:
-        out["avg_turnover"] = float(pd.to_numeric(daily_df["turnover"], errors="coerce").fillna(0.0).mean())
-    if "costs" in daily_df.columns:
-        out["avg_costs"] = float(pd.to_numeric(daily_df["costs"], errors="coerce").fillna(0.0).mean())
+    for col, key in [
+        ("turnover", "avg_turnover"),
+        ("gross_ret", "avg_gross_ret"),
+        ("trading_costs", "avg_trading_costs"),
+        ("borrow_costs", "avg_borrow_costs"),
+        ("costs", "avg_costs"),
+    ]:
+        if col in daily_df.columns:
+            out[key] = float(pd.to_numeric(daily_df[col], errors="coerce").fillna(0.0).mean())
     return out
 
 
 
 def print_summary(tag: str, summary: dict[str, float]) -> None:
-    extra = ""
-    if "avg_turnover" in summary:
-        extra += f" avg_turnover={summary['avg_turnover']:.6f}"
-    if "avg_costs" in summary:
-        extra += f" avg_costs={summary['avg_costs']:.6f}"
+    extra_parts = []
+    for key in ["avg_turnover", "avg_gross_ret", "avg_trading_costs", "avg_borrow_costs", "avg_costs"]:
+        if key in summary:
+            extra_parts.append(f"{key}={summary[key]:.6f}")
+    extra = " " + " ".join(extra_parts) if extra_parts else ""
     print(
         f"{tag} days={int(summary['days'])} "
         f"avg_daily_ret={summary['avg_daily_ret']:.6f} "
