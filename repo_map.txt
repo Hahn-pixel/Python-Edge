@@ -7,8 +7,11 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/.gitattributes
 .gitignore
 https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/.gitignore
 
-console3.log
-https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console3.log
+console15.txt
+https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console15.txt
+
+deps_edges.txt
+https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/deps_edges.txt
 
   experiments/console_01_pre_interactions_best.log
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/experiments/console_01_pre_interactions_best.log
@@ -18,6 +21,12 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/pyproject.toml
 
 README.md
 https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/README.md
+
+repo_map.txt
+https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/repo_map.txt
+
+  scripts/build_feature_matrix.py
+  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/build_feature_matrix.py
 
   scripts/download_massive_aggs.py
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/download_massive_aggs.py
@@ -34,6 +43,9 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/README.md
   scripts/run_ranker_mvp.py
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_ranker_mvp.py
 
+  scripts/run_ranker_wf.py
+  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_ranker_wf.py
+
   scripts/run_rule_lab_event_mining.py
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_rule_lab_event_mining.py
 
@@ -46,11 +58,95 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/README.md
     src/python_edge/config.py
     https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/config.py
 
+      src/python_edge/execution/__init__.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/execution/__init__.py
+
+      src/python_edge/execution/cost_model.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/execution/cost_model.py
+
+      src/python_edge/features/__init__.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/features/__init__.py
+
+      src/python_edge/features/add_interactions.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/features/add_interactions.py
+
+      src/python_edge/features/add_intraday_pressure.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/features/add_intraday_pressure.py
+
+      src/python_edge/features/add_intraday_rs.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/features/add_intraday_rs.py
+
+      src/python_edge/features/add_ivol_20d.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/features/add_ivol_20d.py
+
+      src/python_edge/features/add_liq_rank.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/features/add_liq_rank.py
+
+      src/python_edge/features/add_market_breadth.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/features/add_market_breadth.py
+
+      src/python_edge/features/add_momentum_20d.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/features/add_momentum_20d.py
+
+      src/python_edge/features/add_overnight_drift_20d.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/features/add_overnight_drift_20d.py
+
+      src/python_edge/features/add_str_3d.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/features/add_str_3d.py
+
+      src/python_edge/features/add_vol_compression.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/features/add_vol_compression.py
+
+      src/python_edge/features/add_volume_shock.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/features/add_volume_shock.py
+
+      src/python_edge/features/build_feature_matrix.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/features/build_feature_matrix.py
+
       src/python_edge/features/build_features_daily.py
       https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/features/build_features_daily.py
 
+      src/python_edge/features/diagnostics.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/features/diagnostics.py
+
+      src/python_edge/model/__init__.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/model/__init__.py
+
+      src/python_edge/model/conditional_factors.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/model/conditional_factors.py
+
+      src/python_edge/model/cs_normalize.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/model/cs_normalize.py
+
+      src/python_edge/model/neutralize.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/model/neutralize.py
+
+      src/python_edge/model/ranker_linear.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/model/ranker_linear.py
+
+      src/python_edge/model/targets.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/model/targets.py
+
+      src/python_edge/portfolio/__init__.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/portfolio/__init__.py
+
+      src/python_edge/portfolio/construct.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/portfolio/construct.py
+
+      src/python_edge/portfolio/holding_inertia.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/portfolio/holding_inertia.py
+
       src/python_edge/portfolio/portfolio_overlay.py
       https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/portfolio/portfolio_overlay.py
+
+      src/python_edge/portfolio/position_limits.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/portfolio/position_limits.py
+
+      src/python_edge/portfolio/regime_allocation.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/portfolio/regime_allocation.py
+
+      src/python_edge/portfolio/turnover_control.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/portfolio/turnover_control.py
 
       src/python_edge/reports/report_text.py
       https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/reports/report_text.py
@@ -63,4 +159,13 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/README.md
 
       src/python_edge/rules/rule_miner.py
       https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/rules/rule_miner.py
+
+      src/python_edge/wf/__init__.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/wf/__init__.py
+
+      src/python_edge/wf/evaluate_ranker.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/wf/evaluate_ranker.py
+
+      src/python_edge/wf/splits.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/wf/splits.py
 
