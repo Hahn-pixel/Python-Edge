@@ -1,0 +1,239 @@
+
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_alpha_decay_surface.py
+[CFG] feature_file=data\features\feature_matrix_v1.parquet
+[CFG] out_surface_csv=data\analysis\alpha_decay_surface.csv
+[CFG] out_turning_json=data\analysis\alpha_decay_turning_points.json
+[LOAD] feature matrix
+[WF] folds=8
+[WF][FOLD 1] train=2023-01-03 00:00:00..2024-01-03 00:00:00 test=2024-01-04 00:00:00..2024-04-04 00:00:00
+[WF][FOLD 2] train=2023-04-04 00:00:00..2024-04-04 00:00:00 test=2024-04-05 00:00:00..2024-07-05 00:00:00
+[WF][FOLD 3] train=2023-07-06 00:00:00..2024-07-05 00:00:00 test=2024-07-08 00:00:00..2024-10-03 00:00:00
+[WF][FOLD 4] train=2023-10-04 00:00:00..2024-10-03 00:00:00 test=2024-10-04 00:00:00..2025-01-03 00:00:00
+[WF][FOLD 5] train=2024-01-04 00:00:00..2025-01-03 00:00:00 test=2025-01-06 00:00:00..2025-04-07 00:00:00
+[WF][FOLD 6] train=2024-04-05 00:00:00..2025-04-07 00:00:00 test=2025-04-08 00:00:00..2025-07-09 00:00:00
+[WF][FOLD 7] train=2024-07-08 00:00:00..2025-07-09 00:00:00 test=2025-07-10 00:00:00..2025-10-07 00:00:00
+[WF][FOLD 8] train=2024-10-04 00:00:00..2025-10-07 00:00:00 test=2025-10-08 00:00:00..2026-01-07 00:00:00
+[ALPHA_DECAY][FOLD 1] start
+[ALPHA_DECAY][FOLD 1] train_rows=24444 test_rows=6111
+[ALPHA_DECAY][FOLD 2] start
+[ALPHA_DECAY][FOLD 2] train_rows=24444 test_rows=6111
+[ALPHA_DECAY][FOLD 3] start
+[ALPHA_DECAY][FOLD 3] train_rows=24444 test_rows=6111
+[ALPHA_DECAY][FOLD 4] start
+[ALPHA_DECAY][FOLD 4] train_rows=24444 test_rows=6111
+[ALPHA_DECAY][FOLD 5] start
+[ALPHA_DECAY][FOLD 5] train_rows=24444 test_rows=6111
+[ALPHA_DECAY][FOLD 6] start
+[ALPHA_DECAY][FOLD 6] train_rows=24444 test_rows=6111
+[ALPHA_DECAY][FOLD 7] start
+[ALPHA_DECAY][FOLD 7] train_rows=24444 test_rows=6111
+[ALPHA_DECAY][FOLD 8] start
+[ALPHA_DECAY][FOLD 8] train_rows=24444 test_rows=6111
+[ALPHA_DECAY][TURNING_POINTS]
+      bucket       side  best_horizon_days  best_mean_fwd_ret
+bottom_10pct      short                  1          -0.001367
+bottom_20pct      short                  1          -0.000240
+ bottom_2pct      short                  1          -0.009042
+ bottom_5pct      short                  1          -0.003539
+spread_10pct long_short                  3           0.004526
+spread_20pct long_short                  3           0.003039
+ spread_2pct long_short                 20           0.020905
+ spread_5pct long_short                  3           0.007255
+   top_10pct       long                 20           0.015972
+   top_20pct       long                 20           0.015739
+    top_2pct       long                 20           0.023339
+    top_5pct       long                 20           0.018311
+[SAVE] surface_csv=data\analysis\alpha_decay_surface.csv
+[SAVE] turning_json=data\analysis\alpha_decay_turning_points.json
+[DONE] alpha decay surface completed
+Press Enter to exit...
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+bucket,side,horizon_days,mean_fwd_ret,n_obs
+top_2pct,long,1,0.007756453482689818,1006
+bottom_2pct,short,1,-0.00904231987632581,503
+spread_2pct,long_short,1,0.01679877335901563,503
+top_2pct,long,2,0.009397382441694352,1004
+bottom_2pct,short,2,-0.005976745241017137,502
+spread_2pct,long_short,2,0.01537412768271149,502
+top_2pct,long,3,0.010206282630228002,1002
+bottom_2pct,short,3,-0.005559718224227791,501
+spread_2pct,long_short,3,0.015766000854455793,501
+top_2pct,long,5,0.01133337993647247,998
+bottom_2pct,short,5,-0.004340289447209458,499
+spread_2pct,long_short,5,0.015673669383681928,499
+top_2pct,long,10,0.01592096247161879,988
+bottom_2pct,short,10,-0.0004933414808847779,494
+spread_2pct,long_short,10,0.016414303952503567,494
+top_2pct,long,15,0.017989508654930115,978
+bottom_2pct,short,15,0.0021428588747122324,489
+spread_2pct,long_short,15,0.01584664978021788,489
+top_2pct,long,20,0.02333899932433645,968
+bottom_2pct,short,20,0.0024339475148019265,484
+spread_2pct,long_short,20,0.020905051809534524,484
+top_5pct,long,1,0.0036862218921966277,2515
+bottom_5pct,short,1,-0.0035391620011704238,2012
+spread_5pct,long_short,1,0.0072253838933670515,2012
+top_5pct,long,2,0.004735054057394722,2510
+bottom_5pct,short,2,-0.0020240584968098177,2008
+spread_5pct,long_short,2,0.006759112554204539,2008
+top_5pct,long,3,0.00562605864581745,2505
+bottom_5pct,short,3,-0.0016289487970884014,2004
+spread_5pct,long_short,3,0.007255007442905851,2004
+top_5pct,long,5,0.006252600997747155,2495
+bottom_5pct,short,5,0.0004003068879810082,1996
+spread_5pct,long_short,5,0.005852294109766147,1996
+top_5pct,long,10,0.009853536790344187,2470
+bottom_5pct,short,10,0.0051269448688603765,1976
+spread_5pct,long_short,10,0.004726591921483811,1976
+top_5pct,long,15,0.012152356732794536,2445
+bottom_5pct,short,15,0.007659106585627351,1956
+spread_5pct,long_short,15,0.004493250147167185,1956
+top_5pct,long,20,0.018310862661211024,2420
+bottom_5pct,short,20,0.012177431942446073,1936
+spread_5pct,long_short,20,0.006133430718764951,1936
+top_10pct,long,1,0.0024114006098310535,5030
+bottom_10pct,short,1,-0.0013667375449244016,4527
+spread_10pct,long_short,1,0.0037781381547554553,4527
+top_10pct,long,2,0.003603691151313742,5020
+bottom_10pct,short,2,-0.00021442130629918994,4518
+spread_10pct,long_short,2,0.0038181124576129317,4518
+top_10pct,long,3,0.004841559985714514,5010
+bottom_10pct,short,3,0.0003155030392792814,4509
+spread_10pct,long_short,3,0.004526056946435233,4509
+top_10pct,long,5,0.005866103812651903,4990
+bottom_10pct,short,5,0.0038392111995470043,4491
+spread_10pct,long_short,5,0.002026892613104899,4491
+top_10pct,long,10,0.009121630068941336,4940
+bottom_10pct,short,10,0.009200200103679829,4446
+spread_10pct,long_short,10,-7.857003473849336e-05,4446
+top_10pct,long,15,0.011847515150436078,4890
+bottom_10pct,short,15,0.011936152108002742,4401
+spread_10pct,long_short,15,-8.863695756666443e-05,4401
+top_10pct,long,20,0.015972365906610306,4840
+bottom_10pct,short,20,0.015427157479599055,4356
+spread_10pct,long_short,20,0.0005452084270112512,4356
+top_20pct,long,1,0.0017655623104344384,10060
+bottom_20pct,short,1,-0.0002402022411439813,9557
+spread_20pct,long_short,1,0.00200576455157842,9557
+top_20pct,long,2,0.0027201901491638444,10040
+bottom_20pct,short,2,0.0005436945438570298,9538
+spread_20pct,long_short,2,0.0021764956053068147,9538
+top_20pct,long,3,0.004044141957973741,10020
+bottom_20pct,short,3,0.001005628004221823,9519
+spread_20pct,long_short,3,0.0030385139537519182,9519
+top_20pct,long,5,0.005285970652342054,9980
+bottom_20pct,short,5,0.0036903717766344924,9481
+spread_20pct,long_short,5,0.0015955988757075613,9481
+top_20pct,long,10,0.008972492511864067,9880
+bottom_20pct,short,10,0.008083537277439814,9386
+spread_20pct,long_short,10,0.0008889552344242529,9386
+top_20pct,long,15,0.012129295561715192,9780
+bottom_20pct,short,15,0.011493003808511591,9291
+spread_20pct,long_short,15,0.0006362917532036008,9291
+top_20pct,long,20,0.01573872102669983,9680
+bottom_20pct,short,20,0.014251574565276232,9196
+spread_20pct,long_short,20,0.001487146461423599,9196
+
+
+
+
+
+
+
+
+
+
+
+[
+  {
+    "bucket":"bottom_10pct",
+    "side":"short",
+    "best_horizon_days":1,
+    "best_mean_fwd_ret":-0.0013667375
+  },
+  {
+    "bucket":"bottom_20pct",
+    "side":"short",
+    "best_horizon_days":1,
+    "best_mean_fwd_ret":-0.0002402022
+  },
+  {
+    "bucket":"bottom_2pct",
+    "side":"short",
+    "best_horizon_days":1,
+    "best_mean_fwd_ret":-0.0090423199
+  },
+  {
+    "bucket":"bottom_5pct",
+    "side":"short",
+    "best_horizon_days":1,
+    "best_mean_fwd_ret":-0.003539162
+  },
+  {
+    "bucket":"spread_10pct",
+    "side":"long_short",
+    "best_horizon_days":3,
+    "best_mean_fwd_ret":0.0045260569
+  },
+  {
+    "bucket":"spread_20pct",
+    "side":"long_short",
+    "best_horizon_days":3,
+    "best_mean_fwd_ret":0.003038514
+  },
+  {
+    "bucket":"spread_2pct",
+    "side":"long_short",
+    "best_horizon_days":20,
+    "best_mean_fwd_ret":0.0209050518
+  },
+  {
+    "bucket":"spread_5pct",
+    "side":"long_short",
+    "best_horizon_days":3,
+    "best_mean_fwd_ret":0.0072550074
+  },
+  {
+    "bucket":"top_10pct",
+    "side":"long",
+    "best_horizon_days":20,
+    "best_mean_fwd_ret":0.0159723659
+  },
+  {
+    "bucket":"top_20pct",
+    "side":"long",
+    "best_horizon_days":20,
+    "best_mean_fwd_ret":0.015738721
+  },
+  {
+    "bucket":"top_2pct",
+    "side":"long",
+    "best_horizon_days":20,
+    "best_mean_fwd_ret":0.0233389993
+  },
+  {
+    "bucket":"top_5pct",
+    "side":"long",
+    "best_horizon_days":20,
+    "best_mean_fwd_ret":0.0183108627
+  }
+]
+
+
+
+
+
