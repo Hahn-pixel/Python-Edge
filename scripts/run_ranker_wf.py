@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import traceback
 from pathlib import Path
 
@@ -30,18 +31,90 @@ ENTER_PCT = 0.10
 EXIT_PCT = 0.20
 MIN_TRAIN_ROWS = 500
 MIN_TEST_ROWS = 100
+MAX_DAILY_TURNOVER = float(os.getenv("MAX_DAILY_TURNOVER", "0.60"))
 
-INTRADAY_CORE_FEATURES = ["intraday_rs", "volume_shock", "intraday_pressure", "intraday_rs_x_volume_shock", "intraday_pressure_x_volume_shock", "liq_rank_x_intraday_rs"]
-REGIME_BREADTH_FEATURES = ["cond_breadth_trend_intraday_rs", "cond_breadth_trend_mom_compression", "cond_breadth_range_str", "cond_breadth_weak_overnight"]
-RECOVERED_DAILY_FEATURES = ["cond_momentum_liq_trend", "cond_str_weak_breadth", "cond_overnight_trend_follow", "cond_vol_compression_liq_breakout"]
-RISK_FILTER_FEATURES = ["cond_ivol_lowliq_penalty"]
+INTRADAY_CORE_FEATURES = [
+    "intraday_rs",
+    "volume_shock",
+    "intraday_pressure",
+    "intraday_rs_x_volume_shock",
+    "intraday_pressure_x_volume_shock",
+    "liq_rank_x_intraday_rs",
+]
+REGIME_BREADTH_FEATURES = [
+    "cond_breadth_trend_intraday_rs",
+    "cond_breadth_trend_mom_compression",
+    "cond_breadth_range_str",
+    "cond_breadth_weak_overnight",
+]
+RECOVERED_DAILY_FEATURES = [
+    "cond_momentum_liq_trend",
+    "cond_str_weak_breadth",
+    "cond_overnight_trend_follow",
+    "cond_vol_compression_liq_breakout",
+]
+RISK_FILTER_FEATURES = [
+    "cond_ivol_lowliq_penalty",
+]
+FULL_FEATURE_STACK = INTRADAY_CORE_FEATURES + REGIME_BREADTH_FEATURES + RECOVERED_DAILY_FEATURES + RISK_FILTER_FEATURES
 
 ABLATIONS: dict[str, dict[str, object]] = {
-    "intraday_core_only": {"features": INTRADAY_CORE_FEATURES, "portfolio_mode": "plain_inertia", "neutralize": False, "sizing": False},
-    "intraday_plus_breadth_regime": {"features": INTRADAY_CORE_FEATURES + REGIME_BREADTH_FEATURES, "portfolio_mode": "regime_inertia", "neutralize": False, "sizing": False},
-    "full_regime_stack": {"features": INTRADAY_CORE_FEATURES + REGIME_BREADTH_FEATURES + RECOVERED_DAILY_FEATURES + RISK_FILTER_FEATURES, "portfolio_mode": "regime_inertia", "neutralize": False, "sizing": False},
-    "full_regime_stack_neutralized": {"features": INTRADAY_CORE_FEATURES + REGIME_BREADTH_FEATURES + RECOVERED_DAILY_FEATURES + RISK_FILTER_FEATURES, "portfolio_mode": "regime_inertia", "neutralize": True, "sizing": False},
-    "full_regime_stack_neutralized_sized": {"features": INTRADAY_CORE_FEATURES + REGIME_BREADTH_FEATURES + RECOVERED_DAILY_FEATURES + RISK_FILTER_FEATURES, "portfolio_mode": "regime_inertia", "neutralize": True, "sizing": True},
+    "intraday_core_only": {
+        "features": INTRADAY_CORE_FEATURES,
+        "portfolio_mode": "plain_inertia",
+        "neutralize": False,
+        "sizing": False,
+        "sizing_preset": None,
+    },
+    "intraday_plus_breadth_regime": {
+        "features": INTRADAY_CORE_FEATURES + REGIME_BREADTH_FEATURES,
+        "portfolio_mode": "regime_inertia",
+        "neutralize": False,
+        "sizing": False,
+        "sizing_preset": None,
+    },
+    "full_regime_stack": {
+        "features": FULL_FEATURE_STACK,
+        "portfolio_mode": "regime_inertia",
+        "neutralize": False,
+        "sizing": False,
+        "sizing_preset": None,
+    },
+    "full_regime_stack_neutralized": {
+        "features": FULL_FEATURE_STACK,
+        "portfolio_mode": "regime_inertia",
+        "neutralize": True,
+        "sizing": False,
+        "sizing_preset": None,
+    },
+    "full_regime_stack_neutralized_sized_baseline": {
+        "features": FULL_FEATURE_STACK,
+        "portfolio_mode": "regime_inertia",
+        "neutralize": True,
+        "sizing": True,
+        "sizing_preset": "baseline",
+    },
+    "full_regime_stack_neutralized_sized_aggressive": {
+        "features": FULL_FEATURE_STACK,
+        "portfolio_mode": "regime_inertia",
+        "neutralize": True,
+        "sizing": True,
+        "sizing_preset": "aggressive",
+    },
+    "full_regime_stack_neutralized_sized_conservative": {
+        "features": FULL_FEATURE_STACK,
+        "portfolio_mode": "regime_inertia",
+        "neutralize": True,
+        "sizing": True,
+        "sizing_preset": "conservative",
+    },
+    "full_regime_stack_neutralized_sized_barbell": {
+        "features": FULL_FEATURE_STACK,
+        "portfolio_mode": "regime_inertia",
+        "neutralize": True,
+        "sizing": True,
+        "sizing_preset": "barbell",
+    },
 }
 
 
@@ -63,7 +136,16 @@ def _prepare_base_frame(df: pd.DataFrame, features: list[str]) -> pd.DataFrame:
     out = cs_zscore(out, features)
 
     zcols = [f"z_{f}" for f in features]
-    needed = ["date", "symbol", TARGET_COL, "market_breadth", "meta_dollar_volume", "meta_price", "liq_rank", "beta_proxy_60d"] + features + zcols
+    needed = [
+        "date",
+        "symbol",
+        TARGET_COL,
+        "market_breadth",
+        "meta_dollar_volume",
+        "meta_price",
+        "liq_rank",
+        "beta_proxy_60d",
+    ] + features + zcols
     missing = [c for c in needed if c not in out.columns]
     if missing:
         raise RuntimeError(f"_prepare_base_frame: missing columns: {missing}")
@@ -128,26 +210,51 @@ def _build_portfolio(test_df: pd.DataFrame, portfolio_mode: str, score_col: str)
 
 
 
-def _apply_execution_layer(port_df: pd.DataFrame, use_signal_sizing: bool) -> pd.DataFrame:
+def _apply_execution_layer(
+    port_df: pd.DataFrame,
+    use_signal_sizing: bool,
+    sizing_preset: str | None,
+) -> pd.DataFrame:
     out = port_df.copy()
     side_col = "side"
 
     out = apply_position_filters(out, side_col=side_col, min_price=5.0, min_dollar_volume=1_000_000.0)
 
     if use_signal_sizing:
-        out = apply_signal_strength_sizing(out, side_col=side_col, score_col="score", out_col="side_sized")
+        preset_name = str(sizing_preset or "baseline")
+        out = apply_signal_strength_sizing(
+            out,
+            side_col=side_col,
+            score_col="score",
+            out_col="side_sized",
+            preset_name=preset_name,
+        )
         side_col = "side_sized"
+    else:
+        out["sizing_preset"] = "none"
 
     out = cap_single_name_weight(out, side_col=side_col, cap_abs_weight=0.08)
     out = normalize_gross_exposure(out, side_col=side_col, gross_target=1.0)
-    out = cap_daily_turnover(out, weight_col="weight", max_daily_turnover=0.60)
+    out = cap_daily_turnover(out, weight_col="weight", max_daily_turnover=MAX_DAILY_TURNOVER)
     out = attach_execution_costs(out, weight_col="weight", fee_bps=1.0, slippage_bps=2.0, borrow_bps_daily=1.0)
     return out
 
 
 
-def _run_one_model(model_name: str, raw_df: pd.DataFrame, features: list[str], portfolio_mode: str, neutralize: bool, sizing: bool) -> tuple[pd.DataFrame, pd.DataFrame]:
-    print(f"[WF][{model_name}] portfolio_mode={portfolio_mode} neutralize={neutralize} sizing={sizing} features={features}")
+def _run_one_model(
+    model_name: str,
+    raw_df: pd.DataFrame,
+    features: list[str],
+    portfolio_mode: str,
+    neutralize: bool,
+    sizing: bool,
+    sizing_preset: str | None,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    print(
+        f"[WF][{model_name}] portfolio_mode={portfolio_mode} "
+        f"neutralize={neutralize} sizing={sizing} sizing_preset={sizing_preset} "
+        f"max_daily_turnover={MAX_DAILY_TURNOVER} features={features}"
+    )
     df = _prepare_base_frame(raw_df, features)
     splits = build_walkforward_splits(df["date"], train_days=TRAIN_DAYS, test_days=TEST_DAYS, step_days=STEP_DAYS)
     print_split_summary(splits)
@@ -172,14 +279,23 @@ def _run_one_model(model_name: str, raw_df: pd.DataFrame, features: list[str], p
         scored_test = apply_linear_score(test_df, fit=fit, out_col="score")
         score_col = "score"
         if neutralize:
-            scored_test = neutralize_score_cross_section(scored_test, score_col="score", exposure_cols=["liq_rank", "beta_proxy_60d"], out_col="score_neutral")
+            scored_test = neutralize_score_cross_section(
+                scored_test,
+                score_col="score",
+                exposure_cols=["liq_rank", "beta_proxy_60d"],
+                out_col="score_neutral",
+            )
             score_col = "score_neutral"
 
         port_test = _build_portfolio(scored_test, portfolio_mode=portfolio_mode, score_col=score_col)
         if score_col != "score":
             port_test["score"] = pd.to_numeric(port_test[score_col], errors="coerce")
 
-        port_test = _apply_execution_layer(port_test, use_signal_sizing=sizing)
+        port_test = _apply_execution_layer(
+            port_test,
+            use_signal_sizing=sizing,
+            sizing_preset=sizing_preset,
+        )
 
         daily_test = evaluate_long_short(port_test, target_col=TARGET_COL)
         daily_test["fold_id"] = sp.fold_id
@@ -211,6 +327,7 @@ def main() -> int:
     print(f"[CFG] target_col={TARGET_COL}")
     print(f"[CFG] train_days={TRAIN_DAYS} test_days={TEST_DAYS} step_days={STEP_DAYS} top_pct={TOP_PCT}")
     print(f"[CFG] enter_pct={ENTER_PCT} exit_pct={EXIT_PCT}")
+    print(f"[CFG] max_daily_turnover={MAX_DAILY_TURNOVER}")
 
     if not FEATURE_FILE.exists():
         raise FileNotFoundError(f"Feature file not found: {FEATURE_FILE}")
@@ -220,13 +337,22 @@ def main() -> int:
     if raw_df.empty:
         raise RuntimeError("Loaded feature matrix is empty")
 
-    model_summaries: list[dict[str, float | str]] = []
+    model_summaries: list[dict[str, float | str | bool]] = []
     for model_name, cfg in ABLATIONS.items():
         features = list(cfg["features"])
         portfolio_mode = str(cfg["portfolio_mode"])
         neutralize = bool(cfg["neutralize"])
         sizing = bool(cfg["sizing"])
-        overall, _weights_df = _run_one_model(model_name, raw_df, features, portfolio_mode, neutralize, sizing)
+        sizing_preset = cfg.get("sizing_preset")
+        overall, _weights_df = _run_one_model(
+            model_name,
+            raw_df,
+            features,
+            portfolio_mode,
+            neutralize,
+            sizing,
+            None if sizing_preset is None else str(sizing_preset),
+        )
         summary = summarize_daily_returns(overall)
         model_summaries.append(
             {
@@ -234,12 +360,15 @@ def main() -> int:
                 "portfolio_mode": portfolio_mode,
                 "neutralize": neutralize,
                 "sizing": sizing,
+                "sizing_preset": "none" if sizing_preset is None else str(sizing_preset),
                 "days": int(summary["days"]),
                 "avg_daily_ret": float(summary["avg_daily_ret"]),
                 "std_daily_ret": float(summary["std_daily_ret"]),
                 "win_rate_days": float(summary["win_rate_days"]),
                 "cum_ret": float(summary["cum_ret"]),
+                "avg_raw_turnover": float(summary.get("avg_raw_turnover", 0.0)),
                 "avg_turnover": float(summary.get("avg_turnover", 0.0)),
+                "cap_hit_rate": float(summary.get("cap_hit_rate", 0.0)),
                 "avg_gross_ret": float(summary.get("avg_gross_ret", 0.0)),
                 "avg_trading_costs": float(summary.get("avg_trading_costs", 0.0)),
                 "avg_borrow_costs": float(summary.get("avg_borrow_costs", 0.0)),
