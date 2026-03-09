@@ -22,6 +22,7 @@ from python_edge.portfolio.position_limits import (
 from python_edge.portfolio.regime_allocation import build_regime_aware_long_short_portfolio
 from python_edge.portfolio.signal_sizing import apply_signal_strength_sizing
 from python_edge.portfolio.turnover_control import cap_daily_turnover
+from python_edge.portfolio.exit_rules import apply_exit_rules
 from python_edge.wf.evaluate_ranker import evaluate_long_short, print_summary, summarize_daily_returns
 from python_edge.wf.splits import build_walkforward_splits, print_split_summary
 
@@ -197,23 +198,36 @@ def _print_weight_stability(model_name: str, weights_df: pd.DataFrame) -> None:
     print(grouped.to_string(index=False))
 
 
-
 def _build_portfolio(test_df: pd.DataFrame, portfolio_mode: str, score_col: str) -> pd.DataFrame:
     temp = test_df.copy()
+
     if score_col != "score":
         temp["score"] = pd.to_numeric(temp[score_col], errors="coerce")
+
     if portfolio_mode == "plain":
-        return build_long_short_portfolio(temp, top_pct=TOP_PCT)
-    if portfolio_mode == "regime":
-        return build_regime_aware_long_short_portfolio(temp)
-    if portfolio_mode == "plain_inertia":
-        return apply_holding_inertia(temp, enter_pct=ENTER_PCT, exit_pct=EXIT_PCT)
-    if portfolio_mode == "regime_inertia":
+        port = build_long_short_portfolio(temp, top_pct=TOP_PCT)
+
+    elif portfolio_mode == "regime":
+        port = build_regime_aware_long_short_portfolio(temp)
+
+    elif portfolio_mode == "plain_inertia":
+        port = apply_holding_inertia(temp, enter_pct=ENTER_PCT, exit_pct=EXIT_PCT)
+
+    elif portfolio_mode == "regime_inertia":
         reg = build_regime_aware_long_short_portfolio(temp)
         reg = reg.drop(columns=[c for c in ["rank", "side"] if c in reg.columns])
-        return apply_holding_inertia(reg, enter_pct=ENTER_PCT, exit_pct=EXIT_PCT)
-    raise RuntimeError(f"Unknown portfolio_mode={portfolio_mode!r}")
+        port = apply_holding_inertia(reg, enter_pct=ENTER_PCT, exit_pct=EXIT_PCT)
 
+    else:
+        raise RuntimeError(f"Unknown portfolio_mode={portfolio_mode!r}")
+
+    port = apply_exit_rules(
+        port,
+        long_max_days=15,
+        short_max_days=3,
+    )
+
+    return port
 
 
 def _apply_execution_layer(
