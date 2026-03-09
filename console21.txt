@@ -1,18 +1,17 @@
-PS C:\Users\Dmytro Govor\Documents\Python-Edge> Set-StrictMode -Version Latest
-PS C:\Users\Dmytro Govor\Documents\Python-Edge> $ErrorActionPreference = "Stop"
-PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+
 PS C:\Users\Dmytro Govor\Documents\Python-Edge> Set-Location -LiteralPath "C:\Users\Dmytro Govor\Documents\Python-Edge"
 PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:PYTHONPATH = ".\src"
 PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:MAX_DAILY_TURNOVER = "1.0"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:FINAL_WEIGHT_CAP = "0.08"
 PS C:\Users\Dmytro Govor\Documents\Python-Edge>
 PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_ranker_wf.py
 [CFG] feature_file=data\features\feature_matrix_v1.parquet
 [CFG] target_col=target_fwd_ret_1d
 [CFG] train_days=252 test_days=63 step_days=63 top_pct=0.1
 [CFG] enter_pct=0.1 exit_pct=0.2
-[CFG] max_daily_turnover=1.0
+[CFG] max_daily_turnover=1.0 final_weight_cap=0.08
 [LOAD] feature matrix
-[WF][intraday_core_only] portfolio_mode=plain_inertia neutralize=False sizing=False sizing_preset=None max_daily_turnover=1.0 features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs']
+[WF][intraday_core_only] portfolio_mode=plain_inertia neutralize=False sizing=False sizing_preset=None max_daily_turnover=1.0 final_weight_cap=0.08 features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs']
 [WF] folds=8
 [WF][FOLD 1] train=2023-01-03 00:00:00..2024-01-03 00:00:00 test=2024-01-04 00:00:00..2024-04-04 00:00:00
 [WF][FOLD 2] train=2023-04-04 00:00:00..2024-04-04 00:00:00 test=2024-04-05 00:00:00..2024-07-05 00:00:00
@@ -27,26 +26,26 @@ PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_ranker_wf.p
 [WF][intraday_core_only][FOLD 1][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0018501258472177688, 'std_daily_ret': 0.00508384330714339, 'win_rate_days': 0.6666666666666666, 'cum_ret': 0.12260703088753155, 'avg_raw_turnover': 1.4111698658420533, 'avg_turnover': 0.9938949938949938, 'cap_hit_rate': 0.9682539682539683}
 [WF][intraday_core_only][FOLD 2] start
 [WF][intraday_core_only][FOLD 2] train_rows=24444 test_rows=6111
-[WF][intraday_core_only][FOLD 2][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0013328740303934837, 'std_daily_ret': 0.0058806029759593875, 'win_rate_days': 0.6190476190476191, 'cum_ret': 0.08638034121827376, 'avg_raw_turnover': 1.4767532011533318, 'avg_turnover': 0.995169082125604, 'cap_hit_rate': 0.9682539682539683}
+[WF][intraday_core_only][FOLD 2][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0013328740303934837, 'std_daily_ret': 0.0058806029759593875, 'win_rate_days': 0.6190476190476191, 'cum_ret': 0.08638034121827332, 'avg_raw_turnover': 1.4767532011533318, 'avg_turnover': 0.995169082125604, 'cap_hit_rate': 0.9682539682539683}
 [WF][intraday_core_only][FOLD 3] start
 [WF][intraday_core_only][FOLD 3] train_rows=24444 test_rows=6111
-[WF][intraday_core_only][FOLD 3][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0008205427121650879, 'std_daily_ret': 0.014391257377567928, 'win_rate_days': 0.6190476190476191, 'cum_ret': 0.046427079395040094, 'avg_raw_turnover': 1.421012954814851, 'avg_turnover': 0.9985569985569985, 'cap_hit_rate': 0.9682539682539683}
+[WF][intraday_core_only][FOLD 3][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0008205427121650876, 'std_daily_ret': 0.014391257377567928, 'win_rate_days': 0.6190476190476191, 'cum_ret': 0.046427079395040094, 'avg_raw_turnover': 1.421012954814851, 'avg_turnover': 0.9985569985569985, 'cap_hit_rate': 0.9682539682539683}
 [WF][intraday_core_only][FOLD 4] start
 [WF][intraday_core_only][FOLD 4] train_rows=24444 test_rows=6111
-[WF][intraday_core_only][FOLD 4][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0011657445441642185, 'std_daily_ret': 0.008491856036903021, 'win_rate_days': 0.5396825396825397, 'cum_ret': 0.07376204248179863, 'avg_raw_turnover': 1.4076198083030382, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9682539682539683}
+[WF][intraday_core_only][FOLD 4][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0011657445441642185, 'std_daily_ret': 0.00849185603690302, 'win_rate_days': 0.5396825396825397, 'cum_ret': 0.07376204248179863, 'avg_raw_turnover': 1.407619808303038, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9682539682539683}
 [WF][intraday_core_only][FOLD 5] start
 [WF][intraday_core_only][FOLD 5] train_rows=24444 test_rows=6111
-[WF][intraday_core_only][FOLD 5][SUMMARY] {'days': 63, 'avg_daily_ret': 0.002056877057911695, 'std_daily_ret': 0.008942838074039748, 'win_rate_days': 0.5714285714285714, 'cum_ret': 0.13543100435325361, 'avg_raw_turnover': 1.4375786555289667, 'avg_turnover': 0.9966068553025075, 'cap_hit_rate': 0.9523809523809523}
+[WF][intraday_core_only][FOLD 5][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0020568770579116953, 'std_daily_ret': 0.008942838074039748, 'win_rate_days': 0.5714285714285714, 'cum_ret': 0.13543100435325361, 'avg_raw_turnover': 1.4375786555289667, 'avg_turnover': 0.9966068553025075, 'cap_hit_rate': 0.9523809523809523}
 [WF][intraday_core_only][FOLD 6] start
 [WF][intraday_core_only][FOLD 6] train_rows=24444 test_rows=6111
-[WF][intraday_core_only][FOLD 6][SUMMARY] {'days': 63, 'avg_daily_ret': 0.00037764449835416285, 'std_daily_ret': 0.014151392157069056, 'win_rate_days': 0.5873015873015873, 'cum_ret': 0.017451839515262302, 'avg_raw_turnover': 1.4331272500216596, 'avg_turnover': 0.9969765684051398, 'cap_hit_rate': 0.9365079365079365}
+[WF][intraday_core_only][FOLD 6][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0003776444983541625, 'std_daily_ret': 0.014151392157069056, 'win_rate_days': 0.5873015873015873, 'cum_ret': 0.017451839515262302, 'avg_raw_turnover': 1.4331272500216596, 'avg_turnover': 0.9969765684051398, 'cap_hit_rate': 0.9365079365079365}
 [WF][intraday_core_only][FOLD 7] start
 [WF][intraday_core_only][FOLD 7] train_rows=24444 test_rows=6111
-[WF][intraday_core_only][FOLD 7][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0012913591719820804, 'std_daily_ret': 0.005017611778708616, 'win_rate_days': 0.6666666666666666, 'cum_ret': 0.08385473789398934, 'avg_raw_turnover': 1.4765273856578207, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
+[WF][intraday_core_only][FOLD 7][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0012913591719820804, 'std_daily_ret': 0.005017611778708616, 'win_rate_days': 0.6666666666666666, 'cum_ret': 0.08385473789398934, 'avg_raw_turnover': 1.4765273856578205, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
 [WF][intraday_core_only][FOLD 8] start
 [WF][intraday_core_only][FOLD 8] train_rows=24444 test_rows=6111
-[WF][intraday_core_only][FOLD 8][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0005020631499742899, 'std_daily_ret': 0.006273118445765348, 'win_rate_days': 0.6190476190476191, 'cum_ret': 0.030866665847075314, 'avg_raw_turnover': 1.4615078539563664, 'avg_turnover': 0.9978011406582835, 'cap_hit_rate': 0.9523809523809523}
-[WF][intraday_core_only][OVERALL] {'days': 504, 'avg_daily_ret': 0.0011746538765203484, 'std_daily_ret': 0.009201753887323885, 'win_rate_days': 0.6111111111111112, 'cum_ret': 0.7687842424098779, 'avg_raw_turnover': 1.4406621219097608, 'avg_turnover': 0.9973757048679409, 'cap_hit_rate': 0.9623015873015873}
+[WF][intraday_core_only][FOLD 8][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0005020631499742899, 'std_daily_ret': 0.006273118445765348, 'win_rate_days': 0.6190476190476191, 'cum_ret': 0.030866665847075314, 'avg_raw_turnover': 1.4615078539563664, 'avg_turnover': 0.9978011406582835, 'cap_hit_rate': 0.9365079365079365}
+[WF][intraday_core_only][OVERALL] {'days': 504, 'avg_daily_ret': 0.0011746538765203484, 'std_daily_ret': 0.009201753887323886, 'win_rate_days': 0.6111111111111112, 'cum_ret': 0.7687842424098776, 'avg_raw_turnover': 1.4406621219097608, 'avg_turnover': 0.9973757048679409, 'cap_hit_rate': 0.9603174603174603}
 [WF][intraday_core_only][WEIGHTS][STABILITY]
                            feature  folds  mean_weight  std_weight  mean_abs_weight  pos_folds  neg_folds  zero_folds
                      z_intraday_rs      8     0.097811    0.026239         0.097811          8          0           0
@@ -67,7 +66,7 @@ z_intraday_pressure_x_volume_shock      8     0.011015    0.008974         0.011
 2026-01-05   0.005218  0.005218      1.900000              1.0           1.0        8 intraday_core_only
 2026-01-06  -0.000314 -0.000314      1.304348              1.0           1.0        8 intraday_core_only
 2026-01-07  -0.012131 -0.012131      1.333333              1.0           1.0        8 intraday_core_only
-[WF][intraday_plus_breadth_regime] portfolio_mode=regime_inertia neutralize=False sizing=False sizing_preset=None max_daily_turnover=1.0 features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs', 'cond_breadth_trend_intraday_rs', 'cond_breadth_trend_mom_compression', 'cond_breadth_range_str', 'cond_breadth_weak_overnight']
+[WF][intraday_plus_breadth_regime] portfolio_mode=regime_inertia neutralize=False sizing=False sizing_preset=None max_daily_turnover=1.0 final_weight_cap=0.08 features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs', 'cond_breadth_trend_intraday_rs', 'cond_breadth_trend_mom_compression', 'cond_breadth_range_str', 'cond_breadth_weak_overnight']
 [WF] folds=8
 [WF][FOLD 1] train=2023-01-03 00:00:00..2024-01-03 00:00:00 test=2024-01-04 00:00:00..2024-04-04 00:00:00
 [WF][FOLD 2] train=2023-04-04 00:00:00..2024-04-04 00:00:00 test=2024-04-05 00:00:00..2024-07-05 00:00:00
@@ -79,7 +78,7 @@ z_intraday_pressure_x_volume_shock      8     0.011015    0.008974         0.011
 [WF][FOLD 8] train=2024-10-04 00:00:00..2025-10-07 00:00:00 test=2025-10-08 00:00:00..2026-01-07 00:00:00
 [WF][intraday_plus_breadth_regime][FOLD 1] start
 [WF][intraday_plus_breadth_regime][FOLD 1] train_rows=24444 test_rows=6111
-[WF][intraday_plus_breadth_regime][FOLD 1][SUMMARY] {'days': 63, 'avg_daily_ret': 0.002022035647160117, 'std_daily_ret': 0.004856557238061152, 'win_rate_days': 0.7142857142857143, 'cum_ret': 0.13488638525498442, 'avg_raw_turnover': 1.4234505361213432, 'avg_turnover': 0.9945887445887446, 'cap_hit_rate': 0.9523809523809523}
+[WF][intraday_plus_breadth_regime][FOLD 1][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0020220356471601173, 'std_daily_ret': 0.004856557238061152, 'win_rate_days': 0.7142857142857143, 'cum_ret': 0.13488638525498442, 'avg_raw_turnover': 1.4234505361213432, 'avg_turnover': 0.9945887445887446, 'cap_hit_rate': 0.9523809523809523}
 [WF][intraday_plus_breadth_regime][FOLD 2] start
 [WF][intraday_plus_breadth_regime][FOLD 2] train_rows=24444 test_rows=6111
 [WF][intraday_plus_breadth_regime][FOLD 2][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0014401984545660592, 'std_daily_ret': 0.006002670990601734, 'win_rate_days': 0.5555555555555556, 'cum_ret': 0.09369256544232374, 'avg_raw_turnover': 1.4778531056922686, 'avg_turnover': 0.9944789510006901, 'cap_hit_rate': 0.9523809523809523}
@@ -88,20 +87,20 @@ z_intraday_pressure_x_volume_shock      8     0.011015    0.008974         0.011
 [WF][intraday_plus_breadth_regime][FOLD 3][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0006368993790860065, 'std_daily_ret': 0.015429982644989184, 'win_rate_days': 0.6349206349206349, 'cum_ret': 0.033438264251948846, 'avg_raw_turnover': 1.4262490139018418, 'avg_turnover': 0.9992441421012849, 'cap_hit_rate': 0.9523809523809523}
 [WF][intraday_plus_breadth_regime][FOLD 4] start
 [WF][intraday_plus_breadth_regime][FOLD 4] train_rows=24444 test_rows=6111
-[WF][intraday_plus_breadth_regime][FOLD 4][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0013661922409156301, 'std_daily_ret': 0.008840463488046067, 'win_rate_days': 0.5396825396825397, 'cum_ret': 0.08718927089173367, 'avg_raw_turnover': 1.4174370143314243, 'avg_turnover': 0.9993098688750863, 'cap_hit_rate': 0.9365079365079365}
+[WF][intraday_plus_breadth_regime][FOLD 4][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0013661922409156306, 'std_daily_ret': 0.008840463488046067, 'win_rate_days': 0.5396825396825397, 'cum_ret': 0.0871892708917339, 'avg_raw_turnover': 1.4174370143314243, 'avg_turnover': 0.9993098688750863, 'cap_hit_rate': 0.9365079365079365}
 [WF][intraday_plus_breadth_regime][FOLD 5] start
 [WF][intraday_plus_breadth_regime][FOLD 5] train_rows=24444 test_rows=6111
 [WF][intraday_plus_breadth_regime][FOLD 5][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0020550623047609724, 'std_daily_ret': 0.008978608463678994, 'win_rate_days': 0.5555555555555556, 'cum_ret': 0.13527846427565238, 'avg_raw_turnover': 1.4505512568866608, 'avg_turnover': 0.9987789987789987, 'cap_hit_rate': 0.9365079365079365}
 [WF][intraday_plus_breadth_regime][FOLD 6] start
 [WF][intraday_plus_breadth_regime][FOLD 6] train_rows=24444 test_rows=6111
-[WF][intraday_plus_breadth_regime][FOLD 6][SUMMARY] {'days': 63, 'avg_daily_ret': 0.00040040263961119583, 'std_daily_ret': 0.012834516008548234, 'win_rate_days': 0.6031746031746031, 'cum_ret': 0.020148662895426606, 'avg_raw_turnover': 1.4415313850848337, 'avg_turnover': 0.9962864372802261, 'cap_hit_rate': 0.9206349206349206}
+[WF][intraday_plus_breadth_regime][FOLD 6][SUMMARY] {'days': 63, 'avg_daily_ret': 0.00040040263961119675, 'std_daily_ret': 0.012834516008548229, 'win_rate_days': 0.6031746031746031, 'cum_ret': 0.020148662895426606, 'avg_raw_turnover': 1.4415313850848337, 'avg_turnover': 0.9962864372802261, 'cap_hit_rate': 0.9206349206349206}
 [WF][intraday_plus_breadth_regime][FOLD 7] start
 [WF][intraday_plus_breadth_regime][FOLD 7] train_rows=24444 test_rows=6111
-[WF][intraday_plus_breadth_regime][FOLD 7][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0012155242831084587, 'std_daily_ret': 0.00561149202132789, 'win_rate_days': 0.5873015873015873, 'cum_ret': 0.07848415749321092, 'avg_raw_turnover': 1.4488563541358574, 'avg_turnover': 0.9965493443754313, 'cap_hit_rate': 0.9523809523809523}
+[WF][intraday_plus_breadth_regime][FOLD 7][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0012155242831084591, 'std_daily_ret': 0.00561149202132789, 'win_rate_days': 0.5873015873015873, 'cum_ret': 0.07848415749321092, 'avg_raw_turnover': 1.4488563541358574, 'avg_turnover': 0.9965493443754313, 'cap_hit_rate': 0.9523809523809523}
 [WF][intraday_plus_breadth_regime][FOLD 8] start
 [WF][intraday_plus_breadth_regime][FOLD 8] train_rows=24444 test_rows=6111
-[WF][intraday_plus_breadth_regime][FOLD 8][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0005035186462867718, 'std_daily_ret': 0.006448514689785912, 'win_rate_days': 0.6507936507936508, 'cum_ret': 0.030889264803221073, 'avg_raw_turnover': 1.4152553629703024, 'avg_turnover': 0.9971655328798186, 'cap_hit_rate': 0.9365079365079365}
-[WF][intraday_plus_breadth_regime][OVERALL] {'days': 504, 'avg_daily_ret': 0.0012049791994369016, 'std_daily_ret': 0.009270562004024605, 'win_rate_days': 0.6051587301587301, 'cum_ret': 0.7956801950688752, 'avg_raw_turnover': 1.4376480036405663, 'avg_turnover': 0.997050252485035, 'cap_hit_rate': 0.9424603174603174}
+[WF][intraday_plus_breadth_regime][FOLD 8][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0005035186462867718, 'std_daily_ret': 0.006448514689785912, 'win_rate_days': 0.6507936507936508, 'cum_ret': 0.030889264803221295, 'avg_raw_turnover': 1.4152553629703022, 'avg_turnover': 0.9971655328798186, 'cap_hit_rate': 0.9365079365079365}
+[WF][intraday_plus_breadth_regime][OVERALL] {'days': 504, 'avg_daily_ret': 0.001204979199436902, 'std_daily_ret': 0.009270562004024605, 'win_rate_days': 0.6051587301587301, 'cum_ret': 0.7956801950688759, 'avg_raw_turnover': 1.4376480036405663, 'avg_turnover': 0.997050252485035, 'cap_hit_rate': 0.9424603174603174}
 [WF][intraday_plus_breadth_regime][WEIGHTS][STABILITY]
                              feature  folds  mean_weight  std_weight  mean_abs_weight  pos_folds  neg_folds  zero_folds
     z_cond_breadth_trend_intraday_rs      8     0.118859    0.032822         0.118859          8          0           0
@@ -126,7 +125,7 @@ z_cond_breadth_trend_mom_compression      8     0.015565    0.031669         0.0
 2026-01-05   0.005800  0.005800      1.636364              1.0           1.0        8 intraday_plus_breadth_regime
 2026-01-06  -0.001304 -0.001304      1.200000              1.0           1.0        8 intraday_plus_breadth_regime
 2026-01-07  -0.012316 -0.012316      1.520000              1.0           1.0        8 intraday_plus_breadth_regime
-[WF][full_regime_stack] portfolio_mode=regime_inertia neutralize=False sizing=False sizing_preset=None max_daily_turnover=1.0 features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs', 'cond_breadth_trend_intraday_rs', 'cond_breadth_trend_mom_compression', 'cond_breadth_range_str', 'cond_breadth_weak_overnight', 'cond_momentum_liq_trend', 'cond_str_weak_breadth', 'cond_overnight_trend_follow', 'cond_vol_compression_liq_breakout', 'cond_ivol_lowliq_penalty']
+[WF][full_regime_stack] portfolio_mode=regime_inertia neutralize=False sizing=False sizing_preset=None max_daily_turnover=1.0 final_weight_cap=0.08 features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs', 'cond_breadth_trend_intraday_rs', 'cond_breadth_trend_mom_compression', 'cond_breadth_range_str', 'cond_breadth_weak_overnight', 'cond_momentum_liq_trend', 'cond_str_weak_breadth', 'cond_overnight_trend_follow', 'cond_vol_compression_liq_breakout', 'cond_ivol_lowliq_penalty']
 [WF] folds=8
 [WF][FOLD 1] train=2023-01-03 00:00:00..2024-01-03 00:00:00 test=2024-01-04 00:00:00..2024-04-04 00:00:00
 [WF][FOLD 2] train=2023-04-04 00:00:00..2024-04-04 00:00:00 test=2024-04-05 00:00:00..2024-07-05 00:00:00
@@ -141,26 +140,26 @@ z_cond_breadth_trend_mom_compression      8     0.015565    0.031669         0.0
 [WF][full_regime_stack][FOLD 1][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0021531577992274934, 'std_daily_ret': 0.005458757906820197, 'win_rate_days': 0.6984126984126984, 'cum_ret': 0.14406203277069674, 'avg_raw_turnover': 1.3845319782586862, 'avg_turnover': 0.9947922447922447, 'cap_hit_rate': 0.9365079365079365}
 [WF][full_regime_stack][FOLD 2] start
 [WF][full_regime_stack][FOLD 2] train_rows=24444 test_rows=6111
-[WF][full_regime_stack][FOLD 2][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0019244498384304186, 'std_daily_ret': 0.005918509847850775, 'win_rate_days': 0.6349206349206349, 'cum_ret': 0.1275486302156248, 'avg_raw_turnover': 1.4058487865941283, 'avg_turnover': 0.9954648526077098, 'cap_hit_rate': 0.9523809523809523}
+[WF][full_regime_stack][FOLD 2][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0019244498384304184, 'std_daily_ret': 0.005918509847850775, 'win_rate_days': 0.6349206349206349, 'cum_ret': 0.1275486302156248, 'avg_raw_turnover': 1.4058487865941283, 'avg_turnover': 0.9954648526077098, 'cap_hit_rate': 0.9523809523809523}
 [WF][full_regime_stack][FOLD 3] start
 [WF][full_regime_stack][FOLD 3] train_rows=24444 test_rows=6111
-[WF][full_regime_stack][FOLD 3][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0004738701291205698, 'std_daily_ret': 0.014643142216262794, 'win_rate_days': 0.6190476190476191, 'cum_ret': 0.02356993837182686, 'avg_raw_turnover': 1.4051982420011189, 'avg_turnover': 0.998095238095238, 'cap_hit_rate': 0.9365079365079365}
+[WF][full_regime_stack][FOLD 3][SUMMARY] {'days': 63, 'avg_daily_ret': 0.00047387012912056953, 'std_daily_ret': 0.014643142216262794, 'win_rate_days': 0.6190476190476191, 'cum_ret': 0.02356993837182708, 'avg_raw_turnover': 1.4051982420011189, 'avg_turnover': 0.998095238095238, 'cap_hit_rate': 0.9365079365079365}
 [WF][full_regime_stack][FOLD 4] start
 [WF][full_regime_stack][FOLD 4] train_rows=24444 test_rows=6111
-[WF][full_regime_stack][FOLD 4][SUMMARY] {'days': 63, 'avg_daily_ret': 0.000922914552136666, 'std_daily_ret': 0.008305905306516157, 'win_rate_days': 0.5555555555555556, 'cum_ret': 0.05757591647242344, 'avg_raw_turnover': 1.4202286395454098, 'avg_turnover': 0.9993098688750863, 'cap_hit_rate': 0.9682539682539683}
+[WF][full_regime_stack][FOLD 4][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0009229145521366656, 'std_daily_ret': 0.008305905306516157, 'win_rate_days': 0.5555555555555556, 'cum_ret': 0.05757591647242344, 'avg_raw_turnover': 1.4202286395454098, 'avg_turnover': 0.9993098688750863, 'cap_hit_rate': 0.9682539682539683}
 [WF][full_regime_stack][FOLD 5] start
 [WF][full_regime_stack][FOLD 5] train_rows=24444 test_rows=6111
-[WF][full_regime_stack][FOLD 5][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0020906967160478564, 'std_daily_ret': 0.008969463797089442, 'win_rate_days': 0.5873015873015873, 'cum_ret': 0.13782342093345012, 'avg_raw_turnover': 1.4358652088531134, 'avg_turnover': 0.9993650793650793, 'cap_hit_rate': 0.9523809523809523}
+[WF][full_regime_stack][FOLD 5][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0020906967160478573, 'std_daily_ret': 0.00896946379708944, 'win_rate_days': 0.5873015873015873, 'cum_ret': 0.13782342093345012, 'avg_raw_turnover': 1.4358652088531132, 'avg_turnover': 0.9993650793650793, 'cap_hit_rate': 0.9523809523809523}
 [WF][full_regime_stack][FOLD 6] start
 [WF][full_regime_stack][FOLD 6] train_rows=24444 test_rows=6111
-[WF][full_regime_stack][FOLD 6][SUMMARY] {'days': 63, 'avg_daily_ret': 0.00029453174952715465, 'std_daily_ret': 0.013140253332697768, 'win_rate_days': 0.5714285714285714, 'cum_ret': 0.013118280386248626, 'avg_raw_turnover': 1.4325028488153688, 'avg_turnover': 0.9970422951789412, 'cap_hit_rate': 0.9206349206349206}
+[WF][full_regime_stack][FOLD 6][SUMMARY] {'days': 63, 'avg_daily_ret': 0.00029453174952715524, 'std_daily_ret': 0.013140253332697768, 'win_rate_days': 0.5714285714285714, 'cum_ret': 0.013118280386248626, 'avg_raw_turnover': 1.4325028488153688, 'avg_turnover': 0.9970422951789412, 'cap_hit_rate': 0.9206349206349206}
 [WF][full_regime_stack][FOLD 7] start
 [WF][full_regime_stack][FOLD 7] train_rows=24444 test_rows=6111
-[WF][full_regime_stack][FOLD 7][SUMMARY] {'days': 63, 'avg_daily_ret': 0.001190984348080431, 'std_daily_ret': 0.00586914641817288, 'win_rate_days': 0.5873015873015873, 'cum_ret': 0.07672098271931138, 'avg_raw_turnover': 1.4406869642894489, 'avg_turnover': 0.9971139971139972, 'cap_hit_rate': 0.9682539682539683}
+[WF][full_regime_stack][FOLD 7][SUMMARY] {'days': 63, 'avg_daily_ret': 0.001190984348080431, 'std_daily_ret': 0.00586914641817288, 'win_rate_days': 0.5873015873015873, 'cum_ret': 0.07672098271931138, 'avg_raw_turnover': 1.4406869642894486, 'avg_turnover': 0.9971139971139972, 'cap_hit_rate': 0.9682539682539683}
 [WF][full_regime_stack][FOLD 8] start
 [WF][full_regime_stack][FOLD 8] train_rows=24444 test_rows=6111
-[WF][full_regime_stack][FOLD 8][SUMMARY] {'days': 63, 'avg_daily_ret': 3.88629500191e-05, 'std_daily_ret': 0.006491438725970261, 'win_rate_days': 0.6031746031746031, 'cum_ret': 0.0011380350944638629, 'avg_raw_turnover': 1.4078083407275954, 'avg_turnover': 0.9923458184327749, 'cap_hit_rate': 0.9365079365079365}
-[WF][full_regime_stack][OVERALL] {'days': 504, 'avg_daily_ret': 0.0011361835103237113, 'std_daily_ret': 0.009175247447012671, 'win_rate_days': 0.6071428571428571, 'cum_ret': 0.7351862127208213, 'avg_raw_turnover': 1.4165838761356087, 'avg_turnover': 0.996691174307634, 'cap_hit_rate': 0.9464285714285714}
+[WF][full_regime_stack][FOLD 8][SUMMARY] {'days': 63, 'avg_daily_ret': 3.886295001910016e-05, 'std_daily_ret': 0.006491438725970261, 'win_rate_days': 0.6031746031746031, 'cum_ret': 0.0011380350944638629, 'avg_raw_turnover': 1.4078083407275954, 'avg_turnover': 0.9923458184327749, 'cap_hit_rate': 0.9206349206349206}
+[WF][full_regime_stack][OVERALL] {'days': 504, 'avg_daily_ret': 0.001136183510323711, 'std_daily_ret': 0.009175247447012673, 'win_rate_days': 0.6071428571428571, 'cum_ret': 0.7351862127208215, 'avg_raw_turnover': 1.4165838761356087, 'avg_turnover': 0.996691174307634, 'cap_hit_rate': 0.9444444444444444}
 [WF][full_regime_stack][WEIGHTS][STABILITY]
                              feature  folds  mean_weight  std_weight  mean_abs_weight  pos_folds  neg_folds  zero_folds
     z_cond_breadth_trend_intraday_rs      8     0.118859    0.032822         0.118859          8          0           0
@@ -190,7 +189,7 @@ z_cond_breadth_trend_mom_compression      8     0.015565    0.031669         0.0
 2026-01-05   0.007164  0.007164      1.565217              1.0           1.0        8 full_regime_stack
 2026-01-06  -0.002820 -0.002820      1.130435              1.0           1.0        8 full_regime_stack
 2026-01-07  -0.011045 -0.011045      1.739130              1.0           1.0        8 full_regime_stack
-[WF][full_regime_stack_neutralized] portfolio_mode=regime_inertia neutralize=True sizing=False sizing_preset=None max_daily_turnover=1.0 features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs', 'cond_breadth_trend_intraday_rs', 'cond_breadth_trend_mom_compression', 'cond_breadth_range_str', 'cond_breadth_weak_overnight', 'cond_momentum_liq_trend', 'cond_str_weak_breadth', 'cond_overnight_trend_follow', 'cond_vol_compression_liq_breakout', 'cond_ivol_lowliq_penalty']
+[WF][full_regime_stack_neutralized] portfolio_mode=regime_inertia neutralize=True sizing=False sizing_preset=None max_daily_turnover=1.0 final_weight_cap=0.08 features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs', 'cond_breadth_trend_intraday_rs', 'cond_breadth_trend_mom_compression', 'cond_breadth_range_str', 'cond_breadth_weak_overnight', 'cond_momentum_liq_trend', 'cond_str_weak_breadth', 'cond_overnight_trend_follow', 'cond_vol_compression_liq_breakout', 'cond_ivol_lowliq_penalty']
 [WF] folds=8
 [WF][FOLD 1] train=2023-01-03 00:00:00..2024-01-03 00:00:00 test=2024-01-04 00:00:00..2024-04-04 00:00:00
 [WF][FOLD 2] train=2023-04-04 00:00:00..2024-04-04 00:00:00 test=2024-04-05 00:00:00..2024-07-05 00:00:00
@@ -202,7 +201,7 @@ z_cond_breadth_trend_mom_compression      8     0.015565    0.031669         0.0
 [WF][FOLD 8] train=2024-10-04 00:00:00..2025-10-07 00:00:00 test=2025-10-08 00:00:00..2026-01-07 00:00:00
 [WF][full_regime_stack_neutralized][FOLD 1] start
 [WF][full_regime_stack_neutralized][FOLD 1] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized][FOLD 1][SUMMARY] {'days': 63, 'avg_daily_ret': 0.001638799819646561, 'std_daily_ret': 0.004310165460874632, 'win_rate_days': 0.6031746031746031, 'cum_ret': 0.10803378781048689, 'avg_raw_turnover': 1.4398498158942752, 'avg_turnover': 0.9960248447204969, 'cap_hit_rate': 0.9523809523809523}
+[WF][full_regime_stack_neutralized][FOLD 1][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0016387998196465607, 'std_daily_ret': 0.004310165460874632, 'win_rate_days': 0.6031746031746031, 'cum_ret': 0.10803378781048689, 'avg_raw_turnover': 1.4398498158942752, 'avg_turnover': 0.9960248447204969, 'cap_hit_rate': 0.9523809523809523}
 [WF][full_regime_stack_neutralized][FOLD 2] start
 [WF][full_regime_stack_neutralized][FOLD 2] train_rows=24444 test_rows=6111
 [WF][full_regime_stack_neutralized][FOLD 2][SUMMARY] {'days': 63, 'avg_daily_ret': 0.001277540455860765, 'std_daily_ret': 0.004620374320704109, 'win_rate_days': 0.6031746031746031, 'cum_ret': 0.08304187693721365, 'avg_raw_turnover': 1.446062719380797, 'avg_turnover': 0.9954497354497354, 'cap_hit_rate': 0.9523809523809523}
@@ -211,16 +210,16 @@ z_cond_breadth_trend_mom_compression      8     0.015565    0.031669         0.0
 [WF][full_regime_stack_neutralized][FOLD 3][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0005637962554155496, 'std_daily_ret': 0.006031800428365331, 'win_rate_days': 0.6190476190476191, 'cum_ret': 0.03497614723424647, 'avg_raw_turnover': 1.4102141497793674, 'avg_turnover': 0.9980423280423281, 'cap_hit_rate': 0.9365079365079365}
 [WF][full_regime_stack_neutralized][FOLD 4] start
 [WF][full_regime_stack_neutralized][FOLD 4] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized][FOLD 4][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0007564484226375703, 'std_daily_ret': 0.00514879994318403, 'win_rate_days': 0.5238095238095238, 'cum_ret': 0.04792988768993678, 'avg_raw_turnover': 1.4573000061819938, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
+[WF][full_regime_stack_neutralized][FOLD 4][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0007564484226375704, 'std_daily_ret': 0.00514879994318403, 'win_rate_days': 0.5238095238095238, 'cum_ret': 0.04792988768993678, 'avg_raw_turnover': 1.4573000061819938, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
 [WF][full_regime_stack_neutralized][FOLD 5] start
 [WF][full_regime_stack_neutralized][FOLD 5] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized][FOLD 5][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0010461128339779241, 'std_daily_ret': 0.005551106266021741, 'win_rate_days': 0.6190476190476191, 'cum_ret': 0.06707080178315716, 'avg_raw_turnover': 1.4189372687992423, 'avg_turnover': 0.9988242210464432, 'cap_hit_rate': 0.9523809523809523}
+[WF][full_regime_stack_neutralized][FOLD 5][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0010461128339779243, 'std_daily_ret': 0.005551106266021741, 'win_rate_days': 0.6190476190476191, 'cum_ret': 0.06707080178315716, 'avg_raw_turnover': 1.4189372687992423, 'avg_turnover': 0.9988242210464432, 'cap_hit_rate': 0.9523809523809523}
 [WF][full_regime_stack_neutralized][FOLD 6] start
 [WF][full_regime_stack_neutralized][FOLD 6] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized][FOLD 6][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0017131608960121473, 'std_daily_ret': 0.004779691345370671, 'win_rate_days': 0.6031746031746031, 'cum_ret': 0.1130799776632263, 'avg_raw_turnover': 1.4283083606064972, 'avg_turnover': 0.9977324263038548, 'cap_hit_rate': 0.9682539682539683}
+[WF][full_regime_stack_neutralized][FOLD 6][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0017131608960121469, 'std_daily_ret': 0.004779691345370671, 'win_rate_days': 0.6031746031746031, 'cum_ret': 0.1130799776632263, 'avg_raw_turnover': 1.4283083606064972, 'avg_turnover': 0.997732426303855, 'cap_hit_rate': 0.9682539682539683}
 [WF][full_regime_stack_neutralized][FOLD 7] start
 [WF][full_regime_stack_neutralized][FOLD 7] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized][FOLD 7][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0017456956495018907, 'std_daily_ret': 0.00496904522205676, 'win_rate_days': 0.6190476190476191, 'cum_ret': 0.1152986287990172, 'avg_raw_turnover': 1.4120241865093126, 'avg_turnover': 0.9930986887508626, 'cap_hit_rate': 0.9365079365079365}
+[WF][full_regime_stack_neutralized][FOLD 7][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0017456956495018907, 'std_daily_ret': 0.00496904522205676, 'win_rate_days': 0.6190476190476191, 'cum_ret': 0.1152986287990172, 'avg_raw_turnover': 1.4120241865093124, 'avg_turnover': 0.9930986887508626, 'cap_hit_rate': 0.9365079365079365}
 [WF][full_regime_stack_neutralized][FOLD 8] start
 [WF][full_regime_stack_neutralized][FOLD 8] train_rows=24444 test_rows=6111
 [WF][full_regime_stack_neutralized][FOLD 8][SUMMARY] {'days': 63, 'avg_daily_ret': 0.000998017195849095, 'std_daily_ret': 0.004673689873412136, 'win_rate_days': 0.6666666666666666, 'cum_ret': 0.06413849154123619, 'avg_raw_turnover': 1.420421308620066, 'avg_turnover': 0.9993650793650793, 'cap_hit_rate': 0.9682539682539683}
@@ -254,7 +253,7 @@ z_cond_breadth_trend_mom_compression      8     0.015565    0.031669         0.0
 2026-01-05   0.002188  0.002188      1.714286             1.00           1.0        8 full_regime_stack_neutralized
 2026-01-06  -0.001123 -0.001123      1.217391             1.00           1.0        8 full_regime_stack_neutralized
 2026-01-07  -0.010378 -0.010378      1.478261             1.00           1.0        8 full_regime_stack_neutralized
-[WF][full_regime_stack_neutralized_sized_baseline] portfolio_mode=regime_inertia neutralize=True sizing=True sizing_preset=baseline max_daily_turnover=1.0 features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs', 'cond_breadth_trend_intraday_rs', 'cond_breadth_trend_mom_compression', 'cond_breadth_range_str', 'cond_breadth_weak_overnight', 'cond_momentum_liq_trend', 'cond_str_weak_breadth', 'cond_overnight_trend_follow', 'cond_vol_compression_liq_breakout', 'cond_ivol_lowliq_penalty']
+[WF][full_regime_stack_neutralized_sized_baseline] portfolio_mode=regime_inertia neutralize=True sizing=True sizing_preset=baseline max_daily_turnover=1.0 final_weight_cap=0.08 features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs', 'cond_breadth_trend_intraday_rs', 'cond_breadth_trend_mom_compression', 'cond_breadth_range_str', 'cond_breadth_weak_overnight', 'cond_momentum_liq_trend', 'cond_str_weak_breadth', 'cond_overnight_trend_follow', 'cond_vol_compression_liq_breakout', 'cond_ivol_lowliq_penalty']
 [WF] folds=8
 [WF][FOLD 1] train=2023-01-03 00:00:00..2024-01-03 00:00:00 test=2024-01-04 00:00:00..2024-04-04 00:00:00
 [WF][FOLD 2] train=2023-04-04 00:00:00..2024-04-04 00:00:00 test=2024-04-05 00:00:00..2024-07-05 00:00:00
@@ -266,29 +265,29 @@ z_cond_breadth_trend_mom_compression      8     0.015565    0.031669         0.0
 [WF][FOLD 8] train=2024-10-04 00:00:00..2025-10-07 00:00:00 test=2025-10-08 00:00:00..2026-01-07 00:00:00
 [WF][full_regime_stack_neutralized_sized_baseline][FOLD 1] start
 [WF][full_regime_stack_neutralized_sized_baseline][FOLD 1] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_baseline][FOLD 1][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0017183087949239778, 'std_daily_ret': 0.0043596585780771874, 'win_rate_days': 0.6190476190476191, 'cum_ret': 0.11357445416629064, 'avg_raw_turnover': 1.595504634602379, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
+[WF][full_regime_stack_neutralized_sized_baseline][FOLD 1][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0020130558211830098, 'std_daily_ret': 0.004588813140459764, 'win_rate_days': 0.6349206349206349, 'cum_ret': 0.13433540144188183, 'avg_raw_turnover': 1.6136073813798244, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
 [WF][full_regime_stack_neutralized_sized_baseline][FOLD 2] start
 [WF][full_regime_stack_neutralized_sized_baseline][FOLD 2] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_baseline][FOLD 2][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0013844495567466237, 'std_daily_ret': 0.004670391132690239, 'win_rate_days': 0.5555555555555556, 'cum_ret': 0.0903361926224957, 'avg_raw_turnover': 1.5830449138719818, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
+[WF][full_regime_stack_neutralized_sized_baseline][FOLD 2][SUMMARY] {'days': 63, 'avg_daily_ret': 0.00158082053749795, 'std_daily_ret': 0.005165060941717794, 'win_rate_days': 0.5714285714285714, 'cum_ret': 0.10372291335148054, 'avg_raw_turnover': 1.6089043029711831, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
 [WF][full_regime_stack_neutralized_sized_baseline][FOLD 3] start
 [WF][full_regime_stack_neutralized_sized_baseline][FOLD 3] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_baseline][FOLD 3][SUMMARY] {'days': 63, 'avg_daily_ret': 0.00010911633997029977, 'std_daily_ret': 0.0058538438554413775, 'win_rate_days': 0.5873015873015873, 'cum_ret': 0.00582446498849154, 'avg_raw_turnover': 1.5895691609977323, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
+[WF][full_regime_stack_neutralized_sized_baseline][FOLD 3][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0003469923533741463, 'std_daily_ret': 0.006514037998820616, 'win_rate_days': 0.6349206349206349, 'cum_ret': 0.020744592024523723, 'avg_raw_turnover': 1.6185157863625241, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
 [WF][full_regime_stack_neutralized_sized_baseline][FOLD 4] start
 [WF][full_regime_stack_neutralized_sized_baseline][FOLD 4] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_baseline][FOLD 4][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0007050484805122129, 'std_daily_ret': 0.005403047275574008, 'win_rate_days': 0.5238095238095238, 'cum_ret': 0.0444575850172233, 'avg_raw_turnover': 1.60864462744162, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
+[WF][full_regime_stack_neutralized_sized_baseline][FOLD 4][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0010654232917181065, 'std_daily_ret': 0.005701849423578333, 'win_rate_days': 0.5714285714285714, 'cum_ret': 0.06831230208065153, 'avg_raw_turnover': 1.622614194272743, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
 [WF][full_regime_stack_neutralized_sized_baseline][FOLD 5] start
 [WF][full_regime_stack_neutralized_sized_baseline][FOLD 5] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_baseline][FOLD 5][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0010476804416813432, 'std_daily_ret': 0.005583837944113534, 'win_rate_days': 0.5714285714285714, 'cum_ret': 0.06716315434717068, 'avg_raw_turnover': 1.5975971675219798, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
+[WF][full_regime_stack_neutralized_sized_baseline][FOLD 5][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0009907690189557318, 'std_daily_ret': 0.0056641069482606735, 'win_rate_days': 0.6031746031746031, 'cum_ret': 0.06331800039455238, 'avg_raw_turnover': 1.6244737097335962, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
 [WF][full_regime_stack_neutralized_sized_baseline][FOLD 6] start
 [WF][full_regime_stack_neutralized_sized_baseline][FOLD 6] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_baseline][FOLD 6][SUMMARY] {'days': 63, 'avg_daily_ret': 0.001427970847272044, 'std_daily_ret': 0.00457924709782421, 'win_rate_days': 0.6190476190476191, 'cum_ret': 0.09335358625221724, 'avg_raw_turnover': 1.60244261447269, 'avg_turnover': 0.9984126984126984, 'cap_hit_rate': 0.9682539682539683}
+[WF][full_regime_stack_neutralized_sized_baseline][FOLD 6][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0016172754860974104, 'std_daily_ret': 0.004572720358894529, 'win_rate_days': 0.6031746031746031, 'cum_ret': 0.10645443643382113, 'avg_raw_turnover': 1.6251216861602773, 'avg_turnover': 0.9981764379356158, 'cap_hit_rate': 0.9682539682539683}
 [WF][full_regime_stack_neutralized_sized_baseline][FOLD 7] start
 [WF][full_regime_stack_neutralized_sized_baseline][FOLD 7] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_baseline][FOLD 7][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0016768687962397172, 'std_daily_ret': 0.004907394969529744, 'win_rate_days': 0.5873015873015873, 'cum_ret': 0.11050216934985135, 'avg_raw_turnover': 1.573870824246764, 'avg_turnover': 0.996969696969697, 'cap_hit_rate': 0.9523809523809523}
+[WF][full_regime_stack_neutralized_sized_baseline][FOLD 7][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0020299003760780466, 'std_daily_ret': 0.005478457516151514, 'win_rate_days': 0.5714285714285714, 'cum_ret': 0.1352255811742531, 'avg_raw_turnover': 1.5889449548260794, 'avg_turnover': 0.9980906142013092, 'cap_hit_rate': 0.9523809523809523}
 [WF][full_regime_stack_neutralized_sized_baseline][FOLD 8] start
 [WF][full_regime_stack_neutralized_sized_baseline][FOLD 8] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_baseline][FOLD 8][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0011435962983131756, 'std_daily_ret': 0.00469647053776775, 'win_rate_days': 0.6666666666666666, 'cum_ret': 0.07392552488122939, 'avg_raw_turnover': 1.556134564405241, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
-[WF][full_regime_stack_neutralized_sized_baseline][OVERALL] {'days': 504, 'avg_daily_ret': 0.0011516299444574243, 'std_daily_ret': 0.005022168312808216, 'win_rate_days': 0.5912698412698413, 'cum_ret': 0.7749156662617589, 'avg_raw_turnover': 1.5883510634450484, 'avg_turnover': 0.9994227994227995, 'cap_hit_rate': 0.9781746031746031}
+[WF][full_regime_stack_neutralized_sized_baseline][FOLD 8][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0012233484482991293, 'std_daily_ret': 0.004896898564061572, 'win_rate_days': 0.6984126984126984, 'cum_ret': 0.0792641594621255, 'avg_raw_turnover': 1.5757075845554838, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
+[WF][full_regime_stack_neutralized_sized_baseline][OVERALL] {'days': 504, 'avg_daily_ret': 0.0013584481666504417, 'std_daily_ret': 0.005347082719206761, 'win_rate_days': 0.6111111111111112, 'cum_ret': 0.967992714911307, 'avg_raw_turnover': 1.609736200032714, 'avg_turnover': 0.9995333815171157, 'cap_hit_rate': 0.9781746031746031}
 [WF][full_regime_stack_neutralized_sized_baseline][WEIGHTS][STABILITY]
                              feature  folds  mean_weight  std_weight  mean_abs_weight  pos_folds  neg_folds  zero_folds
     z_cond_breadth_trend_intraday_rs      8     0.118859    0.032822         0.118859          8          0           0
@@ -308,17 +307,17 @@ z_cond_breadth_trend_mom_compression      8     0.015565    0.031669         0.0
                  z_intraday_pressure      8     0.008606    0.007474         0.008606          8          0           0
 [WF][full_regime_stack_neutralized_sized_baseline][TAIL]
       date  gross_ret   net_ret  raw_turnover  capped_turnover  cap_hit_rate  fold_id                                        model
-2025-12-23   0.000422  0.000422      1.300000              1.0           1.0        8 full_regime_stack_neutralized_sized_baseline
-2025-12-24   0.005806  0.005806      1.600000              1.0           1.0        8 full_regime_stack_neutralized_sized_baseline
-2025-12-26  -0.005332 -0.005332      1.600000              1.0           1.0        8 full_regime_stack_neutralized_sized_baseline
-2025-12-29   0.004230  0.004230      1.684211              1.0           1.0        8 full_regime_stack_neutralized_sized_baseline
-2025-12-30   0.000581  0.000581      1.473684              1.0           1.0        8 full_regime_stack_neutralized_sized_baseline
-2025-12-31  -0.002829 -0.002829      1.578947              1.0           1.0        8 full_regime_stack_neutralized_sized_baseline
-2026-01-02  -0.000092 -0.000092      1.894737              1.0           1.0        8 full_regime_stack_neutralized_sized_baseline
-2026-01-05   0.002979  0.002979      1.789474              1.0           1.0        8 full_regime_stack_neutralized_sized_baseline
-2026-01-06  -0.001825 -0.001825      1.500000              1.0           1.0        8 full_regime_stack_neutralized_sized_baseline
-2026-01-07  -0.009626 -0.009626      1.600000              1.0           1.0        8 full_regime_stack_neutralized_sized_baseline
-[WF][full_regime_stack_neutralized_sized_aggressive] portfolio_mode=regime_inertia neutralize=True sizing=True sizing_preset=aggressive max_daily_turnover=1.0 features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs', 'cond_breadth_trend_intraday_rs', 'cond_breadth_trend_mom_compression', 'cond_breadth_range_str', 'cond_breadth_weak_overnight', 'cond_momentum_liq_trend', 'cond_str_weak_breadth', 'cond_overnight_trend_follow', 'cond_vol_compression_liq_breakout', 'cond_ivol_lowliq_penalty']
+2025-12-23   0.000263  0.000263      1.434679              1.0           1.0        8 full_regime_stack_neutralized_sized_baseline
+2025-12-24   0.006441  0.006441      1.648456              1.0           1.0        8 full_regime_stack_neutralized_sized_baseline
+2025-12-26  -0.005981 -0.005981      1.615355              1.0           1.0        8 full_regime_stack_neutralized_sized_baseline
+2025-12-29   0.004205  0.004205      1.717822              1.0           1.0        8 full_regime_stack_neutralized_sized_baseline
+2025-12-30  -0.000184 -0.000184      1.490099              1.0           1.0        8 full_regime_stack_neutralized_sized_baseline
+2025-12-31  -0.003652 -0.003652      1.579208              1.0           1.0        8 full_regime_stack_neutralized_sized_baseline
+2026-01-02   0.000181  0.000181      1.915842              1.0           1.0        8 full_regime_stack_neutralized_sized_baseline
+2026-01-05   0.004459  0.004459      1.801980              1.0           1.0        8 full_regime_stack_neutralized_sized_baseline
+2026-01-06  -0.002278 -0.002278      1.507291              1.0           1.0        8 full_regime_stack_neutralized_sized_baseline
+2026-01-07  -0.010450 -0.010450      1.676960              1.0           1.0        8 full_regime_stack_neutralized_sized_baseline
+[WF][full_regime_stack_neutralized_sized_aggressive] portfolio_mode=regime_inertia neutralize=True sizing=True sizing_preset=aggressive max_daily_turnover=1.0 final_weight_cap=0.08 features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs', 'cond_breadth_trend_intraday_rs', 'cond_breadth_trend_mom_compression', 'cond_breadth_range_str', 'cond_breadth_weak_overnight', 'cond_momentum_liq_trend', 'cond_str_weak_breadth', 'cond_overnight_trend_follow', 'cond_vol_compression_liq_breakout', 'cond_ivol_lowliq_penalty']
 [WF] folds=8
 [WF][FOLD 1] train=2023-01-03 00:00:00..2024-01-03 00:00:00 test=2024-01-04 00:00:00..2024-04-04 00:00:00
 [WF][FOLD 2] train=2023-04-04 00:00:00..2024-04-04 00:00:00 test=2024-04-05 00:00:00..2024-07-05 00:00:00
@@ -330,29 +329,29 @@ z_cond_breadth_trend_mom_compression      8     0.015565    0.031669         0.0
 [WF][FOLD 8] train=2024-10-04 00:00:00..2025-10-07 00:00:00 test=2025-10-08 00:00:00..2026-01-07 00:00:00
 [WF][full_regime_stack_neutralized_sized_aggressive][FOLD 1] start
 [WF][full_regime_stack_neutralized_sized_aggressive][FOLD 1] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_aggressive][FOLD 1][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0017183087949239778, 'std_daily_ret': 0.0043596585780771874, 'win_rate_days': 0.6190476190476191, 'cum_ret': 0.11357445416629064, 'avg_raw_turnover': 1.595504634602379, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
+[WF][full_regime_stack_neutralized_sized_aggressive][FOLD 1][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0021974087046555445, 'std_daily_ret': 0.0047681569323960345, 'win_rate_days': 0.6666666666666666, 'cum_ret': 0.14749975878595256, 'avg_raw_turnover': 1.6283291158653477, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
 [WF][full_regime_stack_neutralized_sized_aggressive][FOLD 2] start
 [WF][full_regime_stack_neutralized_sized_aggressive][FOLD 2] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_aggressive][FOLD 2][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0013844495567466237, 'std_daily_ret': 0.004670391132690239, 'win_rate_days': 0.5555555555555556, 'cum_ret': 0.0903361926224957, 'avg_raw_turnover': 1.5830449138719818, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
+[WF][full_regime_stack_neutralized_sized_aggressive][FOLD 2][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0016993752090622041, 'std_daily_ret': 0.005554313649133886, 'win_rate_days': 0.5555555555555556, 'cum_ret': 0.11184063953811219, 'avg_raw_turnover': 1.6283100960522061, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
 [WF][full_regime_stack_neutralized_sized_aggressive][FOLD 3] start
 [WF][full_regime_stack_neutralized_sized_aggressive][FOLD 3] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_aggressive][FOLD 3][SUMMARY] {'days': 63, 'avg_daily_ret': 0.00010911633997029977, 'std_daily_ret': 0.0058538438554413775, 'win_rate_days': 0.5873015873015873, 'cum_ret': 0.00582446498849154, 'avg_raw_turnover': 1.5895691609977323, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
+[WF][full_regime_stack_neutralized_sized_aggressive][FOLD 3][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0005008343451462755, 'std_daily_ret': 0.007057000852606855, 'win_rate_days': 0.6031746031746031, 'cum_ret': 0.03044089858262833, 'avg_raw_turnover': 1.641215170145941, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
 [WF][full_regime_stack_neutralized_sized_aggressive][FOLD 4] start
 [WF][full_regime_stack_neutralized_sized_aggressive][FOLD 4] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_aggressive][FOLD 4][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0007050484805122129, 'std_daily_ret': 0.005403047275574008, 'win_rate_days': 0.5238095238095238, 'cum_ret': 0.0444575850172233, 'avg_raw_turnover': 1.60864462744162, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
+[WF][full_regime_stack_neutralized_sized_aggressive][FOLD 4][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0012902293258479647, 'std_daily_ret': 0.005959316970620924, 'win_rate_days': 0.5714285714285714, 'cum_ret': 0.0834330431838497, 'avg_raw_turnover': 1.6339503449580652, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
 [WF][full_regime_stack_neutralized_sized_aggressive][FOLD 5] start
 [WF][full_regime_stack_neutralized_sized_aggressive][FOLD 5] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_aggressive][FOLD 5][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0010476804416813432, 'std_daily_ret': 0.005583837944113534, 'win_rate_days': 0.5714285714285714, 'cum_ret': 0.06716315434717068, 'avg_raw_turnover': 1.5975971675219798, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
+[WF][full_regime_stack_neutralized_sized_aggressive][FOLD 5][SUMMARY] {'days': 63, 'avg_daily_ret': 0.000947774908194927, 'std_daily_ret': 0.005845489986504508, 'win_rate_days': 0.5714285714285714, 'cum_ret': 0.06037635141186648, 'avg_raw_turnover': 1.6450365095847963, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
 [WF][full_regime_stack_neutralized_sized_aggressive][FOLD 6] start
 [WF][full_regime_stack_neutralized_sized_aggressive][FOLD 6] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_aggressive][FOLD 6][SUMMARY] {'days': 63, 'avg_daily_ret': 0.001427970847272044, 'std_daily_ret': 0.00457924709782421, 'win_rate_days': 0.6190476190476191, 'cum_ret': 0.09335358625221724, 'avg_raw_turnover': 1.60244261447269, 'avg_turnover': 0.9984126984126984, 'cap_hit_rate': 0.9682539682539683}
+[WF][full_regime_stack_neutralized_sized_aggressive][FOLD 6][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0017307837076035238, 'std_daily_ret': 0.0047102886686315425, 'win_rate_days': 0.5714285714285714, 'cum_ret': 0.11433837060772545, 'avg_raw_turnover': 1.6425230354120253, 'avg_turnover': 0.9981343455256498, 'cap_hit_rate': 0.9682539682539683}
 [WF][full_regime_stack_neutralized_sized_aggressive][FOLD 7] start
 [WF][full_regime_stack_neutralized_sized_aggressive][FOLD 7] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_aggressive][FOLD 7][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0016768687962397172, 'std_daily_ret': 0.004907394969529744, 'win_rate_days': 0.5873015873015873, 'cum_ret': 0.11050216934985135, 'avg_raw_turnover': 1.573870824246764, 'avg_turnover': 0.996969696969697, 'cap_hit_rate': 0.9523809523809523}
+[WF][full_regime_stack_neutralized_sized_aggressive][FOLD 7][SUMMARY] {'days': 63, 'avg_daily_ret': 0.002250784968948467, 'std_daily_ret': 0.005913149035865458, 'win_rate_days': 0.6031746031746031, 'cum_ret': 0.15092563442050833, 'avg_raw_turnover': 1.6017589024030692, 'avg_turnover': 0.998849781458477, 'cap_hit_rate': 0.9682539682539683}
 [WF][full_regime_stack_neutralized_sized_aggressive][FOLD 8] start
 [WF][full_regime_stack_neutralized_sized_aggressive][FOLD 8] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_aggressive][FOLD 8][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0011435962983131756, 'std_daily_ret': 0.00469647053776775, 'win_rate_days': 0.6666666666666666, 'cum_ret': 0.07392552488122939, 'avg_raw_turnover': 1.556134564405241, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
-[WF][full_regime_stack_neutralized_sized_aggressive][OVERALL] {'days': 504, 'avg_daily_ret': 0.0011516299444574243, 'std_daily_ret': 0.005022168312808216, 'win_rate_days': 0.5912698412698413, 'cum_ret': 0.7749156662617589, 'avg_raw_turnover': 1.5883510634450484, 'avg_turnover': 0.9994227994227995, 'cap_hit_rate': 0.9781746031746031}
+[WF][full_regime_stack_neutralized_sized_aggressive][FOLD 8][SUMMARY] {'days': 63, 'avg_daily_ret': 0.00127190103431624, 'std_daily_ret': 0.005097527384706784, 'win_rate_days': 0.6666666666666666, 'cum_ret': 0.08249918801628109, 'avg_raw_turnover': 1.5912507924341148, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
+[WF][full_regime_stack_neutralized_sized_aggressive][OVERALL] {'days': 504, 'avg_daily_ret': 0.0014861365254718933, 'std_daily_ret': 0.005647870427831489, 'win_rate_days': 0.6011904761904762, 'cum_ret': 1.096873699728682, 'avg_raw_turnover': 1.6265467458569456, 'avg_turnover': 0.9996230158730158, 'cap_hit_rate': 0.9801587301587301}
 [WF][full_regime_stack_neutralized_sized_aggressive][WEIGHTS][STABILITY]
                              feature  folds  mean_weight  std_weight  mean_abs_weight  pos_folds  neg_folds  zero_folds
     z_cond_breadth_trend_intraday_rs      8     0.118859    0.032822         0.118859          8          0           0
@@ -372,17 +371,17 @@ z_cond_breadth_trend_mom_compression      8     0.015565    0.031669         0.0
                  z_intraday_pressure      8     0.008606    0.007474         0.008606          8          0           0
 [WF][full_regime_stack_neutralized_sized_aggressive][TAIL]
       date  gross_ret   net_ret  raw_turnover  capped_turnover  cap_hit_rate  fold_id                                          model
-2025-12-23   0.000422  0.000422      1.300000              1.0           1.0        8 full_regime_stack_neutralized_sized_aggressive
-2025-12-24   0.005806  0.005806      1.600000              1.0           1.0        8 full_regime_stack_neutralized_sized_aggressive
-2025-12-26  -0.005332 -0.005332      1.600000              1.0           1.0        8 full_regime_stack_neutralized_sized_aggressive
-2025-12-29   0.004230  0.004230      1.684211              1.0           1.0        8 full_regime_stack_neutralized_sized_aggressive
-2025-12-30   0.000581  0.000581      1.473684              1.0           1.0        8 full_regime_stack_neutralized_sized_aggressive
-2025-12-31  -0.002829 -0.002829      1.578947              1.0           1.0        8 full_regime_stack_neutralized_sized_aggressive
-2026-01-02  -0.000092 -0.000092      1.894737              1.0           1.0        8 full_regime_stack_neutralized_sized_aggressive
-2026-01-05   0.002979  0.002979      1.789474              1.0           1.0        8 full_regime_stack_neutralized_sized_aggressive
-2026-01-06  -0.001825 -0.001825      1.500000              1.0           1.0        8 full_regime_stack_neutralized_sized_aggressive
-2026-01-07  -0.009626 -0.009626      1.600000              1.0           1.0        8 full_regime_stack_neutralized_sized_aggressive
-[WF][full_regime_stack_neutralized_sized_conservative] portfolio_mode=regime_inertia neutralize=True sizing=True sizing_preset=conservative max_daily_turnover=1.0 features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs', 'cond_breadth_trend_intraday_rs', 'cond_breadth_trend_mom_compression', 'cond_breadth_range_str', 'cond_breadth_weak_overnight', 'cond_momentum_liq_trend', 'cond_str_weak_breadth', 'cond_overnight_trend_follow', 'cond_vol_compression_liq_breakout', 'cond_ivol_lowliq_penalty']
+2025-12-23   0.000172  0.000172      1.526570              1.0           1.0        8 full_regime_stack_neutralized_sized_aggressive
+2025-12-24   0.006879  0.006879      1.681159              1.0           1.0        8 full_regime_stack_neutralized_sized_aggressive
+2025-12-26  -0.006409 -0.006409      1.628792              1.0           1.0        8 full_regime_stack_neutralized_sized_aggressive
+2025-12-29   0.004205  0.004205      1.740000              1.0           1.0        8 full_regime_stack_neutralized_sized_aggressive
+2025-12-30  -0.000672 -0.000672      1.500000              1.0           1.0        8 full_regime_stack_neutralized_sized_aggressive
+2025-12-31  -0.004204 -0.004204      1.580000              1.0           1.0        8 full_regime_stack_neutralized_sized_aggressive
+2026-01-02   0.000368  0.000368      1.930000              1.0           1.0        8 full_regime_stack_neutralized_sized_aggressive
+2026-01-05   0.005421  0.005421      1.810000              1.0           1.0        8 full_regime_stack_neutralized_sized_aggressive
+2026-01-06  -0.002578 -0.002578      1.514541              1.0           1.0        8 full_regime_stack_neutralized_sized_aggressive
+2026-01-07  -0.010944 -0.010944      1.729469              1.0           1.0        8 full_regime_stack_neutralized_sized_aggressive
+[WF][full_regime_stack_neutralized_sized_conservative] portfolio_mode=regime_inertia neutralize=True sizing=True sizing_preset=conservative max_daily_turnover=1.0 final_weight_cap=0.08 features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs', 'cond_breadth_trend_intraday_rs', 'cond_breadth_trend_mom_compression', 'cond_breadth_range_str', 'cond_breadth_weak_overnight', 'cond_momentum_liq_trend', 'cond_str_weak_breadth', 'cond_overnight_trend_follow', 'cond_vol_compression_liq_breakout', 'cond_ivol_lowliq_penalty']
 [WF] folds=8
 [WF][FOLD 1] train=2023-01-03 00:00:00..2024-01-03 00:00:00 test=2024-01-04 00:00:00..2024-04-04 00:00:00
 [WF][FOLD 2] train=2023-04-04 00:00:00..2024-04-04 00:00:00 test=2024-04-05 00:00:00..2024-07-05 00:00:00
@@ -394,29 +393,29 @@ z_cond_breadth_trend_mom_compression      8     0.015565    0.031669         0.0
 [WF][FOLD 8] train=2024-10-04 00:00:00..2025-10-07 00:00:00 test=2025-10-08 00:00:00..2026-01-07 00:00:00
 [WF][full_regime_stack_neutralized_sized_conservative][FOLD 1] start
 [WF][full_regime_stack_neutralized_sized_conservative][FOLD 1] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_conservative][FOLD 1][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0017183087949239778, 'std_daily_ret': 0.0043596585780771874, 'win_rate_days': 0.6190476190476191, 'cum_ret': 0.11357445416629064, 'avg_raw_turnover': 1.595504634602379, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
+[WF][full_regime_stack_neutralized_sized_conservative][FOLD 1][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0019103637714618547, 'std_daily_ret': 0.00449428683046387, 'win_rate_days': 0.6349206349206349, 'cum_ret': 0.12706424338831535, 'avg_raw_turnover': 1.6059682434571578, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
 [WF][full_regime_stack_neutralized_sized_conservative][FOLD 2] start
 [WF][full_regime_stack_neutralized_sized_conservative][FOLD 2] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_conservative][FOLD 2][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0013844495567466237, 'std_daily_ret': 0.004670391132690239, 'win_rate_days': 0.5555555555555556, 'cum_ret': 0.0903361926224957, 'avg_raw_turnover': 1.5830449138719818, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
+[WF][full_regime_stack_neutralized_sized_conservative][FOLD 2][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0015110120999470608, 'std_daily_ret': 0.004982112312203961, 'win_rate_days': 0.5555555555555556, 'cum_ret': 0.09894990185391817, 'avg_raw_turnover': 1.5991521539070626, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
 [WF][full_regime_stack_neutralized_sized_conservative][FOLD 3] start
 [WF][full_regime_stack_neutralized_sized_conservative][FOLD 3] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_conservative][FOLD 3][SUMMARY] {'days': 63, 'avg_daily_ret': 0.00010911633997029977, 'std_daily_ret': 0.0058538438554413775, 'win_rate_days': 0.5873015873015873, 'cum_ret': 0.00582446498849154, 'avg_raw_turnover': 1.5895691609977323, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
+[WF][full_regime_stack_neutralized_sized_conservative][FOLD 3][SUMMARY] {'days': 63, 'avg_daily_ret': 0.000271135345913812, 'std_daily_ret': 0.006258543862599347, 'win_rate_days': 0.6190476190476191, 'cum_ret': 0.01598452760375868, 'avg_raw_turnover': 1.6072020844124744, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
 [WF][full_regime_stack_neutralized_sized_conservative][FOLD 4] start
 [WF][full_regime_stack_neutralized_sized_conservative][FOLD 4] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_conservative][FOLD 4][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0007050484805122129, 'std_daily_ret': 0.005403047275574008, 'win_rate_days': 0.5238095238095238, 'cum_ret': 0.0444575850172233, 'avg_raw_turnover': 1.60864462744162, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
+[WF][full_regime_stack_neutralized_sized_conservative][FOLD 4][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0009354759368634679, 'std_daily_ret': 0.00557788980140782, 'win_rate_days': 0.5555555555555556, 'cum_ret': 0.059655880707402575, 'avg_raw_turnover': 1.6168745260179436, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
 [WF][full_regime_stack_neutralized_sized_conservative][FOLD 5] start
 [WF][full_regime_stack_neutralized_sized_conservative][FOLD 5] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_conservative][FOLD 5][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0010476804416813432, 'std_daily_ret': 0.005583837944113534, 'win_rate_days': 0.5714285714285714, 'cum_ret': 0.06716315434717068, 'avg_raw_turnover': 1.5975971675219798, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
+[WF][full_regime_stack_neutralized_sized_conservative][FOLD 5][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0010116573027593443, 'std_daily_ret': 0.005603956945756868, 'win_rate_days': 0.5873015873015873, 'cum_ret': 0.06473907104662535, 'avg_raw_turnover': 1.6140192061903096, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
 [WF][full_regime_stack_neutralized_sized_conservative][FOLD 6] start
 [WF][full_regime_stack_neutralized_sized_conservative][FOLD 6] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_conservative][FOLD 6][SUMMARY] {'days': 63, 'avg_daily_ret': 0.001427970847272044, 'std_daily_ret': 0.00457924709782421, 'win_rate_days': 0.6190476190476191, 'cum_ret': 0.09335358625221724, 'avg_raw_turnover': 1.60244261447269, 'avg_turnover': 0.9984126984126984, 'cap_hit_rate': 0.9682539682539683}
+[WF][full_regime_stack_neutralized_sized_conservative][FOLD 6][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0015495531057302151, 'std_daily_ret': 0.00454396576809911, 'win_rate_days': 0.5873015873015873, 'cum_ret': 0.10175976998290093, 'avg_raw_turnover': 1.6163380076664917, 'avg_turnover': 0.9982072497167357, 'cap_hit_rate': 0.9682539682539683}
 [WF][full_regime_stack_neutralized_sized_conservative][FOLD 7] start
 [WF][full_regime_stack_neutralized_sized_conservative][FOLD 7] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_conservative][FOLD 7][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0016768687962397172, 'std_daily_ret': 0.004907394969529744, 'win_rate_days': 0.5873015873015873, 'cum_ret': 0.11050216934985135, 'avg_raw_turnover': 1.573870824246764, 'avg_turnover': 0.996969696969697, 'cap_hit_rate': 0.9523809523809523}
+[WF][full_regime_stack_neutralized_sized_conservative][FOLD 7][SUMMARY] {'days': 63, 'avg_daily_ret': 0.00190341483936418, 'std_daily_ret': 0.005259918818082524, 'win_rate_days': 0.6031746031746031, 'cum_ret': 0.1263135774298605, 'avg_raw_turnover': 1.5825674632019233, 'avg_turnover': 0.9974494750031673, 'cap_hit_rate': 0.9523809523809523}
 [WF][full_regime_stack_neutralized_sized_conservative][FOLD 8] start
 [WF][full_regime_stack_neutralized_sized_conservative][FOLD 8] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_conservative][FOLD 8][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0011435962983131756, 'std_daily_ret': 0.00469647053776775, 'win_rate_days': 0.6666666666666666, 'cum_ret': 0.07392552488122939, 'avg_raw_turnover': 1.556134564405241, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
-[WF][full_regime_stack_neutralized_sized_conservative][OVERALL] {'days': 504, 'avg_daily_ret': 0.0011516299444574243, 'std_daily_ret': 0.005022168312808216, 'win_rate_days': 0.5912698412698413, 'cum_ret': 0.7749156662617589, 'avg_raw_turnover': 1.5883510634450484, 'avg_turnover': 0.9994227994227995, 'cap_hit_rate': 0.9781746031746031}
+[WF][full_regime_stack_neutralized_sized_conservative][FOLD 8][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0011936257867089083, 'std_daily_ret': 0.004813265834419759, 'win_rate_days': 0.6825396825396826, 'cum_ret': 0.07727461797743951, 'avg_raw_turnover': 1.5678954115272719, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
+[WF][full_regime_stack_neutralized_sized_conservative][OVERALL] {'days': 504, 'avg_daily_ret': 0.0012857797735936055, 'std_daily_ret': 0.0052115743858530475, 'win_rate_days': 0.6031746031746031, 'cum_ret': 0.8979919292986522, 'avg_raw_turnover': 1.6012521370475794, 'avg_turnover': 0.9994570905899878, 'cap_hit_rate': 0.9781746031746031}
 [WF][full_regime_stack_neutralized_sized_conservative][WEIGHTS][STABILITY]
                              feature  folds  mean_weight  std_weight  mean_abs_weight  pos_folds  neg_folds  zero_folds
     z_cond_breadth_trend_intraday_rs      8     0.118859    0.032822         0.118859          8          0           0
@@ -436,17 +435,17 @@ z_cond_breadth_trend_mom_compression      8     0.015565    0.031669         0.0
                  z_intraday_pressure      8     0.008606    0.007474         0.008606          8          0           0
 [WF][full_regime_stack_neutralized_sized_conservative][TAIL]
       date  gross_ret   net_ret  raw_turnover  capped_turnover  cap_hit_rate  fold_id                                            model
-2025-12-23   0.000422  0.000422      1.300000              1.0           1.0        8 full_regime_stack_neutralized_sized_conservative
-2025-12-24   0.005806  0.005806      1.600000              1.0           1.0        8 full_regime_stack_neutralized_sized_conservative
-2025-12-26  -0.005332 -0.005332      1.600000              1.0           1.0        8 full_regime_stack_neutralized_sized_conservative
-2025-12-29   0.004230  0.004230      1.684211              1.0           1.0        8 full_regime_stack_neutralized_sized_conservative
-2025-12-30   0.000581  0.000581      1.473684              1.0           1.0        8 full_regime_stack_neutralized_sized_conservative
-2025-12-31  -0.002829 -0.002829      1.578947              1.0           1.0        8 full_regime_stack_neutralized_sized_conservative
-2026-01-02  -0.000092 -0.000092      1.894737              1.0           1.0        8 full_regime_stack_neutralized_sized_conservative
-2026-01-05   0.002979  0.002979      1.789474              1.0           1.0        8 full_regime_stack_neutralized_sized_conservative
-2026-01-06  -0.001825 -0.001825      1.500000              1.0           1.0        8 full_regime_stack_neutralized_sized_conservative
-2026-01-07  -0.009626 -0.009626      1.600000              1.0           1.0        8 full_regime_stack_neutralized_sized_conservative
-[WF][full_regime_stack_neutralized_sized_barbell] portfolio_mode=regime_inertia neutralize=True sizing=True sizing_preset=barbell max_daily_turnover=1.0 features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs', 'cond_breadth_trend_intraday_rs', 'cond_breadth_trend_mom_compression', 'cond_breadth_range_str', 'cond_breadth_weak_overnight', 'cond_momentum_liq_trend', 'cond_str_weak_breadth', 'cond_overnight_trend_follow', 'cond_vol_compression_liq_breakout', 'cond_ivol_lowliq_penalty']
+2025-12-23   0.000320  0.000320      1.389831              1.0           1.0        8 full_regime_stack_neutralized_sized_conservative
+2025-12-24   0.006213  0.006213      1.631961              1.0           1.0        8 full_regime_stack_neutralized_sized_conservative
+2025-12-26  -0.005782 -0.005782      1.607736              1.0           1.0        8 full_regime_stack_neutralized_sized_conservative
+2025-12-29   0.004217  0.004217      1.706329              1.0           1.0        8 full_regime_stack_neutralized_sized_conservative
+2025-12-30   0.000083  0.000083      1.483544              1.0           1.0        8 full_regime_stack_neutralized_sized_conservative
+2025-12-31  -0.003381 -0.003381      1.579747              1.0           1.0        8 full_regime_stack_neutralized_sized_conservative
+2026-01-02   0.000076  0.000076      1.908861              1.0           1.0        8 full_regime_stack_neutralized_sized_conservative
+2026-01-05   0.003928  0.003928      1.797468              1.0           1.0        8 full_regime_stack_neutralized_sized_conservative
+2026-01-06  -0.002116 -0.002116      1.502081              1.0           1.0        8 full_regime_stack_neutralized_sized_conservative
+2026-01-07  -0.010164 -0.010164      1.651332              1.0           1.0        8 full_regime_stack_neutralized_sized_conservative
+[WF][full_regime_stack_neutralized_sized_barbell] portfolio_mode=regime_inertia neutralize=True sizing=True sizing_preset=barbell max_daily_turnover=1.0 final_weight_cap=0.08 features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs', 'cond_breadth_trend_intraday_rs', 'cond_breadth_trend_mom_compression', 'cond_breadth_range_str', 'cond_breadth_weak_overnight', 'cond_momentum_liq_trend', 'cond_str_weak_breadth', 'cond_overnight_trend_follow', 'cond_vol_compression_liq_breakout', 'cond_ivol_lowliq_penalty']
 [WF] folds=8
 [WF][FOLD 1] train=2023-01-03 00:00:00..2024-01-03 00:00:00 test=2024-01-04 00:00:00..2024-04-04 00:00:00
 [WF][FOLD 2] train=2023-04-04 00:00:00..2024-04-04 00:00:00 test=2024-04-05 00:00:00..2024-07-05 00:00:00
@@ -458,29 +457,29 @@ z_cond_breadth_trend_mom_compression      8     0.015565    0.031669         0.0
 [WF][FOLD 8] train=2024-10-04 00:00:00..2025-10-07 00:00:00 test=2025-10-08 00:00:00..2026-01-07 00:00:00
 [WF][full_regime_stack_neutralized_sized_barbell][FOLD 1] start
 [WF][full_regime_stack_neutralized_sized_barbell][FOLD 1] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_barbell][FOLD 1][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0017183087949239778, 'std_daily_ret': 0.0043596585780771874, 'win_rate_days': 0.6190476190476191, 'cum_ret': 0.11357445416629064, 'avg_raw_turnover': 1.595504634602379, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 1][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0023091322006503962, 'std_daily_ret': 0.004728840763518241, 'win_rate_days': 0.6666666666666666, 'cum_ret': 0.15560016830462353, 'avg_raw_turnover': 1.5482494874611428, 'avg_turnover': 0.9990880884931876, 'cap_hit_rate': 0.9841269841269841}
 [WF][full_regime_stack_neutralized_sized_barbell][FOLD 2] start
 [WF][full_regime_stack_neutralized_sized_barbell][FOLD 2] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_barbell][FOLD 2][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0013844495567466237, 'std_daily_ret': 0.004670391132690239, 'win_rate_days': 0.5555555555555556, 'cum_ret': 0.0903361926224957, 'avg_raw_turnover': 1.5830449138719818, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 2][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0017615486919473889, 'std_daily_ret': 0.005586725375079279, 'win_rate_days': 0.5555555555555556, 'cum_ret': 0.11618450818689974, 'avg_raw_turnover': 1.5491611519017432, 'avg_turnover': 0.9990880884931876, 'cap_hit_rate': 0.9841269841269841}
 [WF][full_regime_stack_neutralized_sized_barbell][FOLD 3] start
 [WF][full_regime_stack_neutralized_sized_barbell][FOLD 3] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_barbell][FOLD 3][SUMMARY] {'days': 63, 'avg_daily_ret': 0.00010911633997029977, 'std_daily_ret': 0.0058538438554413775, 'win_rate_days': 0.5873015873015873, 'cum_ret': 0.00582446498849154, 'avg_raw_turnover': 1.5895691609977323, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 3][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0006302791239579065, 'std_daily_ret': 0.0072190661300851715, 'win_rate_days': 0.6031746031746031, 'cum_ret': 0.03879722834613264, 'avg_raw_turnover': 1.5659774693160815, 'avg_turnover': 0.9990880884931876, 'cap_hit_rate': 0.9841269841269841}
 [WF][full_regime_stack_neutralized_sized_barbell][FOLD 4] start
 [WF][full_regime_stack_neutralized_sized_barbell][FOLD 4] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_barbell][FOLD 4][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0007050484805122129, 'std_daily_ret': 0.005403047275574008, 'win_rate_days': 0.5238095238095238, 'cum_ret': 0.0444575850172233, 'avg_raw_turnover': 1.60864462744162, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 4][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0014281421226160155, 'std_daily_ret': 0.005963620598806099, 'win_rate_days': 0.5714285714285714, 'cum_ret': 0.09287334003247172, 'avg_raw_turnover': 1.5499285184740463, 'avg_turnover': 0.9990880884931876, 'cap_hit_rate': 0.9841269841269841}
 [WF][full_regime_stack_neutralized_sized_barbell][FOLD 5] start
 [WF][full_regime_stack_neutralized_sized_barbell][FOLD 5] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_barbell][FOLD 5][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0010476804416813432, 'std_daily_ret': 0.005583837944113534, 'win_rate_days': 0.5714285714285714, 'cum_ret': 0.06716315434717068, 'avg_raw_turnover': 1.5975971675219798, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 5][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0009760204300554833, 'std_daily_ret': 0.005861152227302626, 'win_rate_days': 0.5873015873015873, 'cum_ret': 0.06225743503981751, 'avg_raw_turnover': 1.5648636973590433, 'avg_turnover': 0.9990880884931876, 'cap_hit_rate': 0.9841269841269841}
 [WF][full_regime_stack_neutralized_sized_barbell][FOLD 6] start
 [WF][full_regime_stack_neutralized_sized_barbell][FOLD 6] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_barbell][FOLD 6][SUMMARY] {'days': 63, 'avg_daily_ret': 0.001427970847272044, 'std_daily_ret': 0.00457924709782421, 'win_rate_days': 0.6190476190476191, 'cum_ret': 0.09335358625221724, 'avg_raw_turnover': 1.60244261447269, 'avg_turnover': 0.9984126984126984, 'cap_hit_rate': 0.9682539682539683}
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 6][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0017834043262192657, 'std_daily_ret': 0.004609964915019874, 'win_rate_days': 0.5555555555555556, 'cum_ret': 0.11806435397301573, 'avg_raw_turnover': 1.5610508257076132, 'avg_turnover': 0.9963424070870448, 'cap_hit_rate': 0.9682539682539683}
 [WF][full_regime_stack_neutralized_sized_barbell][FOLD 7] start
 [WF][full_regime_stack_neutralized_sized_barbell][FOLD 7] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_barbell][FOLD 7][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0016768687962397172, 'std_daily_ret': 0.004907394969529744, 'win_rate_days': 0.5873015873015873, 'cum_ret': 0.11050216934985135, 'avg_raw_turnover': 1.573870824246764, 'avg_turnover': 0.996969696969697, 'cap_hit_rate': 0.9523809523809523}
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 7][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0022951851530324022, 'std_daily_ret': 0.005929221282528762, 'win_rate_days': 0.5873015873015873, 'cum_ret': 0.15413549454125475, 'avg_raw_turnover': 1.5219747343024987, 'avg_turnover': 0.9973647324841173, 'cap_hit_rate': 0.9682539682539683}
 [WF][full_regime_stack_neutralized_sized_barbell][FOLD 8] start
 [WF][full_regime_stack_neutralized_sized_barbell][FOLD 8] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_barbell][FOLD 8][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0011435962983131756, 'std_daily_ret': 0.00469647053776775, 'win_rate_days': 0.6666666666666666, 'cum_ret': 0.07392552488122939, 'avg_raw_turnover': 1.556134564405241, 'avg_turnover': 1.0, 'cap_hit_rate': 0.9841269841269841}
-[WF][full_regime_stack_neutralized_sized_barbell][OVERALL] {'days': 504, 'avg_daily_ret': 0.0011516299444574243, 'std_daily_ret': 0.005022168312808216, 'win_rate_days': 0.5912698412698413, 'cum_ret': 0.7749156662617589, 'avg_raw_turnover': 1.5883510634450484, 'avg_turnover': 0.9994227994227995, 'cap_hit_rate': 0.9781746031746031}
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 8][SUMMARY] {'days': 63, 'avg_daily_ret': 0.00127336923328574, 'std_daily_ret': 0.005076076155545827, 'win_rate_days': 0.6825396825396826, 'cum_ret': 0.08260682163582111, 'avg_raw_turnover': 1.5130926091579768, 'avg_turnover': 0.9990880884931876, 'cap_hit_rate': 0.9841269841269841}
+[WF][full_regime_stack_neutralized_sized_barbell][OVERALL] {'days': 504, 'avg_daily_ret': 0.001557135160220575, 'std_daily_ret': 0.005664526706069898, 'win_rate_days': 0.6011904761904762, 'cum_ret': 1.173043093690219, 'avg_raw_turnover': 1.5467873117100182, 'avg_turnover': 0.998529458816286, 'cap_hit_rate': 0.9801587301587301}
 [WF][full_regime_stack_neutralized_sized_barbell][WEIGHTS][STABILITY]
                              feature  folds  mean_weight  std_weight  mean_abs_weight  pos_folds  neg_folds  zero_folds
     z_cond_breadth_trend_intraday_rs      8     0.118859    0.032822         0.118859          8          0           0
@@ -500,26 +499,26 @@ z_cond_breadth_trend_mom_compression      8     0.015565    0.031669         0.0
                  z_intraday_pressure      8     0.008606    0.007474         0.008606          8          0           0
 [WF][full_regime_stack_neutralized_sized_barbell][TAIL]
       date  gross_ret   net_ret  raw_turnover  capped_turnover  cap_hit_rate  fold_id                                       model
-2025-12-23   0.000422  0.000422      1.300000              1.0           1.0        8 full_regime_stack_neutralized_sized_barbell
-2025-12-24   0.005806  0.005806      1.600000              1.0           1.0        8 full_regime_stack_neutralized_sized_barbell
-2025-12-26  -0.005332 -0.005332      1.600000              1.0           1.0        8 full_regime_stack_neutralized_sized_barbell
-2025-12-29   0.004230  0.004230      1.684211              1.0           1.0        8 full_regime_stack_neutralized_sized_barbell
-2025-12-30   0.000581  0.000581      1.473684              1.0           1.0        8 full_regime_stack_neutralized_sized_barbell
-2025-12-31  -0.002829 -0.002829      1.578947              1.0           1.0        8 full_regime_stack_neutralized_sized_barbell
-2026-01-02  -0.000092 -0.000092      1.894737              1.0           1.0        8 full_regime_stack_neutralized_sized_barbell
-2026-01-05   0.002979  0.002979      1.789474              1.0           1.0        8 full_regime_stack_neutralized_sized_barbell
-2026-01-06  -0.001825 -0.001825      1.500000              1.0           1.0        8 full_regime_stack_neutralized_sized_barbell
-2026-01-07  -0.009626 -0.009626      1.600000              1.0           1.0        8 full_regime_stack_neutralized_sized_barbell
+2025-12-23   0.000041  0.000041      1.480000              1.0           1.0        8 full_regime_stack_neutralized_sized_barbell
+2025-12-24   0.006691  0.006691      1.611868              1.0           1.0        8 full_regime_stack_neutralized_sized_barbell
+2025-12-26  -0.006288 -0.006288      1.550004              1.0           1.0        8 full_regime_stack_neutralized_sized_barbell
+2025-12-29   0.003599  0.003599      1.647139              1.0           1.0        8 full_regime_stack_neutralized_sized_barbell
+2025-12-30  -0.001123 -0.001123      1.420510              1.0           1.0        8 full_regime_stack_neutralized_sized_barbell
+2025-12-31  -0.004791 -0.004791      1.487139              1.0           1.0        8 full_regime_stack_neutralized_sized_barbell
+2026-01-02   0.000254  0.000254      1.822776              1.0           1.0        8 full_regime_stack_neutralized_sized_barbell
+2026-01-05   0.005379  0.005379      1.709462              1.0           1.0        8 full_regime_stack_neutralized_sized_barbell
+2026-01-06  -0.002543 -0.002543      1.441655              1.0           1.0        8 full_regime_stack_neutralized_sized_barbell
+2026-01-07  -0.010925 -0.010925      1.661319              1.0           1.0        8 full_regime_stack_neutralized_sized_barbell
 [WF][ABLATION][SUMMARY]
                                            model portfolio_mode  neutralize  sizing sizing_preset  days  avg_daily_ret  std_daily_ret  win_rate_days  cum_ret  avg_raw_turnover  avg_turnover  cap_hit_rate  avg_gross_ret  avg_trading_costs  avg_borrow_costs  avg_costs
+     full_regime_stack_neutralized_sized_barbell regime_inertia        True    True       barbell   504       0.001557       0.005665       0.601190 1.173043          1.546787      0.998529      0.980159            0.0                0.0               0.0        0.0
+  full_regime_stack_neutralized_sized_aggressive regime_inertia        True    True    aggressive   504       0.001486       0.005648       0.601190 1.096874          1.626547      0.999623      0.980159            0.0                0.0               0.0        0.0
+    full_regime_stack_neutralized_sized_baseline regime_inertia        True    True      baseline   504       0.001358       0.005347       0.611111 0.967993          1.609736      0.999533      0.978175            0.0                0.0               0.0        0.0
+full_regime_stack_neutralized_sized_conservative regime_inertia        True    True  conservative   504       0.001286       0.005212       0.603175 0.897992          1.601252      0.999457      0.978175            0.0                0.0               0.0        0.0
                    full_regime_stack_neutralized regime_inertia        True   False          none   504       0.001217       0.005020       0.607143 0.834720          1.429140      0.997317      0.956349            0.0                0.0               0.0        0.0
                     intraday_plus_breadth_regime regime_inertia       False   False          none   504       0.001205       0.009271       0.605159 0.795680          1.437648      0.997050      0.942460            0.0                0.0               0.0        0.0
-    full_regime_stack_neutralized_sized_baseline regime_inertia        True    True      baseline   504       0.001152       0.005022       0.591270 0.774916          1.588351      0.999423      0.978175            0.0                0.0               0.0        0.0
-  full_regime_stack_neutralized_sized_aggressive regime_inertia        True    True    aggressive   504       0.001152       0.005022       0.591270 0.774916          1.588351      0.999423      0.978175            0.0                0.0               0.0        0.0
-full_regime_stack_neutralized_sized_conservative regime_inertia        True    True  conservative   504       0.001152       0.005022       0.591270 0.774916          1.588351      0.999423      0.978175            0.0                0.0               0.0        0.0
-     full_regime_stack_neutralized_sized_barbell regime_inertia        True    True       barbell   504       0.001152       0.005022       0.591270 0.774916          1.588351      0.999423      0.978175            0.0                0.0               0.0        0.0
-                              intraday_core_only  plain_inertia       False   False          none   504       0.001175       0.009202       0.611111 0.768784          1.440662      0.997376      0.962302            0.0                0.0               0.0        0.0
-                               full_regime_stack regime_inertia       False   False          none   504       0.001136       0.009175       0.607143 0.735186          1.416584      0.996691      0.946429            0.0                0.0               0.0        0.0
+                              intraday_core_only  plain_inertia       False   False          none   504       0.001175       0.009202       0.611111 0.768784          1.440662      0.997376      0.960317            0.0                0.0               0.0        0.0
+                               full_regime_stack regime_inertia       False   False          none   504       0.001136       0.009175       0.607143 0.735186          1.416584      0.996691      0.944444            0.0                0.0               0.0        0.0
 Press Enter to exit...
 PS C:\Users\Dmytro Govor\Documents\Python-Edge> Set-StrictMode -Version Latest
 PS C:\Users\Dmytro Govor\Documents\Python-Edge> $ErrorActionPreference = "Stop"
@@ -527,15 +526,16 @@ PS C:\Users\Dmytro Govor\Documents\Python-Edge>
 PS C:\Users\Dmytro Govor\Documents\Python-Edge> Set-Location -LiteralPath "C:\Users\Dmytro Govor\Documents\Python-Edge"
 PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:PYTHONPATH = ".\src"
 PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:MAX_DAILY_TURNOVER = "0.60"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:FINAL_WEIGHT_CAP = "0.08"
 PS C:\Users\Dmytro Govor\Documents\Python-Edge>
 PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_ranker_wf.py
 [CFG] feature_file=data\features\feature_matrix_v1.parquet
 [CFG] target_col=target_fwd_ret_1d
 [CFG] train_days=252 test_days=63 step_days=63 top_pct=0.1
 [CFG] enter_pct=0.1 exit_pct=0.2
-[CFG] max_daily_turnover=0.6
+[CFG] max_daily_turnover=0.6 final_weight_cap=0.08
 [LOAD] feature matrix
-[WF][intraday_core_only] portfolio_mode=plain_inertia neutralize=False sizing=False sizing_preset=None max_daily_turnover=0.6 features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs']
+[WF][intraday_core_only] portfolio_mode=plain_inertia neutralize=False sizing=False sizing_preset=None max_daily_turnover=0.6 final_weight_cap=0.08 features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs']
 [WF] folds=8
 [WF][FOLD 1] train=2023-01-03 00:00:00..2024-01-03 00:00:00 test=2024-01-04 00:00:00..2024-04-04 00:00:00
 [WF][FOLD 2] train=2023-04-04 00:00:00..2024-04-04 00:00:00 test=2024-04-05 00:00:00..2024-07-05 00:00:00
@@ -547,29 +547,29 @@ PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_ranker_wf.p
 [WF][FOLD 8] train=2024-10-04 00:00:00..2025-10-07 00:00:00 test=2025-10-08 00:00:00..2026-01-07 00:00:00
 [WF][intraday_core_only][FOLD 1] start
 [WF][intraday_core_only][FOLD 1] train_rows=24444 test_rows=6111
-[WF][intraday_core_only][FOLD 1][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0008198004701517564, 'std_daily_ret': 0.004889036859173717, 'win_rate_days': 0.5873015873015873, 'cum_ret': 0.05220388230092521, 'avg_raw_turnover': 1.4111698658420533, 'avg_turnover': 0.6000000000000003, 'cap_hit_rate': 1.0}
+[WF][intraday_core_only][FOLD 1][SUMMARY] {'days': 63, 'avg_daily_ret': 0.000819800470151756, 'std_daily_ret': 0.004889036859173717, 'win_rate_days': 0.5873015873015873, 'cum_ret': 0.05220388230092521, 'avg_raw_turnover': 1.4111698658420533, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][intraday_core_only][FOLD 2] start
 [WF][intraday_core_only][FOLD 2] train_rows=24444 test_rows=6111
 [WF][intraday_core_only][FOLD 2][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0006851389979733705, 'std_daily_ret': 0.005784573559096678, 'win_rate_days': 0.6031746031746031, 'cum_ret': 0.043018531071172594, 'avg_raw_turnover': 1.4767532011533318, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][intraday_core_only][FOLD 3] start
 [WF][intraday_core_only][FOLD 3] train_rows=24444 test_rows=6111
-[WF][intraday_core_only][FOLD 3][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0003851408280654817, 'std_daily_ret': 0.014014777422578416, 'win_rate_days': 0.5873015873015873, 'cum_ret': 0.018458756454953873, 'avg_raw_turnover': 1.421012954814851, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][intraday_core_only][FOLD 3][SUMMARY] {'days': 63, 'avg_daily_ret': 0.00038514082806548176, 'std_daily_ret': 0.01401477742257842, 'win_rate_days': 0.5873015873015873, 'cum_ret': 0.018458756454953873, 'avg_raw_turnover': 1.421012954814851, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][intraday_core_only][FOLD 4] start
 [WF][intraday_core_only][FOLD 4] train_rows=24444 test_rows=6111
-[WF][intraday_core_only][FOLD 4][SUMMARY] {'days': 63, 'avg_daily_ret': 0.000323853158424296, 'std_daily_ret': 0.0076635339110190945, 'win_rate_days': 0.5079365079365079, 'cum_ret': 0.01875006614954766, 'avg_raw_turnover': 1.4076198083030382, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][intraday_core_only][FOLD 4][SUMMARY] {'days': 63, 'avg_daily_ret': 0.000323853158424296, 'std_daily_ret': 0.007663533911019094, 'win_rate_days': 0.5079365079365079, 'cum_ret': 0.018750066149547884, 'avg_raw_turnover': 1.407619808303038, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][intraday_core_only][FOLD 5] start
 [WF][intraday_core_only][FOLD 5] train_rows=24444 test_rows=6111
 [WF][intraday_core_only][FOLD 5][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0019344725922758423, 'std_daily_ret': 0.009512018503115128, 'win_rate_days': 0.5555555555555556, 'cum_ret': 0.1263664953962771, 'avg_raw_turnover': 1.4375786555289667, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][intraday_core_only][FOLD 6] start
 [WF][intraday_core_only][FOLD 6] train_rows=24444 test_rows=6111
-[WF][intraday_core_only][FOLD 6][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0004155541920799522, 'std_daily_ret': 0.010170582640917093, 'win_rate_days': 0.5555555555555556, 'cum_ret': 0.02318010306409568, 'avg_raw_turnover': 1.4331272500216596, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][intraday_core_only][FOLD 6][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0004155541920799523, 'std_daily_ret': 0.01017058264091709, 'win_rate_days': 0.5555555555555556, 'cum_ret': 0.02318010306409568, 'avg_raw_turnover': 1.4331272500216596, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][intraday_core_only][FOLD 7] start
 [WF][intraday_core_only][FOLD 7] train_rows=24444 test_rows=6111
-[WF][intraday_core_only][FOLD 7][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0010421975836672319, 'std_daily_ret': 0.0047291460684698115, 'win_rate_days': 0.5714285714285714, 'cum_ret': 0.06708592508992584, 'avg_raw_turnover': 1.4765273856578207, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][intraday_core_only][FOLD 7][SUMMARY] {'days': 63, 'avg_daily_ret': 0.001042197583667232, 'std_daily_ret': 0.0047291460684698115, 'win_rate_days': 0.5714285714285714, 'cum_ret': 0.06708592508992584, 'avg_raw_turnover': 1.4765273856578205, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][intraday_core_only][FOLD 8] start
 [WF][intraday_core_only][FOLD 8] train_rows=24444 test_rows=6111
-[WF][intraday_core_only][FOLD 8][SUMMARY] {'days': 63, 'avg_daily_ret': 0.00018722734175772812, 'std_daily_ret': 0.0063474216090016805, 'win_rate_days': 0.5714285714285714, 'cum_ret': 0.010597552627140683, 'avg_raw_turnover': 1.4615078539563664, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
-[WF][intraday_core_only][OVERALL] {'days': 504, 'avg_daily_ret': 0.0007241731455494574, 'std_daily_ret': 0.008391973471955635, 'win_rate_days': 0.5674603174603174, 'cum_ret': 0.41518254834225066, 'avg_raw_turnover': 1.4406621219097608, 'avg_turnover': 0.5999999999999999, 'cap_hit_rate': 1.0}
+[WF][intraday_core_only][FOLD 8][SUMMARY] {'days': 63, 'avg_daily_ret': 0.00018722734175772795, 'std_daily_ret': 0.0063474216090016805, 'win_rate_days': 0.5714285714285714, 'cum_ret': 0.010597552627140905, 'avg_raw_turnover': 1.4615078539563664, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][intraday_core_only][OVERALL] {'days': 504, 'avg_daily_ret': 0.0007241731455494574, 'std_daily_ret': 0.008391973471955635, 'win_rate_days': 0.5674603174603174, 'cum_ret': 0.4151825483422511, 'avg_raw_turnover': 1.4406621219097608, 'avg_turnover': 0.5999999999999999, 'cap_hit_rate': 1.0}
 [WF][intraday_core_only][WEIGHTS][STABILITY]
                            feature  folds  mean_weight  std_weight  mean_abs_weight  pos_folds  neg_folds  zero_folds
                      z_intraday_rs      8     0.097811    0.026239         0.097811          8          0           0
@@ -590,7 +590,7 @@ z_intraday_pressure_x_volume_shock      8     0.011015    0.008974         0.011
 2026-01-05   0.004797  0.004797      1.900000              0.6           1.0        8 intraday_core_only
 2026-01-06  -0.001206 -0.001206      1.304348              0.6           1.0        8 intraday_core_only
 2026-01-07  -0.010310 -0.010310      1.333333              0.6           1.0        8 intraday_core_only
-[WF][intraday_plus_breadth_regime] portfolio_mode=regime_inertia neutralize=False sizing=False sizing_preset=None max_daily_turnover=0.6 features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs', 'cond_breadth_trend_intraday_rs', 'cond_breadth_trend_mom_compression', 'cond_breadth_range_str', 'cond_breadth_weak_overnight']
+[WF][intraday_plus_breadth_regime] portfolio_mode=regime_inertia neutralize=False sizing=False sizing_preset=None max_daily_turnover=0.6 final_weight_cap=0.08 features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs', 'cond_breadth_trend_intraday_rs', 'cond_breadth_trend_mom_compression', 'cond_breadth_range_str', 'cond_breadth_weak_overnight']
 [WF] folds=8
 [WF][FOLD 1] train=2023-01-03 00:00:00..2024-01-03 00:00:00 test=2024-01-04 00:00:00..2024-04-04 00:00:00
 [WF][FOLD 2] train=2023-04-04 00:00:00..2024-04-04 00:00:00 test=2024-04-05 00:00:00..2024-07-05 00:00:00
@@ -602,29 +602,29 @@ z_intraday_pressure_x_volume_shock      8     0.011015    0.008974         0.011
 [WF][FOLD 8] train=2024-10-04 00:00:00..2025-10-07 00:00:00 test=2025-10-08 00:00:00..2026-01-07 00:00:00
 [WF][intraday_plus_breadth_regime][FOLD 1] start
 [WF][intraday_plus_breadth_regime][FOLD 1] train_rows=24444 test_rows=6111
-[WF][intraday_plus_breadth_regime][FOLD 1][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0009122320162961323, 'std_daily_ret': 0.004660241093122705, 'win_rate_days': 0.5873015873015873, 'cum_ret': 0.05841516128716728, 'avg_raw_turnover': 1.4234505361213432, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][intraday_plus_breadth_regime][FOLD 1][SUMMARY] {'days': 63, 'avg_daily_ret': 0.000912232016296132, 'std_daily_ret': 0.004660241093122706, 'win_rate_days': 0.5873015873015873, 'cum_ret': 0.05841516128716728, 'avg_raw_turnover': 1.4234505361213432, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][intraday_plus_breadth_regime][FOLD 2] start
 [WF][intraday_plus_breadth_regime][FOLD 2] train_rows=24444 test_rows=6111
 [WF][intraday_plus_breadth_regime][FOLD 2][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0007011505433398972, 'std_daily_ret': 0.005875428530158168, 'win_rate_days': 0.6031746031746031, 'cum_ret': 0.04403659973442631, 'avg_raw_turnover': 1.4778531056922686, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][intraday_plus_breadth_regime][FOLD 3] start
 [WF][intraday_plus_breadth_regime][FOLD 3] train_rows=24444 test_rows=6111
-[WF][intraday_plus_breadth_regime][FOLD 3][SUMMARY] {'days': 63, 'avg_daily_ret': 0.00013177456104545657, 'std_daily_ret': 0.014770750711548344, 'win_rate_days': 0.5714285714285714, 'cum_ret': 0.0016663678317072605, 'avg_raw_turnover': 1.4262490139018418, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][intraday_plus_breadth_regime][FOLD 3][SUMMARY] {'days': 63, 'avg_daily_ret': 0.00013177456104545703, 'std_daily_ret': 0.014770750711548344, 'win_rate_days': 0.5714285714285714, 'cum_ret': 0.0016663678317072605, 'avg_raw_turnover': 1.4262490139018418, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][intraday_plus_breadth_regime][FOLD 4] start
 [WF][intraday_plus_breadth_regime][FOLD 4] train_rows=24444 test_rows=6111
-[WF][intraday_plus_breadth_regime][FOLD 4][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0003823835387149817, 'std_daily_ret': 0.007809414448004069, 'win_rate_days': 0.5238095238095238, 'cum_ret': 0.022441807543753134, 'avg_raw_turnover': 1.4174370143314243, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][intraday_plus_breadth_regime][FOLD 4][SUMMARY] {'days': 63, 'avg_daily_ret': 0.00038238353871498183, 'std_daily_ret': 0.007809414448004069, 'win_rate_days': 0.5238095238095238, 'cum_ret': 0.022441807543753134, 'avg_raw_turnover': 1.4174370143314243, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][intraday_plus_breadth_regime][FOLD 5] start
 [WF][intraday_plus_breadth_regime][FOLD 5] train_rows=24444 test_rows=6111
-[WF][intraday_plus_breadth_regime][FOLD 5][SUMMARY] {'days': 63, 'avg_daily_ret': 0.001987495529952458, 'std_daily_ret': 0.009589664380096046, 'win_rate_days': 0.5396825396825397, 'cum_ret': 0.13007707633430732, 'avg_raw_turnover': 1.4505512568866608, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][intraday_plus_breadth_regime][FOLD 5][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0019874955299524584, 'std_daily_ret': 0.009589664380096044, 'win_rate_days': 0.5396825396825397, 'cum_ret': 0.13007707633430732, 'avg_raw_turnover': 1.4505512568866608, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][intraday_plus_breadth_regime][FOLD 6] start
 [WF][intraday_plus_breadth_regime][FOLD 6] train_rows=24444 test_rows=6111
-[WF][intraday_plus_breadth_regime][FOLD 6][SUMMARY] {'days': 63, 'avg_daily_ret': 0.00041553614610127706, 'std_daily_ret': 0.009126670383358236, 'win_rate_days': 0.5238095238095238, 'cum_ret': 0.023840052165323034, 'avg_raw_turnover': 1.4415313850848337, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][intraday_plus_breadth_regime][FOLD 6][SUMMARY] {'days': 63, 'avg_daily_ret': 0.00041553614610127684, 'std_daily_ret': 0.009126670383358234, 'win_rate_days': 0.5238095238095238, 'cum_ret': 0.023840052165323034, 'avg_raw_turnover': 1.4415313850848337, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][intraday_plus_breadth_regime][FOLD 7] start
 [WF][intraday_plus_breadth_regime][FOLD 7] train_rows=24444 test_rows=6111
-[WF][intraday_plus_breadth_regime][FOLD 7][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0012376078483949712, 'std_daily_ret': 0.0050490759910108915, 'win_rate_days': 0.6507936507936508, 'cum_ret': 0.08018379609425597, 'avg_raw_turnover': 1.4488563541358574, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][intraday_plus_breadth_regime][FOLD 7][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0012376078483949712, 'std_daily_ret': 0.005049075991010892, 'win_rate_days': 0.6507936507936508, 'cum_ret': 0.08018379609425597, 'avg_raw_turnover': 1.4488563541358574, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][intraday_plus_breadth_regime][FOLD 8] start
 [WF][intraday_plus_breadth_regime][FOLD 8] train_rows=24444 test_rows=6111
-[WF][intraday_plus_breadth_regime][FOLD 8][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0002481270809688909, 'std_daily_ret': 0.006533835017706196, 'win_rate_days': 0.6190476190476191, 'cum_ret': 0.01440580550202153, 'avg_raw_turnover': 1.4152553629703024, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
-[WF][intraday_plus_breadth_regime][OVERALL] {'days': 504, 'avg_daily_ret': 0.0007520384081017581, 'std_daily_ret': 0.008466634968265725, 'win_rate_days': 0.5773809523809523, 'cum_ret': 0.43477245940445086, 'avg_raw_turnover': 1.4376480036405663, 'avg_turnover': 0.5999999999999999, 'cap_hit_rate': 1.0}
+[WF][intraday_plus_breadth_regime][FOLD 8][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0002481270809688909, 'std_daily_ret': 0.006533835017706196, 'win_rate_days': 0.6190476190476191, 'cum_ret': 0.014405805502021751, 'avg_raw_turnover': 1.4152553629703022, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][intraday_plus_breadth_regime][OVERALL] {'days': 504, 'avg_daily_ret': 0.0007520384081017581, 'std_daily_ret': 0.008466634968265725, 'win_rate_days': 0.5773809523809523, 'cum_ret': 0.4347724594044513, 'avg_raw_turnover': 1.4376480036405663, 'avg_turnover': 0.5999999999999999, 'cap_hit_rate': 1.0}
 [WF][intraday_plus_breadth_regime][WEIGHTS][STABILITY]
                              feature  folds  mean_weight  std_weight  mean_abs_weight  pos_folds  neg_folds  zero_folds
     z_cond_breadth_trend_intraday_rs      8     0.118859    0.032822         0.118859          8          0           0
@@ -649,7 +649,7 @@ z_cond_breadth_trend_mom_compression      8     0.015565    0.031669         0.0
 2026-01-05   0.006311  0.006311      1.636364              0.6           1.0        8 intraday_plus_breadth_regime
 2026-01-06  -0.002669 -0.002669      1.200000              0.6           1.0        8 intraday_plus_breadth_regime
 2026-01-07  -0.011196 -0.011196      1.520000              0.6           1.0        8 intraday_plus_breadth_regime
-[WF][full_regime_stack] portfolio_mode=regime_inertia neutralize=False sizing=False sizing_preset=None max_daily_turnover=0.6 features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs', 'cond_breadth_trend_intraday_rs', 'cond_breadth_trend_mom_compression', 'cond_breadth_range_str', 'cond_breadth_weak_overnight', 'cond_momentum_liq_trend', 'cond_str_weak_breadth', 'cond_overnight_trend_follow', 'cond_vol_compression_liq_breakout', 'cond_ivol_lowliq_penalty']
+[WF][full_regime_stack] portfolio_mode=regime_inertia neutralize=False sizing=False sizing_preset=None max_daily_turnover=0.6 final_weight_cap=0.08 features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs', 'cond_breadth_trend_intraday_rs', 'cond_breadth_trend_mom_compression', 'cond_breadth_range_str', 'cond_breadth_weak_overnight', 'cond_momentum_liq_trend', 'cond_str_weak_breadth', 'cond_overnight_trend_follow', 'cond_vol_compression_liq_breakout', 'cond_ivol_lowliq_penalty']
 [WF] folds=8
 [WF][FOLD 1] train=2023-01-03 00:00:00..2024-01-03 00:00:00 test=2024-01-04 00:00:00..2024-04-04 00:00:00
 [WF][FOLD 2] train=2023-04-04 00:00:00..2024-04-04 00:00:00 test=2024-04-05 00:00:00..2024-07-05 00:00:00
@@ -664,26 +664,26 @@ z_cond_breadth_trend_mom_compression      8     0.015565    0.031669         0.0
 [WF][full_regime_stack][FOLD 1][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0010829568953066198, 'std_daily_ret': 0.004887998391340358, 'win_rate_days': 0.5714285714285714, 'cum_ret': 0.06977840616926523, 'avg_raw_turnover': 1.3845319782586862, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack][FOLD 2] start
 [WF][full_regime_stack][FOLD 2] train_rows=24444 test_rows=6111
-[WF][full_regime_stack][FOLD 2][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0011842479920119208, 'std_daily_ret': 0.005626778239725939, 'win_rate_days': 0.5873015873015873, 'cum_ret': 0.0763629321183843, 'avg_raw_turnover': 1.4058487865941283, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack][FOLD 2][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0011842479920119208, 'std_daily_ret': 0.005626778239725938, 'win_rate_days': 0.5873015873015873, 'cum_ret': 0.0763629321183843, 'avg_raw_turnover': 1.4058487865941283, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack][FOLD 3] start
 [WF][full_regime_stack][FOLD 3] train_rows=24444 test_rows=6111
-[WF][full_regime_stack][FOLD 3][SUMMARY] {'days': 63, 'avg_daily_ret': -7.672121016849548e-05, 'std_daily_ret': 0.014320030828780347, 'win_rate_days': 0.6031746031746031, 'cum_ret': -0.011039606123297019, 'avg_raw_turnover': 1.4051982420011189, 'avg_turnover': 0.6000000000000003, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack][FOLD 3][SUMMARY] {'days': 63, 'avg_daily_ret': -7.672121016849582e-05, 'std_daily_ret': 0.014320030828780347, 'win_rate_days': 0.6031746031746031, 'cum_ret': -0.011039606123297019, 'avg_raw_turnover': 1.4051982420011189, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack][FOLD 4] start
 [WF][full_regime_stack][FOLD 4] train_rows=24444 test_rows=6111
 [WF][full_regime_stack][FOLD 4][SUMMARY] {'days': 63, 'avg_daily_ret': 0.00014169458724932647, 'std_daily_ret': 0.00728014445254643, 'win_rate_days': 0.47619047619047616, 'cum_ret': 0.007306235825557117, 'avg_raw_turnover': 1.4202286395454098, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack][FOLD 5] start
 [WF][full_regime_stack][FOLD 5] train_rows=24444 test_rows=6111
-[WF][full_regime_stack][FOLD 5][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0019187205840805837, 'std_daily_ret': 0.009621283784473867, 'win_rate_days': 0.5873015873015873, 'cum_ret': 0.12517597448220674, 'avg_raw_turnover': 1.4358652088531134, 'avg_turnover': 0.6000000000000002, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack][FOLD 5][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0019187205840805837, 'std_daily_ret': 0.009621283784473867, 'win_rate_days': 0.5873015873015873, 'cum_ret': 0.12517597448220652, 'avg_raw_turnover': 1.4358652088531132, 'avg_turnover': 0.6000000000000002, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack][FOLD 6] start
 [WF][full_regime_stack][FOLD 6] train_rows=24444 test_rows=6111
-[WF][full_regime_stack][FOLD 6][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0003288371177762185, 'std_daily_ret': 0.009675253396055716, 'win_rate_days': 0.5079365079365079, 'cum_ret': 0.017938168439293634, 'avg_raw_turnover': 1.4325028488153688, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack][FOLD 6][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0003288371177762185, 'std_daily_ret': 0.009675253396055714, 'win_rate_days': 0.5079365079365079, 'cum_ret': 0.017938168439293634, 'avg_raw_turnover': 1.4325028488153688, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack][FOLD 7] start
 [WF][full_regime_stack][FOLD 7] train_rows=24444 test_rows=6111
-[WF][full_regime_stack][FOLD 7][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0012236374145553912, 'std_daily_ret': 0.005279707097403198, 'win_rate_days': 0.6190476190476191, 'cum_ret': 0.07915459647748158, 'avg_raw_turnover': 1.4406869642894489, 'avg_turnover': 0.6000000000000003, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack][FOLD 7][SUMMARY] {'days': 63, 'avg_daily_ret': 0.001223637414555391, 'std_daily_ret': 0.005279707097403197, 'win_rate_days': 0.6190476190476191, 'cum_ret': 0.07915459647748158, 'avg_raw_turnover': 1.4406869642894486, 'avg_turnover': 0.6000000000000002, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack][FOLD 8] start
 [WF][full_regime_stack][FOLD 8] train_rows=24444 test_rows=6111
-[WF][full_regime_stack][FOLD 8][SUMMARY] {'days': 63, 'avg_daily_ret': -0.0002454579169237712, 'std_daily_ret': 0.0063254537717334705, 'win_rate_days': 0.5873015873015873, 'cum_ret': -0.016571388579627366, 'avg_raw_turnover': 1.4078083407275954, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
-[WF][full_regime_stack][OVERALL] {'days': 504, 'avg_daily_ret': 0.0006947394329859742, 'std_daily_ret': 0.008395521656744216, 'win_rate_days': 0.5674603174603174, 'cum_ret': 0.3943163993641472, 'avg_raw_turnover': 1.4165838761356087, 'avg_turnover': 0.5999999999999999, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack][FOLD 8][SUMMARY] {'days': 63, 'avg_daily_ret': -0.0002454579169237711, 'std_daily_ret': 0.0063254537717334705, 'win_rate_days': 0.5873015873015873, 'cum_ret': -0.016571388579627366, 'avg_raw_turnover': 1.4078083407275954, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack][OVERALL] {'days': 504, 'avg_daily_ret': 0.0006947394329859742, 'std_daily_ret': 0.008395521656744214, 'win_rate_days': 0.5674603174603174, 'cum_ret': 0.394316399364147, 'avg_raw_turnover': 1.4165838761356087, 'avg_turnover': 0.5999999999999999, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack][WEIGHTS][STABILITY]
                              feature  folds  mean_weight  std_weight  mean_abs_weight  pos_folds  neg_folds  zero_folds
     z_cond_breadth_trend_intraday_rs      8     0.118859    0.032822         0.118859          8          0           0
@@ -713,7 +713,7 @@ z_cond_breadth_trend_mom_compression      8     0.015565    0.031669         0.0
 2026-01-05   0.006832  0.006832      1.565217              0.6           1.0        8 full_regime_stack
 2026-01-06  -0.003825 -0.003825      1.130435              0.6           1.0        8 full_regime_stack
 2026-01-07  -0.009775 -0.009775      1.739130              0.6           1.0        8 full_regime_stack
-[WF][full_regime_stack_neutralized] portfolio_mode=regime_inertia neutralize=True sizing=False sizing_preset=None max_daily_turnover=0.6 features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs', 'cond_breadth_trend_intraday_rs', 'cond_breadth_trend_mom_compression', 'cond_breadth_range_str', 'cond_breadth_weak_overnight', 'cond_momentum_liq_trend', 'cond_str_weak_breadth', 'cond_overnight_trend_follow', 'cond_vol_compression_liq_breakout', 'cond_ivol_lowliq_penalty']
+[WF][full_regime_stack_neutralized] portfolio_mode=regime_inertia neutralize=True sizing=False sizing_preset=None max_daily_turnover=0.6 final_weight_cap=0.08 features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs', 'cond_breadth_trend_intraday_rs', 'cond_breadth_trend_mom_compression', 'cond_breadth_range_str', 'cond_breadth_weak_overnight', 'cond_momentum_liq_trend', 'cond_str_weak_breadth', 'cond_overnight_trend_follow', 'cond_vol_compression_liq_breakout', 'cond_ivol_lowliq_penalty']
 [WF] folds=8
 [WF][FOLD 1] train=2023-01-03 00:00:00..2024-01-03 00:00:00 test=2024-01-04 00:00:00..2024-04-04 00:00:00
 [WF][FOLD 2] train=2023-04-04 00:00:00..2024-04-04 00:00:00 test=2024-04-05 00:00:00..2024-07-05 00:00:00
@@ -731,23 +731,23 @@ z_cond_breadth_trend_mom_compression      8     0.015565    0.031669         0.0
 [WF][full_regime_stack_neutralized][FOLD 2][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0011441166893478535, 'std_daily_ret': 0.004056663481259657, 'win_rate_days': 0.6825396825396826, 'cum_ret': 0.07414930290787858, 'avg_raw_turnover': 1.446062719380797, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack_neutralized][FOLD 3] start
 [WF][full_regime_stack_neutralized][FOLD 3] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized][FOLD 3][SUMMARY] {'days': 63, 'avg_daily_ret': -0.00028642494584682417, 'std_daily_ret': 0.005596864837686788, 'win_rate_days': 0.5714285714285714, 'cum_ret': -0.018844198819732427, 'avg_raw_turnover': 1.4102141497793674, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized][FOLD 3][SUMMARY] {'days': 63, 'avg_daily_ret': -0.0002864249458468241, 'std_daily_ret': 0.005596864837686788, 'win_rate_days': 0.5714285714285714, 'cum_ret': -0.01884419881973265, 'avg_raw_turnover': 1.4102141497793674, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack_neutralized][FOLD 4] start
 [WF][full_regime_stack_neutralized][FOLD 4] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized][FOLD 4][SUMMARY] {'days': 63, 'avg_daily_ret': 0.000453509225146675, 'std_daily_ret': 0.004473510020662733, 'win_rate_days': 0.4444444444444444, 'cum_ret': 0.02833982541510771, 'avg_raw_turnover': 1.4573000061819938, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized][FOLD 4][SUMMARY] {'days': 63, 'avg_daily_ret': 0.00045350922514667517, 'std_daily_ret': 0.004473510020662733, 'win_rate_days': 0.4444444444444444, 'cum_ret': 0.02833982541510771, 'avg_raw_turnover': 1.4573000061819938, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack_neutralized][FOLD 5] start
 [WF][full_regime_stack_neutralized][FOLD 5] train_rows=24444 test_rows=6111
 [WF][full_regime_stack_neutralized][FOLD 5][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0004946365722465866, 'std_daily_ret': 0.0042067542959850785, 'win_rate_days': 0.5714285714285714, 'cum_ret': 0.031078954141523063, 'avg_raw_turnover': 1.4189372687992423, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack_neutralized][FOLD 6] start
 [WF][full_regime_stack_neutralized][FOLD 6] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized][FOLD 6][SUMMARY] {'days': 63, 'avg_daily_ret': 0.001196807191091936, 'std_daily_ret': 0.004197443798461125, 'win_rate_days': 0.6190476190476191, 'cum_ret': 0.07767893462051378, 'avg_raw_turnover': 1.4283083606064972, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized][FOLD 6][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0011968071910919357, 'std_daily_ret': 0.004197443798461125, 'win_rate_days': 0.6190476190476191, 'cum_ret': 0.07767893462051378, 'avg_raw_turnover': 1.4283083606064972, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack_neutralized][FOLD 7] start
 [WF][full_regime_stack_neutralized][FOLD 7] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized][FOLD 7][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0013962458696276138, 'std_daily_ret': 0.004412738922680103, 'win_rate_days': 0.6190476190476191, 'cum_ret': 0.09122547345658782, 'avg_raw_turnover': 1.4120241865093126, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized][FOLD 7][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0013962458696276138, 'std_daily_ret': 0.004412738922680103, 'win_rate_days': 0.6190476190476191, 'cum_ret': 0.09122547345658782, 'avg_raw_turnover': 1.4120241865093124, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack_neutralized][FOLD 8] start
 [WF][full_regime_stack_neutralized][FOLD 8] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized][FOLD 8][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0007124211421043706, 'std_daily_ret': 0.0042917953714204345, 'win_rate_days': 0.5873015873015873, 'cum_ret': 0.04529073945077977, 'avg_raw_turnover': 1.420421308620066, 'avg_turnover': 0.6000000000000002, 'cap_hit_rate': 1.0}
-[WF][full_regime_stack_neutralized][OVERALL] {'days': 504, 'avg_daily_ret': 0.0007612756758598532, 'std_daily_ret': 0.004450320384974644, 'win_rate_days': 0.5793650793650794, 'cum_ret': 0.4601792673224545, 'avg_raw_turnover': 1.4291397269714439, 'avg_turnover': 0.5999999999999999, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized][FOLD 8][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0007124211421043705, 'std_daily_ret': 0.0042917953714204345, 'win_rate_days': 0.5873015873015873, 'cum_ret': 0.04529073945077977, 'avg_raw_turnover': 1.420421308620066, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized][OVERALL] {'days': 504, 'avg_daily_ret': 0.0007612756758598533, 'std_daily_ret': 0.004450320384974644, 'win_rate_days': 0.5793650793650794, 'cum_ret': 0.4601792673224545, 'avg_raw_turnover': 1.4291397269714439, 'avg_turnover': 0.5999999999999999, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack_neutralized][WEIGHTS][STABILITY]
                              feature  folds  mean_weight  std_weight  mean_abs_weight  pos_folds  neg_folds  zero_folds
     z_cond_breadth_trend_intraday_rs      8     0.118859    0.032822         0.118859          8          0           0
@@ -777,7 +777,7 @@ z_cond_breadth_trend_mom_compression      8     0.015565    0.031669         0.0
 2026-01-05   0.002082  0.002082      1.714286              0.6           1.0        8 full_regime_stack_neutralized
 2026-01-06  -0.002678 -0.002678      1.217391              0.6           1.0        8 full_regime_stack_neutralized
 2026-01-07  -0.008203 -0.008203      1.478261              0.6           1.0        8 full_regime_stack_neutralized
-[WF][full_regime_stack_neutralized_sized_baseline] portfolio_mode=regime_inertia neutralize=True sizing=True sizing_preset=baseline max_daily_turnover=0.6 features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs', 'cond_breadth_trend_intraday_rs', 'cond_breadth_trend_mom_compression', 'cond_breadth_range_str', 'cond_breadth_weak_overnight', 'cond_momentum_liq_trend', 'cond_str_weak_breadth', 'cond_overnight_trend_follow', 'cond_vol_compression_liq_breakout', 'cond_ivol_lowliq_penalty']
+[WF][full_regime_stack_neutralized_sized_baseline] portfolio_mode=regime_inertia neutralize=True sizing=True sizing_preset=baseline max_daily_turnover=0.6 final_weight_cap=0.08 features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs', 'cond_breadth_trend_intraday_rs', 'cond_breadth_trend_mom_compression', 'cond_breadth_range_str', 'cond_breadth_weak_overnight', 'cond_momentum_liq_trend', 'cond_str_weak_breadth', 'cond_overnight_trend_follow', 'cond_vol_compression_liq_breakout', 'cond_ivol_lowliq_penalty']
 [WF] folds=8
 [WF][FOLD 1] train=2023-01-03 00:00:00..2024-01-03 00:00:00 test=2024-01-04 00:00:00..2024-04-04 00:00:00
 [WF][FOLD 2] train=2023-04-04 00:00:00..2024-04-04 00:00:00 test=2024-04-05 00:00:00..2024-07-05 00:00:00
@@ -789,29 +789,29 @@ z_cond_breadth_trend_mom_compression      8     0.015565    0.031669         0.0
 [WF][FOLD 8] train=2024-10-04 00:00:00..2025-10-07 00:00:00 test=2025-10-08 00:00:00..2026-01-07 00:00:00
 [WF][full_regime_stack_neutralized_sized_baseline][FOLD 1] start
 [WF][full_regime_stack_neutralized_sized_baseline][FOLD 1] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_baseline][FOLD 1][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0010683732304956717, 'std_daily_ret': 0.004285480695498485, 'win_rate_days': 0.5555555555555556, 'cum_ret': 0.06897966726588711, 'avg_raw_turnover': 1.595504634602379, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized_sized_baseline][FOLD 1][SUMMARY] {'days': 63, 'avg_daily_ret': 0.001160999409100523, 'std_daily_ret': 0.0044610716324546855, 'win_rate_days': 0.5555555555555556, 'cum_ret': 0.07517803650113986, 'avg_raw_turnover': 1.6136073813798244, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack_neutralized_sized_baseline][FOLD 2] start
 [WF][full_regime_stack_neutralized_sized_baseline][FOLD 2] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_baseline][FOLD 2][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0011437552914248022, 'std_daily_ret': 0.004163008097725319, 'win_rate_days': 0.6507936507936508, 'cum_ret': 0.07409607937073615, 'avg_raw_turnover': 1.5830449138719818, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized_sized_baseline][FOLD 2][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0011780519037778794, 'std_daily_ret': 0.004497714428515828, 'win_rate_days': 0.5555555555555556, 'cum_ret': 0.07631989489026658, 'avg_raw_turnover': 1.6089043029711831, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack_neutralized_sized_baseline][FOLD 3] start
 [WF][full_regime_stack_neutralized_sized_baseline][FOLD 3] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_baseline][FOLD 3][SUMMARY] {'days': 63, 'avg_daily_ret': -0.0006991584310233663, 'std_daily_ret': 0.0058854716879132435, 'win_rate_days': 0.5555555555555556, 'cum_ret': -0.044140814124058236, 'avg_raw_turnover': 1.5895691609977323, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized_sized_baseline][FOLD 3][SUMMARY] {'days': 63, 'avg_daily_ret': -0.0004895127724952323, 'std_daily_ret': 0.0060928698481635376, 'win_rate_days': 0.5238095238095238, 'cum_ret': -0.03150051128288123, 'avg_raw_turnover': 1.6185157863625241, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack_neutralized_sized_baseline][FOLD 4] start
 [WF][full_regime_stack_neutralized_sized_baseline][FOLD 4] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_baseline][FOLD 4][SUMMARY] {'days': 63, 'avg_daily_ret': 0.00046915320439893174, 'std_daily_ret': 0.004938761700927309, 'win_rate_days': 0.5079365079365079, 'cum_ret': 0.029214063787446065, 'avg_raw_turnover': 1.60864462744162, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized_sized_baseline][FOLD 4][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0006611625006028413, 'std_daily_ret': 0.0051681442190843405, 'win_rate_days': 0.5238095238095238, 'cum_ret': 0.04165873501646811, 'avg_raw_turnover': 1.622614194272743, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack_neutralized_sized_baseline][FOLD 5] start
 [WF][full_regime_stack_neutralized_sized_baseline][FOLD 5] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_baseline][FOLD 5][SUMMARY] {'days': 63, 'avg_daily_ret': 0.00048177673319926964, 'std_daily_ret': 0.004389630527902826, 'win_rate_days': 0.5396825396825397, 'cum_ret': 0.030194596562620246, 'avg_raw_turnover': 1.5975971675219798, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized_sized_baseline][FOLD 5][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0003910535842990982, 'std_daily_ret': 0.00472915610620517, 'win_rate_days': 0.5555555555555556, 'cum_ret': 0.024227195858211648, 'avg_raw_turnover': 1.6244737097335962, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack_neutralized_sized_baseline][FOLD 6] start
 [WF][full_regime_stack_neutralized_sized_baseline][FOLD 6] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_baseline][FOLD 6][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0009653315748482937, 'std_daily_ret': 0.004158795062040841, 'win_rate_days': 0.6190476190476191, 'cum_ret': 0.06210407582233679, 'avg_raw_turnover': 1.60244261447269, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized_sized_baseline][FOLD 6][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0010701354459859017, 'std_daily_ret': 0.004390347302139416, 'win_rate_days': 0.6190476190476191, 'cum_ret': 0.06906792434322107, 'avg_raw_turnover': 1.6251216861602773, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack_neutralized_sized_baseline][FOLD 7] start
 [WF][full_regime_stack_neutralized_sized_baseline][FOLD 7] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_baseline][FOLD 7][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0014006860942387817, 'std_daily_ret': 0.004579949496300143, 'win_rate_days': 0.6031746031746031, 'cum_ret': 0.09147991672674904, 'avg_raw_turnover': 1.573870824246764, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized_sized_baseline][FOLD 7][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0016312973259953794, 'std_daily_ret': 0.005062825765431869, 'win_rate_days': 0.5873015873015873, 'cum_ret': 0.10727136239374913, 'avg_raw_turnover': 1.5889449548260794, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack_neutralized_sized_baseline][FOLD 8] start
 [WF][full_regime_stack_neutralized_sized_baseline][FOLD 8] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_baseline][FOLD 8][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0007959983113167506, 'std_daily_ret': 0.004389873460651373, 'win_rate_days': 0.6190476190476191, 'cum_ret': 0.0507769267477538, 'avg_raw_turnover': 1.556134564405241, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
-[WF][full_regime_stack_neutralized_sized_baseline][OVERALL] {'days': 504, 'avg_daily_ret': 0.0007032395011123919, 'std_daily_ret': 0.00463839732318195, 'win_rate_days': 0.5813492063492064, 'cum_ret': 0.41750574013790764, 'avg_raw_turnover': 1.5883510634450484, 'avg_turnover': 0.5999999999999999, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized_sized_baseline][FOLD 8][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0009420027428146607, 'std_daily_ret': 0.0044946521137632315, 'win_rate_days': 0.6349206349206349, 'cum_ret': 0.060448085442750266, 'avg_raw_turnover': 1.5757075845554838, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized_sized_baseline][OVERALL] {'days': 504, 'avg_daily_ret': 0.0008181487675101313, 'std_daily_ret': 0.0048949378600348795, 'win_rate_days': 0.5694444444444444, 'cum_ret': 0.5010380134265804, 'avg_raw_turnover': 1.609736200032714, 'avg_turnover': 0.5999999999999999, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack_neutralized_sized_baseline][WEIGHTS][STABILITY]
                              feature  folds  mean_weight  std_weight  mean_abs_weight  pos_folds  neg_folds  zero_folds
     z_cond_breadth_trend_intraday_rs      8     0.118859    0.032822         0.118859          8          0           0
@@ -831,17 +831,17 @@ z_cond_breadth_trend_mom_compression      8     0.015565    0.031669         0.0
                  z_intraday_pressure      8     0.008606    0.007474         0.008606          8          0           0
 [WF][full_regime_stack_neutralized_sized_baseline][TAIL]
       date  gross_ret   net_ret  raw_turnover  capped_turnover  cap_hit_rate  fold_id                                        model
-2025-12-23   0.000717  0.000717      1.300000              0.6           1.0        8 full_regime_stack_neutralized_sized_baseline
-2025-12-24   0.006029  0.006029      1.600000              0.6           1.0        8 full_regime_stack_neutralized_sized_baseline
-2025-12-26  -0.004330 -0.004330      1.600000              0.6           1.0        8 full_regime_stack_neutralized_sized_baseline
-2025-12-29   0.006207  0.006207      1.684211              0.6           1.0        8 full_regime_stack_neutralized_sized_baseline
-2025-12-30   0.002110  0.002110      1.473684              0.6           1.0        8 full_regime_stack_neutralized_sized_baseline
-2025-12-31   0.000414  0.000414      1.578947              0.6           1.0        8 full_regime_stack_neutralized_sized_baseline
-2026-01-02   0.000202  0.000202      1.894737              0.6           1.0        8 full_regime_stack_neutralized_sized_baseline
-2026-01-05   0.003060  0.003060      1.789474              0.6           1.0        8 full_regime_stack_neutralized_sized_baseline
-2026-01-06  -0.003304 -0.003304      1.500000              0.6           1.0        8 full_regime_stack_neutralized_sized_baseline
-2026-01-07  -0.008444 -0.008444      1.600000              0.6           1.0        8 full_regime_stack_neutralized_sized_baseline
-[WF][full_regime_stack_neutralized_sized_aggressive] portfolio_mode=regime_inertia neutralize=True sizing=True sizing_preset=aggressive max_daily_turnover=0.6 features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs', 'cond_breadth_trend_intraday_rs', 'cond_breadth_trend_mom_compression', 'cond_breadth_range_str', 'cond_breadth_weak_overnight', 'cond_momentum_liq_trend', 'cond_str_weak_breadth', 'cond_overnight_trend_follow', 'cond_vol_compression_liq_breakout', 'cond_ivol_lowliq_penalty']
+2025-12-23   0.000597  0.000597      1.434679              0.6           1.0        8 full_regime_stack_neutralized_sized_baseline
+2025-12-24   0.006894  0.006894      1.648456              0.6           1.0        8 full_regime_stack_neutralized_sized_baseline
+2025-12-26  -0.004662 -0.004662      1.615355              0.6           1.0        8 full_regime_stack_neutralized_sized_baseline
+2025-12-29   0.006400  0.006400      1.717822              0.6           1.0        8 full_regime_stack_neutralized_sized_baseline
+2025-12-30   0.001673  0.001673      1.490099              0.6           1.0        8 full_regime_stack_neutralized_sized_baseline
+2025-12-31   0.000373  0.000373      1.579208              0.6           1.0        8 full_regime_stack_neutralized_sized_baseline
+2026-01-02   0.001007  0.001007      1.915842              0.6           1.0        8 full_regime_stack_neutralized_sized_baseline
+2026-01-05   0.004959  0.004959      1.801980              0.6           1.0        8 full_regime_stack_neutralized_sized_baseline
+2026-01-06  -0.003196 -0.003196      1.507291              0.6           1.0        8 full_regime_stack_neutralized_sized_baseline
+2026-01-07  -0.008904 -0.008904      1.676960              0.6           1.0        8 full_regime_stack_neutralized_sized_baseline
+[WF][full_regime_stack_neutralized_sized_aggressive] portfolio_mode=regime_inertia neutralize=True sizing=True sizing_preset=aggressive max_daily_turnover=0.6 final_weight_cap=0.08 features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs', 'cond_breadth_trend_intraday_rs', 'cond_breadth_trend_mom_compression', 'cond_breadth_range_str', 'cond_breadth_weak_overnight', 'cond_momentum_liq_trend', 'cond_str_weak_breadth', 'cond_overnight_trend_follow', 'cond_vol_compression_liq_breakout', 'cond_ivol_lowliq_penalty']
 [WF] folds=8
 [WF][FOLD 1] train=2023-01-03 00:00:00..2024-01-03 00:00:00 test=2024-01-04 00:00:00..2024-04-04 00:00:00
 [WF][FOLD 2] train=2023-04-04 00:00:00..2024-04-04 00:00:00 test=2024-04-05 00:00:00..2024-07-05 00:00:00
@@ -853,29 +853,29 @@ z_cond_breadth_trend_mom_compression      8     0.015565    0.031669         0.0
 [WF][FOLD 8] train=2024-10-04 00:00:00..2025-10-07 00:00:00 test=2025-10-08 00:00:00..2026-01-07 00:00:00
 [WF][full_regime_stack_neutralized_sized_aggressive][FOLD 1] start
 [WF][full_regime_stack_neutralized_sized_aggressive][FOLD 1] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_aggressive][FOLD 1][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0010683732304956717, 'std_daily_ret': 0.004285480695498485, 'win_rate_days': 0.5555555555555556, 'cum_ret': 0.06897966726588711, 'avg_raw_turnover': 1.595504634602379, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized_sized_aggressive][FOLD 1][SUMMARY] {'days': 63, 'avg_daily_ret': 0.001214981968340456, 'std_daily_ret': 0.004610812555066942, 'win_rate_days': 0.5555555555555556, 'cum_ret': 0.07879132520208909, 'avg_raw_turnover': 1.6283291158653477, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack_neutralized_sized_aggressive][FOLD 2] start
 [WF][full_regime_stack_neutralized_sized_aggressive][FOLD 2] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_aggressive][FOLD 2][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0011437552914248022, 'std_daily_ret': 0.004163008097725319, 'win_rate_days': 0.6507936507936508, 'cum_ret': 0.07409607937073615, 'avg_raw_turnover': 1.5830449138719818, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized_sized_aggressive][FOLD 2][SUMMARY] {'days': 63, 'avg_daily_ret': 0.001192531608795329, 'std_daily_ret': 0.004790147086191123, 'win_rate_days': 0.5714285714285714, 'cum_ret': 0.07721025897084588, 'avg_raw_turnover': 1.6283100960522061, 'avg_turnover': 0.6000000000000003, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack_neutralized_sized_aggressive][FOLD 3] start
 [WF][full_regime_stack_neutralized_sized_aggressive][FOLD 3] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_aggressive][FOLD 3][SUMMARY] {'days': 63, 'avg_daily_ret': -0.0006991584310233663, 'std_daily_ret': 0.0058854716879132435, 'win_rate_days': 0.5555555555555556, 'cum_ret': -0.044140814124058236, 'avg_raw_turnover': 1.5895691609977323, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized_sized_aggressive][FOLD 3][SUMMARY] {'days': 63, 'avg_daily_ret': -0.00035067263354834893, 'std_daily_ret': 0.006343451772419522, 'win_rate_days': 0.49206349206349204, 'cum_ret': -0.023084293217504936, 'avg_raw_turnover': 1.641215170145941, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack_neutralized_sized_aggressive][FOLD 4] start
 [WF][full_regime_stack_neutralized_sized_aggressive][FOLD 4] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_aggressive][FOLD 4][SUMMARY] {'days': 63, 'avg_daily_ret': 0.00046915320439893174, 'std_daily_ret': 0.004938761700927309, 'win_rate_days': 0.5079365079365079, 'cum_ret': 0.029214063787446065, 'avg_raw_turnover': 1.60864462744162, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized_sized_aggressive][FOLD 4][SUMMARY] {'days': 63, 'avg_daily_ret': 0.000779647297942283, 'std_daily_ret': 0.005383541643615625, 'win_rate_days': 0.5555555555555556, 'cum_ret': 0.04938481211971091, 'avg_raw_turnover': 1.6339503449580652, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack_neutralized_sized_aggressive][FOLD 5] start
 [WF][full_regime_stack_neutralized_sized_aggressive][FOLD 5] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_aggressive][FOLD 5][SUMMARY] {'days': 63, 'avg_daily_ret': 0.00048177673319926964, 'std_daily_ret': 0.004389630527902826, 'win_rate_days': 0.5396825396825397, 'cum_ret': 0.030194596562620246, 'avg_raw_turnover': 1.5975971675219798, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized_sized_aggressive][FOLD 5][SUMMARY] {'days': 63, 'avg_daily_ret': 0.00032903843443928725, 'std_daily_ret': 0.005064998452168474, 'win_rate_days': 0.5555555555555556, 'cum_ret': 0.020130496302459555, 'avg_raw_turnover': 1.6450365095847963, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack_neutralized_sized_aggressive][FOLD 6] start
 [WF][full_regime_stack_neutralized_sized_aggressive][FOLD 6] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_aggressive][FOLD 6][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0009653315748482937, 'std_daily_ret': 0.004158795062040841, 'win_rate_days': 0.6190476190476191, 'cum_ret': 0.06210407582233679, 'avg_raw_turnover': 1.60244261447269, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized_sized_aggressive][FOLD 6][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0011317620962666465, 'std_daily_ret': 0.004638938729414933, 'win_rate_days': 0.5714285714285714, 'cum_ret': 0.07314786961834474, 'avg_raw_turnover': 1.6425230354120253, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack_neutralized_sized_aggressive][FOLD 7] start
 [WF][full_regime_stack_neutralized_sized_aggressive][FOLD 7] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_aggressive][FOLD 7][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0014006860942387817, 'std_daily_ret': 0.004579949496300143, 'win_rate_days': 0.6031746031746031, 'cum_ret': 0.09147991672674904, 'avg_raw_turnover': 1.573870824246764, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized_sized_aggressive][FOLD 7][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0017752879736931838, 'std_daily_ret': 0.005442931928771918, 'win_rate_days': 0.5714285714285714, 'cum_ret': 0.11720812950767723, 'avg_raw_turnover': 1.6017589024030692, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack_neutralized_sized_aggressive][FOLD 8] start
 [WF][full_regime_stack_neutralized_sized_aggressive][FOLD 8] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_aggressive][FOLD 8][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0007959983113167506, 'std_daily_ret': 0.004389873460651373, 'win_rate_days': 0.6190476190476191, 'cum_ret': 0.0507769267477538, 'avg_raw_turnover': 1.556134564405241, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
-[WF][full_regime_stack_neutralized_sized_aggressive][OVERALL] {'days': 504, 'avg_daily_ret': 0.0007032395011123919, 'std_daily_ret': 0.00463839732318195, 'win_rate_days': 0.5813492063492064, 'cum_ret': 0.41750574013790764, 'avg_raw_turnover': 1.5883510634450484, 'avg_turnover': 0.5999999999999999, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized_sized_aggressive][FOLD 8][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0010349280548519698, 'std_daily_ret': 0.004641188464072855, 'win_rate_days': 0.6507936507936508, 'cum_ret': 0.06662435025313562, 'avg_raw_turnover': 1.5912507924341148, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized_sized_aggressive][OVERALL] {'days': 504, 'avg_daily_ret': 0.0008884381000976009, 'std_daily_ret': 0.00514480678408703, 'win_rate_days': 0.5654761904761905, 'cum_ret': 0.5541419124446036, 'avg_raw_turnover': 1.6265467458569456, 'avg_turnover': 0.5999999999999999, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack_neutralized_sized_aggressive][WEIGHTS][STABILITY]
                              feature  folds  mean_weight  std_weight  mean_abs_weight  pos_folds  neg_folds  zero_folds
     z_cond_breadth_trend_intraday_rs      8     0.118859    0.032822         0.118859          8          0           0
@@ -895,17 +895,17 @@ z_cond_breadth_trend_mom_compression      8     0.015565    0.031669         0.0
                  z_intraday_pressure      8     0.008606    0.007474         0.008606          8          0           0
 [WF][full_regime_stack_neutralized_sized_aggressive][TAIL]
       date  gross_ret   net_ret  raw_turnover  capped_turnover  cap_hit_rate  fold_id                                          model
-2025-12-23   0.000717  0.000717      1.300000              0.6           1.0        8 full_regime_stack_neutralized_sized_aggressive
-2025-12-24   0.006029  0.006029      1.600000              0.6           1.0        8 full_regime_stack_neutralized_sized_aggressive
-2025-12-26  -0.004330 -0.004330      1.600000              0.6           1.0        8 full_regime_stack_neutralized_sized_aggressive
-2025-12-29   0.006207  0.006207      1.684211              0.6           1.0        8 full_regime_stack_neutralized_sized_aggressive
-2025-12-30   0.002110  0.002110      1.473684              0.6           1.0        8 full_regime_stack_neutralized_sized_aggressive
-2025-12-31   0.000414  0.000414      1.578947              0.6           1.0        8 full_regime_stack_neutralized_sized_aggressive
-2026-01-02   0.000202  0.000202      1.894737              0.6           1.0        8 full_regime_stack_neutralized_sized_aggressive
-2026-01-05   0.003060  0.003060      1.789474              0.6           1.0        8 full_regime_stack_neutralized_sized_aggressive
-2026-01-06  -0.003304 -0.003304      1.500000              0.6           1.0        8 full_regime_stack_neutralized_sized_aggressive
-2026-01-07  -0.008444 -0.008444      1.600000              0.6           1.0        8 full_regime_stack_neutralized_sized_aggressive
-[WF][full_regime_stack_neutralized_sized_conservative] portfolio_mode=regime_inertia neutralize=True sizing=True sizing_preset=conservative max_daily_turnover=0.6 features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs', 'cond_breadth_trend_intraday_rs', 'cond_breadth_trend_mom_compression', 'cond_breadth_range_str', 'cond_breadth_weak_overnight', 'cond_momentum_liq_trend', 'cond_str_weak_breadth', 'cond_overnight_trend_follow', 'cond_vol_compression_liq_breakout', 'cond_ivol_lowliq_penalty']
+2025-12-23   0.000535  0.000535      1.526570              0.6           1.0        8 full_regime_stack_neutralized_sized_aggressive
+2025-12-24   0.007469  0.007469      1.681159              0.6           1.0        8 full_regime_stack_neutralized_sized_aggressive
+2025-12-26  -0.004893 -0.004893      1.628792              0.6           1.0        8 full_regime_stack_neutralized_sized_aggressive
+2025-12-29   0.006529  0.006529      1.740000              0.6           1.0        8 full_regime_stack_neutralized_sized_aggressive
+2025-12-30   0.001387  0.001387      1.500000              0.6           1.0        8 full_regime_stack_neutralized_sized_aggressive
+2025-12-31   0.000318  0.000318      1.580000              0.6           1.0        8 full_regime_stack_neutralized_sized_aggressive
+2026-01-02   0.001531  0.001531      1.930000              0.6           1.0        8 full_regime_stack_neutralized_sized_aggressive
+2026-01-05   0.006180  0.006180      1.810000              0.6           1.0        8 full_regime_stack_neutralized_sized_aggressive
+2026-01-06  -0.003126 -0.003126      1.514541              0.6           1.0        8 full_regime_stack_neutralized_sized_aggressive
+2026-01-07  -0.009167 -0.009167      1.729469              0.6           1.0        8 full_regime_stack_neutralized_sized_aggressive
+[WF][full_regime_stack_neutralized_sized_conservative] portfolio_mode=regime_inertia neutralize=True sizing=True sizing_preset=conservative max_daily_turnover=0.6 final_weight_cap=0.08 features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs', 'cond_breadth_trend_intraday_rs', 'cond_breadth_trend_mom_compression', 'cond_breadth_range_str', 'cond_breadth_weak_overnight', 'cond_momentum_liq_trend', 'cond_str_weak_breadth', 'cond_overnight_trend_follow', 'cond_vol_compression_liq_breakout', 'cond_ivol_lowliq_penalty']
 [WF] folds=8
 [WF][FOLD 1] train=2023-01-03 00:00:00..2024-01-03 00:00:00 test=2024-01-04 00:00:00..2024-04-04 00:00:00
 [WF][FOLD 2] train=2023-04-04 00:00:00..2024-04-04 00:00:00 test=2024-04-05 00:00:00..2024-07-05 00:00:00
@@ -917,29 +917,29 @@ z_cond_breadth_trend_mom_compression      8     0.015565    0.031669         0.0
 [WF][FOLD 8] train=2024-10-04 00:00:00..2025-10-07 00:00:00 test=2025-10-08 00:00:00..2026-01-07 00:00:00
 [WF][full_regime_stack_neutralized_sized_conservative][FOLD 1] start
 [WF][full_regime_stack_neutralized_sized_conservative][FOLD 1] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_conservative][FOLD 1][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0010683732304956717, 'std_daily_ret': 0.004285480695498485, 'win_rate_days': 0.5555555555555556, 'cum_ret': 0.06897966726588711, 'avg_raw_turnover': 1.595504634602379, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized_sized_conservative][FOLD 1][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0011278154089142804, 'std_daily_ret': 0.004388530513871792, 'win_rate_days': 0.5873015873015873, 'cum_ret': 0.07295639642113261, 'avg_raw_turnover': 1.6059682434571578, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack_neutralized_sized_conservative][FOLD 2] start
 [WF][full_regime_stack_neutralized_sized_conservative][FOLD 2] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_conservative][FOLD 2][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0011437552914248022, 'std_daily_ret': 0.004163008097725319, 'win_rate_days': 0.6507936507936508, 'cum_ret': 0.07409607937073615, 'avg_raw_turnover': 1.5830449138719818, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized_sized_conservative][FOLD 2][SUMMARY] {'days': 63, 'avg_daily_ret': 0.00116384767377257, 'std_daily_ret': 0.004370220511400448, 'win_rate_days': 0.5714285714285714, 'cum_ret': 0.07539599995285418, 'avg_raw_turnover': 1.5991521539070626, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack_neutralized_sized_conservative][FOLD 3] start
 [WF][full_regime_stack_neutralized_sized_conservative][FOLD 3] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_conservative][FOLD 3][SUMMARY] {'days': 63, 'avg_daily_ret': -0.0006991584310233663, 'std_daily_ret': 0.0058854716879132435, 'win_rate_days': 0.5555555555555556, 'cum_ret': -0.044140814124058236, 'avg_raw_turnover': 1.5895691609977323, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized_sized_conservative][FOLD 3][SUMMARY] {'days': 63, 'avg_daily_ret': -0.0005560465738459775, 'std_daily_ret': 0.00599129894389319, 'win_rate_days': 0.49206349206349204, 'cum_ret': -0.03551643354470213, 'avg_raw_turnover': 1.6072020844124744, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack_neutralized_sized_conservative][FOLD 4] start
 [WF][full_regime_stack_neutralized_sized_conservative][FOLD 4] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_conservative][FOLD 4][SUMMARY] {'days': 63, 'avg_daily_ret': 0.00046915320439893174, 'std_daily_ret': 0.004938761700927309, 'win_rate_days': 0.5079365079365079, 'cum_ret': 0.029214063787446065, 'avg_raw_turnover': 1.60864462744162, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized_sized_conservative][FOLD 4][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0005920199807919771, 'std_daily_ret': 0.005069604314093219, 'win_rate_days': 0.5079365079365079, 'cum_ret': 0.03716595796088251, 'avg_raw_turnover': 1.6168745260179436, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack_neutralized_sized_conservative][FOLD 5] start
 [WF][full_regime_stack_neutralized_sized_conservative][FOLD 5] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_conservative][FOLD 5][SUMMARY] {'days': 63, 'avg_daily_ret': 0.00048177673319926964, 'std_daily_ret': 0.004389630527902826, 'win_rate_days': 0.5396825396825397, 'cum_ret': 0.030194596562620246, 'avg_raw_turnover': 1.5975971675219798, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized_sized_conservative][FOLD 5][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0004236148645843599, 'std_daily_ret': 0.004588026144208989, 'win_rate_days': 0.5238095238095238, 'cum_ret': 0.026371516593662436, 'avg_raw_turnover': 1.6140192061903096, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack_neutralized_sized_conservative][FOLD 6] start
 [WF][full_regime_stack_neutralized_sized_conservative][FOLD 6] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_conservative][FOLD 6][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0009653315748482937, 'std_daily_ret': 0.004158795062040841, 'win_rate_days': 0.6190476190476191, 'cum_ret': 0.06210407582233679, 'avg_raw_turnover': 1.60244261447269, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized_sized_conservative][FOLD 6][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0010327145438163742, 'std_daily_ret': 0.0042835672322852885, 'win_rate_days': 0.6349206349206349, 'cum_ret': 0.06658354381177478, 'avg_raw_turnover': 1.6163380076664917, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack_neutralized_sized_conservative][FOLD 7] start
 [WF][full_regime_stack_neutralized_sized_conservative][FOLD 7] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_conservative][FOLD 7][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0014006860942387817, 'std_daily_ret': 0.004579949496300143, 'win_rate_days': 0.6031746031746031, 'cum_ret': 0.09147991672674904, 'avg_raw_turnover': 1.573870824246764, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized_sized_conservative][FOLD 7][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0015492868513652335, 'std_daily_ret': 0.004879406438409245, 'win_rate_days': 0.6031746031746031, 'cum_ret': 0.10163563248007046, 'avg_raw_turnover': 1.5825674632019233, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack_neutralized_sized_conservative][FOLD 8] start
 [WF][full_regime_stack_neutralized_sized_conservative][FOLD 8] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_conservative][FOLD 8][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0007959983113167506, 'std_daily_ret': 0.004389873460651373, 'win_rate_days': 0.6190476190476191, 'cum_ret': 0.0507769267477538, 'avg_raw_turnover': 1.556134564405241, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
-[WF][full_regime_stack_neutralized_sized_conservative][OVERALL] {'days': 504, 'avg_daily_ret': 0.0007032395011123919, 'std_daily_ret': 0.00463839732318195, 'win_rate_days': 0.5813492063492064, 'cum_ret': 0.41750574013790764, 'avg_raw_turnover': 1.5883510634450484, 'avg_turnover': 0.5999999999999999, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized_sized_conservative][FOLD 8][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0008887095317078401, 'std_daily_ret': 0.00444264594763587, 'win_rate_days': 0.6349206349206349, 'cum_ret': 0.05691197078047061, 'avg_raw_turnover': 1.5678954115272719, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized_sized_conservative][OVERALL] {'days': 504, 'avg_daily_ret': 0.0007777452851383323, 'std_daily_ret': 0.004785952899227636, 'win_rate_days': 0.5694444444444444, 'cum_ret': 0.4711936355700488, 'avg_raw_turnover': 1.6012521370475794, 'avg_turnover': 0.5999999999999999, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack_neutralized_sized_conservative][WEIGHTS][STABILITY]
                              feature  folds  mean_weight  std_weight  mean_abs_weight  pos_folds  neg_folds  zero_folds
     z_cond_breadth_trend_intraday_rs      8     0.118859    0.032822         0.118859          8          0           0
@@ -959,17 +959,17 @@ z_cond_breadth_trend_mom_compression      8     0.015565    0.031669         0.0
                  z_intraday_pressure      8     0.008606    0.007474         0.008606          8          0           0
 [WF][full_regime_stack_neutralized_sized_conservative][TAIL]
       date  gross_ret   net_ret  raw_turnover  capped_turnover  cap_hit_rate  fold_id                                            model
-2025-12-23   0.000717  0.000717      1.300000              0.6           1.0        8 full_regime_stack_neutralized_sized_conservative
-2025-12-24   0.006029  0.006029      1.600000              0.6           1.0        8 full_regime_stack_neutralized_sized_conservative
-2025-12-26  -0.004330 -0.004330      1.600000              0.6           1.0        8 full_regime_stack_neutralized_sized_conservative
-2025-12-29   0.006207  0.006207      1.684211              0.6           1.0        8 full_regime_stack_neutralized_sized_conservative
-2025-12-30   0.002110  0.002110      1.473684              0.6           1.0        8 full_regime_stack_neutralized_sized_conservative
-2025-12-31   0.000414  0.000414      1.578947              0.6           1.0        8 full_regime_stack_neutralized_sized_conservative
-2026-01-02   0.000202  0.000202      1.894737              0.6           1.0        8 full_regime_stack_neutralized_sized_conservative
-2026-01-05   0.003060  0.003060      1.789474              0.6           1.0        8 full_regime_stack_neutralized_sized_conservative
-2026-01-06  -0.003304 -0.003304      1.500000              0.6           1.0        8 full_regime_stack_neutralized_sized_conservative
-2026-01-07  -0.008444 -0.008444      1.600000              0.6           1.0        8 full_regime_stack_neutralized_sized_conservative
-[WF][full_regime_stack_neutralized_sized_barbell] portfolio_mode=regime_inertia neutralize=True sizing=True sizing_preset=barbell max_daily_turnover=0.6 features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs', 'cond_breadth_trend_intraday_rs', 'cond_breadth_trend_mom_compression', 'cond_breadth_range_str', 'cond_breadth_weak_overnight', 'cond_momentum_liq_trend', 'cond_str_weak_breadth', 'cond_overnight_trend_follow', 'cond_vol_compression_liq_breakout', 'cond_ivol_lowliq_penalty']
+2025-12-23   0.000648  0.000648      1.389831              0.6           1.0        8 full_regime_stack_neutralized_sized_conservative
+2025-12-24   0.006577  0.006577      1.631961              0.6           1.0        8 full_regime_stack_neutralized_sized_conservative
+2025-12-26  -0.004575 -0.004575      1.607736              0.6           1.0        8 full_regime_stack_neutralized_sized_conservative
+2025-12-29   0.006328  0.006328      1.706329              0.6           1.0        8 full_regime_stack_neutralized_sized_conservative
+2025-12-30   0.001819  0.001819      1.483544              0.6           1.0        8 full_regime_stack_neutralized_sized_conservative
+2025-12-31   0.000359  0.000359      1.579747              0.6           1.0        8 full_regime_stack_neutralized_sized_conservative
+2026-01-02   0.000713  0.000713      1.908861              0.6           1.0        8 full_regime_stack_neutralized_sized_conservative
+2026-01-05   0.004271  0.004271      1.797468              0.6           1.0        8 full_regime_stack_neutralized_sized_conservative
+2026-01-06  -0.003228 -0.003228      1.502081              0.6           1.0        8 full_regime_stack_neutralized_sized_conservative
+2026-01-07  -0.008734 -0.008734      1.651332              0.6           1.0        8 full_regime_stack_neutralized_sized_conservative
+[WF][full_regime_stack_neutralized_sized_barbell] portfolio_mode=regime_inertia neutralize=True sizing=True sizing_preset=barbell max_daily_turnover=0.6 final_weight_cap=0.08 features=['intraday_rs', 'volume_shock', 'intraday_pressure', 'intraday_rs_x_volume_shock', 'intraday_pressure_x_volume_shock', 'liq_rank_x_intraday_rs', 'cond_breadth_trend_intraday_rs', 'cond_breadth_trend_mom_compression', 'cond_breadth_range_str', 'cond_breadth_weak_overnight', 'cond_momentum_liq_trend', 'cond_str_weak_breadth', 'cond_overnight_trend_follow', 'cond_vol_compression_liq_breakout', 'cond_ivol_lowliq_penalty']
 [WF] folds=8
 [WF][FOLD 1] train=2023-01-03 00:00:00..2024-01-03 00:00:00 test=2024-01-04 00:00:00..2024-04-04 00:00:00
 [WF][FOLD 2] train=2023-04-04 00:00:00..2024-04-04 00:00:00 test=2024-04-05 00:00:00..2024-07-05 00:00:00
@@ -981,29 +981,29 @@ z_cond_breadth_trend_mom_compression      8     0.015565    0.031669         0.0
 [WF][FOLD 8] train=2024-10-04 00:00:00..2025-10-07 00:00:00 test=2025-10-08 00:00:00..2026-01-07 00:00:00
 [WF][full_regime_stack_neutralized_sized_barbell][FOLD 1] start
 [WF][full_regime_stack_neutralized_sized_barbell][FOLD 1] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_barbell][FOLD 1][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0010683732304956717, 'std_daily_ret': 0.004285480695498485, 'win_rate_days': 0.5555555555555556, 'cum_ret': 0.06897966726588711, 'avg_raw_turnover': 1.595504634602379, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 1][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0012703109276157747, 'std_daily_ret': 0.004425726657077672, 'win_rate_days': 0.5714285714285714, 'cum_ret': 0.08260954652992702, 'avg_raw_turnover': 1.5482494874611428, 'avg_turnover': 0.6000000000000002, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack_neutralized_sized_barbell][FOLD 2] start
 [WF][full_regime_stack_neutralized_sized_barbell][FOLD 2] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_barbell][FOLD 2][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0011437552914248022, 'std_daily_ret': 0.004163008097725319, 'win_rate_days': 0.6507936507936508, 'cum_ret': 0.07409607937073615, 'avg_raw_turnover': 1.5830449138719818, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 2][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0012079061228701827, 'std_daily_ret': 0.004688831916232106, 'win_rate_days': 0.5714285714285714, 'cum_ret': 0.07828500607291433, 'avg_raw_turnover': 1.5491611519017432, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack_neutralized_sized_barbell][FOLD 3] start
 [WF][full_regime_stack_neutralized_sized_barbell][FOLD 3] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_barbell][FOLD 3][SUMMARY] {'days': 63, 'avg_daily_ret': -0.0006991584310233663, 'std_daily_ret': 0.0058854716879132435, 'win_rate_days': 0.5555555555555556, 'cum_ret': -0.044140814124058236, 'avg_raw_turnover': 1.5895691609977323, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 3][SUMMARY] {'days': 63, 'avg_daily_ret': -0.00023277134515297185, 'std_daily_ret': 0.006199020955642129, 'win_rate_days': 0.5079365079365079, 'cum_ret': -0.015743089015619716, 'avg_raw_turnover': 1.5659774693160815, 'avg_turnover': 0.6000000000000003, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack_neutralized_sized_barbell][FOLD 4] start
 [WF][full_regime_stack_neutralized_sized_barbell][FOLD 4] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_barbell][FOLD 4][SUMMARY] {'days': 63, 'avg_daily_ret': 0.00046915320439893174, 'std_daily_ret': 0.004938761700927309, 'win_rate_days': 0.5079365079365079, 'cum_ret': 0.029214063787446065, 'avg_raw_turnover': 1.60864462744162, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 4][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0008500139723682077, 'std_daily_ret': 0.005274271621291594, 'win_rate_days': 0.5555555555555556, 'cum_ret': 0.05408153294302287, 'avg_raw_turnover': 1.5499285184740463, 'avg_turnover': 0.6000000000000002, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack_neutralized_sized_barbell][FOLD 5] start
 [WF][full_regime_stack_neutralized_sized_barbell][FOLD 5] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_barbell][FOLD 5][SUMMARY] {'days': 63, 'avg_daily_ret': 0.00048177673319926964, 'std_daily_ret': 0.004389630527902826, 'win_rate_days': 0.5396825396825397, 'cum_ret': 0.030194596562620246, 'avg_raw_turnover': 1.5975971675219798, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 5][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0003419111955159605, 'std_daily_ret': 0.004943578786534599, 'win_rate_days': 0.5714285714285714, 'cum_ret': 0.020996351302992933, 'avg_raw_turnover': 1.5648636973590433, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack_neutralized_sized_barbell][FOLD 6] start
 [WF][full_regime_stack_neutralized_sized_barbell][FOLD 6] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_barbell][FOLD 6][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0009653315748482937, 'std_daily_ret': 0.004158795062040841, 'win_rate_days': 0.6190476190476191, 'cum_ret': 0.06210407582233679, 'avg_raw_turnover': 1.60244261447269, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 6][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0011590262572478782, 'std_daily_ret': 0.004485057033115782, 'win_rate_days': 0.5555555555555556, 'cum_ret': 0.07503721287958065, 'avg_raw_turnover': 1.5610508257076132, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack_neutralized_sized_barbell][FOLD 7] start
 [WF][full_regime_stack_neutralized_sized_barbell][FOLD 7] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_barbell][FOLD 7][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0014006860942387817, 'std_daily_ret': 0.004579949496300143, 'win_rate_days': 0.6031746031746031, 'cum_ret': 0.09147991672674904, 'avg_raw_turnover': 1.573870824246764, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 7][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0017949850296939366, 'std_daily_ret': 0.005332859909623308, 'win_rate_days': 0.5714285714285714, 'cum_ret': 0.1186338367803299, 'avg_raw_turnover': 1.5219747343024987, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack_neutralized_sized_barbell][FOLD 8] start
 [WF][full_regime_stack_neutralized_sized_barbell][FOLD 8] train_rows=24444 test_rows=6111
-[WF][full_regime_stack_neutralized_sized_barbell][FOLD 8][SUMMARY] {'days': 63, 'avg_daily_ret': 0.0007959983113167506, 'std_daily_ret': 0.004389873460651373, 'win_rate_days': 0.6190476190476191, 'cum_ret': 0.0507769267477538, 'avg_raw_turnover': 1.556134564405241, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
-[WF][full_regime_stack_neutralized_sized_barbell][OVERALL] {'days': 504, 'avg_daily_ret': 0.0007032395011123919, 'std_daily_ret': 0.00463839732318195, 'win_rate_days': 0.5813492063492064, 'cum_ret': 0.41750574013790764, 'avg_raw_turnover': 1.5883510634450484, 'avg_turnover': 0.5999999999999999, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 8][SUMMARY] {'days': 63, 'avg_daily_ret': 0.00105386051164609, 'std_daily_ret': 0.004482602677033452, 'win_rate_days': 0.6507936507936508, 'cum_ret': 0.06794404940310406, 'avg_raw_turnover': 1.5130926091579768, 'avg_turnover': 0.6000000000000001, 'cap_hit_rate': 1.0}
+[WF][full_regime_stack_neutralized_sized_barbell][OVERALL] {'days': 504, 'avg_daily_ret': 0.0009306553339756325, 'std_daily_ret': 0.005010347261263338, 'win_rate_days': 0.5694444444444444, 'cum_ret': 0.5880794875038393, 'avg_raw_turnover': 1.5467873117100182, 'avg_turnover': 0.5999999999999999, 'cap_hit_rate': 1.0}
 [WF][full_regime_stack_neutralized_sized_barbell][WEIGHTS][STABILITY]
                              feature  folds  mean_weight  std_weight  mean_abs_weight  pos_folds  neg_folds  zero_folds
     z_cond_breadth_trend_intraday_rs      8     0.118859    0.032822         0.118859          8          0           0
@@ -1023,24 +1023,24 @@ z_cond_breadth_trend_mom_compression      8     0.015565    0.031669         0.0
                  z_intraday_pressure      8     0.008606    0.007474         0.008606          8          0           0
 [WF][full_regime_stack_neutralized_sized_barbell][TAIL]
       date  gross_ret   net_ret  raw_turnover  capped_turnover  cap_hit_rate  fold_id                                       model
-2025-12-23   0.000717  0.000717      1.300000              0.6           1.0        8 full_regime_stack_neutralized_sized_barbell
-2025-12-24   0.006029  0.006029      1.600000              0.6           1.0        8 full_regime_stack_neutralized_sized_barbell
-2025-12-26  -0.004330 -0.004330      1.600000              0.6           1.0        8 full_regime_stack_neutralized_sized_barbell
-2025-12-29   0.006207  0.006207      1.684211              0.6           1.0        8 full_regime_stack_neutralized_sized_barbell
-2025-12-30   0.002110  0.002110      1.473684              0.6           1.0        8 full_regime_stack_neutralized_sized_barbell
-2025-12-31   0.000414  0.000414      1.578947              0.6           1.0        8 full_regime_stack_neutralized_sized_barbell
-2026-01-02   0.000202  0.000202      1.894737              0.6           1.0        8 full_regime_stack_neutralized_sized_barbell
-2026-01-05   0.003060  0.003060      1.789474              0.6           1.0        8 full_regime_stack_neutralized_sized_barbell
-2026-01-06  -0.003304 -0.003304      1.500000              0.6           1.0        8 full_regime_stack_neutralized_sized_barbell
-2026-01-07  -0.008444 -0.008444      1.600000              0.6           1.0        8 full_regime_stack_neutralized_sized_barbell
+2025-12-23   0.000375  0.000375      1.480000              0.6           1.0        8 full_regime_stack_neutralized_sized_barbell
+2025-12-24   0.007411  0.007411      1.611868              0.6           1.0        8 full_regime_stack_neutralized_sized_barbell
+2025-12-26  -0.004666 -0.004666      1.550004              0.6           1.0        8 full_regime_stack_neutralized_sized_barbell
+2025-12-29   0.006007  0.006007      1.647139              0.6           1.0        8 full_regime_stack_neutralized_sized_barbell
+2025-12-30   0.001043  0.001043      1.420510              0.6           1.0        8 full_regime_stack_neutralized_sized_barbell
+2025-12-31  -0.000026 -0.000026      1.487139              0.6           1.0        8 full_regime_stack_neutralized_sized_barbell
+2026-01-02   0.001562  0.001562      1.822776              0.6           1.0        8 full_regime_stack_neutralized_sized_barbell
+2026-01-05   0.006279  0.006279      1.709462              0.6           1.0        8 full_regime_stack_neutralized_sized_barbell
+2026-01-06  -0.002936 -0.002936      1.441655              0.6           1.0        8 full_regime_stack_neutralized_sized_barbell
+2026-01-07  -0.009084 -0.009084      1.661319              0.6           1.0        8 full_regime_stack_neutralized_sized_barbell
 [WF][ABLATION][SUMMARY]
                                            model portfolio_mode  neutralize  sizing sizing_preset  days  avg_daily_ret  std_daily_ret  win_rate_days  cum_ret  avg_raw_turnover  avg_turnover  cap_hit_rate  avg_gross_ret  avg_trading_costs  avg_borrow_costs  avg_costs
+     full_regime_stack_neutralized_sized_barbell regime_inertia        True    True       barbell   504       0.000931       0.005010       0.569444 0.588079          1.546787           0.6           1.0            0.0                0.0               0.0        0.0
+  full_regime_stack_neutralized_sized_aggressive regime_inertia        True    True    aggressive   504       0.000888       0.005145       0.565476 0.554142          1.626547           0.6           1.0            0.0                0.0               0.0        0.0
+    full_regime_stack_neutralized_sized_baseline regime_inertia        True    True      baseline   504       0.000818       0.004895       0.569444 0.501038          1.609736           0.6           1.0            0.0                0.0               0.0        0.0
+full_regime_stack_neutralized_sized_conservative regime_inertia        True    True  conservative   504       0.000778       0.004786       0.569444 0.471194          1.601252           0.6           1.0            0.0                0.0               0.0        0.0
                    full_regime_stack_neutralized regime_inertia        True   False          none   504       0.000761       0.004450       0.579365 0.460179          1.429140           0.6           1.0            0.0                0.0               0.0        0.0
                     intraday_plus_breadth_regime regime_inertia       False   False          none   504       0.000752       0.008467       0.577381 0.434772          1.437648           0.6           1.0            0.0                0.0               0.0        0.0
-    full_regime_stack_neutralized_sized_baseline regime_inertia        True    True      baseline   504       0.000703       0.004638       0.581349 0.417506          1.588351           0.6           1.0            0.0                0.0               0.0        0.0
-  full_regime_stack_neutralized_sized_aggressive regime_inertia        True    True    aggressive   504       0.000703       0.004638       0.581349 0.417506          1.588351           0.6           1.0            0.0                0.0               0.0        0.0
-full_regime_stack_neutralized_sized_conservative regime_inertia        True    True  conservative   504       0.000703       0.004638       0.581349 0.417506          1.588351           0.6           1.0            0.0                0.0               0.0        0.0
-     full_regime_stack_neutralized_sized_barbell regime_inertia        True    True       barbell   504       0.000703       0.004638       0.581349 0.417506          1.588351           0.6           1.0            0.0                0.0               0.0        0.0
                               intraday_core_only  plain_inertia       False   False          none   504       0.000724       0.008392       0.567460 0.415183          1.440662           0.6           1.0            0.0                0.0               0.0        0.0
                                full_regime_stack regime_inertia       False   False          none   504       0.000695       0.008396       0.567460 0.394316          1.416584           0.6           1.0            0.0                0.0               0.0        0.0
 Press Enter to exit...

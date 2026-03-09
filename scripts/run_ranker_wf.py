@@ -13,7 +13,12 @@ from python_edge.model.neutralize import add_beta_proxy, neutralize_score_cross_
 from python_edge.model.ranker_linear import apply_linear_score, fit_corr_weights
 from python_edge.portfolio.construct import build_long_short_portfolio
 from python_edge.portfolio.holding_inertia import apply_holding_inertia
-from python_edge.portfolio.position_limits import apply_position_filters, cap_single_name_weight, normalize_gross_exposure
+from python_edge.portfolio.position_limits import (
+    apply_position_filters,
+    cap_final_weight,
+    normalize_gross_exposure,
+    renormalize_after_caps,
+)
 from python_edge.portfolio.regime_allocation import build_regime_aware_long_short_portfolio
 from python_edge.portfolio.signal_sizing import apply_signal_strength_sizing
 from python_edge.portfolio.turnover_control import cap_daily_turnover
@@ -32,6 +37,7 @@ EXIT_PCT = 0.20
 MIN_TRAIN_ROWS = 500
 MIN_TEST_ROWS = 100
 MAX_DAILY_TURNOVER = float(os.getenv("MAX_DAILY_TURNOVER", "0.60"))
+FINAL_WEIGHT_CAP = float(os.getenv("FINAL_WEIGHT_CAP", "0.08"))
 
 INTRADAY_CORE_FEATURES = [
     "intraday_rs",
@@ -233,10 +239,28 @@ def _apply_execution_layer(
     else:
         out["sizing_preset"] = "none"
 
-    out = cap_single_name_weight(out, side_col=side_col, cap_abs_weight=0.08)
-    out = normalize_gross_exposure(out, side_col=side_col, gross_target=1.0)
+    out = normalize_gross_exposure(out, side_col=side_col, gross_target=1.0, out_col="weight")
+    out = cap_final_weight(out, weight_col="weight", cap_abs_weight=FINAL_WEIGHT_CAP)
+    out = renormalize_after_caps(out, weight_col="weight", gross_target=1.0)
     out = cap_daily_turnover(out, weight_col="weight", max_daily_turnover=MAX_DAILY_TURNOVER)
     out = attach_execution_costs(out, weight_col="weight", fee_bps=1.0, slippage_bps=2.0, borrow_bps_daily=1.0)
+
+    # explicit wiring checks
+    required_post = [
+        "weight",
+        "trade_abs_raw",
+        "trade_abs_after",
+        "raw_turnover",
+        "capped_turnover",
+        "cap_hit",
+        "cost_trading",
+        "cost_borrow",
+        "cost_total",
+    ]
+    missing_post = [c for c in required_post if c not in out.columns]
+    if missing_post:
+        raise RuntimeError(f"_apply_execution_layer: missing post columns: {missing_post}")
+
     return out
 
 
@@ -253,7 +277,7 @@ def _run_one_model(
     print(
         f"[WF][{model_name}] portfolio_mode={portfolio_mode} "
         f"neutralize={neutralize} sizing={sizing} sizing_preset={sizing_preset} "
-        f"max_daily_turnover={MAX_DAILY_TURNOVER} features={features}"
+        f"max_daily_turnover={MAX_DAILY_TURNOVER} final_weight_cap={FINAL_WEIGHT_CAP} features={features}"
     )
     df = _prepare_base_frame(raw_df, features)
     splits = build_walkforward_splits(df["date"], train_days=TRAIN_DAYS, test_days=TEST_DAYS, step_days=STEP_DAYS)
@@ -327,7 +351,7 @@ def main() -> int:
     print(f"[CFG] target_col={TARGET_COL}")
     print(f"[CFG] train_days={TRAIN_DAYS} test_days={TEST_DAYS} step_days={STEP_DAYS} top_pct={TOP_PCT}")
     print(f"[CFG] enter_pct={ENTER_PCT} exit_pct={EXIT_PCT}")
-    print(f"[CFG] max_daily_turnover={MAX_DAILY_TURNOVER}")
+    print(f"[CFG] max_daily_turnover={MAX_DAILY_TURNOVER} final_weight_cap={FINAL_WEIGHT_CAP}")
 
     if not FEATURE_FILE.exists():
         raise FileNotFoundError(f"Feature file not found: {FEATURE_FILE}")
