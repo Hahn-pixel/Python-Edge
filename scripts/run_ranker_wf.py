@@ -23,6 +23,10 @@ from python_edge.wf.splits import build_walkforward_splits, print_split_summary
 
 
 FEATURE_FILE = Path("data") / "features" / "feature_matrix_v1.parquet"
+
+DIAG_DIR = Path("data") / "diagnostics"
+DIAG_DIR.mkdir(parents=True, exist_ok=True)
+
 TARGET_COL = "target_fwd_ret_1d"
 TRAIN_DAYS = 252
 TEST_DAYS = 63
@@ -60,31 +64,10 @@ RISK_FILTER_FEATURES = [
 ]
 FULL_FEATURE_STACK = INTRADAY_CORE_FEATURES + REGIME_BREADTH_FEATURES + RECOVERED_DAILY_FEATURES + RISK_FILTER_FEATURES
 
+# Baseline configuration fixed after console25
+BASELINE_MODEL = "full_regime_stack_neutralized_sized_barbell_adaptive_exits"
+
 ABLATIONS: dict[str, dict[str, object]] = {
-    "full_regime_stack_neutralized": {
-        "features": FULL_FEATURE_STACK,
-        "portfolio_mode": "regime_inertia",
-        "neutralize": True,
-        "sizing": False,
-        "sizing_preset": None,
-        "adaptive_exits": False,
-    },
-    "full_regime_stack_neutralized_adaptive_exits": {
-        "features": FULL_FEATURE_STACK,
-        "portfolio_mode": "regime_inertia",
-        "neutralize": True,
-        "sizing": False,
-        "sizing_preset": None,
-        "adaptive_exits": True,
-    },
-    "full_regime_stack_neutralized_sized_barbell": {
-        "features": FULL_FEATURE_STACK,
-        "portfolio_mode": "regime_inertia",
-        "neutralize": True,
-        "sizing": True,
-        "sizing_preset": "barbell",
-        "adaptive_exits": False,
-    },
     "full_regime_stack_neutralized_sized_barbell_adaptive_exits": {
         "features": FULL_FEATURE_STACK,
         "portfolio_mode": "regime_inertia",
@@ -92,6 +75,15 @@ ABLATIONS: dict[str, dict[str, object]] = {
         "sizing": True,
         "sizing_preset": "barbell",
         "adaptive_exits": True,
+    },
+    # diagnostic comparison (same model but without adaptive exits)
+    "diag_barbell_no_exits": {
+        "features": FULL_FEATURE_STACK,
+        "portfolio_mode": "regime_inertia",
+        "neutralize": True,
+        "sizing": True,
+        "sizing_preset": "barbell",
+        "adaptive_exits": False,
     },
 }
 
@@ -245,6 +237,13 @@ def _run_one_model(model_name: str, raw_df: pd.DataFrame, features: list[str], p
         daily_test = evaluate_long_short(port_test, target_col=TARGET_COL)
         daily_test["fold_id"] = sp.fold_id
         daily_test["model"] = model_name
+
+        safe_model_name = model_name.replace("/", "_").replace("\\", "_").replace(" ", "_")
+
+        port_test.to_parquet(
+            DIAG_DIR / f"portfolio__{safe_model_name}__fold{sp.fold_id}.parquet",
+            index=False,
+        )
 
         fold_summary = summarize_daily_returns(daily_test)
         print_summary(f"[WF][{model_name}][FOLD {sp.fold_id}][SUMMARY]", fold_summary)
