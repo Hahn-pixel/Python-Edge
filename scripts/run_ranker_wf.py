@@ -11,9 +11,8 @@ from python_edge.model.conditional_factors import add_conditional_factors
 from python_edge.model.cs_normalize import cs_zscore
 from python_edge.model.neutralize import add_beta_proxy, neutralize_score_cross_section
 from python_edge.model.ranker_linear import apply_linear_score, fit_corr_weights
-from python_edge.portfolio.budget_allocation import apply_side_budgets, attach_dynamic_side_budgets
 from python_edge.portfolio.construct import build_long_short_portfolio
-from python_edge.portfolio.exit_rules import apply_exit_rules
+from python_edge.portfolio.exit_rules import apply_adaptive_exit_rules
 from python_edge.portfolio.holding_inertia import apply_holding_inertia
 from python_edge.portfolio.position_limits import apply_position_filters, cap_final_weight, normalize_gross_exposure, renormalize_after_caps
 from python_edge.portfolio.regime_allocation import build_regime_aware_long_short_portfolio
@@ -68,15 +67,15 @@ ABLATIONS: dict[str, dict[str, object]] = {
         "neutralize": True,
         "sizing": False,
         "sizing_preset": None,
-        "dynamic_side_budget": False,
+        "adaptive_exits": False,
     },
-    "full_regime_stack_neutralized_dynamic_budget": {
+    "full_regime_stack_neutralized_adaptive_exits": {
         "features": FULL_FEATURE_STACK,
         "portfolio_mode": "regime_inertia",
         "neutralize": True,
         "sizing": False,
         "sizing_preset": None,
-        "dynamic_side_budget": True,
+        "adaptive_exits": True,
     },
     "full_regime_stack_neutralized_sized_barbell": {
         "features": FULL_FEATURE_STACK,
@@ -84,15 +83,15 @@ ABLATIONS: dict[str, dict[str, object]] = {
         "neutralize": True,
         "sizing": True,
         "sizing_preset": "barbell",
-        "dynamic_side_budget": False,
+        "adaptive_exits": False,
     },
-    "full_regime_stack_neutralized_sized_barbell_dynamic_budget": {
+    "full_regime_stack_neutralized_sized_barbell_adaptive_exits": {
         "features": FULL_FEATURE_STACK,
         "portfolio_mode": "regime_inertia",
         "neutralize": True,
         "sizing": True,
         "sizing_preset": "barbell",
-        "dynamic_side_budget": True,
+        "adaptive_exits": True,
     },
 }
 
@@ -116,17 +115,7 @@ def _prepare_base_frame(df: pd.DataFrame, features: list[str]) -> pd.DataFrame:
 
     zcols = [f"z_{f}" for f in features]
     needed = [
-        "date",
-        "symbol",
-        TARGET_COL,
-        "market_breadth",
-        "meta_dollar_volume",
-        "meta_price",
-        "liq_rank",
-        "beta_proxy_60d",
-        "intraday_rs",
-        "volume_shock",
-        "intraday_pressure",
+        "date", "symbol", TARGET_COL, "market_breadth", "meta_dollar_volume", "meta_price", "liq_rank", "beta_proxy_60d",
     ] + features + zcols
     missing = [c for c in needed if c not in out.columns]
     if missing:
@@ -174,7 +163,7 @@ def _print_weight_stability(model_name: str, weights_df: pd.DataFrame) -> None:
 
 
 
-def _build_portfolio(test_df: pd.DataFrame, portfolio_mode: str, score_col: str) -> pd.DataFrame:
+def _build_portfolio(test_df: pd.DataFrame, portfolio_mode: str, score_col: str, adaptive_exits: bool) -> pd.DataFrame:
     temp = test_df.copy()
     if score_col != "score":
         temp["score"] = pd.to_numeric(temp[score_col], errors="coerce")
@@ -192,17 +181,16 @@ def _build_portfolio(test_df: pd.DataFrame, portfolio_mode: str, score_col: str)
     else:
         raise RuntimeError(f"Unknown portfolio_mode={portfolio_mode!r}")
 
-    port = apply_exit_rules(port, long_max_days=15, short_max_days=3)
+    if adaptive_exits:
+        port = apply_adaptive_exit_rules(port, side_col="side", score_col="score")
+    else:
+        port["exit_any"] = 0
+
     return port
 
 
 
-def _apply_execution_layer(
-    port_df: pd.DataFrame,
-    use_signal_sizing: bool,
-    sizing_preset: str | None,
-    dynamic_side_budget: bool,
-) -> pd.DataFrame:
+def _apply_execution_layer(port_df: pd.DataFrame, use_signal_sizing: bool, sizing_preset: str | None) -> pd.DataFrame:
     out = port_df.copy()
     side_col = "side"
 
@@ -216,56 +204,16 @@ def _apply_execution_layer(
         out["sizing_preset"] = "none"
 
     out = normalize_gross_exposure(out, side_col=side_col, gross_target=1.0, out_col="weight")
-
-    if dynamic_side_budget:
-        out = attach_dynamic_side_budgets(out)
-        out = apply_side_budgets(out, weight_col="weight")
-    else:
-        out["long_budget"] = 0.50
-        out["short_budget"] = 0.50
-
     out = cap_final_weight(out, weight_col="weight", cap_abs_weight=FINAL_WEIGHT_CAP)
     out = renormalize_after_caps(out, weight_col="weight", gross_target=1.0)
     out = cap_daily_turnover(out, weight_col="weight", max_daily_turnover=MAX_DAILY_TURNOVER)
     out = attach_execution_costs(out, weight_col="weight", fee_bps=1.0, slippage_bps=2.0, borrow_bps_daily=1.0)
-
-    required_post = [
-        "weight",
-        "trade_abs_raw",
-        "trade_abs_after",
-        "raw_turnover",
-        "capped_turnover",
-        "cap_hit",
-        "cost_trading",
-        "cost_borrow",
-        "cost_total",
-        "long_budget",
-        "short_budget",
-    ]
-    missing_post = [c for c in required_post if c not in out.columns]
-    if missing_post:
-        raise RuntimeError(f"_apply_execution_layer: missing post columns: {missing_post}")
-
     return out
 
 
 
-def _run_one_model(
-    model_name: str,
-    raw_df: pd.DataFrame,
-    features: list[str],
-    portfolio_mode: str,
-    neutralize: bool,
-    sizing: bool,
-    sizing_preset: str | None,
-    dynamic_side_budget: bool,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    print(
-        f"[WF][{model_name}] portfolio_mode={portfolio_mode} neutralize={neutralize} "
-        f"sizing={sizing} sizing_preset={sizing_preset} dynamic_side_budget={dynamic_side_budget} "
-        f"max_daily_turnover={MAX_DAILY_TURNOVER} final_weight_cap={FINAL_WEIGHT_CAP}"
-    )
-
+def _run_one_model(model_name: str, raw_df: pd.DataFrame, features: list[str], portfolio_mode: str, neutralize: bool, sizing: bool, sizing_preset: str | None, adaptive_exits: bool) -> tuple[pd.DataFrame, pd.DataFrame]:
+    print(f"[WF][{model_name}] portfolio_mode={portfolio_mode} neutralize={neutralize} sizing={sizing} sizing_preset={sizing_preset} adaptive_exits={adaptive_exits} max_daily_turnover={MAX_DAILY_TURNOVER} final_weight_cap={FINAL_WEIGHT_CAP}")
     df = _prepare_base_frame(raw_df, features)
     splits = build_walkforward_splits(df["date"], train_days=TRAIN_DAYS, test_days=TEST_DAYS, step_days=STEP_DAYS)
     print_split_summary(splits)
@@ -279,11 +227,6 @@ def _run_one_model(
         test_df = _slice_by_date(df, sp.test_start, sp.test_end)
         print(f"[WF][{model_name}][FOLD {sp.fold_id}] train_rows={len(train_df)} test_rows={len(test_df)}")
 
-        if len(train_df) < MIN_TRAIN_ROWS:
-            raise RuntimeError(f"[WF][{model_name}][FOLD {sp.fold_id}] train_rows too small: {len(train_df)}")
-        if len(test_df) < MIN_TEST_ROWS:
-            raise RuntimeError(f"[WF][{model_name}][FOLD {sp.fold_id}] test_rows too small: {len(test_df)}")
-
         zcols = [f"z_{f}" for f in features]
         fit = fit_corr_weights(train_df=train_df, zcols=zcols, target_col=TARGET_COL)
         all_weight_frames.append(_weights_to_frame(model_name, sp.fold_id, fit.weights))
@@ -294,17 +237,11 @@ def _run_one_model(
             scored_test = neutralize_score_cross_section(scored_test, score_col="score", exposure_cols=["liq_rank", "beta_proxy_60d"], out_col="score_neutral")
             score_col = "score_neutral"
 
-        port_test = _build_portfolio(scored_test, portfolio_mode=portfolio_mode, score_col=score_col)
+        port_test = _build_portfolio(scored_test, portfolio_mode=portfolio_mode, score_col=score_col, adaptive_exits=adaptive_exits)
         if score_col != "score":
             port_test["score"] = pd.to_numeric(port_test[score_col], errors="coerce")
 
-        port_test = _apply_execution_layer(
-            port_test,
-            use_signal_sizing=sizing,
-            sizing_preset=sizing_preset,
-            dynamic_side_budget=dynamic_side_budget,
-        )
-
+        port_test = _apply_execution_layer(port_test, use_signal_sizing=sizing, sizing_preset=sizing_preset)
         daily_test = evaluate_long_short(port_test, target_col=TARGET_COL)
         daily_test["fold_id"] = sp.fold_id
         daily_test["model"] = model_name
@@ -337,39 +274,31 @@ def main() -> int:
     if not FEATURE_FILE.exists():
         raise FileNotFoundError(f"Feature file not found: {FEATURE_FILE}")
 
-    print("[LOAD] feature matrix")
     raw_df = pd.read_parquet(FEATURE_FILE)
     if raw_df.empty:
         raise RuntimeError("Loaded feature matrix is empty")
 
     model_summaries: list[dict[str, float | str | bool]] = []
     for model_name, cfg in ABLATIONS.items():
-        features = list(cfg["features"])
-        portfolio_mode = str(cfg["portfolio_mode"])
-        neutralize = bool(cfg["neutralize"])
-        sizing = bool(cfg["sizing"])
-        sizing_preset = cfg.get("sizing_preset")
-        dynamic_side_budget = bool(cfg["dynamic_side_budget"])
-
         overall, _weights_df = _run_one_model(
             model_name=model_name,
             raw_df=raw_df,
-            features=features,
-            portfolio_mode=portfolio_mode,
-            neutralize=neutralize,
-            sizing=sizing,
-            sizing_preset=None if sizing_preset is None else str(sizing_preset),
-            dynamic_side_budget=dynamic_side_budget,
+            features=list(cfg["features"]),
+            portfolio_mode=str(cfg["portfolio_mode"]),
+            neutralize=bool(cfg["neutralize"]),
+            sizing=bool(cfg["sizing"]),
+            sizing_preset=None if cfg["sizing_preset"] is None else str(cfg["sizing_preset"]),
+            adaptive_exits=bool(cfg["adaptive_exits"]),
         )
         summary = summarize_daily_returns(overall)
         model_summaries.append(
             {
                 "model": model_name,
-                "portfolio_mode": portfolio_mode,
-                "neutralize": neutralize,
-                "sizing": sizing,
-                "sizing_preset": "none" if sizing_preset is None else str(sizing_preset),
-                "dynamic_side_budget": dynamic_side_budget,
+                "portfolio_mode": str(cfg["portfolio_mode"]),
+                "neutralize": bool(cfg["neutralize"]),
+                "sizing": bool(cfg["sizing"]),
+                "sizing_preset": "none" if cfg["sizing_preset"] is None else str(cfg["sizing_preset"]),
+                "adaptive_exits": bool(cfg["adaptive_exits"]),
                 "days": int(summary["days"]),
                 "avg_daily_ret": float(summary["avg_daily_ret"]),
                 "std_daily_ret": float(summary["std_daily_ret"]),

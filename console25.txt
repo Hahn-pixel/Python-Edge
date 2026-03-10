@@ -1,0 +1,555 @@
+
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> Set-StrictMode -Version Latest
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $ErrorActionPreference = "Stop"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> Set-Location -LiteralPath "C:\Users\Dmytro Govor\Documents\Python-Edge"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:PYTHONPATH = ".\src"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:MAX_DAILY_TURNOVER = "0.60"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:FINAL_WEIGHT_CAP = "0.08"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_ranker_wf.py
+[CFG] feature_file=data\features\feature_matrix_v1.parquet
+[CFG] target_col=target_fwd_ret_1d
+[CFG] train_days=252 test_days=63 step_days=63 top_pct=0.1
+[CFG] enter_pct=0.1 exit_pct=0.2
+[CFG] max_daily_turnover=0.6 final_weight_cap=0.08
+[WF][full_regime_stack_neutralized] portfolio_mode=regime_inertia neutralize=True sizing=False sizing_preset=None adaptive_exits=False max_daily_turnover=0.6 final_weight_cap=0.08
+[WF] folds=8
+[WF][FOLD 1] train=2023-01-03 00:00:00..2024-01-03 00:00:00 test=2024-01-04 00:00:00..2024-04-04 00:00:00
+[WF][FOLD 2] train=2023-04-04 00:00:00..2024-04-04 00:00:00 test=2024-04-05 00:00:00..2024-07-05 00:00:00
+[WF][FOLD 3] train=2023-07-06 00:00:00..2024-07-05 00:00:00 test=2024-07-08 00:00:00..2024-10-03 00:00:00
+[WF][FOLD 4] train=2023-10-04 00:00:00..2024-10-03 00:00:00 test=2024-10-04 00:00:00..2025-01-03 00:00:00
+[WF][FOLD 5] train=2024-01-04 00:00:00..2025-01-03 00:00:00 test=2025-01-06 00:00:00..2025-04-07 00:00:00
+[WF][FOLD 6] train=2024-04-05 00:00:00..2025-04-07 00:00:00 test=2025-04-08 00:00:00..2025-07-09 00:00:00
+[WF][FOLD 7] train=2024-07-08 00:00:00..2025-07-09 00:00:00 test=2025-07-10 00:00:00..2025-10-07 00:00:00
+[WF][FOLD 8] train=2024-10-04 00:00:00..2025-10-07 00:00:00 test=2025-10-08 00:00:00..2026-01-07 00:00:00
+[WF][full_regime_stack_neutralized][FOLD 1] start
+[WF][full_regime_stack_neutralized][FOLD 1] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized][FOLD 1][SUMMARY] days=63 avg_daily_ret=0.000755 std_daily_ret=0.004193 win_rate_days=0.523810 cum_ret=0.048142 avg_raw_turnover=1.439850 avg_turnover=0.600000 cap_hit_rate=1.000000 avg_gross_ret=0.000979 avg_trading_costs=0.000182 avg_borrow_costs=0.000042 avg_costs=0.000224 avg_long_gross_ret=0.000878 avg_short_gross_ret=0.000101 avg_long_costs=0.000100 avg_short_costs=0.000123 avg_gross_long_exposure=0.446085 avg_gross_short_exposure=0.421474
+[WF][full_regime_stack_neutralized][FOLD 2] start
+[WF][full_regime_stack_neutralized][FOLD 2] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized][FOLD 2][SUMMARY] days=63 avg_daily_ret=0.000922 std_daily_ret=0.004056 win_rate_days=0.634921 cum_ret=0.059243 avg_raw_turnover=1.446063 avg_turnover=0.600000 cap_hit_rate=1.000000 avg_gross_ret=0.001144 avg_trading_costs=0.000181 avg_borrow_costs=0.000041 avg_costs=0.000222 avg_long_gross_ret=0.000859 avg_short_gross_ret=0.000285 avg_long_costs=0.000098 avg_short_costs=0.000124 avg_gross_long_exposure=0.455622 avg_gross_short_exposure=0.414250
+[WF][full_regime_stack_neutralized][FOLD 3] start
+[WF][full_regime_stack_neutralized][FOLD 3] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized][FOLD 3][SUMMARY] days=63 avg_daily_ret=-0.000510 std_daily_ret=0.005598 win_rate_days=0.507937 cum_ret=-0.032564 avg_raw_turnover=1.410214 avg_turnover=0.600000 cap_hit_rate=1.000000 avg_gross_ret=-0.000286 avg_trading_costs=0.000181 avg_borrow_costs=0.000042 avg_costs=0.000223 avg_long_gross_ret=0.000333 avg_short_gross_ret=-0.000620 avg_long_costs=0.000099 avg_short_costs=0.000124 avg_gross_long_exposure=0.445856 avg_gross_short_exposure=0.421511
+[WF][full_regime_stack_neutralized][FOLD 4] start
+[WF][full_regime_stack_neutralized][FOLD 4] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized][FOLD 4][SUMMARY] days=63 avg_daily_ret=0.000231 std_daily_ret=0.004474 win_rate_days=0.444444 cum_ret=0.014038 avg_raw_turnover=1.457300 avg_turnover=0.600000 cap_hit_rate=1.000000 avg_gross_ret=0.000454 avg_trading_costs=0.000180 avg_borrow_costs=0.000042 avg_costs=0.000222 avg_long_gross_ret=0.000498 avg_short_gross_ret=-0.000044 avg_long_costs=0.000096 avg_short_costs=0.000127 avg_gross_long_exposure=0.445311 avg_gross_short_exposure=0.419592
+[WF][full_regime_stack_neutralized][FOLD 5] start
+[WF][full_regime_stack_neutralized][FOLD 5] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized][FOLD 5][SUMMARY] days=63 avg_daily_ret=0.000273 std_daily_ret=0.004207 win_rate_days=0.555556 cum_ret=0.016767 avg_raw_turnover=1.418937 avg_turnover=0.600000 cap_hit_rate=1.000000 avg_gross_ret=0.000495 avg_trading_costs=0.000181 avg_borrow_costs=0.000041 avg_costs=0.000222 avg_long_gross_ret=-0.000538 avg_short_gross_ret=0.001032 avg_long_costs=0.000095 avg_short_costs=0.000127 avg_gross_long_exposure=0.451731 avg_gross_short_exposure=0.411323
+[WF][full_regime_stack_neutralized][FOLD 6] start
+[WF][full_regime_stack_neutralized][FOLD 6] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized][FOLD 6][SUMMARY] days=63 avg_daily_ret=0.000974 std_daily_ret=0.004198 win_rate_days=0.587302 cum_ret=0.062682 avg_raw_turnover=1.428308 avg_turnover=0.600000 cap_hit_rate=1.000000 avg_gross_ret=0.001197 avg_trading_costs=0.000181 avg_borrow_costs=0.000042 avg_costs=0.000223 avg_long_gross_ret=0.002238 avg_short_gross_ret=-0.001041 avg_long_costs=0.000096 avg_short_costs=0.000127 avg_gross_long_exposure=0.459791 avg_gross_short_exposure=0.419125
+[WF][full_regime_stack_neutralized][FOLD 7] start
+[WF][full_regime_stack_neutralized][FOLD 7] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized][FOLD 7][SUMMARY] days=63 avg_daily_ret=0.001173 std_daily_ret=0.004412 win_rate_days=0.619048 cum_ret=0.076012 avg_raw_turnover=1.412024 avg_turnover=0.600000 cap_hit_rate=1.000000 avg_gross_ret=0.001396 avg_trading_costs=0.000181 avg_borrow_costs=0.000042 avg_costs=0.000223 avg_long_gross_ret=0.001311 avg_short_gross_ret=0.000086 avg_long_costs=0.000097 avg_short_costs=0.000126 avg_gross_long_exposure=0.460388 avg_gross_short_exposure=0.421572
+[WF][full_regime_stack_neutralized][FOLD 8] start
+[WF][full_regime_stack_neutralized][FOLD 8] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized][FOLD 8][SUMMARY] days=63 avg_daily_ret=0.000489 std_daily_ret=0.004292 win_rate_days=0.539683 cum_ret=0.030697 avg_raw_turnover=1.420421 avg_turnover=0.600000 cap_hit_rate=1.000000 avg_gross_ret=0.000712 avg_trading_costs=0.000182 avg_borrow_costs=0.000042 avg_costs=0.000223 avg_long_gross_ret=0.000560 avg_short_gross_ret=0.000153 avg_long_costs=0.000098 avg_short_costs=0.000125 avg_gross_long_exposure=0.448793 avg_gross_short_exposure=0.416665
+[WF][full_regime_stack_neutralized][OVERALL] days=504 avg_daily_ret=0.000538 std_daily_ret=0.004450 win_rate_days=0.551587 cum_ret=0.305164 avg_raw_turnover=1.429140 avg_turnover=0.600000 cap_hit_rate=1.000000 avg_gross_ret=0.000761 avg_trading_costs=0.000181 avg_borrow_costs=0.000042 avg_costs=0.000223 avg_long_gross_ret=0.000767 avg_short_gross_ret=-0.000006 avg_long_costs=0.000097 avg_short_costs=0.000125 avg_gross_long_exposure=0.451697 avg_gross_short_exposure=0.418189
+[WF][full_regime_stack_neutralized][WEIGHTS][STABILITY]
+                             feature  folds  mean_weight  std_weight  mean_abs_weight  pos_folds  neg_folds  zero_folds
+    z_cond_breadth_trend_intraday_rs      8     0.118859    0.032822         0.118859          8          0           0
+                       z_intraday_rs      8     0.097811    0.026239         0.097811          8          0           0
+            z_liq_rank_x_intraday_rs      8     0.095725    0.017797         0.095725          8          0           0
+        z_intraday_rs_x_volume_shock      8     0.094662    0.023884         0.094662          8          0           0
+            z_cond_breadth_range_str      8     0.016087    0.040670         0.036774          5          3           0
+       z_cond_breadth_weak_overnight      8    -0.023181    0.033684         0.030687          3          5           0
+ z_cond_vol_compression_liq_breakout      8     0.030606    0.005259         0.030606          8          0           0
+z_cond_breadth_trend_mom_compression      8     0.015565    0.031669         0.028087          4          4           0
+          z_cond_ivol_lowliq_penalty      8     0.017335    0.022091         0.022883          6          2           0
+       z_cond_overnight_trend_follow      8     0.013414    0.015249         0.015604          6          2           0
+             z_cond_str_weak_breadth      8    -0.006764    0.014970         0.012658          4          4           0
+           z_cond_momentum_liq_trend      8     0.009714    0.010275         0.012023          7          1           0
+  z_intraday_pressure_x_volume_shock      8     0.011015    0.008974         0.011015          8          0           0
+                      z_volume_shock      8     0.009466    0.003279         0.009466          8          0           0
+                 z_intraday_pressure      8     0.008606    0.007474         0.008606          8          0           0
+[WF][full_regime_stack_neutralized][TAIL]
+      date  portfolio_ret  gross_ret  trading_costs  borrow_costs    costs  long_gross_ret  short_gross_ret  long_costs  short_costs  gross_long_exposure  gross_short_exposure  positions  raw_turnover  capped_turnover  cap_hit_rate  fold_id                         model
+2025-12-23       0.001054   0.001285       0.000182      0.000048 0.000231        0.003756        -0.002471    0.000097     0.000134             0.487500              0.481250         35      0.960000              0.6           1.0        8 full_regime_stack_neutralized
+2025-12-24       0.004408   0.004649       0.000199      0.000042 0.000241        0.003857         0.000792    0.000114     0.000127             0.379206              0.422381         34      1.440000              0.6           1.0        8 full_regime_stack_neutralized
+2025-12-26      -0.004121  -0.003891       0.000182      0.000048 0.000230       -0.005626         0.001734    0.000096     0.000134             0.446190              0.475060         34      1.523810              0.6           1.0        8 full_regime_stack_neutralized
+2025-12-29       0.005776   0.006010       0.000195      0.000039 0.000234        0.002140         0.003870    0.000116     0.000118             0.387500              0.387500         30      1.600000              0.6           1.0        8 full_regime_stack_neutralized
+2025-12-30       0.001863   0.002086       0.000180      0.000043 0.000223       -0.000625         0.002711    0.000068     0.000155             0.446429              0.425000         31      1.333333              0.6           1.0        8 full_regime_stack_neutralized
+2025-12-31      -0.001051  -0.000829       0.000182      0.000040 0.000222        0.005919        -0.006748    0.000098     0.000124             0.446720              0.397243         32      1.619048              0.6           1.0        8 full_regime_stack_neutralized
+2026-01-02       0.000185   0.000410       0.000186      0.000039 0.000225        0.005454        -0.005044    0.000101     0.000124             0.408772              0.391228         31      1.714286              0.6           1.0        8 full_regime_stack_neutralized
+2026-01-05       0.001855   0.002082       0.000180      0.000046 0.000226        0.004841        -0.002759    0.000098     0.000129             0.432024              0.462976         35      1.714286              0.6           1.0        8 full_regime_stack_neutralized
+2026-01-06      -0.002905  -0.002678       0.000180      0.000047 0.000227       -0.005590         0.002911    0.000093     0.000134             0.446429              0.467857         32      1.217391              0.6           1.0        8 full_regime_stack_neutralized
+2026-01-07      -0.008430  -0.008203       0.000180      0.000048 0.000228       -0.001739        -0.006464    0.000098     0.000130             0.450186              0.476017         37      1.478261              0.6           1.0        8 full_regime_stack_neutralized
+[WF][full_regime_stack_neutralized_adaptive_exits] portfolio_mode=regime_inertia neutralize=True sizing=False sizing_preset=None adaptive_exits=True max_daily_turnover=0.6 final_weight_cap=0.08
+[WF] folds=8
+[WF][FOLD 1] train=2023-01-03 00:00:00..2024-01-03 00:00:00 test=2024-01-04 00:00:00..2024-04-04 00:00:00
+[WF][FOLD 2] train=2023-04-04 00:00:00..2024-04-04 00:00:00 test=2024-04-05 00:00:00..2024-07-05 00:00:00
+[WF][FOLD 3] train=2023-07-06 00:00:00..2024-07-05 00:00:00 test=2024-07-08 00:00:00..2024-10-03 00:00:00
+[WF][FOLD 4] train=2023-10-04 00:00:00..2024-10-03 00:00:00 test=2024-10-04 00:00:00..2025-01-03 00:00:00
+[WF][FOLD 5] train=2024-01-04 00:00:00..2025-01-03 00:00:00 test=2025-01-06 00:00:00..2025-04-07 00:00:00
+[WF][FOLD 6] train=2024-04-05 00:00:00..2025-04-07 00:00:00 test=2025-04-08 00:00:00..2025-07-09 00:00:00
+[WF][FOLD 7] train=2024-07-08 00:00:00..2025-07-09 00:00:00 test=2025-07-10 00:00:00..2025-10-07 00:00:00
+[WF][FOLD 8] train=2024-10-04 00:00:00..2025-10-07 00:00:00 test=2025-10-08 00:00:00..2026-01-07 00:00:00
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 1] start
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 1] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 1][SUMMARY] days=63 avg_daily_ret=0.000664 std_daily_ret=0.004409 win_rate_days=0.492063 cum_ret=0.042085 avg_raw_turnover=1.562103 avg_turnover=0.600000 cap_hit_rate=1.000000 avg_gross_ret=0.000885 avg_trading_costs=0.000182 avg_borrow_costs=0.000039 avg_costs=0.000220 avg_long_gross_ret=0.000964 avg_short_gross_ret=-0.000079 avg_long_costs=0.000101 avg_short_costs=0.000120 avg_gross_long_exposure=0.483748 avg_gross_short_exposure=0.389145
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 2] start
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 2] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 2][SUMMARY] days=63 avg_daily_ret=0.000833 std_daily_ret=0.003820 win_rate_days=0.603175 cum_ret=0.053356 avg_raw_turnover=1.553353 avg_turnover=0.600000 cap_hit_rate=1.000000 avg_gross_ret=0.001053 avg_trading_costs=0.000181 avg_borrow_costs=0.000039 avg_costs=0.000220 avg_long_gross_ret=0.000868 avg_short_gross_ret=0.000184 avg_long_costs=0.000099 avg_short_costs=0.000121 avg_gross_long_exposure=0.485682 avg_gross_short_exposure=0.391781
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 3] start
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 3] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 3][SUMMARY] days=63 avg_daily_ret=-0.000501 std_daily_ret=0.005747 win_rate_days=0.587302 cum_ret=-0.032073 avg_raw_turnover=1.540308 avg_turnover=0.600000 cap_hit_rate=1.000000 avg_gross_ret=-0.000280 avg_trading_costs=0.000182 avg_borrow_costs=0.000039 avg_costs=0.000221 avg_long_gross_ret=0.000325 avg_short_gross_ret=-0.000606 avg_long_costs=0.000100 avg_short_costs=0.000121 avg_gross_long_exposure=0.484496 avg_gross_short_exposure=0.391881
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 4] start
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 4] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 4][SUMMARY] days=63 avg_daily_ret=0.000255 std_daily_ret=0.004837 win_rate_days=0.492063 cum_ret=0.015465 avg_raw_turnover=1.582320 avg_turnover=0.600000 cap_hit_rate=1.000000 avg_gross_ret=0.000475 avg_trading_costs=0.000180 avg_borrow_costs=0.000039 avg_costs=0.000220 avg_long_gross_ret=0.000461 avg_short_gross_ret=0.000014 avg_long_costs=0.000097 avg_short_costs=0.000122 avg_gross_long_exposure=0.480262 avg_gross_short_exposure=0.393791
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 5] start
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 5] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 5][SUMMARY] days=63 avg_daily_ret=-0.000104 std_daily_ret=0.004272 win_rate_days=0.476190 cum_ret=-0.007109 avg_raw_turnover=1.516154 avg_turnover=0.600000 cap_hit_rate=1.000000 avg_gross_ret=0.000115 avg_trading_costs=0.000181 avg_borrow_costs=0.000038 avg_costs=0.000219 avg_long_gross_ret=-0.000645 avg_short_gross_ret=0.000760 avg_long_costs=0.000095 avg_short_costs=0.000124 avg_gross_long_exposure=0.485962 avg_gross_short_exposure=0.383386
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 6] start
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 6] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 6][SUMMARY] days=63 avg_daily_ret=0.001000 std_daily_ret=0.003982 win_rate_days=0.619048 cum_ret=0.064460 avg_raw_turnover=1.551342 avg_turnover=0.600000 cap_hit_rate=1.000000 avg_gross_ret=0.001220 avg_trading_costs=0.000181 avg_borrow_costs=0.000040 avg_costs=0.000220 avg_long_gross_ret=0.002280 avg_short_gross_ret=-0.001059 avg_long_costs=0.000096 avg_short_costs=0.000124 avg_gross_long_exposure=0.491322 avg_gross_short_exposure=0.395947
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 7] start
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 7] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 7][SUMMARY] days=63 avg_daily_ret=0.001227 std_daily_ret=0.004548 win_rate_days=0.603175 cum_ret=0.079618 avg_raw_turnover=1.541904 avg_turnover=0.600000 cap_hit_rate=1.000000 avg_gross_ret=0.001447 avg_trading_costs=0.000181 avg_borrow_costs=0.000040 avg_costs=0.000220 avg_long_gross_ret=0.001435 avg_short_gross_ret=0.000012 avg_long_costs=0.000098 avg_short_costs=0.000122 avg_gross_long_exposure=0.491515 avg_gross_short_exposure=0.396628
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 8] start
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 8] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 8][SUMMARY] days=63 avg_daily_ret=0.000421 std_daily_ret=0.004435 win_rate_days=0.571429 cum_ret=0.026222 avg_raw_turnover=1.534273 avg_turnover=0.600000 cap_hit_rate=1.000000 avg_gross_ret=0.000641 avg_trading_costs=0.000182 avg_borrow_costs=0.000039 avg_costs=0.000220 avg_long_gross_ret=0.000575 avg_short_gross_ret=0.000066 avg_long_costs=0.000098 avg_short_costs=0.000122 avg_gross_long_exposure=0.485171 avg_gross_short_exposure=0.388412
+[WF][full_regime_stack_neutralized_adaptive_exits][OVERALL] days=504 avg_daily_ret=0.000474 std_daily_ret=0.004541 win_rate_days=0.555556 cum_ret=0.263364 avg_raw_turnover=1.547720 avg_turnover=0.600000 cap_hit_rate=1.000000 avg_gross_ret=0.000694 avg_trading_costs=0.000181 avg_borrow_costs=0.000039 avg_costs=0.000220 avg_long_gross_ret=0.000783 avg_short_gross_ret=-0.000088 avg_long_costs=0.000098 avg_short_costs=0.000122 avg_gross_long_exposure=0.486020 avg_gross_short_exposure=0.391372
+[WF][full_regime_stack_neutralized_adaptive_exits][WEIGHTS][STABILITY]
+                             feature  folds  mean_weight  std_weight  mean_abs_weight  pos_folds  neg_folds  zero_folds
+    z_cond_breadth_trend_intraday_rs      8     0.118859    0.032822         0.118859          8          0           0
+                       z_intraday_rs      8     0.097811    0.026239         0.097811          8          0           0
+            z_liq_rank_x_intraday_rs      8     0.095725    0.017797         0.095725          8          0           0
+        z_intraday_rs_x_volume_shock      8     0.094662    0.023884         0.094662          8          0           0
+            z_cond_breadth_range_str      8     0.016087    0.040670         0.036774          5          3           0
+       z_cond_breadth_weak_overnight      8    -0.023181    0.033684         0.030687          3          5           0
+ z_cond_vol_compression_liq_breakout      8     0.030606    0.005259         0.030606          8          0           0
+z_cond_breadth_trend_mom_compression      8     0.015565    0.031669         0.028087          4          4           0
+          z_cond_ivol_lowliq_penalty      8     0.017335    0.022091         0.022883          6          2           0
+       z_cond_overnight_trend_follow      8     0.013414    0.015249         0.015604          6          2           0
+             z_cond_str_weak_breadth      8    -0.006764    0.014970         0.012658          4          4           0
+           z_cond_momentum_liq_trend      8     0.009714    0.010275         0.012023          7          1           0
+  z_intraday_pressure_x_volume_shock      8     0.011015    0.008974         0.011015          8          0           0
+                      z_volume_shock      8     0.009466    0.003279         0.009466          8          0           0
+                 z_intraday_pressure      8     0.008606    0.007474         0.008606          8          0           0
+[WF][full_regime_stack_neutralized_adaptive_exits][TAIL]
+      date  portfolio_ret  gross_ret  trading_costs  borrow_costs    costs  long_gross_ret  short_gross_ret  long_costs  short_costs  gross_long_exposure  gross_short_exposure  positions  raw_turnover  capped_turnover  cap_hit_rate  fold_id                                        model
+2025-12-23       0.002172   0.002396       0.000182      0.000042 0.000224        0.004236        -0.001840    0.000096     0.000128             0.534466              0.420779         33      1.181818              0.6           1.0        8 full_regime_stack_neutralized_adaptive_exits
+2025-12-24       0.005319   0.005558       0.000199      0.000039 0.000238        0.004501         0.001057    0.000113     0.000126             0.415997              0.387128         31      1.523810              0.6           1.0        8 full_regime_stack_neutralized_adaptive_exits
+2025-12-26      -0.004557  -0.004330       0.000182      0.000045 0.000227       -0.005803         0.001473    0.000096     0.000132             0.470395              0.450658         33      1.600000              0.6           1.0        8 full_regime_stack_neutralized_adaptive_exits
+2025-12-29       0.005957   0.006186       0.000194      0.000035 0.000229        0.002447         0.003739    0.000113     0.000116             0.424355              0.352116         29      1.789474              0.6           1.0        8 full_regime_stack_neutralized_adaptive_exits
+2025-12-30       0.001285   0.001502       0.000180      0.000037 0.000217       -0.000822         0.002324    0.000068     0.000149             0.500794              0.370635         29      1.473684              0.6           1.0        8 full_regime_stack_neutralized_adaptive_exits
+2025-12-31      -0.001200  -0.000982       0.000182      0.000036 0.000218        0.006542        -0.007524    0.000104     0.000114             0.478947              0.361053         30      1.578947              0.6           1.0        8 full_regime_stack_neutralized_adaptive_exits
+2026-01-02      -0.000020   0.000202       0.000185      0.000037 0.000222        0.005682        -0.005480    0.000095     0.000127             0.426316              0.373684         31      1.894737              0.6           1.0        8 full_regime_stack_neutralized_adaptive_exits
+2026-01-05       0.002838   0.003060       0.000180      0.000042 0.000222        0.005329        -0.002270    0.000101     0.000121             0.473375              0.420743         33      1.789474              0.6           1.0        8 full_regime_stack_neutralized_adaptive_exits
+2026-01-06      -0.004132  -0.003910       0.000180      0.000042 0.000222       -0.006303         0.002393    0.000087     0.000135             0.493609              0.420677         31      1.400000              0.6           1.0        8 full_regime_stack_neutralized_adaptive_exits
+2026-01-07      -0.008646  -0.008424       0.000180      0.000041 0.000221       -0.001547        -0.006877    0.000101     0.000120             0.512500              0.412500         34      1.600000              0.6           1.0        8 full_regime_stack_neutralized_adaptive_exits
+[WF][full_regime_stack_neutralized_sized_barbell] portfolio_mode=regime_inertia neutralize=True sizing=True sizing_preset=barbell adaptive_exits=False max_daily_turnover=0.6 final_weight_cap=0.08
+[WF] folds=8
+[WF][FOLD 1] train=2023-01-03 00:00:00..2024-01-03 00:00:00 test=2024-01-04 00:00:00..2024-04-04 00:00:00
+[WF][FOLD 2] train=2023-04-04 00:00:00..2024-04-04 00:00:00 test=2024-04-05 00:00:00..2024-07-05 00:00:00
+[WF][FOLD 3] train=2023-07-06 00:00:00..2024-07-05 00:00:00 test=2024-07-08 00:00:00..2024-10-03 00:00:00
+[WF][FOLD 4] train=2023-10-04 00:00:00..2024-10-03 00:00:00 test=2024-10-04 00:00:00..2025-01-03 00:00:00
+[WF][FOLD 5] train=2024-01-04 00:00:00..2025-01-03 00:00:00 test=2025-01-06 00:00:00..2025-04-07 00:00:00
+[WF][FOLD 6] train=2024-04-05 00:00:00..2025-04-07 00:00:00 test=2025-04-08 00:00:00..2025-07-09 00:00:00
+[WF][FOLD 7] train=2024-07-08 00:00:00..2025-07-09 00:00:00 test=2025-07-10 00:00:00..2025-10-07 00:00:00
+[WF][FOLD 8] train=2024-10-04 00:00:00..2025-10-07 00:00:00 test=2025-10-08 00:00:00..2026-01-07 00:00:00
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 1] start
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 1] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 1][SUMMARY] days=63 avg_daily_ret=0.001052 std_daily_ret=0.004425 win_rate_days=0.539683 cum_ret=0.067838 avg_raw_turnover=1.548249 avg_turnover=0.600000 cap_hit_rate=1.000000 avg_gross_ret=0.001270 avg_trading_costs=0.000181 avg_borrow_costs=0.000037 avg_costs=0.000218 avg_long_gross_ret=0.000898 avg_short_gross_ret=0.000372 avg_long_costs=0.000102 avg_short_costs=0.000116 avg_gross_long_exposure=0.447710 avg_gross_short_exposure=0.373568
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 2] start
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 2] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 2][SUMMARY] days=63 avg_daily_ret=0.000990 std_daily_ret=0.004688 win_rate_days=0.555556 cum_ret=0.063599 avg_raw_turnover=1.549161 avg_turnover=0.600000 cap_hit_rate=1.000000 avg_gross_ret=0.001208 avg_trading_costs=0.000180 avg_borrow_costs=0.000037 avg_costs=0.000218 avg_long_gross_ret=0.001006 avg_short_gross_ret=0.000202 avg_long_costs=0.000101 avg_short_costs=0.000117 avg_gross_long_exposure=0.450192 avg_gross_short_exposure=0.374076
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 3] start
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 3] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 3][SUMMARY] days=63 avg_daily_ret=-0.000452 std_daily_ret=0.006200 win_rate_days=0.492063 cum_ret=-0.029241 avg_raw_turnover=1.565977 avg_turnover=0.600000 cap_hit_rate=1.000000 avg_gross_ret=-0.000233 avg_trading_costs=0.000181 avg_borrow_costs=0.000038 avg_costs=0.000219 avg_long_gross_ret=0.000279 avg_short_gross_ret=-0.000512 avg_long_costs=0.000104 avg_short_costs=0.000116 avg_gross_long_exposure=0.452357 avg_gross_short_exposure=0.378112
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 4] start
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 4] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 4][SUMMARY] days=63 avg_daily_ret=0.000632 std_daily_ret=0.005274 win_rate_days=0.507937 cum_ret=0.039745 avg_raw_turnover=1.549929 avg_turnover=0.600000 cap_hit_rate=1.000000 avg_gross_ret=0.000850 avg_trading_costs=0.000180 avg_borrow_costs=0.000037 avg_costs=0.000218 avg_long_gross_ret=0.000729 avg_short_gross_ret=0.000121 avg_long_costs=0.000100 avg_short_costs=0.000118 avg_gross_long_exposure=0.450326 avg_gross_short_exposure=0.372585
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 5] start
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 5] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 5][SUMMARY] days=63 avg_daily_ret=0.000124 std_daily_ret=0.004944 win_rate_days=0.523810 cum_ret=0.007049 avg_raw_turnover=1.564864 avg_turnover=0.600000 cap_hit_rate=1.000000 avg_gross_ret=0.000342 avg_trading_costs=0.000181 avg_borrow_costs=0.000038 avg_costs=0.000218 avg_long_gross_ret=-0.000556 avg_short_gross_ret=0.000898 avg_long_costs=0.000099 avg_short_costs=0.000119 avg_gross_long_exposure=0.453193 avg_gross_short_exposure=0.375574
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 6] start
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 6] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 6][SUMMARY] days=63 avg_daily_ret=0.000940 std_daily_ret=0.004486 win_rate_days=0.555556 cum_ret=0.060322 avg_raw_turnover=1.561051 avg_turnover=0.600000 cap_hit_rate=1.000000 avg_gross_ret=0.001159 avg_trading_costs=0.000181 avg_borrow_costs=0.000038 avg_costs=0.000219 avg_long_gross_ret=0.002231 avg_short_gross_ret=-0.001072 avg_long_costs=0.000099 avg_short_costs=0.000120 avg_gross_long_exposure=0.457164 avg_gross_short_exposure=0.382895
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 7] start
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 7] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 7][SUMMARY] days=63 avg_daily_ret=0.001576 std_daily_ret=0.005333 win_rate_days=0.555556 cum_ret=0.103356 avg_raw_turnover=1.521975 avg_turnover=0.600000 cap_hit_rate=1.000000 avg_gross_ret=0.001795 avg_trading_costs=0.000181 avg_borrow_costs=0.000038 avg_costs=0.000219 avg_long_gross_ret=0.001719 avg_short_gross_ret=0.000076 avg_long_costs=0.000100 avg_short_costs=0.000119 avg_gross_long_exposure=0.458922 avg_gross_short_exposure=0.380531
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 8] start
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 8] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 8][SUMMARY] days=63 avg_daily_ret=0.000835 std_daily_ret=0.004483 win_rate_days=0.634921 cum_ret=0.053337 avg_raw_turnover=1.513093 avg_turnover=0.600000 cap_hit_rate=1.000000 avg_gross_ret=0.001054 avg_trading_costs=0.000181 avg_borrow_costs=0.000038 avg_costs=0.000219 avg_long_gross_ret=0.000827 avg_short_gross_ret=0.000227 avg_long_costs=0.000101 avg_short_costs=0.000118 avg_gross_long_exposure=0.453338 avg_gross_short_exposure=0.376049
+[WF][full_regime_stack_neutralized_sized_barbell][OVERALL] days=504 avg_daily_ret=0.000712 std_daily_ret=0.005011 win_rate_days=0.545635 cum_ret=0.422633 avg_raw_turnover=1.546787 avg_turnover=0.600000 cap_hit_rate=1.000000 avg_gross_ret=0.000931 avg_trading_costs=0.000181 avg_borrow_costs=0.000038 avg_costs=0.000218 avg_long_gross_ret=0.000892 avg_short_gross_ret=0.000039 avg_long_costs=0.000101 avg_short_costs=0.000118 avg_gross_long_exposure=0.452900 avg_gross_short_exposure=0.376674
+[WF][full_regime_stack_neutralized_sized_barbell][WEIGHTS][STABILITY]
+                             feature  folds  mean_weight  std_weight  mean_abs_weight  pos_folds  neg_folds  zero_folds
+    z_cond_breadth_trend_intraday_rs      8     0.118859    0.032822         0.118859          8          0           0
+                       z_intraday_rs      8     0.097811    0.026239         0.097811          8          0           0
+            z_liq_rank_x_intraday_rs      8     0.095725    0.017797         0.095725          8          0           0
+        z_intraday_rs_x_volume_shock      8     0.094662    0.023884         0.094662          8          0           0
+            z_cond_breadth_range_str      8     0.016087    0.040670         0.036774          5          3           0
+       z_cond_breadth_weak_overnight      8    -0.023181    0.033684         0.030687          3          5           0
+ z_cond_vol_compression_liq_breakout      8     0.030606    0.005259         0.030606          8          0           0
+z_cond_breadth_trend_mom_compression      8     0.015565    0.031669         0.028087          4          4           0
+          z_cond_ivol_lowliq_penalty      8     0.017335    0.022091         0.022883          6          2           0
+       z_cond_overnight_trend_follow      8     0.013414    0.015249         0.015604          6          2           0
+             z_cond_str_weak_breadth      8    -0.006764    0.014970         0.012658          4          4           0
+           z_cond_momentum_liq_trend      8     0.009714    0.010275         0.012023          7          1           0
+  z_intraday_pressure_x_volume_shock      8     0.011015    0.008974         0.011015          8          0           0
+                      z_volume_shock      8     0.009466    0.003279         0.009466          8          0           0
+                 z_intraday_pressure      8     0.008606    0.007474         0.008606          8          0           0
+[WF][full_regime_stack_neutralized_sized_barbell][TAIL]
+      date  portfolio_ret  gross_ret  trading_costs  borrow_costs    costs  long_gross_ret  short_gross_ret  long_costs  short_costs  gross_long_exposure  gross_short_exposure  positions  raw_turnover  capped_turnover  cap_hit_rate  fold_id                                       model
+2025-12-23       0.000151   0.000375       0.000181      0.000043 0.000224        0.004118        -0.003743    0.000087     0.000137             0.478384              0.428604         32      1.480000              0.6           1.0        8 full_regime_stack_neutralized_sized_barbell
+2025-12-24       0.007183   0.007411       0.000191      0.000037 0.000228        0.006995         0.000416    0.000116     0.000112             0.416803              0.367023         31      1.611868              0.6           1.0        8 full_regime_stack_neutralized_sized_barbell
+2025-12-26      -0.004889  -0.004666       0.000182      0.000041 0.000223       -0.006400         0.001734    0.000097     0.000126             0.470774              0.409296         33      1.550004              0.6           1.0        8 full_regime_stack_neutralized_sized_barbell
+2025-12-29       0.005785   0.006007       0.000190      0.000032 0.000222        0.003103         0.002904    0.000118     0.000104             0.398300              0.318300         29      1.647139              0.6           1.0        8 full_regime_stack_neutralized_sized_barbell
+2025-12-30       0.000826   0.001043       0.000180      0.000037 0.000217       -0.001536         0.002578    0.000083     0.000134             0.446323              0.366323         30      1.420510              0.6           1.0        8 full_regime_stack_neutralized_sized_barbell
+2025-12-31      -0.000243  -0.000026       0.000182      0.000035 0.000217        0.006595        -0.006621    0.000093     0.000124             0.428379              0.348379         30      1.487139              0.6           1.0        8 full_regime_stack_neutralized_sized_barbell
+2026-01-02       0.001342   0.001562       0.000186      0.000034 0.000219        0.007168        -0.005607    0.000096     0.000124             0.416870              0.336870         31      1.822776              0.6           1.0        8 full_regime_stack_neutralized_sized_barbell
+2026-01-05       0.006062   0.006279       0.000180      0.000037 0.000217        0.006779        -0.000500    0.000102     0.000115             0.451617              0.371617         33      1.709462              0.6           1.0        8 full_regime_stack_neutralized_sized_barbell
+2026-01-06      -0.003155  -0.002936       0.000180      0.000039 0.000219       -0.005782         0.002846    0.000110     0.000109             0.455587              0.388164         32      1.441655              0.6           1.0        8 full_regime_stack_neutralized_sized_barbell
+2026-01-07      -0.009305  -0.009084       0.000180      0.000041 0.000221       -0.002583        -0.006501    0.000105     0.000116             0.481354              0.409745         34      1.661319              0.6           1.0        8 full_regime_stack_neutralized_sized_barbell
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits] portfolio_mode=regime_inertia neutralize=True sizing=True sizing_preset=barbell adaptive_exits=True max_daily_turnover=0.6 final_weight_cap=0.08
+[WF] folds=8
+[WF][FOLD 1] train=2023-01-03 00:00:00..2024-01-03 00:00:00 test=2024-01-04 00:00:00..2024-04-04 00:00:00
+[WF][FOLD 2] train=2023-04-04 00:00:00..2024-04-04 00:00:00 test=2024-04-05 00:00:00..2024-07-05 00:00:00
+[WF][FOLD 3] train=2023-07-06 00:00:00..2024-07-05 00:00:00 test=2024-07-08 00:00:00..2024-10-03 00:00:00
+[WF][FOLD 4] train=2023-10-04 00:00:00..2024-10-03 00:00:00 test=2024-10-04 00:00:00..2025-01-03 00:00:00
+[WF][FOLD 5] train=2024-01-04 00:00:00..2025-01-03 00:00:00 test=2025-01-06 00:00:00..2025-04-07 00:00:00
+[WF][FOLD 6] train=2024-04-05 00:00:00..2025-04-07 00:00:00 test=2025-04-08 00:00:00..2025-07-09 00:00:00
+[WF][FOLD 7] train=2024-07-08 00:00:00..2025-07-09 00:00:00 test=2025-07-10 00:00:00..2025-10-07 00:00:00
+[WF][FOLD 8] train=2024-10-04 00:00:00..2025-10-07 00:00:00 test=2025-10-08 00:00:00..2026-01-07 00:00:00
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 1] start
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 1] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 1][SUMMARY] days=63 avg_daily_ret=0.000848 std_daily_ret=0.004438 win_rate_days=0.539683 cum_ret=0.054190 avg_raw_turnover=1.558164 avg_turnover=0.600000 cap_hit_rate=1.000000 avg_gross_ret=0.001065 avg_trading_costs=0.000181 avg_borrow_costs=0.000036 avg_costs=0.000217 avg_long_gross_ret=0.000917 avg_short_gross_ret=0.000148 avg_long_costs=0.000103 avg_short_costs=0.000114 avg_gross_long_exposure=0.455309 avg_gross_short_exposure=0.361821
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 2] start
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 2] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 2][SUMMARY] days=63 avg_daily_ret=0.000940 std_daily_ret=0.004369 win_rate_days=0.555556 cum_ret=0.060363 avg_raw_turnover=1.559707 avg_turnover=0.600000 cap_hit_rate=1.000000 avg_gross_ret=0.001157 avg_trading_costs=0.000181 avg_borrow_costs=0.000036 avg_costs=0.000217 avg_long_gross_ret=0.001044 avg_short_gross_ret=0.000113 avg_long_costs=0.000102 avg_short_costs=0.000114 avg_gross_long_exposure=0.461181 avg_gross_short_exposure=0.362519
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 3] start
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 3] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 3][SUMMARY] days=63 avg_daily_ret=-0.000293 std_daily_ret=0.006236 win_rate_days=0.555556 cum_ret=-0.019464 avg_raw_turnover=1.571872 avg_turnover=0.600000 cap_hit_rate=1.000000 avg_gross_ret=-0.000074 avg_trading_costs=0.000181 avg_borrow_costs=0.000037 avg_costs=0.000218 avg_long_gross_ret=0.000281 avg_short_gross_ret=-0.000355 avg_long_costs=0.000105 avg_short_costs=0.000113 avg_gross_long_exposure=0.458699 avg_gross_short_exposure=0.368999
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 4] start
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 4] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 4][SUMMARY] days=63 avg_daily_ret=0.000705 std_daily_ret=0.005353 win_rate_days=0.523810 cum_ret=0.044486 avg_raw_turnover=1.558608 avg_turnover=0.600000 cap_hit_rate=1.000000 avg_gross_ret=0.000922 avg_trading_costs=0.000180 avg_borrow_costs=0.000037 avg_costs=0.000217 avg_long_gross_ret=0.000727 avg_short_gross_ret=0.000195 avg_long_costs=0.000100 avg_short_costs=0.000117 avg_gross_long_exposure=0.456463 avg_gross_short_exposure=0.365126
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 5] start
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 5] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 5][SUMMARY] days=63 avg_daily_ret=0.000064 std_daily_ret=0.004938 win_rate_days=0.492063 cum_ret=0.003256 avg_raw_turnover=1.566730 avg_turnover=0.600000 cap_hit_rate=1.000000 avg_gross_ret=0.000281 avg_trading_costs=0.000181 avg_borrow_costs=0.000037 avg_costs=0.000218 avg_long_gross_ret=-0.000531 avg_short_gross_ret=0.000813 avg_long_costs=0.000100 avg_short_costs=0.000118 avg_gross_long_exposure=0.457693 avg_gross_short_exposure=0.369202
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 6] start
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 6] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 6][SUMMARY] days=63 avg_daily_ret=0.000981 std_daily_ret=0.004552 win_rate_days=0.555556 cum_ret=0.063054 avg_raw_turnover=1.572641 avg_turnover=0.600000 cap_hit_rate=1.000000 avg_gross_ret=0.001199 avg_trading_costs=0.000181 avg_borrow_costs=0.000037 avg_costs=0.000218 avg_long_gross_ret=0.002315 avg_short_gross_ret=-0.001116 avg_long_costs=0.000100 avg_short_costs=0.000118 avg_gross_long_exposure=0.464771 avg_gross_short_exposure=0.373842
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 7] start
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 7] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 7][SUMMARY] days=63 avg_daily_ret=0.001580 std_daily_ret=0.005398 win_rate_days=0.555556 cum_ret=0.103571 avg_raw_turnover=1.528556 avg_turnover=0.600000 cap_hit_rate=1.000000 avg_gross_ret=0.001797 avg_trading_costs=0.000181 avg_borrow_costs=0.000037 avg_costs=0.000218 avg_long_gross_ret=0.001741 avg_short_gross_ret=0.000056 avg_long_costs=0.000101 avg_short_costs=0.000117 avg_gross_long_exposure=0.465540 avg_gross_short_exposure=0.369728
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 8] start
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 8] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 8][SUMMARY] days=63 avg_daily_ret=0.000823 std_daily_ret=0.004493 win_rate_days=0.634921 cum_ret=0.052515 avg_raw_turnover=1.530488 avg_turnover=0.600000 cap_hit_rate=1.000000 avg_gross_ret=0.001040 avg_trading_costs=0.000181 avg_borrow_costs=0.000036 avg_costs=0.000218 avg_long_gross_ret=0.000803 avg_short_gross_ret=0.000237 avg_long_costs=0.000101 avg_short_costs=0.000117 avg_gross_long_exposure=0.462550 avg_gross_short_exposure=0.364224
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][OVERALL] days=504 avg_daily_ret=0.000706 std_daily_ret=0.005004 win_rate_days=0.551587 cum_ret=0.418194 avg_raw_turnover=1.555846 avg_turnover=0.600000 cap_hit_rate=1.000000 avg_gross_ret=0.000923 avg_trading_costs=0.000181 avg_borrow_costs=0.000037 avg_costs=0.000217 avg_long_gross_ret=0.000912 avg_short_gross_ret=0.000011 avg_long_costs=0.000102 avg_short_costs=0.000116 avg_gross_long_exposure=0.460276 avg_gross_short_exposure=0.366933
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][WEIGHTS][STABILITY]
+                             feature  folds  mean_weight  std_weight  mean_abs_weight  pos_folds  neg_folds  zero_folds
+    z_cond_breadth_trend_intraday_rs      8     0.118859    0.032822         0.118859          8          0           0
+                       z_intraday_rs      8     0.097811    0.026239         0.097811          8          0           0
+            z_liq_rank_x_intraday_rs      8     0.095725    0.017797         0.095725          8          0           0
+        z_intraday_rs_x_volume_shock      8     0.094662    0.023884         0.094662          8          0           0
+            z_cond_breadth_range_str      8     0.016087    0.040670         0.036774          5          3           0
+       z_cond_breadth_weak_overnight      8    -0.023181    0.033684         0.030687          3          5           0
+ z_cond_vol_compression_liq_breakout      8     0.030606    0.005259         0.030606          8          0           0
+z_cond_breadth_trend_mom_compression      8     0.015565    0.031669         0.028087          4          4           0
+          z_cond_ivol_lowliq_penalty      8     0.017335    0.022091         0.022883          6          2           0
+       z_cond_overnight_trend_follow      8     0.013414    0.015249         0.015604          6          2           0
+             z_cond_str_weak_breadth      8    -0.006764    0.014970         0.012658          4          4           0
+           z_cond_momentum_liq_trend      8     0.009714    0.010275         0.012023          7          1           0
+  z_intraday_pressure_x_volume_shock      8     0.011015    0.008974         0.011015          8          0           0
+                      z_volume_shock      8     0.009466    0.003279         0.009466          8          0           0
+                 z_intraday_pressure      8     0.008606    0.007474         0.008606          8          0           0
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][TAIL]
+      date  portfolio_ret  gross_ret  trading_costs  borrow_costs    costs  long_gross_ret  short_gross_ret  long_costs  short_costs  gross_long_exposure  gross_short_exposure  positions  raw_turnover  capped_turnover  cap_hit_rate  fold_id                                                      model
+2025-12-23       0.002501   0.002723       0.000181      0.000040 0.000222        0.004327        -0.001604    0.000092     0.000130             0.499334              0.404402         31      1.456406              0.6           1.0        8 full_regime_stack_neutralized_sized_barbell_adaptive_exits
+2025-12-24       0.007183   0.007411       0.000191      0.000037 0.000228        0.006995         0.000416    0.000116     0.000112             0.416803              0.367023         31      1.611868              0.6           1.0        8 full_regime_stack_neutralized_sized_barbell_adaptive_exits
+2025-12-26      -0.004889  -0.004666       0.000182      0.000041 0.000223       -0.006400         0.001734    0.000097     0.000126             0.470774              0.409296         33      1.550004              0.6           1.0        8 full_regime_stack_neutralized_sized_barbell_adaptive_exits
+2025-12-29       0.005808   0.006028       0.000189      0.000031 0.000220        0.003275         0.002753    0.000114     0.000106             0.408427              0.307703         29      1.738845              0.6           1.0        8 full_regime_stack_neutralized_sized_barbell_adaptive_exits
+2025-12-30       0.000398   0.000611       0.000180      0.000033 0.000213       -0.001562         0.002173    0.000084     0.000129             0.473456              0.325330         29      1.483404              0.6           1.0        8 full_regime_stack_neutralized_sized_barbell_adaptive_exits
+2025-12-31      -0.001700  -0.001485       0.000182      0.000032 0.000214        0.006856        -0.008341    0.000098     0.000117             0.446849              0.319610         29      1.465132              0.6           1.0        8 full_regime_stack_neutralized_sized_barbell_adaptive_exits
+2026-01-02       0.001342   0.001562       0.000186      0.000034 0.000219        0.007168        -0.005607    0.000096     0.000124             0.416870              0.336870         31      1.822776              0.6           1.0        8 full_regime_stack_neutralized_sized_barbell_adaptive_exits
+2026-01-05       0.006062   0.006279       0.000180      0.000037 0.000217        0.006779        -0.000500    0.000102     0.000115             0.451617              0.371617         33      1.709462              0.6           1.0        8 full_regime_stack_neutralized_sized_barbell_adaptive_exits
+2026-01-06      -0.003197  -0.002979       0.000180      0.000038 0.000218       -0.005830         0.002851    0.000112     0.000106             0.460549              0.380549         31      1.420510              0.6           1.0        8 full_regime_stack_neutralized_sized_barbell_adaptive_exits
+2026-01-07      -0.009699  -0.009479       0.000180      0.000040 0.000220       -0.002553        -0.006926    0.000107     0.000112             0.487583              0.396597         33      1.650446              0.6           1.0        8 full_regime_stack_neutralized_sized_barbell_adaptive_exits
+[WF][ABLATION][SUMMARY]
+                                                     model portfolio_mode  neutralize  sizing sizing_preset  adaptive_exits  days  avg_daily_ret  std_daily_ret  win_rate_days  cum_ret  avg_raw_turnover  avg_turnover  cap_hit_rate  avg_gross_ret  avg_trading_costs  avg_borrow_costs  avg_costs  avg_long_gross_ret  avg_short_gross_ret  avg_long_costs  avg_short_costs  avg_gross_long_exposure  avg_gross_short_exposure
+               full_regime_stack_neutralized_sized_barbell regime_inertia        True    True       barbell           False   504       0.000712       0.005011       0.545635 0.422633          1.546787           0.6           1.0       0.000931           0.000181          0.000038   0.000218            0.000892             0.000039        0.000101         0.000118                 0.452900                  0.376674
+full_regime_stack_neutralized_sized_barbell_adaptive_exits regime_inertia        True    True       barbell            True   504       0.000706       0.005004       0.551587 0.418194          1.555846           0.6           1.0       0.000923           0.000181          0.000037   0.000217            0.000912             0.000011        0.000102         0.000116                 0.460276                  0.366933
+                             full_regime_stack_neutralized regime_inertia        True   False          none           False   504       0.000538       0.004450       0.551587 0.305164          1.429140           0.6           1.0       0.000761           0.000181          0.000042   0.000223            0.000767            -0.000006        0.000097         0.000125                 0.451697                  0.418189
+              full_regime_stack_neutralized_adaptive_exits regime_inertia        True   False          none            True   504       0.000474       0.004541       0.555556 0.263364          1.547720           0.6           1.0       0.000694           0.000181          0.000039   0.000220            0.000783            -0.000088        0.000098         0.000122                 0.486020                  0.391372
+Press Enter to exit...
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> Set-StrictMode -Version Latest
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $ErrorActionPreference = "Stop"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> Set-Location -LiteralPath "C:\Users\Dmytro Govor\Documents\Python-Edge"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:PYTHONPATH = ".\src"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:MAX_DAILY_TURNOVER = "1.0"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:FINAL_WEIGHT_CAP = "0.08"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_ranker_wf.py
+[CFG] feature_file=data\features\feature_matrix_v1.parquet
+[CFG] target_col=target_fwd_ret_1d
+[CFG] train_days=252 test_days=63 step_days=63 top_pct=0.1
+[CFG] enter_pct=0.1 exit_pct=0.2
+[CFG] max_daily_turnover=1.0 final_weight_cap=0.08
+[WF][full_regime_stack_neutralized] portfolio_mode=regime_inertia neutralize=True sizing=False sizing_preset=None adaptive_exits=False max_daily_turnover=1.0 final_weight_cap=0.08
+[WF] folds=8
+[WF][FOLD 1] train=2023-01-03 00:00:00..2024-01-03 00:00:00 test=2024-01-04 00:00:00..2024-04-04 00:00:00
+[WF][FOLD 2] train=2023-04-04 00:00:00..2024-04-04 00:00:00 test=2024-04-05 00:00:00..2024-07-05 00:00:00
+[WF][FOLD 3] train=2023-07-06 00:00:00..2024-07-05 00:00:00 test=2024-07-08 00:00:00..2024-10-03 00:00:00
+[WF][FOLD 4] train=2023-10-04 00:00:00..2024-10-03 00:00:00 test=2024-10-04 00:00:00..2025-01-03 00:00:00
+[WF][FOLD 5] train=2024-01-04 00:00:00..2025-01-03 00:00:00 test=2025-01-06 00:00:00..2025-04-07 00:00:00
+[WF][FOLD 6] train=2024-04-05 00:00:00..2025-04-07 00:00:00 test=2025-04-08 00:00:00..2025-07-09 00:00:00
+[WF][FOLD 7] train=2024-07-08 00:00:00..2025-07-09 00:00:00 test=2025-07-10 00:00:00..2025-10-07 00:00:00
+[WF][FOLD 8] train=2024-10-04 00:00:00..2025-10-07 00:00:00 test=2025-10-08 00:00:00..2026-01-07 00:00:00
+[WF][full_regime_stack_neutralized][FOLD 1] start
+[WF][full_regime_stack_neutralized][FOLD 1] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized][FOLD 1][SUMMARY] days=63 avg_daily_ret=0.001294 std_daily_ret=0.004311 win_rate_days=0.603175 cum_ret=0.084258 avg_raw_turnover=1.439850 avg_turnover=0.996025 cap_hit_rate=0.952381 avg_gross_ret=0.001639 avg_trading_costs=0.000301 avg_borrow_costs=0.000044 avg_costs=0.000345 avg_long_gross_ret=0.001145 avg_short_gross_ret=0.000494 avg_long_costs=0.000157 avg_short_costs=0.000184 avg_gross_long_exposure=0.459711 avg_gross_short_exposure=0.435295
+[WF][full_regime_stack_neutralized][FOLD 2] start
+[WF][full_regime_stack_neutralized][FOLD 2] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized][FOLD 2][SUMMARY] days=63 avg_daily_ret=0.000935 std_daily_ret=0.004622 win_rate_days=0.571429 cum_ret=0.059965 avg_raw_turnover=1.446063 avg_turnover=0.995450 cap_hit_rate=0.952381 avg_gross_ret=0.001278 avg_trading_costs=0.000300 avg_borrow_costs=0.000043 avg_costs=0.000342 avg_long_gross_ret=0.000985 avg_short_gross_ret=0.000293 avg_long_costs=0.000160 avg_short_costs=0.000180 avg_gross_long_exposure=0.466943 avg_gross_short_exposure=0.425494
+[WF][full_regime_stack_neutralized][FOLD 3] start
+[WF][full_regime_stack_neutralized][FOLD 3] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized][FOLD 3][SUMMARY] days=63 avg_daily_ret=0.000218 std_daily_ret=0.006033 win_rate_days=0.571429 cum_ret=0.012711 avg_raw_turnover=1.410214 avg_turnover=0.998042 cap_hit_rate=0.936508 avg_gross_ret=0.000564 avg_trading_costs=0.000302 avg_borrow_costs=0.000044 avg_costs=0.000345 avg_long_gross_ret=0.000526 avg_short_gross_ret=0.000038 avg_long_costs=0.000156 avg_short_costs=0.000183 avg_gross_long_exposure=0.463060 avg_gross_short_exposure=0.437767
+[WF][full_regime_stack_neutralized][FOLD 4] start
+[WF][full_regime_stack_neutralized][FOLD 4] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized][FOLD 4][SUMMARY] days=63 avg_daily_ret=0.000412 std_daily_ret=0.005149 win_rate_days=0.507937 cum_ret=0.025469 avg_raw_turnover=1.457300 avg_turnover=1.000000 cap_hit_rate=0.984127 avg_gross_ret=0.000756 avg_trading_costs=0.000301 avg_borrow_costs=0.000043 avg_costs=0.000344 avg_long_gross_ret=0.000686 avg_short_gross_ret=0.000071 avg_long_costs=0.000160 avg_short_costs=0.000184 avg_gross_long_exposure=0.459391 avg_gross_short_exposure=0.433931
+[WF][full_regime_stack_neutralized][FOLD 5] start
+[WF][full_regime_stack_neutralized][FOLD 5] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized][FOLD 5][SUMMARY] days=63 avg_daily_ret=0.000702 std_daily_ret=0.005551 win_rate_days=0.555556 cum_ret=0.044222 avg_raw_turnover=1.418937 avg_turnover=0.998824 cap_hit_rate=0.952381 avg_gross_ret=0.001046 avg_trading_costs=0.000301 avg_borrow_costs=0.000043 avg_costs=0.000344 avg_long_gross_ret=-0.000347 avg_short_gross_ret=0.001393 avg_long_costs=0.000151 avg_short_costs=0.000189 avg_gross_long_exposure=0.468654 avg_gross_short_exposure=0.428603
+[WF][full_regime_stack_neutralized][FOLD 6] start
+[WF][full_regime_stack_neutralized][FOLD 6] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized][FOLD 6][SUMMARY] days=63 avg_daily_ret=0.001369 std_daily_ret=0.004780 win_rate_days=0.587302 cum_ret=0.089242 avg_raw_turnover=1.428308 avg_turnover=0.997732 cap_hit_rate=0.968254 avg_gross_ret=0.001713 avg_trading_costs=0.000301 avg_borrow_costs=0.000044 avg_costs=0.000344 avg_long_gross_ret=0.002752 avg_short_gross_ret=-0.001039 avg_long_costs=0.000159 avg_short_costs=0.000184 avg_gross_long_exposure=0.476158 avg_gross_short_exposure=0.435739
+[WF][full_regime_stack_neutralized][FOLD 7] start
+[WF][full_regime_stack_neutralized][FOLD 7] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized][FOLD 7][SUMMARY] days=63 avg_daily_ret=0.001403 std_daily_ret=0.004968 win_rate_days=0.587302 cum_ret=0.091495 avg_raw_turnover=1.412024 avg_turnover=0.993099 cap_hit_rate=0.936508 avg_gross_ret=0.001746 avg_trading_costs=0.000299 avg_borrow_costs=0.000043 avg_costs=0.000343 avg_long_gross_ret=0.001529 avg_short_gross_ret=0.000216 avg_long_costs=0.000151 avg_short_costs=0.000186 avg_gross_long_exposure=0.474284 avg_gross_short_exposure=0.434822
+[WF][full_regime_stack_neutralized][FOLD 8] start
+[WF][full_regime_stack_neutralized][FOLD 8] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized][FOLD 8][SUMMARY] days=63 avg_daily_ret=0.000652 std_daily_ret=0.004675 win_rate_days=0.634921 cum_ret=0.041207 avg_raw_turnover=1.420421 avg_turnover=0.999365 cap_hit_rate=0.968254 avg_gross_ret=0.000998 avg_trading_costs=0.000303 avg_borrow_costs=0.000044 avg_costs=0.000346 avg_long_gross_ret=0.000584 avg_short_gross_ret=0.000414 avg_long_costs=0.000158 avg_short_costs=0.000186 avg_gross_long_exposure=0.467034 avg_gross_short_exposure=0.435485
+[WF][full_regime_stack_neutralized][OVERALL] days=504 avg_daily_ret=0.000873 std_daily_ret=0.005021 win_rate_days=0.577381 cum_ret=0.542796 avg_raw_turnover=1.429140 avg_turnover=0.997317 cap_hit_rate=0.956349 avg_gross_ret=0.001217 avg_trading_costs=0.000301 avg_borrow_costs=0.000043 avg_costs=0.000344 avg_long_gross_ret=0.000983 avg_short_gross_ret=0.000235 avg_long_costs=0.000157 avg_short_costs=0.000185 avg_gross_long_exposure=0.466904 avg_gross_short_exposure=0.433392
+[WF][full_regime_stack_neutralized][WEIGHTS][STABILITY]
+                             feature  folds  mean_weight  std_weight  mean_abs_weight  pos_folds  neg_folds  zero_folds
+    z_cond_breadth_trend_intraday_rs      8     0.118859    0.032822         0.118859          8          0           0
+                       z_intraday_rs      8     0.097811    0.026239         0.097811          8          0           0
+            z_liq_rank_x_intraday_rs      8     0.095725    0.017797         0.095725          8          0           0
+        z_intraday_rs_x_volume_shock      8     0.094662    0.023884         0.094662          8          0           0
+            z_cond_breadth_range_str      8     0.016087    0.040670         0.036774          5          3           0
+       z_cond_breadth_weak_overnight      8    -0.023181    0.033684         0.030687          3          5           0
+ z_cond_vol_compression_liq_breakout      8     0.030606    0.005259         0.030606          8          0           0
+z_cond_breadth_trend_mom_compression      8     0.015565    0.031669         0.028087          4          4           0
+          z_cond_ivol_lowliq_penalty      8     0.017335    0.022091         0.022883          6          2           0
+       z_cond_overnight_trend_follow      8     0.013414    0.015249         0.015604          6          2           0
+             z_cond_str_weak_breadth      8    -0.006764    0.014970         0.012658          4          4           0
+           z_cond_momentum_liq_trend      8     0.009714    0.010275         0.012023          7          1           0
+  z_intraday_pressure_x_volume_shock      8     0.011015    0.008974         0.011015          8          0           0
+                      z_volume_shock      8     0.009466    0.003279         0.009466          8          0           0
+                 z_intraday_pressure      8     0.008606    0.007474         0.008606          8          0           0
+[WF][full_regime_stack_neutralized][TAIL]
+      date  portfolio_ret  gross_ret  trading_costs  borrow_costs    costs  long_gross_ret  short_gross_ret  long_costs  short_costs  gross_long_exposure  gross_short_exposure  positions  raw_turnover  capped_turnover  cap_hit_rate  fold_id                         model
+2025-12-23       0.000794   0.001138       0.000292      0.000052 0.000344        0.003105        -0.001967    0.000080     0.000139             0.480000              0.520000         25      0.960000             0.96           0.0        8 full_regime_stack_neutralized
+2025-12-24       0.004655   0.005033       0.000331      0.000046 0.000378        0.004088         0.000946    0.000172     0.000205             0.416243              0.461534         34      1.440000             1.00           1.0        8 full_regime_stack_neutralized
+2025-12-26      -0.005237  -0.004886       0.000304      0.000048 0.000351       -0.006700         0.001814    0.000121     0.000230             0.459077              0.475446         34      1.523810             1.00           1.0        8 full_regime_stack_neutralized
+2025-12-29       0.003597   0.003961       0.000325      0.000039 0.000364        0.001542         0.002419    0.000156     0.000208             0.387500              0.387500         30      1.600000             1.00           1.0        8 full_regime_stack_neutralized
+2025-12-30       0.000082   0.000427       0.000300      0.000044 0.000344       -0.002081         0.002508    0.000134     0.000210             0.480357              0.444643         31      1.333333             1.00           1.0        8 full_regime_stack_neutralized
+2025-12-31      -0.003801  -0.003457       0.000303      0.000040 0.000343        0.004680        -0.008137    0.000163     0.000181             0.452528              0.401813         32      1.619048             1.00           1.0        8 full_regime_stack_neutralized
+2026-01-02      -0.000092   0.000254       0.000309      0.000037 0.000346        0.004655        -0.004401    0.000168     0.000178             0.365497              0.371345         31      1.714286             1.00           1.0        8 full_regime_stack_neutralized
+2026-01-05       0.001843   0.002188       0.000300      0.000045 0.000345        0.005267        -0.003079    0.000146     0.000199             0.430556              0.450397         35      1.714286             1.00           1.0        8 full_regime_stack_neutralized
+2026-01-06      -0.001473  -0.001123       0.000300      0.000050 0.000350       -0.005468         0.004346    0.000201     0.000149             0.464286              0.500000         32      1.217391             1.00           1.0        8 full_regime_stack_neutralized
+2026-01-07      -0.010726  -0.010378       0.000300      0.000048 0.000348       -0.003750        -0.006628    0.000163     0.000185             0.464834              0.478900         37      1.478261             1.00           1.0        8 full_regime_stack_neutralized
+[WF][full_regime_stack_neutralized_adaptive_exits] portfolio_mode=regime_inertia neutralize=True sizing=False sizing_preset=None adaptive_exits=True max_daily_turnover=1.0 final_weight_cap=0.08
+[WF] folds=8
+[WF][FOLD 1] train=2023-01-03 00:00:00..2024-01-03 00:00:00 test=2024-01-04 00:00:00..2024-04-04 00:00:00
+[WF][FOLD 2] train=2023-04-04 00:00:00..2024-04-04 00:00:00 test=2024-04-05 00:00:00..2024-07-05 00:00:00
+[WF][FOLD 3] train=2023-07-06 00:00:00..2024-07-05 00:00:00 test=2024-07-08 00:00:00..2024-10-03 00:00:00
+[WF][FOLD 4] train=2023-10-04 00:00:00..2024-10-03 00:00:00 test=2024-10-04 00:00:00..2025-01-03 00:00:00
+[WF][FOLD 5] train=2024-01-04 00:00:00..2025-01-03 00:00:00 test=2025-01-06 00:00:00..2025-04-07 00:00:00
+[WF][FOLD 6] train=2024-04-05 00:00:00..2025-04-07 00:00:00 test=2025-04-08 00:00:00..2025-07-09 00:00:00
+[WF][FOLD 7] train=2024-07-08 00:00:00..2025-07-09 00:00:00 test=2025-07-10 00:00:00..2025-10-07 00:00:00
+[WF][FOLD 8] train=2024-10-04 00:00:00..2025-10-07 00:00:00 test=2025-10-08 00:00:00..2026-01-07 00:00:00
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 1] start
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 1] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 1][SUMMARY] days=63 avg_daily_ret=0.001204 std_daily_ret=0.004500 win_rate_days=0.571429 cum_ret=0.078060 avg_raw_turnover=1.562103 avg_turnover=1.000000 cap_hit_rate=0.984127 avg_gross_ret=0.001545 avg_trading_costs=0.000303 avg_borrow_costs=0.000039 avg_costs=0.000342 avg_long_gross_ret=0.001213 avg_short_gross_ret=0.000332 avg_long_costs=0.000160 avg_short_costs=0.000182 avg_gross_long_exposure=0.485661 avg_gross_short_exposure=0.390339
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 2] start
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 2] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 2][SUMMARY] days=63 avg_daily_ret=0.000856 std_daily_ret=0.004353 win_rate_days=0.555556 cum_ret=0.054754 avg_raw_turnover=1.553353 avg_turnover=1.000000 cap_hit_rate=0.968254 avg_gross_ret=0.001196 avg_trading_costs=0.000301 avg_borrow_costs=0.000039 avg_costs=0.000340 avg_long_gross_ret=0.000990 avg_short_gross_ret=0.000206 avg_long_costs=0.000158 avg_short_costs=0.000180 avg_gross_long_exposure=0.486708 avg_gross_short_exposure=0.391348
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 3] start
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 3] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 3][SUMMARY] days=63 avg_daily_ret=0.000252 std_daily_ret=0.005832 win_rate_days=0.603175 cum_ret=0.014939 avg_raw_turnover=1.540308 avg_turnover=1.000000 cap_hit_rate=0.984127 avg_gross_ret=0.000594 avg_trading_costs=0.000303 avg_borrow_costs=0.000040 avg_costs=0.000342 avg_long_gross_ret=0.000454 avg_short_gross_ret=0.000140 avg_long_costs=0.000156 avg_short_costs=0.000186 avg_gross_long_exposure=0.489063 avg_gross_short_exposure=0.395575
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 4] start
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 4] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 4][SUMMARY] days=63 avg_daily_ret=0.000388 std_daily_ret=0.005336 win_rate_days=0.507937 cum_ret=0.023822 avg_raw_turnover=1.582320 avg_turnover=1.000000 cap_hit_rate=0.984127 avg_gross_ret=0.000728 avg_trading_costs=0.000301 avg_borrow_costs=0.000040 avg_costs=0.000340 avg_long_gross_ret=0.000663 avg_short_gross_ret=0.000065 avg_long_costs=0.000158 avg_short_costs=0.000183 avg_gross_long_exposure=0.481815 avg_gross_short_exposure=0.395182
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 5] start
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 5] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 5][SUMMARY] days=63 avg_daily_ret=0.000377 std_daily_ret=0.005637 win_rate_days=0.507937 cum_ret=0.023040 avg_raw_turnover=1.516154 avg_turnover=1.000000 cap_hit_rate=0.984127 avg_gross_ret=0.000718 avg_trading_costs=0.000301 avg_borrow_costs=0.000039 avg_costs=0.000340 avg_long_gross_ret=-0.000418 avg_short_gross_ret=0.001135 avg_long_costs=0.000150 avg_short_costs=0.000190 avg_gross_long_exposure=0.493222 avg_gross_short_exposure=0.389988
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 6] start
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 6] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 6][SUMMARY] days=63 avg_daily_ret=0.001360 std_daily_ret=0.004514 win_rate_days=0.603175 cum_ret=0.088716 avg_raw_turnover=1.551342 avg_turnover=0.998413 cap_hit_rate=0.968254 avg_gross_ret=0.001701 avg_trading_costs=0.000301 avg_borrow_costs=0.000040 avg_costs=0.000341 avg_long_gross_ret=0.002823 avg_short_gross_ret=-0.001122 avg_long_costs=0.000156 avg_short_costs=0.000183 avg_gross_long_exposure=0.495552 avg_gross_short_exposure=0.400012
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 7] start
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 7] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 7][SUMMARY] days=63 avg_daily_ret=0.001371 std_daily_ret=0.005002 win_rate_days=0.587302 cum_ret=0.089327 avg_raw_turnover=1.541904 avg_turnover=0.996977 cap_hit_rate=0.952381 avg_gross_ret=0.001712 avg_trading_costs=0.000300 avg_borrow_costs=0.000040 avg_costs=0.000340 avg_long_gross_ret=0.001640 avg_short_gross_ret=0.000071 avg_long_costs=0.000151 avg_short_costs=0.000186 avg_gross_long_exposure=0.494099 avg_gross_short_exposure=0.398480
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 8] start
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 8] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_adaptive_exits][FOLD 8][SUMMARY] days=63 avg_daily_ret=0.000630 std_daily_ret=0.004732 win_rate_days=0.619048 cum_ret=0.039724 avg_raw_turnover=1.534273 avg_turnover=1.000000 cap_hit_rate=0.984127 avg_gross_ret=0.000972 avg_trading_costs=0.000303 avg_borrow_costs=0.000039 avg_costs=0.000342 avg_long_gross_ret=0.000578 avg_short_gross_ret=0.000393 avg_long_costs=0.000157 avg_short_costs=0.000185 avg_gross_long_exposure=0.491396 avg_gross_short_exposure=0.393767
+[WF][full_regime_stack_neutralized_adaptive_exits][OVERALL] days=504 avg_daily_ret=0.000805 std_daily_ret=0.004999 win_rate_days=0.569444 cum_ret=0.490534 avg_raw_turnover=1.547720 avg_turnover=0.999424 cap_hit_rate=0.976190 avg_gross_ret=0.001146 avg_trading_costs=0.000302 avg_borrow_costs=0.000039 avg_costs=0.000341 avg_long_gross_ret=0.000993 avg_short_gross_ret=0.000153 avg_long_costs=0.000156 avg_short_costs=0.000184 avg_gross_long_exposure=0.489689 avg_gross_short_exposure=0.394336
+[WF][full_regime_stack_neutralized_adaptive_exits][WEIGHTS][STABILITY]
+                             feature  folds  mean_weight  std_weight  mean_abs_weight  pos_folds  neg_folds  zero_folds
+    z_cond_breadth_trend_intraday_rs      8     0.118859    0.032822         0.118859          8          0           0
+                       z_intraday_rs      8     0.097811    0.026239         0.097811          8          0           0
+            z_liq_rank_x_intraday_rs      8     0.095725    0.017797         0.095725          8          0           0
+        z_intraday_rs_x_volume_shock      8     0.094662    0.023884         0.094662          8          0           0
+            z_cond_breadth_range_str      8     0.016087    0.040670         0.036774          5          3           0
+       z_cond_breadth_weak_overnight      8    -0.023181    0.033684         0.030687          3          5           0
+ z_cond_vol_compression_liq_breakout      8     0.030606    0.005259         0.030606          8          0           0
+z_cond_breadth_trend_mom_compression      8     0.015565    0.031669         0.028087          4          4           0
+          z_cond_ivol_lowliq_penalty      8     0.017335    0.022091         0.022883          6          2           0
+       z_cond_overnight_trend_follow      8     0.013414    0.015249         0.015604          6          2           0
+             z_cond_str_weak_breadth      8    -0.006764    0.014970         0.012658          4          4           0
+           z_cond_momentum_liq_trend      8     0.009714    0.010275         0.012023          7          1           0
+  z_intraday_pressure_x_volume_shock      8     0.011015    0.008974         0.011015          8          0           0
+                      z_volume_shock      8     0.009466    0.003279         0.009466          8          0           0
+                 z_intraday_pressure      8     0.008606    0.007474         0.008606          8          0           0
+[WF][full_regime_stack_neutralized_adaptive_exits][TAIL]
+      date  portfolio_ret  gross_ret  trading_costs  borrow_costs    costs  long_gross_ret  short_gross_ret  long_costs  short_costs  gross_long_exposure  gross_short_exposure  positions  raw_turnover  capped_turnover  cap_hit_rate  fold_id                                        model
+2025-12-23       0.001122   0.001472       0.000304      0.000046 0.000350        0.003540        -0.002067    0.000160     0.000190             0.527140              0.458874         33      1.181818              1.0           1.0        8 full_regime_stack_neutralized_adaptive_exits
+2025-12-24       0.005148   0.005521       0.000332      0.000041 0.000373        0.004478         0.001043    0.000168     0.000205             0.426339              0.409970         31      1.523810              1.0           1.0        8 full_regime_stack_neutralized_adaptive_exits
+2025-12-26      -0.005681  -0.005332       0.000304      0.000045 0.000348       -0.006944         0.001612    0.000121     0.000227             0.478947              0.446053         33      1.600000              1.0           1.0        8 full_regime_stack_neutralized_adaptive_exits
+2025-12-29       0.003840   0.004195       0.000324      0.000032 0.000355        0.001652         0.002543    0.000152     0.000203             0.403337              0.318025         29      1.789474              1.0           1.0        8 full_regime_stack_neutralized_adaptive_exits
+2025-12-30      -0.000551  -0.000213       0.000300      0.000038 0.000338       -0.001756         0.001543    0.000135     0.000202             0.517857              0.375000         29      1.473684              1.0           1.0        8 full_regime_stack_neutralized_adaptive_exits
+2025-12-31      -0.003996  -0.003655       0.000303      0.000038 0.000341        0.004836        -0.008491    0.000173     0.000168             0.468421              0.377193         30      1.578947              1.0           1.0        8 full_regime_stack_neutralized_adaptive_exits
+2026-01-02      -0.000432  -0.000092       0.000308      0.000032 0.000341        0.004973        -0.005064    0.000158     0.000182             0.377193              0.324561         31      1.894737              1.0           1.0        8 full_regime_stack_neutralized_adaptive_exits
+2026-01-05       0.002638   0.002979       0.000300      0.000040 0.000340        0.005360        -0.002381    0.000150     0.000190             0.456656              0.404025         33      1.789474              1.0           1.0        8 full_regime_stack_neutralized_adaptive_exits
+2026-01-06      -0.003178  -0.002835       0.000300      0.000043 0.000343       -0.006120         0.003285    0.000189     0.000154             0.513158              0.426692         31      1.400000              1.0           1.0        8 full_regime_stack_neutralized_adaptive_exits
+2026-01-07      -0.009955  -0.009614       0.000300      0.000041 0.000341       -0.003728        -0.005885    0.000169     0.000173             0.512500              0.412500         34      1.600000              1.0           1.0        8 full_regime_stack_neutralized_adaptive_exits
+[WF][full_regime_stack_neutralized_sized_barbell] portfolio_mode=regime_inertia neutralize=True sizing=True sizing_preset=barbell adaptive_exits=False max_daily_turnover=1.0 final_weight_cap=0.08
+[WF] folds=8
+[WF][FOLD 1] train=2023-01-03 00:00:00..2024-01-03 00:00:00 test=2024-01-04 00:00:00..2024-04-04 00:00:00
+[WF][FOLD 2] train=2023-04-04 00:00:00..2024-04-04 00:00:00 test=2024-04-05 00:00:00..2024-07-05 00:00:00
+[WF][FOLD 3] train=2023-07-06 00:00:00..2024-07-05 00:00:00 test=2024-07-08 00:00:00..2024-10-03 00:00:00
+[WF][FOLD 4] train=2023-10-04 00:00:00..2024-10-03 00:00:00 test=2024-10-04 00:00:00..2025-01-03 00:00:00
+[WF][FOLD 5] train=2024-01-04 00:00:00..2025-01-03 00:00:00 test=2025-01-06 00:00:00..2025-04-07 00:00:00
+[WF][FOLD 6] train=2024-04-05 00:00:00..2025-04-07 00:00:00 test=2025-04-08 00:00:00..2025-07-09 00:00:00
+[WF][FOLD 7] train=2024-07-08 00:00:00..2025-07-09 00:00:00 test=2025-07-10 00:00:00..2025-10-07 00:00:00
+[WF][FOLD 8] train=2024-10-04 00:00:00..2025-10-07 00:00:00 test=2025-10-08 00:00:00..2026-01-07 00:00:00
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 1] start
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 1] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 1][SUMMARY] days=63 avg_daily_ret=0.001970 std_daily_ret=0.004729 win_rate_days=0.634921 cum_ret=0.131228 avg_raw_turnover=1.548249 avg_turnover=0.999088 cap_hit_rate=0.984127 avg_gross_ret=0.002309 avg_trading_costs=0.000301 avg_borrow_costs=0.000038 avg_costs=0.000339 avg_long_gross_ret=0.001403 avg_short_gross_ret=0.000906 avg_long_costs=0.000170 avg_short_costs=0.000169 avg_gross_long_exposure=0.451463 avg_gross_short_exposure=0.377260
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 2] start
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 2] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 2][SUMMARY] days=63 avg_daily_ret=0.001423 std_daily_ret=0.005586 win_rate_days=0.555556 cum_ret=0.092684 avg_raw_turnover=1.549161 avg_turnover=0.999088 cap_hit_rate=0.984127 avg_gross_ret=0.001762 avg_trading_costs=0.000301 avg_borrow_costs=0.000038 avg_costs=0.000338 avg_long_gross_ret=0.001362 avg_short_gross_ret=0.000400 avg_long_costs=0.000166 avg_short_costs=0.000173 avg_gross_long_exposure=0.453870 avg_gross_short_exposure=0.377391
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 3] start
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 3] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 3][SUMMARY] days=63 avg_daily_ret=0.000290 std_daily_ret=0.007220 win_rate_days=0.571429 cum_ret=0.016798 avg_raw_turnover=1.565977 avg_turnover=0.999088 cap_hit_rate=0.984127 avg_gross_ret=0.000630 avg_trading_costs=0.000302 avg_borrow_costs=0.000038 avg_costs=0.000340 avg_long_gross_ret=0.000311 avg_short_gross_ret=0.000319 avg_long_costs=0.000166 avg_short_costs=0.000174 avg_gross_long_exposure=0.454932 avg_gross_short_exposure=0.380273
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 4] start
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 4] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 4][SUMMARY] days=63 avg_daily_ret=0.001090 std_daily_ret=0.005963 win_rate_days=0.555556 cum_ret=0.069892 avg_raw_turnover=1.549929 avg_turnover=0.999088 cap_hit_rate=0.984127 avg_gross_ret=0.001428 avg_trading_costs=0.000300 avg_borrow_costs=0.000038 avg_costs=0.000338 avg_long_gross_ret=0.001151 avg_short_gross_ret=0.000277 avg_long_costs=0.000162 avg_short_costs=0.000175 avg_gross_long_exposure=0.453800 avg_gross_short_exposure=0.375856
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 5] start
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 5] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 5][SUMMARY] days=63 avg_daily_ret=0.000637 std_daily_ret=0.005862 win_rate_days=0.555556 cum_ret=0.039845 avg_raw_turnover=1.564864 avg_turnover=0.999088 cap_hit_rate=0.984127 avg_gross_ret=0.000976 avg_trading_costs=0.000301 avg_borrow_costs=0.000038 avg_costs=0.000339 avg_long_gross_ret=-0.000299 avg_short_gross_ret=0.001275 avg_long_costs=0.000163 avg_short_costs=0.000176 avg_gross_long_exposure=0.454949 avg_gross_short_exposure=0.376851
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 6] start
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 6] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 6][SUMMARY] days=63 avg_daily_ret=0.001445 std_daily_ret=0.004610 win_rate_days=0.523810 cum_ret=0.094510 avg_raw_turnover=1.561051 avg_turnover=0.996342 cap_hit_rate=0.968254 avg_gross_ret=0.001783 avg_trading_costs=0.000300 avg_borrow_costs=0.000038 avg_costs=0.000339 avg_long_gross_ret=0.002770 avg_short_gross_ret=-0.000986 avg_long_costs=0.000166 avg_short_costs=0.000171 avg_gross_long_exposure=0.458959 avg_gross_short_exposure=0.384443
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 7] start
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 7] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 7][SUMMARY] days=63 avg_daily_ret=0.001957 std_daily_ret=0.005929 win_rate_days=0.555556 cum_ret=0.129822 avg_raw_turnover=1.521975 avg_turnover=0.997365 cap_hit_rate=0.968254 avg_gross_ret=0.002295 avg_trading_costs=0.000300 avg_borrow_costs=0.000038 avg_costs=0.000339 avg_long_gross_ret=0.002021 avg_short_gross_ret=0.000274 avg_long_costs=0.000159 avg_short_costs=0.000178 avg_gross_long_exposure=0.463587 avg_gross_short_exposure=0.384779
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 8] start
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 8] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_sized_barbell][FOLD 8][SUMMARY] days=63 avg_daily_ret=0.000934 std_daily_ret=0.005077 win_rate_days=0.587302 cum_ret=0.059702 avg_raw_turnover=1.513093 avg_turnover=0.999088 cap_hit_rate=0.984127 avg_gross_ret=0.001273 avg_trading_costs=0.000302 avg_borrow_costs=0.000038 avg_costs=0.000340 avg_long_gross_ret=0.000680 avg_short_gross_ret=0.000594 avg_long_costs=0.000166 avg_short_costs=0.000174 avg_gross_long_exposure=0.458415 avg_gross_short_exposure=0.380547
+[WF][full_regime_stack_neutralized_sized_barbell][OVERALL] days=504 avg_daily_ret=0.001218 std_daily_ret=0.005665 win_rate_days=0.567460 cum_ret=0.832321 avg_raw_turnover=1.546787 avg_turnover=0.998529 cap_hit_rate=0.980159 avg_gross_ret=0.001557 avg_trading_costs=0.000301 avg_borrow_costs=0.000038 avg_costs=0.000339 avg_long_gross_ret=0.001175 avg_short_gross_ret=0.000382 avg_long_costs=0.000165 avg_short_costs=0.000174 avg_gross_long_exposure=0.456247 avg_gross_short_exposure=0.379675
+[WF][full_regime_stack_neutralized_sized_barbell][WEIGHTS][STABILITY]
+                             feature  folds  mean_weight  std_weight  mean_abs_weight  pos_folds  neg_folds  zero_folds
+    z_cond_breadth_trend_intraday_rs      8     0.118859    0.032822         0.118859          8          0           0
+                       z_intraday_rs      8     0.097811    0.026239         0.097811          8          0           0
+            z_liq_rank_x_intraday_rs      8     0.095725    0.017797         0.095725          8          0           0
+        z_intraday_rs_x_volume_shock      8     0.094662    0.023884         0.094662          8          0           0
+            z_cond_breadth_range_str      8     0.016087    0.040670         0.036774          5          3           0
+       z_cond_breadth_weak_overnight      8    -0.023181    0.033684         0.030687          3          5           0
+ z_cond_vol_compression_liq_breakout      8     0.030606    0.005259         0.030606          8          0           0
+z_cond_breadth_trend_mom_compression      8     0.015565    0.031669         0.028087          4          4           0
+          z_cond_ivol_lowliq_penalty      8     0.017335    0.022091         0.022883          6          2           0
+       z_cond_overnight_trend_follow      8     0.013414    0.015249         0.015604          6          2           0
+             z_cond_str_weak_breadth      8    -0.006764    0.014970         0.012658          4          4           0
+           z_cond_momentum_liq_trend      8     0.009714    0.010275         0.012023          7          1           0
+  z_intraday_pressure_x_volume_shock      8     0.011015    0.008974         0.011015          8          0           0
+                      z_volume_shock      8     0.009466    0.003279         0.009466          8          0           0
+                 z_intraday_pressure      8     0.008606    0.007474         0.008606          8          0           0
+[WF][full_regime_stack_neutralized_sized_barbell][TAIL]
+      date  portfolio_ret  gross_ret  trading_costs  borrow_costs    costs  long_gross_ret  short_gross_ret  long_costs  short_costs  gross_long_exposure  gross_short_exposure  positions  raw_turnover  capped_turnover  cap_hit_rate  fold_id                                       model
+2025-12-23      -0.000305   0.000041       0.000302      0.000043 0.000345        0.003136        -0.003096    0.000167     0.000178             0.482839              0.433059         32      1.480000              1.0           1.0        8 full_regime_stack_neutralized_sized_barbell
+2025-12-24       0.006337   0.006691       0.000319      0.000035 0.000354        0.006061         0.000629    0.000138     0.000216             0.398357              0.348577         31      1.611868              1.0           1.0        8 full_regime_stack_neutralized_sized_barbell
+2025-12-26      -0.006632  -0.006288       0.000304      0.000040 0.000344       -0.008529         0.002241    0.000123     0.000220             0.468398              0.399121         33      1.550004              1.0           1.0        8 full_regime_stack_neutralized_sized_barbell
+2025-12-29       0.003252   0.003599       0.000317      0.000031 0.000347        0.001916         0.001683    0.000160     0.000187             0.385244              0.305244         29      1.647139              1.0           1.0        8 full_regime_stack_neutralized_sized_barbell
+2025-12-30      -0.001461  -0.001123       0.000300      0.000038 0.000338       -0.002613         0.001489    0.000172     0.000166             0.456431              0.376431         30      1.420510              1.0           1.0        8 full_regime_stack_neutralized_sized_barbell
+2025-12-31      -0.005132  -0.004791       0.000304      0.000037 0.000340        0.005060        -0.009851    0.000150     0.000190             0.446095              0.366095         30      1.487139              1.0           1.0        8 full_regime_stack_neutralized_sized_barbell
+2026-01-02      -0.000086   0.000254       0.000309      0.000031 0.000340        0.005794        -0.005540    0.000190     0.000150             0.390296              0.310296         31      1.822776              1.0           1.0        8 full_regime_stack_neutralized_sized_barbell
+2026-01-05       0.005044   0.005379       0.000300      0.000035 0.000335        0.005292         0.000086    0.000170     0.000166             0.431104              0.351104         33      1.709462              1.0           1.0        8 full_regime_stack_neutralized_sized_barbell
+2026-01-06      -0.002885  -0.002543       0.000300      0.000042 0.000342       -0.006151         0.003608    0.000183     0.000159             0.477008              0.417970         32      1.441655              1.0           1.0        8 full_regime_stack_neutralized_sized_barbell
+2026-01-07      -0.011265  -0.010925       0.000300      0.000040 0.000340       -0.004905        -0.006020    0.000175     0.000165             0.488630              0.402469         34      1.661319              1.0           1.0        8 full_regime_stack_neutralized_sized_barbell
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits] portfolio_mode=regime_inertia neutralize=True sizing=True sizing_preset=barbell adaptive_exits=True max_daily_turnover=1.0 final_weight_cap=0.08
+[WF] folds=8
+[WF][FOLD 1] train=2023-01-03 00:00:00..2024-01-03 00:00:00 test=2024-01-04 00:00:00..2024-04-04 00:00:00
+[WF][FOLD 2] train=2023-04-04 00:00:00..2024-04-04 00:00:00 test=2024-04-05 00:00:00..2024-07-05 00:00:00
+[WF][FOLD 3] train=2023-07-06 00:00:00..2024-07-05 00:00:00 test=2024-07-08 00:00:00..2024-10-03 00:00:00
+[WF][FOLD 4] train=2023-10-04 00:00:00..2024-10-03 00:00:00 test=2024-10-04 00:00:00..2025-01-03 00:00:00
+[WF][FOLD 5] train=2024-01-04 00:00:00..2025-01-03 00:00:00 test=2025-01-06 00:00:00..2025-04-07 00:00:00
+[WF][FOLD 6] train=2024-04-05 00:00:00..2025-04-07 00:00:00 test=2025-04-08 00:00:00..2025-07-09 00:00:00
+[WF][FOLD 7] train=2024-07-08 00:00:00..2025-07-09 00:00:00 test=2025-07-10 00:00:00..2025-10-07 00:00:00
+[WF][FOLD 8] train=2024-10-04 00:00:00..2025-10-07 00:00:00 test=2025-10-08 00:00:00..2026-01-07 00:00:00
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 1] start
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 1] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 1][SUMMARY] days=63 avg_daily_ret=0.001685 std_daily_ret=0.004797 win_rate_days=0.634921 cum_ret=0.111077 avg_raw_turnover=1.558164 avg_turnover=0.999088 cap_hit_rate=0.984127 avg_gross_ret=0.002022 avg_trading_costs=0.000301 avg_borrow_costs=0.000036 avg_costs=0.000338 avg_long_gross_ret=0.001413 avg_short_gross_ret=0.000609 avg_long_costs=0.000170 avg_short_costs=0.000168 avg_gross_long_exposure=0.458578 avg_gross_short_exposure=0.364823
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 2] start
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 2] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 2][SUMMARY] days=63 avg_daily_ret=0.001265 std_daily_ret=0.005220 win_rate_days=0.555556 cum_ret=0.081987 avg_raw_turnover=1.559707 avg_turnover=0.999088 cap_hit_rate=0.984127 avg_gross_ret=0.001602 avg_trading_costs=0.000301 avg_borrow_costs=0.000036 avg_costs=0.000337 avg_long_gross_ret=0.001411 avg_short_gross_ret=0.000191 avg_long_costs=0.000167 avg_short_costs=0.000170 avg_gross_long_exposure=0.464095 avg_gross_short_exposure=0.364767
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 3] start
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 3] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 3][SUMMARY] days=63 avg_daily_ret=0.000419 std_daily_ret=0.007239 win_rate_days=0.587302 cum_ret=0.025037 avg_raw_turnover=1.571872 avg_turnover=0.999088 cap_hit_rate=0.984127 avg_gross_ret=0.000758 avg_trading_costs=0.000302 avg_borrow_costs=0.000037 avg_costs=0.000339 avg_long_gross_ret=0.000304 avg_short_gross_ret=0.000454 avg_long_costs=0.000167 avg_short_costs=0.000172 avg_gross_long_exposure=0.461044 avg_gross_short_exposure=0.370874
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 4] start
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 4] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 4][SUMMARY] days=63 avg_daily_ret=0.001156 std_daily_ret=0.006038 win_rate_days=0.571429 cum_ret=0.074257 avg_raw_turnover=1.558608 avg_turnover=0.999088 cap_hit_rate=0.984127 avg_gross_ret=0.001492 avg_trading_costs=0.000300 avg_borrow_costs=0.000037 avg_costs=0.000337 avg_long_gross_ret=0.001135 avg_short_gross_ret=0.000357 avg_long_costs=0.000162 avg_short_costs=0.000175 avg_gross_long_exposure=0.459057 avg_gross_short_exposure=0.367545
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 5] start
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 5] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 5][SUMMARY] days=63 avg_daily_ret=0.000568 std_daily_ret=0.005855 win_rate_days=0.555556 cum_ret=0.035308 avg_raw_turnover=1.566730 avg_turnover=0.999088 cap_hit_rate=0.984127 avg_gross_ret=0.000906 avg_trading_costs=0.000301 avg_borrow_costs=0.000037 avg_costs=0.000338 avg_long_gross_ret=-0.000274 avg_short_gross_ret=0.001180 avg_long_costs=0.000164 avg_short_costs=0.000174 avg_gross_long_exposure=0.459378 avg_gross_short_exposure=0.370414
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 6] start
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 6] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 6][SUMMARY] days=63 avg_daily_ret=0.001397 std_daily_ret=0.004649 win_rate_days=0.555556 cum_ret=0.091207 avg_raw_turnover=1.572641 avg_turnover=0.997500 cap_hit_rate=0.968254 avg_gross_ret=0.001735 avg_trading_costs=0.000300 avg_borrow_costs=0.000038 avg_costs=0.000338 avg_long_gross_ret=0.002862 avg_short_gross_ret=-0.001127 avg_long_costs=0.000166 avg_short_costs=0.000171 avg_gross_long_exposure=0.466160 avg_gross_short_exposure=0.375055
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 7] start
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 7] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 7][SUMMARY] days=63 avg_daily_ret=0.001960 std_daily_ret=0.006014 win_rate_days=0.571429 cum_ret=0.130067 avg_raw_turnover=1.528556 avg_turnover=0.996886 cap_hit_rate=0.968254 avg_gross_ret=0.002298 avg_trading_costs=0.000300 avg_borrow_costs=0.000037 avg_costs=0.000337 avg_long_gross_ret=0.002041 avg_short_gross_ret=0.000256 avg_long_costs=0.000160 avg_short_costs=0.000176 avg_gross_long_exposure=0.469717 avg_gross_short_exposure=0.373289
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 8] start
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 8] train_rows=24444 test_rows=6111
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][FOLD 8][SUMMARY] days=63 avg_daily_ret=0.000902 std_daily_ret=0.005066 win_rate_days=0.587302 cum_ret=0.057612 avg_raw_turnover=1.530488 avg_turnover=0.999088 cap_hit_rate=0.984127 avg_gross_ret=0.001241 avg_trading_costs=0.000302 avg_borrow_costs=0.000037 avg_costs=0.000338 avg_long_gross_ret=0.000652 avg_short_gross_ret=0.000588 avg_long_costs=0.000166 avg_short_costs=0.000172 avg_gross_long_exposure=0.466290 avg_gross_short_exposure=0.367335
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][OVERALL] days=504 avg_daily_ret=0.001169 std_daily_ret=0.005648 win_rate_days=0.577381 cum_ret=0.787399 avg_raw_turnover=1.555846 avg_turnover=0.998614 cap_hit_rate=0.980159 avg_gross_ret=0.001507 avg_trading_costs=0.000301 avg_borrow_costs=0.000037 avg_costs=0.000338 avg_long_gross_ret=0.001193 avg_short_gross_ret=0.000314 avg_long_costs=0.000165 avg_short_costs=0.000172 avg_gross_long_exposure=0.463040 avg_gross_short_exposure=0.369263
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][WEIGHTS][STABILITY]
+                             feature  folds  mean_weight  std_weight  mean_abs_weight  pos_folds  neg_folds  zero_folds
+    z_cond_breadth_trend_intraday_rs      8     0.118859    0.032822         0.118859          8          0           0
+                       z_intraday_rs      8     0.097811    0.026239         0.097811          8          0           0
+            z_liq_rank_x_intraday_rs      8     0.095725    0.017797         0.095725          8          0           0
+        z_intraday_rs_x_volume_shock      8     0.094662    0.023884         0.094662          8          0           0
+            z_cond_breadth_range_str      8     0.016087    0.040670         0.036774          5          3           0
+       z_cond_breadth_weak_overnight      8    -0.023181    0.033684         0.030687          3          5           0
+ z_cond_vol_compression_liq_breakout      8     0.030606    0.005259         0.030606          8          0           0
+z_cond_breadth_trend_mom_compression      8     0.015565    0.031669         0.028087          4          4           0
+          z_cond_ivol_lowliq_penalty      8     0.017335    0.022091         0.022883          6          2           0
+       z_cond_overnight_trend_follow      8     0.013414    0.015249         0.015604          6          2           0
+             z_cond_str_weak_breadth      8    -0.006764    0.014970         0.012658          4          4           0
+           z_cond_momentum_liq_trend      8     0.009714    0.010275         0.012023          7          1           0
+  z_intraday_pressure_x_volume_shock      8     0.011015    0.008974         0.011015          8          0           0
+                      z_volume_shock      8     0.009466    0.003279         0.009466          8          0           0
+                 z_intraday_pressure      8     0.008606    0.007474         0.008606          8          0           0
+[WF][full_regime_stack_neutralized_sized_barbell_adaptive_exits][TAIL]
+      date  portfolio_ret  gross_ret  trading_costs  borrow_costs    costs  long_gross_ret  short_gross_ret  long_costs  short_costs  gross_long_exposure  gross_short_exposure  positions  raw_turnover  capped_turnover  cap_hit_rate  fold_id                                                      model
+2025-12-23       0.000939   0.001283       0.000302      0.000042 0.000344        0.003224        -0.001941    0.000177     0.000167             0.492966              0.419123         31      1.456406              1.0           1.0        8 full_regime_stack_neutralized_sized_barbell_adaptive_exits
+2025-12-24       0.006337   0.006691       0.000319      0.000035 0.000354        0.006061         0.000629    0.000138     0.000216             0.398357              0.348577         31      1.611868              1.0           1.0        8 full_regime_stack_neutralized_sized_barbell_adaptive_exits
+2025-12-26      -0.006632  -0.006288       0.000304      0.000040 0.000344       -0.008529         0.002241    0.000123     0.000220             0.468398              0.399121         33      1.550004              1.0           1.0        8 full_regime_stack_neutralized_sized_barbell_adaptive_exits
+2025-12-29       0.003291   0.003635       0.000316      0.000028 0.000343        0.001994         0.001641    0.000155     0.000189             0.390033              0.275492         29      1.738845              1.0           1.0        8 full_regime_stack_neutralized_sized_barbell_adaptive_exits
+2025-12-30      -0.001819  -0.001485       0.000300      0.000033 0.000333       -0.002312         0.000826    0.000172     0.000161             0.484060              0.330558         29      1.483404              1.0           1.0        8 full_regime_stack_neutralized_sized_barbell_adaptive_exits
+2025-12-31      -0.006036  -0.005697       0.000304      0.000035 0.000339        0.005130        -0.010827    0.000159     0.000180             0.456222              0.350824         29      1.465132              1.0           1.0        8 full_regime_stack_neutralized_sized_barbell_adaptive_exits
+2026-01-02      -0.000086   0.000254       0.000309      0.000031 0.000340        0.005794        -0.005540    0.000190     0.000150             0.390296              0.310296         31      1.822776              1.0           1.0        8 full_regime_stack_neutralized_sized_barbell_adaptive_exits
+2026-01-05       0.005044   0.005379       0.000300      0.000035 0.000335        0.005292         0.000086    0.000170     0.000166             0.431104              0.351104         33      1.709462              1.0           1.0        8 full_regime_stack_neutralized_sized_barbell_adaptive_exits
+2026-01-06      -0.002955  -0.002614       0.000300      0.000041 0.000341       -0.006231         0.003616    0.000187     0.000154             0.485278              0.405278         31      1.420510              1.0           1.0        8 full_regime_stack_neutralized_sized_barbell_adaptive_exits
+2026-01-07      -0.011528  -0.011188       0.000300      0.000039 0.000339       -0.004910        -0.006278    0.000179     0.000161             0.492562              0.394252         33      1.650446              1.0           1.0        8 full_regime_stack_neutralized_sized_barbell_adaptive_exits
+[WF][ABLATION][SUMMARY]
+                                                     model portfolio_mode  neutralize  sizing sizing_preset  adaptive_exits  days  avg_daily_ret  std_daily_ret  win_rate_days  cum_ret  avg_raw_turnover  avg_turnover  cap_hit_rate  avg_gross_ret  avg_trading_costs  avg_borrow_costs  avg_costs  avg_long_gross_ret  avg_short_gross_ret  avg_long_costs  avg_short_costs  avg_gross_long_exposure  avg_gross_short_exposure
+               full_regime_stack_neutralized_sized_barbell regime_inertia        True    True       barbell           False   504       0.001218       0.005665       0.567460 0.832321          1.546787      0.998529      0.980159       0.001557           0.000301          0.000038   0.000339            0.001175             0.000382        0.000165         0.000174                 0.456247                  0.379675
+full_regime_stack_neutralized_sized_barbell_adaptive_exits regime_inertia        True    True       barbell            True   504       0.001169       0.005648       0.577381 0.787399          1.555846      0.998614      0.980159       0.001507           0.000301          0.000037   0.000338            0.001193             0.000314        0.000165         0.000172                 0.463040                  0.369263
+                             full_regime_stack_neutralized regime_inertia        True   False          none           False   504       0.000873       0.005021       0.577381 0.542796          1.429140      0.997317      0.956349       0.001217           0.000301          0.000043   0.000344            0.000983             0.000235        0.000157         0.000185                 0.466904                  0.433392
+              full_regime_stack_neutralized_adaptive_exits regime_inertia        True   False          none            True   504       0.000805       0.004999       0.569444 0.490534          1.547720      0.999424      0.976190       0.001146           0.000302          0.000039   0.000341            0.000993             0.000153        0.000156         0.000184                 0.489689                  0.394336
+Press Enter to exit...
