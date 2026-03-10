@@ -68,7 +68,7 @@ def apply_adaptive_exit_rules(
     score_col: str = "score",
     long_max_days_strong: int = 20,
     long_max_days_regular: int = 12,
-    short_max_days: int = 3,
+    short_max_days: int = 5,
     long_strong_rank: float = 0.98,
     long_keep_rank: float = 0.82,
     long_exit_rank: float = 0.70,
