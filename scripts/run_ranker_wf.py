@@ -11,18 +11,14 @@ from python_edge.model.conditional_factors import add_conditional_factors
 from python_edge.model.cs_normalize import cs_zscore
 from python_edge.model.neutralize import add_beta_proxy, neutralize_score_cross_section
 from python_edge.model.ranker_linear import apply_linear_score, fit_corr_weights
+from python_edge.portfolio.budget_allocation import apply_side_budgets, attach_dynamic_side_budgets
 from python_edge.portfolio.construct import build_long_short_portfolio
+from python_edge.portfolio.exit_rules import apply_exit_rules
 from python_edge.portfolio.holding_inertia import apply_holding_inertia
-from python_edge.portfolio.position_limits import (
-    apply_position_filters,
-    cap_final_weight,
-    normalize_gross_exposure,
-    renormalize_after_caps,
-)
+from python_edge.portfolio.position_limits import apply_position_filters, cap_final_weight, normalize_gross_exposure, renormalize_after_caps
 from python_edge.portfolio.regime_allocation import build_regime_aware_long_short_portfolio
 from python_edge.portfolio.signal_sizing import apply_signal_strength_sizing
 from python_edge.portfolio.turnover_control import cap_daily_turnover
-from python_edge.portfolio.exit_rules import apply_exit_rules
 from python_edge.wf.evaluate_ranker import evaluate_long_short, print_summary, summarize_daily_returns
 from python_edge.wf.splits import build_walkforward_splits, print_split_summary
 
@@ -66,54 +62,21 @@ RISK_FILTER_FEATURES = [
 FULL_FEATURE_STACK = INTRADAY_CORE_FEATURES + REGIME_BREADTH_FEATURES + RECOVERED_DAILY_FEATURES + RISK_FILTER_FEATURES
 
 ABLATIONS: dict[str, dict[str, object]] = {
-    "intraday_core_only": {
-        "features": INTRADAY_CORE_FEATURES,
-        "portfolio_mode": "plain_inertia",
-        "neutralize": False,
-        "sizing": False,
-        "sizing_preset": None,
-    },
-    "intraday_plus_breadth_regime": {
-        "features": INTRADAY_CORE_FEATURES + REGIME_BREADTH_FEATURES,
-        "portfolio_mode": "regime_inertia",
-        "neutralize": False,
-        "sizing": False,
-        "sizing_preset": None,
-    },
-    "full_regime_stack": {
-        "features": FULL_FEATURE_STACK,
-        "portfolio_mode": "regime_inertia",
-        "neutralize": False,
-        "sizing": False,
-        "sizing_preset": None,
-    },
     "full_regime_stack_neutralized": {
         "features": FULL_FEATURE_STACK,
         "portfolio_mode": "regime_inertia",
         "neutralize": True,
         "sizing": False,
         "sizing_preset": None,
+        "dynamic_side_budget": False,
     },
-    "full_regime_stack_neutralized_sized_baseline": {
+    "full_regime_stack_neutralized_dynamic_budget": {
         "features": FULL_FEATURE_STACK,
         "portfolio_mode": "regime_inertia",
         "neutralize": True,
-        "sizing": True,
-        "sizing_preset": "baseline",
-    },
-    "full_regime_stack_neutralized_sized_aggressive": {
-        "features": FULL_FEATURE_STACK,
-        "portfolio_mode": "regime_inertia",
-        "neutralize": True,
-        "sizing": True,
-        "sizing_preset": "aggressive",
-    },
-    "full_regime_stack_neutralized_sized_conservative": {
-        "features": FULL_FEATURE_STACK,
-        "portfolio_mode": "regime_inertia",
-        "neutralize": True,
-        "sizing": True,
-        "sizing_preset": "conservative",
+        "sizing": False,
+        "sizing_preset": None,
+        "dynamic_side_budget": True,
     },
     "full_regime_stack_neutralized_sized_barbell": {
         "features": FULL_FEATURE_STACK,
@@ -121,6 +84,15 @@ ABLATIONS: dict[str, dict[str, object]] = {
         "neutralize": True,
         "sizing": True,
         "sizing_preset": "barbell",
+        "dynamic_side_budget": False,
+    },
+    "full_regime_stack_neutralized_sized_barbell_dynamic_budget": {
+        "features": FULL_FEATURE_STACK,
+        "portfolio_mode": "regime_inertia",
+        "neutralize": True,
+        "sizing": True,
+        "sizing_preset": "barbell",
+        "dynamic_side_budget": True,
     },
 }
 
@@ -152,6 +124,9 @@ def _prepare_base_frame(df: pd.DataFrame, features: list[str]) -> pd.DataFrame:
         "meta_price",
         "liq_rank",
         "beta_proxy_60d",
+        "intraday_rs",
+        "volume_shock",
+        "intraday_pressure",
     ] + features + zcols
     missing = [c for c in needed if c not in out.columns]
     if missing:
@@ -198,42 +173,35 @@ def _print_weight_stability(model_name: str, weights_df: pd.DataFrame) -> None:
     print(grouped.to_string(index=False))
 
 
+
 def _build_portfolio(test_df: pd.DataFrame, portfolio_mode: str, score_col: str) -> pd.DataFrame:
     temp = test_df.copy()
-
     if score_col != "score":
         temp["score"] = pd.to_numeric(temp[score_col], errors="coerce")
 
     if portfolio_mode == "plain":
         port = build_long_short_portfolio(temp, top_pct=TOP_PCT)
-
     elif portfolio_mode == "regime":
         port = build_regime_aware_long_short_portfolio(temp)
-
     elif portfolio_mode == "plain_inertia":
         port = apply_holding_inertia(temp, enter_pct=ENTER_PCT, exit_pct=EXIT_PCT)
-
     elif portfolio_mode == "regime_inertia":
         reg = build_regime_aware_long_short_portfolio(temp)
         reg = reg.drop(columns=[c for c in ["rank", "side"] if c in reg.columns])
         port = apply_holding_inertia(reg, enter_pct=ENTER_PCT, exit_pct=EXIT_PCT)
-
     else:
         raise RuntimeError(f"Unknown portfolio_mode={portfolio_mode!r}")
 
-    port = apply_exit_rules(
-        port,
-        long_max_days=15,
-        short_max_days=3,
-    )
-
+    port = apply_exit_rules(port, long_max_days=15, short_max_days=3)
     return port
+
 
 
 def _apply_execution_layer(
     port_df: pd.DataFrame,
     use_signal_sizing: bool,
     sizing_preset: str | None,
+    dynamic_side_budget: bool,
 ) -> pd.DataFrame:
     out = port_df.copy()
     side_col = "side"
@@ -242,24 +210,25 @@ def _apply_execution_layer(
 
     if use_signal_sizing:
         preset_name = str(sizing_preset or "baseline")
-        out = apply_signal_strength_sizing(
-            out,
-            side_col=side_col,
-            score_col="score",
-            out_col="side_sized",
-            preset_name=preset_name,
-        )
+        out = apply_signal_strength_sizing(out, side_col=side_col, score_col="score", out_col="side_sized", preset_name=preset_name)
         side_col = "side_sized"
     else:
         out["sizing_preset"] = "none"
 
     out = normalize_gross_exposure(out, side_col=side_col, gross_target=1.0, out_col="weight")
+
+    if dynamic_side_budget:
+        out = attach_dynamic_side_budgets(out)
+        out = apply_side_budgets(out, weight_col="weight")
+    else:
+        out["long_budget"] = 0.50
+        out["short_budget"] = 0.50
+
     out = cap_final_weight(out, weight_col="weight", cap_abs_weight=FINAL_WEIGHT_CAP)
     out = renormalize_after_caps(out, weight_col="weight", gross_target=1.0)
     out = cap_daily_turnover(out, weight_col="weight", max_daily_turnover=MAX_DAILY_TURNOVER)
     out = attach_execution_costs(out, weight_col="weight", fee_bps=1.0, slippage_bps=2.0, borrow_bps_daily=1.0)
 
-    # explicit wiring checks
     required_post = [
         "weight",
         "trade_abs_raw",
@@ -270,6 +239,8 @@ def _apply_execution_layer(
         "cost_trading",
         "cost_borrow",
         "cost_total",
+        "long_budget",
+        "short_budget",
     ]
     missing_post = [c for c in required_post if c not in out.columns]
     if missing_post:
@@ -287,12 +258,14 @@ def _run_one_model(
     neutralize: bool,
     sizing: bool,
     sizing_preset: str | None,
+    dynamic_side_budget: bool,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     print(
-        f"[WF][{model_name}] portfolio_mode={portfolio_mode} "
-        f"neutralize={neutralize} sizing={sizing} sizing_preset={sizing_preset} "
-        f"max_daily_turnover={MAX_DAILY_TURNOVER} final_weight_cap={FINAL_WEIGHT_CAP} features={features}"
+        f"[WF][{model_name}] portfolio_mode={portfolio_mode} neutralize={neutralize} "
+        f"sizing={sizing} sizing_preset={sizing_preset} dynamic_side_budget={dynamic_side_budget} "
+        f"max_daily_turnover={MAX_DAILY_TURNOVER} final_weight_cap={FINAL_WEIGHT_CAP}"
     )
+
     df = _prepare_base_frame(raw_df, features)
     splits = build_walkforward_splits(df["date"], train_days=TRAIN_DAYS, test_days=TEST_DAYS, step_days=STEP_DAYS)
     print_split_summary(splits)
@@ -305,6 +278,7 @@ def _run_one_model(
         train_df = _slice_by_date(df, sp.train_start, sp.train_end)
         test_df = _slice_by_date(df, sp.test_start, sp.test_end)
         print(f"[WF][{model_name}][FOLD {sp.fold_id}] train_rows={len(train_df)} test_rows={len(test_df)}")
+
         if len(train_df) < MIN_TRAIN_ROWS:
             raise RuntimeError(f"[WF][{model_name}][FOLD {sp.fold_id}] train_rows too small: {len(train_df)}")
         if len(test_df) < MIN_TEST_ROWS:
@@ -317,12 +291,7 @@ def _run_one_model(
         scored_test = apply_linear_score(test_df, fit=fit, out_col="score")
         score_col = "score"
         if neutralize:
-            scored_test = neutralize_score_cross_section(
-                scored_test,
-                score_col="score",
-                exposure_cols=["liq_rank", "beta_proxy_60d"],
-                out_col="score_neutral",
-            )
+            scored_test = neutralize_score_cross_section(scored_test, score_col="score", exposure_cols=["liq_rank", "beta_proxy_60d"], out_col="score_neutral")
             score_col = "score_neutral"
 
         port_test = _build_portfolio(scored_test, portfolio_mode=portfolio_mode, score_col=score_col)
@@ -333,6 +302,7 @@ def _run_one_model(
             port_test,
             use_signal_sizing=sizing,
             sizing_preset=sizing_preset,
+            dynamic_side_budget=dynamic_side_budget,
         )
 
         daily_test = evaluate_long_short(port_test, target_col=TARGET_COL)
@@ -342,9 +312,6 @@ def _run_one_model(
         fold_summary = summarize_daily_returns(daily_test)
         print_summary(f"[WF][{model_name}][FOLD {sp.fold_id}][SUMMARY]", fold_summary)
         all_test_daily.append(daily_test)
-
-    if not all_test_daily:
-        raise RuntimeError(f"[WF][{model_name}] no test daily results were produced")
 
     overall = pd.concat(all_test_daily, axis=0, ignore_index=True)
     overall = overall.sort_values(["date", "fold_id"]).reset_index(drop=True)
@@ -382,14 +349,17 @@ def main() -> int:
         neutralize = bool(cfg["neutralize"])
         sizing = bool(cfg["sizing"])
         sizing_preset = cfg.get("sizing_preset")
+        dynamic_side_budget = bool(cfg["dynamic_side_budget"])
+
         overall, _weights_df = _run_one_model(
-            model_name,
-            raw_df,
-            features,
-            portfolio_mode,
-            neutralize,
-            sizing,
-            None if sizing_preset is None else str(sizing_preset),
+            model_name=model_name,
+            raw_df=raw_df,
+            features=features,
+            portfolio_mode=portfolio_mode,
+            neutralize=neutralize,
+            sizing=sizing,
+            sizing_preset=None if sizing_preset is None else str(sizing_preset),
+            dynamic_side_budget=dynamic_side_budget,
         )
         summary = summarize_daily_returns(overall)
         model_summaries.append(
@@ -399,6 +369,7 @@ def main() -> int:
                 "neutralize": neutralize,
                 "sizing": sizing,
                 "sizing_preset": "none" if sizing_preset is None else str(sizing_preset),
+                "dynamic_side_budget": dynamic_side_budget,
                 "days": int(summary["days"]),
                 "avg_daily_ret": float(summary["avg_daily_ret"]),
                 "std_daily_ret": float(summary["std_daily_ret"]),
@@ -411,6 +382,12 @@ def main() -> int:
                 "avg_trading_costs": float(summary.get("avg_trading_costs", 0.0)),
                 "avg_borrow_costs": float(summary.get("avg_borrow_costs", 0.0)),
                 "avg_costs": float(summary.get("avg_costs", 0.0)),
+                "avg_long_gross_ret": float(summary.get("avg_long_gross_ret", 0.0)),
+                "avg_short_gross_ret": float(summary.get("avg_short_gross_ret", 0.0)),
+                "avg_long_costs": float(summary.get("avg_long_costs", 0.0)),
+                "avg_short_costs": float(summary.get("avg_short_costs", 0.0)),
+                "avg_gross_long_exposure": float(summary.get("avg_gross_long_exposure", 0.0)),
+                "avg_gross_short_exposure": float(summary.get("avg_gross_short_exposure", 0.0)),
             }
         )
 
