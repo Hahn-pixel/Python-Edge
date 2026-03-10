@@ -22,23 +22,14 @@ def load_baseline_portfolios() -> pd.DataFrame:
     return out
 
 
-def build_alpha_age_surface(df: pd.DataFrame) -> pd.DataFrame:
-    required = [
-        "date",
-        "symbol",
-        "side",
-        "weight",
-        "target_fwd_ret_1d",
-        "position_age",
-    ]
-    missing = [c for c in required if c not in df.columns]
-    if missing:
-        raise RuntimeError(f"missing columns: {missing}")
+def build_surface(df: pd.DataFrame, label: str) -> pd.DataFrame:
 
     out = df.copy()
-    out["pnl"] = pd.to_numeric(out["weight"], errors="coerce").fillna(0.0) * pd.to_numeric(
-        out["target_fwd_ret_1d"], errors="coerce"
-    ).fillna(0.0)
+
+    out["pnl"] = (
+        pd.to_numeric(out["weight"], errors="coerce").fillna(0.0)
+        * pd.to_numeric(out["target_fwd_ret_1d"], errors="coerce").fillna(0.0)
+    )
 
     grouped = (
         out.groupby("position_age", as_index=False)
@@ -53,6 +44,8 @@ def build_alpha_age_surface(df: pd.DataFrame) -> pd.DataFrame:
     )
 
     grouped["cum_pnl"] = grouped["sum_pnl"].cumsum()
+    grouped["surface"] = label
+
     return grouped
 
 
@@ -60,7 +53,18 @@ def main() -> int:
     print("[ALPHA AGE] loading baseline portfolios")
     df = load_baseline_portfolios()
 
-    surface = build_alpha_age_surface(df)
+    long_df = df[df["side"] > 0]
+    short_df = df[df["side"] < 0]
+
+    surf_long = build_surface(long_df, "LONG")
+    surf_short = build_surface(short_df, "SHORT")
+    surf_all = build_surface(df, "COMBINED")
+
+    surface = pd.concat(
+        [surf_long, surf_short, surf_all],
+        axis=0,
+        ignore_index=True,
+    )
 
     print("\n[ALPHA AGE SURFACE]\n")
     print(surface.to_string(index=False))
