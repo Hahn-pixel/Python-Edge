@@ -7,8 +7,8 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/.gitattributes
 .gitignore
 https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/.gitignore
 
-console15.txt
-https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console15.txt
+console28.txt
+https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console28.txt
 
 deps_edges.txt
 https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/deps_edges.txt
@@ -25,11 +25,17 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/README.md
 repo_map.txt
 https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/repo_map.txt
 
+  scripts/alpha_age_surface.py
+  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/alpha_age_surface.py
+
   scripts/build_feature_matrix.py
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/build_feature_matrix.py
 
   scripts/download_massive_aggs.py
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/download_massive_aggs.py
+
+  scripts/run_alpha_decay_surface.py
+  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_alpha_decay_surface.py
 
   scripts/run_mvp_daily_rules.py
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_mvp_daily_rules.py
@@ -51,6 +57,12 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/repo_map.txt
 
     src/python_edge/__init__.py
     https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/__init__.py
+
+      src/python_edge/analysis/__init__.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/analysis/__init__.py
+
+      src/python_edge/analysis/alpha_decay.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/analysis/alpha_decay.py
 
       src/python_edge/backtest/walkforward_rules.py
       https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/backtest/walkforward_rules.py
@@ -130,8 +142,14 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/repo_map.txt
       src/python_edge/portfolio/__init__.py
       https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/portfolio/__init__.py
 
+      src/python_edge/portfolio/budget_allocation.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/portfolio/budget_allocation.py
+
       src/python_edge/portfolio/construct.py
       https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/portfolio/construct.py
+
+      src/python_edge/portfolio/exit_rules.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/portfolio/exit_rules.py
 
       src/python_edge/portfolio/holding_inertia.py
       https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/portfolio/holding_inertia.py
@@ -144,6 +162,9 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/repo_map.txt
 
       src/python_edge/portfolio/regime_allocation.py
       https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/portfolio/regime_allocation.py
+
+      src/python_edge/portfolio/signal_sizing.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/portfolio/signal_sizing.py
 
       src/python_edge/portfolio/turnover_control.py
       https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/portfolio/turnover_control.py
