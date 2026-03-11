@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sys
 import traceback
 from pathlib import Path
 
@@ -59,6 +60,7 @@ PEAK_TRAIL_DROP_LONG = float(os.getenv("PEAK_TRAIL_DROP_LONG", "0.10"))
 PEAK_TRAIL_DROP_SHORT = float(os.getenv("PEAK_TRAIL_DROP_SHORT", "0.10"))
 PEAK_TRAIL_MIN_AGE_LONG = int(os.getenv("PEAK_TRAIL_MIN_AGE_LONG", "2"))
 PEAK_TRAIL_MIN_AGE_SHORT = int(os.getenv("PEAK_TRAIL_MIN_AGE_SHORT", "1"))
+PAUSE_ON_EXIT_ENV = str(os.getenv("PAUSE_ON_EXIT", "auto")).strip().lower()
 
 INTRADAY_CORE_FEATURES = [
     "intraday_rs",
@@ -105,6 +107,33 @@ ABLATIONS: dict[str, dict[str, object]] = {
         "adaptive_exits": False,
     },
 }
+
+
+
+def _enable_line_buffering() -> None:
+    for stream_name in ["stdout", "stderr"]:
+        stream = getattr(sys, stream_name, None)
+        if stream is None:
+            continue
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            try:
+                reconfigure(line_buffering=True)
+            except Exception:
+                pass
+
+
+
+def _should_pause_on_exit() -> bool:
+    if PAUSE_ON_EXIT_ENV in {"0", "false", "no", "off"}:
+        return False
+    if PAUSE_ON_EXIT_ENV in {"1", "true", "yes", "on"}:
+        return True
+    stdin_obj = getattr(sys, "stdin", None)
+    stdout_obj = getattr(sys, "stdout", None)
+    stdin_is_tty = bool(stdin_obj is not None and hasattr(stdin_obj, "isatty") and stdin_obj.isatty())
+    stdout_is_tty = bool(stdout_obj is not None and hasattr(stdout_obj, "isatty") and stdout_obj.isatty())
+    return stdin_is_tty and stdout_is_tty
 
 
 
@@ -372,6 +401,7 @@ def _run_one_model(
 
 
 def main() -> int:
+    _enable_line_buffering()
     print(f"[CFG] feature_file={FEATURE_FILE}")
     print(f"[CFG] target_col={TARGET_COL}")
     print(
@@ -390,6 +420,7 @@ def main() -> int:
         f"[CFG] peak_trail_drop_long={PEAK_TRAIL_DROP_LONG} peak_trail_drop_short={PEAK_TRAIL_DROP_SHORT} "
         f"peak_trail_min_age_long={PEAK_TRAIL_MIN_AGE_LONG} peak_trail_min_age_short={PEAK_TRAIL_MIN_AGE_SHORT}"
     )
+    print(f"[CFG] pause_on_exit={PAUSE_ON_EXIT_ENV}")
 
     if not FEATURE_FILE.exists():
         raise FileNotFoundError(f"Feature file not found: {FEATURE_FILE}")
@@ -460,8 +491,9 @@ if __name__ == "__main__":
         traceback.print_exc()
         rc = 1
     finally:
-        try:
-            input("Press Enter to exit...")
-        except EOFError:
-            pass
+        if _should_pause_on_exit():
+            try:
+                input("Press Enter to exit...")
+            except EOFError:
+                pass
     raise SystemExit(rc)
