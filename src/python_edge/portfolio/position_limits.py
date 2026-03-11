@@ -3,6 +3,7 @@ from __future__ import annotations
 import pandas as pd
 
 
+
 def apply_position_filters(
     df: pd.DataFrame,
     side_col: str = "side",
@@ -23,6 +24,7 @@ def apply_position_filters(
     return out
 
 
+
 def normalize_gross_exposure(
     df: pd.DataFrame,
     side_col: str = "side",
@@ -40,6 +42,7 @@ def normalize_gross_exposure(
             continue
         out.loc[idx, out_col] = raw_side.loc[idx] * (gross_target / gross)
     return out
+
 
 
 def cap_final_weight(
@@ -70,6 +73,7 @@ def cap_final_weight(
     out[weight_col] = capped
     out["weight_capped_flag"] = ((out["weight_cap_rule"] + out["weight_cap_adv_rule"]) > 0).astype("int64")
     return out
+
 
 
 def renormalize_after_caps(

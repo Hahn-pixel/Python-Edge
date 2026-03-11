@@ -20,12 +20,14 @@ class WFSplit:
     embargo_days: int = 0
 
 
+
 def _normalize_unique_dates(dates: pd.Series) -> list[object]:
     uniq = pd.Series(dates).dropna().unique().tolist()
     uniq = sorted(uniq)
     if not uniq:
         raise RuntimeError("No valid dates supplied")
     return uniq
+
 
 
 def build_walkforward_splits(
@@ -97,6 +99,7 @@ def build_walkforward_splits(
     if not out:
         raise RuntimeError("No walk-forward splits were generated")
     return out
+
 
 
 def print_split_summary(splits: list[WFSplit]) -> None:

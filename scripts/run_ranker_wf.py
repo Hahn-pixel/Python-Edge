@@ -14,6 +14,7 @@ from python_edge.model.ranker_linear import apply_linear_score, fit_corr_weights
 from python_edge.portfolio.construct import build_long_short_portfolio
 from python_edge.portfolio.exit_rules import apply_adaptive_exit_rules
 from python_edge.portfolio.holding_inertia import apply_holding_inertia
+from python_edge.portfolio.budget_allocation import attach_dynamic_side_budgets, apply_side_budgets
 from python_edge.portfolio.position_limits import apply_position_filters, cap_final_weight, normalize_gross_exposure, renormalize_after_caps
 from python_edge.portfolio.regime_allocation import build_regime_aware_long_short_portfolio
 from python_edge.portfolio.signal_sizing import apply_signal_strength_sizing
@@ -28,16 +29,36 @@ DIAG_DIR = Path("data") / "diagnostics"
 DIAG_DIR.mkdir(parents=True, exist_ok=True)
 
 TARGET_COL = "target_fwd_ret_1d"
-TRAIN_DAYS = 252
-TEST_DAYS = 63
-STEP_DAYS = 63
-TOP_PCT = 0.10
-ENTER_PCT = 0.10
-EXIT_PCT = 0.20
-MIN_TRAIN_ROWS = 500
-MIN_TEST_ROWS = 100
+TRAIN_DAYS = int(os.getenv("WF_TRAIN_DAYS", "252"))
+TEST_DAYS = int(os.getenv("WF_TEST_DAYS", "63"))
+STEP_DAYS = int(os.getenv("WF_STEP_DAYS", "63"))
+PURGE_DAYS = int(os.getenv("WF_PURGE_DAYS", "5"))
+EMBARGO_DAYS = int(os.getenv("WF_EMBARGO_DAYS", "1"))
+TOP_PCT = float(os.getenv("TOP_PCT", "0.10"))
+ENTER_PCT = float(os.getenv("ENTER_PCT", "0.10"))
+EXIT_PCT = float(os.getenv("EXIT_PCT", "0.20"))
+MIN_TRAIN_ROWS = int(os.getenv("MIN_TRAIN_ROWS", "500"))
+MIN_TEST_ROWS = int(os.getenv("MIN_TEST_ROWS", "100"))
 MAX_DAILY_TURNOVER = float(os.getenv("MAX_DAILY_TURNOVER", "0.60"))
 FINAL_WEIGHT_CAP = float(os.getenv("FINAL_WEIGHT_CAP", "0.08"))
+CAPITAL_POLICY = str(os.getenv("CAPITAL_POLICY", "stay_in_cash")).strip().lower()
+MAX_ADV_PARTICIPATION = float(os.getenv("MAX_ADV_PARTICIPATION", "0.05"))
+PORTFOLIO_NOTIONAL = float(os.getenv("PORTFOLIO_NOTIONAL", "1.0"))
+APPLY_DYNAMIC_BUDGETS = str(os.getenv("APPLY_DYNAMIC_BUDGETS", "1")).strip() == "1"
+BUDGET_INPUT_LAG_DAYS = int(os.getenv("BUDGET_INPUT_LAG_DAYS", "1"))
+LOW_PRICE_MIN = float(os.getenv("LOW_PRICE_MIN", "5.0"))
+LOW_DV_MIN = float(os.getenv("LOW_DV_MIN", "1000000"))
+FEE_BPS = float(os.getenv("FEE_BPS", "1.0"))
+BASE_SLIPPAGE_BPS = float(os.getenv("BASE_SLIPPAGE_BPS", "2.0"))
+BORROW_BPS_DAILY = float(os.getenv("BORROW_BPS_DAILY", "1.0"))
+SPREAD_BPS = float(os.getenv("SPREAD_BPS", "3.0"))
+IMPACT_BPS = float(os.getenv("IMPACT_BPS", "8.0"))
+LOW_PRICE_PENALTY_BPS = float(os.getenv("LOW_PRICE_PENALTY_BPS", "4.0"))
+HTB_BORROW_BPS_DAILY = float(os.getenv("HTB_BORROW_BPS_DAILY", "8.0"))
+PEAK_TRAIL_DROP_LONG = float(os.getenv("PEAK_TRAIL_DROP_LONG", "0.10"))
+PEAK_TRAIL_DROP_SHORT = float(os.getenv("PEAK_TRAIL_DROP_SHORT", "0.10"))
+PEAK_TRAIL_MIN_AGE_LONG = int(os.getenv("PEAK_TRAIL_MIN_AGE_LONG", "2"))
+PEAK_TRAIL_MIN_AGE_SHORT = int(os.getenv("PEAK_TRAIL_MIN_AGE_SHORT", "1"))
 
 INTRADAY_CORE_FEATURES = [
     "intraday_rs",
@@ -64,11 +85,10 @@ RISK_FILTER_FEATURES = [
 ]
 FULL_FEATURE_STACK = INTRADAY_CORE_FEATURES + REGIME_BREADTH_FEATURES + RECOVERED_DAILY_FEATURES + RISK_FILTER_FEATURES
 
-# Baseline configuration fixed after console25
-BASELINE_MODEL = "full_regime_stack_neutralized_sized_barbell_adaptive_exits"
+BASELINE_MODEL = "full_regime_stack_neutralized_sized_barbell_peaktrail_priority_exec"
 
 ABLATIONS: dict[str, dict[str, object]] = {
-    "full_regime_stack_neutralized_sized_barbell_adaptive_exits": {
+    "full_regime_stack_neutralized_sized_barbell_peaktrail_priority_exec": {
         "features": FULL_FEATURE_STACK,
         "portfolio_mode": "regime_inertia",
         "neutralize": True,
@@ -76,7 +96,6 @@ ABLATIONS: dict[str, dict[str, object]] = {
         "sizing_preset": "barbell",
         "adaptive_exits": True,
     },
-    # diagnostic comparison (same model but without adaptive exits)
     "diag_barbell_no_exits": {
         "features": FULL_FEATURE_STACK,
         "portfolio_mode": "regime_inertia",
@@ -107,11 +126,24 @@ def _prepare_base_frame(df: pd.DataFrame, features: list[str]) -> pd.DataFrame:
 
     zcols = [f"z_{f}" for f in features]
     needed = [
-        "date", "symbol", TARGET_COL, "market_breadth", "meta_dollar_volume", "meta_price", "liq_rank", "beta_proxy_60d",
+        "date",
+        "symbol",
+        TARGET_COL,
+        "market_breadth",
+        "meta_dollar_volume",
+        "meta_price",
+        "liq_rank",
+        "beta_proxy_60d",
+        "intraday_rs",
+        "volume_shock",
+        "intraday_pressure",
     ] + features + zcols
     missing = [c for c in needed if c not in out.columns]
     if missing:
         raise RuntimeError(f"_prepare_base_frame: missing columns: {missing}")
+
+    out = out.sort_values(["date", "symbol"]).reset_index(drop=True)
+    out["date"] = pd.to_datetime(out["date"])
     return out
 
 
@@ -174,9 +206,25 @@ def _build_portfolio(test_df: pd.DataFrame, portfolio_mode: str, score_col: str,
         raise RuntimeError(f"Unknown portfolio_mode={portfolio_mode!r}")
 
     if adaptive_exits:
-        port = apply_adaptive_exit_rules(port, side_col="side", score_col="score")
+        port = apply_adaptive_exit_rules(
+            port,
+            side_col="side",
+            score_col="score",
+            peak_trail_drop_long=PEAK_TRAIL_DROP_LONG,
+            peak_trail_drop_short=PEAK_TRAIL_DROP_SHORT,
+            peak_trail_min_age_long=PEAK_TRAIL_MIN_AGE_LONG,
+            peak_trail_min_age_short=PEAK_TRAIL_MIN_AGE_SHORT,
+        )
     else:
         port["exit_any"] = 0
+        port["exit_time_stop_long"] = 0
+        port["exit_time_stop_short"] = 0
+        port["exit_rank_decay_long"] = 0
+        port["exit_rank_decay_short"] = 0
+        port["exit_score_peak_long"] = 0
+        port["exit_score_peak_short"] = 0
+        port["exit_signal_flip"] = 0
+        port["exit_signal_flat"] = 0
 
     return port
 
@@ -186,7 +234,7 @@ def _apply_execution_layer(port_df: pd.DataFrame, use_signal_sizing: bool, sizin
     out = port_df.copy()
     side_col = "side"
 
-    out = apply_position_filters(out, side_col=side_col, min_price=5.0, min_dollar_volume=1_000_000.0)
+    out = apply_position_filters(out, side_col=side_col, min_price=LOW_PRICE_MIN, min_dollar_volume=LOW_DV_MIN)
 
     if use_signal_sizing:
         preset_name = str(sizing_preset or "baseline")
@@ -194,20 +242,69 @@ def _apply_execution_layer(port_df: pd.DataFrame, use_signal_sizing: bool, sizin
         side_col = "side_sized"
     else:
         out["sizing_preset"] = "none"
+        out["conviction_mult"] = 1.0
+        out["conviction_bucket"] = "flat"
 
     out = normalize_gross_exposure(out, side_col=side_col, gross_target=1.0, out_col="weight")
-    out = cap_final_weight(out, weight_col="weight", cap_abs_weight=FINAL_WEIGHT_CAP)
-    out = renormalize_after_caps(out, weight_col="weight", gross_target=1.0)
+
+    if APPLY_DYNAMIC_BUDGETS:
+        out = attach_dynamic_side_budgets(out, input_lag_days=BUDGET_INPUT_LAG_DAYS)
+        out = apply_side_budgets(out, weight_col="weight")
+    else:
+        out["long_budget"] = 0.50
+        out["short_budget"] = 0.50
+        out["budget_signal_lag_days"] = 0
+
+    out = cap_final_weight(
+        out,
+        weight_col="weight",
+        cap_abs_weight=FINAL_WEIGHT_CAP,
+        max_adv_participation=MAX_ADV_PARTICIPATION,
+        portfolio_notional=PORTFOLIO_NOTIONAL,
+    )
+    out = renormalize_after_caps(out, weight_col="weight", gross_target=1.0, capital_policy=CAPITAL_POLICY)
     out = cap_daily_turnover(out, weight_col="weight", max_daily_turnover=MAX_DAILY_TURNOVER)
-    out = attach_execution_costs(out, weight_col="weight", fee_bps=1.0, slippage_bps=2.0, borrow_bps_daily=1.0)
+    out = attach_execution_costs(
+        out,
+        weight_col="weight",
+        fee_bps=FEE_BPS,
+        slippage_bps=BASE_SLIPPAGE_BPS,
+        borrow_bps_daily=BORROW_BPS_DAILY,
+        spread_bps=SPREAD_BPS,
+        impact_bps=IMPACT_BPS,
+        low_price_penalty_bps=LOW_PRICE_PENALTY_BPS,
+        htb_borrow_bps_daily=HTB_BORROW_BPS_DAILY,
+        max_participation=MAX_ADV_PARTICIPATION,
+        portfolio_notional=PORTFOLIO_NOTIONAL,
+    )
     return out
 
 
 
-def _run_one_model(model_name: str, raw_df: pd.DataFrame, features: list[str], portfolio_mode: str, neutralize: bool, sizing: bool, sizing_preset: str | None, adaptive_exits: bool) -> tuple[pd.DataFrame, pd.DataFrame]:
-    print(f"[WF][{model_name}] portfolio_mode={portfolio_mode} neutralize={neutralize} sizing={sizing} sizing_preset={sizing_preset} adaptive_exits={adaptive_exits} max_daily_turnover={MAX_DAILY_TURNOVER} final_weight_cap={FINAL_WEIGHT_CAP}")
+def _run_one_model(
+    model_name: str,
+    raw_df: pd.DataFrame,
+    features: list[str],
+    portfolio_mode: str,
+    neutralize: bool,
+    sizing: bool,
+    sizing_preset: str | None,
+    adaptive_exits: bool,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    print(
+        f"[WF][{model_name}] portfolio_mode={portfolio_mode} neutralize={neutralize} sizing={sizing} "
+        f"sizing_preset={sizing_preset} adaptive_exits={adaptive_exits} max_daily_turnover={MAX_DAILY_TURNOVER} "
+        f"final_weight_cap={FINAL_WEIGHT_CAP} purge_days={PURGE_DAYS} embargo_days={EMBARGO_DAYS} capital_policy={CAPITAL_POLICY}"
+    )
     df = _prepare_base_frame(raw_df, features)
-    splits = build_walkforward_splits(df["date"], train_days=TRAIN_DAYS, test_days=TEST_DAYS, step_days=STEP_DAYS)
+    splits = build_walkforward_splits(
+        df["date"],
+        train_days=TRAIN_DAYS,
+        test_days=TEST_DAYS,
+        step_days=STEP_DAYS,
+        purge_days=PURGE_DAYS,
+        embargo_days=EMBARGO_DAYS,
+    )
     print_split_summary(splits)
 
     all_test_daily: list[pd.DataFrame] = []
@@ -219,6 +316,13 @@ def _run_one_model(model_name: str, raw_df: pd.DataFrame, features: list[str], p
         test_df = _slice_by_date(df, sp.test_start, sp.test_end)
         print(f"[WF][{model_name}][FOLD {sp.fold_id}] train_rows={len(train_df)} test_rows={len(test_df)}")
 
+        if len(train_df) < MIN_TRAIN_ROWS:
+            print(f"[WF][{model_name}][FOLD {sp.fold_id}][SKIP] train_rows<{MIN_TRAIN_ROWS}")
+            continue
+        if len(test_df) < MIN_TEST_ROWS:
+            print(f"[WF][{model_name}][FOLD {sp.fold_id}][SKIP] test_rows<{MIN_TEST_ROWS}")
+            continue
+
         zcols = [f"z_{f}" for f in features]
         fit = fit_corr_weights(train_df=train_df, zcols=zcols, target_col=TARGET_COL)
         all_weight_frames.append(_weights_to_frame(model_name, sp.fold_id, fit.weights))
@@ -226,7 +330,12 @@ def _run_one_model(model_name: str, raw_df: pd.DataFrame, features: list[str], p
         scored_test = apply_linear_score(test_df, fit=fit, out_col="score")
         score_col = "score"
         if neutralize:
-            scored_test = neutralize_score_cross_section(scored_test, score_col="score", exposure_cols=["liq_rank", "beta_proxy_60d"], out_col="score_neutral")
+            scored_test = neutralize_score_cross_section(
+                scored_test,
+                score_col="score",
+                exposure_cols=["liq_rank", "beta_proxy_60d"],
+                out_col="score_neutral",
+            )
             score_col = "score_neutral"
 
         port_test = _build_portfolio(scored_test, portfolio_mode=portfolio_mode, score_col=score_col, adaptive_exits=adaptive_exits)
@@ -239,15 +348,14 @@ def _run_one_model(model_name: str, raw_df: pd.DataFrame, features: list[str], p
         daily_test["model"] = model_name
 
         safe_model_name = model_name.replace("/", "_").replace("\\", "_").replace(" ", "_")
-
-        port_test.to_parquet(
-            DIAG_DIR / f"portfolio__{safe_model_name}__fold{sp.fold_id}.parquet",
-            index=False,
-        )
+        port_test.to_parquet(DIAG_DIR / f"portfolio__{safe_model_name}__fold{sp.fold_id}.parquet", index=False)
 
         fold_summary = summarize_daily_returns(daily_test)
         print_summary(f"[WF][{model_name}][FOLD {sp.fold_id}][SUMMARY]", fold_summary)
         all_test_daily.append(daily_test)
+
+    if not all_test_daily:
+        raise RuntimeError(f"[WF][{model_name}] no valid folds survived")
 
     overall = pd.concat(all_test_daily, axis=0, ignore_index=True)
     overall = overall.sort_values(["date", "fold_id"]).reset_index(drop=True)
@@ -266,9 +374,22 @@ def _run_one_model(model_name: str, raw_df: pd.DataFrame, features: list[str], p
 def main() -> int:
     print(f"[CFG] feature_file={FEATURE_FILE}")
     print(f"[CFG] target_col={TARGET_COL}")
-    print(f"[CFG] train_days={TRAIN_DAYS} test_days={TEST_DAYS} step_days={STEP_DAYS} top_pct={TOP_PCT}")
-    print(f"[CFG] enter_pct={ENTER_PCT} exit_pct={EXIT_PCT}")
-    print(f"[CFG] max_daily_turnover={MAX_DAILY_TURNOVER} final_weight_cap={FINAL_WEIGHT_CAP}")
+    print(
+        f"[CFG] train_days={TRAIN_DAYS} test_days={TEST_DAYS} step_days={STEP_DAYS} purge_days={PURGE_DAYS} embargo_days={EMBARGO_DAYS}"
+    )
+    print(f"[CFG] top_pct={TOP_PCT} enter_pct={ENTER_PCT} exit_pct={EXIT_PCT}")
+    print(
+        f"[CFG] max_daily_turnover={MAX_DAILY_TURNOVER} final_weight_cap={FINAL_WEIGHT_CAP} capital_policy={CAPITAL_POLICY} "
+        f"max_adv_participation={MAX_ADV_PARTICIPATION} portfolio_notional={PORTFOLIO_NOTIONAL}"
+    )
+    print(
+        f"[CFG] dynamic_budgets={int(APPLY_DYNAMIC_BUDGETS)} budget_input_lag_days={BUDGET_INPUT_LAG_DAYS} "
+        f"fee_bps={FEE_BPS} spread_bps={SPREAD_BPS} impact_bps={IMPACT_BPS} borrow_bps_daily={BORROW_BPS_DAILY}"
+    )
+    print(
+        f"[CFG] peak_trail_drop_long={PEAK_TRAIL_DROP_LONG} peak_trail_drop_short={PEAK_TRAIL_DROP_SHORT} "
+        f"peak_trail_min_age_long={PEAK_TRAIL_MIN_AGE_LONG} peak_trail_min_age_short={PEAK_TRAIL_MIN_AGE_SHORT}"
+    )
 
     if not FEATURE_FILE.exists():
         raise FileNotFoundError(f"Feature file not found: {FEATURE_FILE}")
@@ -316,6 +437,10 @@ def main() -> int:
                 "avg_short_costs": float(summary.get("avg_short_costs", 0.0)),
                 "avg_gross_long_exposure": float(summary.get("avg_gross_long_exposure", 0.0)),
                 "avg_gross_short_exposure": float(summary.get("avg_gross_short_exposure", 0.0)),
+                "avg_cash_weight": float(summary.get("avg_cash_weight", 0.0)),
+                "avg_deployed_gross": float(summary.get("avg_deployed_gross", 0.0)),
+                "avg_execution_participation": float(summary.get("avg_execution_participation", 0.0)),
+                "participation_limit_hit_rate": float(summary.get("participation_limit_hit_rate", 0.0)),
             }
         )
 

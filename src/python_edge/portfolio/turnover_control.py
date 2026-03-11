@@ -5,6 +5,7 @@ import math
 import pandas as pd
 
 
+
 def _infer_strength(row: pd.Series, weight_col: str) -> float:
     target_weight = float(pd.to_numeric(row.get(weight_col, 0.0), errors="coerce"))
     rank_pct = pd.to_numeric(row.get("rank_pct", None), errors="coerce")
@@ -17,6 +18,7 @@ def _infer_strength(row: pd.Series, weight_col: str) -> float:
     if pd.notna(score):
         return float(abs(score))
     return float(abs(target_weight))
+
 
 
 def _trade_priority_components(prev_weight: float, target_weight: float) -> list[tuple[str, float]]:
@@ -45,6 +47,7 @@ def _trade_priority_components(prev_weight: float, target_weight: float) -> list
     return pieces
 
 
+
 def cap_daily_turnover(
     df: pd.DataFrame,
     weight_col: str = "weight",
@@ -62,7 +65,7 @@ def cap_daily_turnover(
     actual_rows: list[pd.DataFrame] = []
     prev_actual_by_symbol: dict[str, float] = {}
 
-    for dt, sdf in out.groupby("date", sort=False):
+    for _, sdf in out.groupby("date", sort=False):
         day = sdf.copy()
         prev_weight_list: list[float] = []
         target_weight_list: list[float] = []

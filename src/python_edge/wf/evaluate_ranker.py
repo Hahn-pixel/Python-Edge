@@ -3,6 +3,7 @@ from __future__ import annotations
 import pandas as pd
 
 
+
 def evaluate_long_short(df: pd.DataFrame, target_col: str = "target_fwd_ret_1d") -> pd.DataFrame:
     out = df.copy()
     required = ["date", "weight", target_col]
@@ -56,6 +57,8 @@ def evaluate_long_short(df: pd.DataFrame, target_col: str = "target_fwd_ret_1d")
         "turnover_budget_left",
         "execution_participation",
         "execution_participation_flag",
+        "long_budget",
+        "short_budget",
     ]
     for col in optional_mean_cols:
         if col in out.columns:
@@ -67,6 +70,7 @@ def evaluate_long_short(df: pd.DataFrame, target_col: str = "target_fwd_ret_1d")
     if "execution_participation_flag" in daily.columns:
         daily = daily.rename(columns={"execution_participation_flag": "participation_limit_hit_rate"})
     return daily
+
 
 
 def summarize_daily_returns(df: pd.DataFrame) -> dict[str, float]:
@@ -101,10 +105,13 @@ def summarize_daily_returns(df: pd.DataFrame) -> dict[str, float]:
         ("turnover_budget_left", "avg_turnover_budget_left"),
         ("execution_participation", "avg_execution_participation"),
         ("participation_limit_hit_rate", "participation_limit_hit_rate"),
+        ("long_budget", "avg_long_budget"),
+        ("short_budget", "avg_short_budget"),
     ]:
         if col in df.columns:
             out[key] = float(pd.to_numeric(df[col], errors="coerce").fillna(0.0).mean())
     return out
+
 
 
 def print_summary(tag: str, summary: dict[str, float]) -> None:
@@ -135,6 +142,8 @@ def print_summary(tag: str, summary: dict[str, float]) -> None:
         "avg_deployed_gross",
         "avg_execution_participation",
         "participation_limit_hit_rate",
+        "avg_long_budget",
+        "avg_short_budget",
     ]
     parts: list[str] = [tag]
     for key in ordered_keys:

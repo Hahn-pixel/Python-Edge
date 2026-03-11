@@ -3,6 +3,7 @@ from __future__ import annotations
 import pandas as pd
 
 
+
 def attach_execution_costs(
     df: pd.DataFrame,
     weight_col: str = "weight",
@@ -45,7 +46,7 @@ def attach_execution_costs(
     impact_rate = (impact_bps / 10000.0) * (participation_clipped / max(max_participation, 1e-9)) ** 0.5
     impact_rate = impact_rate.clip(lower=0.0)
 
-    slippage_rate = spread_rate + impact_rate
+    slippage_rate = (slippage_bps / 10000.0) + spread_rate + impact_rate
     slippage_cost = trade_abs * slippage_rate
 
     borrow_rate = pd.Series(0.0, index=out.index, dtype="float64")
