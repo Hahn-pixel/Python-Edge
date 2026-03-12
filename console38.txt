@@ -1,0 +1,40 @@
+
+[DIAG][INPUT] files=8 glob=data/diagnostics/portfolio__diag_barbell_no_exits__fold*.parquet
+[DIAG][INPUT_FILE] i=1 path=data\diagnostics\portfolio__diag_barbell_no_exits__fold1.parquet
+[DIAG][INPUT_FILE] i=2 path=data\diagnostics\portfolio__diag_barbell_no_exits__fold2.parquet
+[DIAG][INPUT_FILE] i=3 path=data\diagnostics\portfolio__diag_barbell_no_exits__fold3.parquet
+[DIAG][INPUT_FILE] i=4 path=data\diagnostics\portfolio__diag_barbell_no_exits__fold4.parquet
+[DIAG][INPUT_FILE] i=5 path=data\diagnostics\portfolio__diag_barbell_no_exits__fold5.parquet
+[DIAG][INPUT_FILE] i=6 path=data\diagnostics\portfolio__diag_barbell_no_exits__fold6.parquet
+[DIAG][INPUT_FILE] i=7 path=data\diagnostics\portfolio__diag_barbell_no_exits__fold7.parquet
+[DIAG][INPUT_FILE] i=8 path=data\diagnostics\portfolio__diag_barbell_no_exits__fold8.parquet
+[DIAG][DEBUG] metric=rows value=48888
+[DIAG][DEBUG] metric=days value=504
+[DIAG][DEBUG] metric=symbols value=97
+[DIAG][DEBUG] metric=duplicate_date_symbol_rows value=0
+[DIAG][DEBUG] metric=nan_close_rows value=0
+[DIAG][DEBUG] metric=nan_weight_rows value=0
+[DIAG][DEBUG] metric=nan_score_rows value=0
+[DIAG][DEBUG] metric=zero_dispersion_days value=0
+[DIAG][DEBUG] metric=all_equal_score_days value=0
+[DIAG][DEBUG] metric=turnover_cap_hit_days value=504
+[DIAG][OVERALL] days=504.000000 avg_daily_ret=0.001386 std_daily_ret=0.005893 win_rate_days=0.569444 cum_ret=0.992935 daily_sharpe=0.235274 ann_sharpe=3.734851 avg_raw_turnover=1.308280 avg_turnover=0.800000 cap_hit_rate=1.000000 avg_cs_dispersion=1.341643
+[DIAG][DELAY] delay=0 days=504 avg_daily_ret=0.001389 cum_ret=0.995597 ann_sharpe=3.742710
+[DIAG][DELAY] delay=1 days=504 avg_daily_ret=-0.000389 cum_ret=-0.182807 ann_sharpe=-1.310508
+[DIAG][DELAY] delay=2 days=504 avg_daily_ret=-0.000465 cum_ret=-0.213857 ann_sharpe=-1.513079
+[DIAG][PERSIST] mean_score_corr=0.031704 mean_rank_corr=0.028642 mean_top_overlap=0.100598 mean_bottom_overlap=0.105447 pairs=503.000000
+[DIAG][COST] mult=0.000000 days=504 avg_daily_ret=0.001888 cum_ret=1.565313 ann_sharpe=5.085924
+[DIAG][COST] mult=0.500000 days=504 avg_daily_ret=0.001637 cum_ret=1.261120 ann_sharpe=4.410424
+[DIAG][COST] mult=1.000000 days=504 avg_daily_ret=0.001386 cum_ret=0.992935 ann_sharpe=3.734851
+[DIAG][COST] mult=1.500000 days=504 avg_daily_ret=0.001136 cum_ret=0.756502 ann_sharpe=3.059207
+[DIAG][COST] mult=2.000000 days=504 avg_daily_ret=0.000885 cum_ret=0.548071 ann_sharpe=2.383495
+[DIAG][DECAY] horizon_days=1.000000 days=503.000000 avg_top_ret=0.002436 avg_bottom_ret=-0.000980 avg_top_bottom_spread=0.003416
+[DIAG][DECAY] horizon_days=2.000000 days=502.000000 avg_top_ret=0.003574 avg_bottom_ret=0.000258 avg_top_bottom_spread=0.003316
+[DIAG][DECAY] horizon_days=3.000000 days=501.000000 avg_top_ret=0.004725 avg_bottom_ret=0.000790 avg_top_bottom_spread=0.003935
+[DIAG][DECAY] horizon_days=5.000000 days=499.000000 avg_top_ret=0.005529 avg_bottom_ret=0.004343 avg_top_bottom_spread=0.001187
+[DIAG][CONCENTRATION] top1_share=0.042525 top5_share=0.183758 top10_share=0.319135 max_abs_score=3.030518
+[DIAG][BREADTH] cs_dispersion_mean=1.341643 cs_dispersion_p05=1.046509 cs_dispersion_p95=1.724207 cs_top_bottom_spread_mean=3.029524 cs_top_bottom_spread_p05=2.403440 cs_top_bottom_spread_p95=3.793966 cs_signal_breadth_mean=0.343806 cs_signal_breadth_p05=0.278351 cs_signal_breadth_p95=0.402062 cs_nonzero_frac_mean=0.989691 cs_nonzero_frac_p05=0.989691 cs_nonzero_frac_p95=0.989691 cs_signal_count_mean=97.000000 cs_signal_count_p05=97.000000 cs_signal_count_p95=97.000000 score_conf_mean=1.234989 score_conf_p05=1.144988 score_conf_p95=1.250000 dispersion_gt_1p5_days=114.000000 dispersion_lt_0p25_days=0.000000
+[DIAG][LS] long_avg_daily_ret=0.000987 long_cum_ret=0.632375 short_avg_daily_ret=0.000596 short_cum_ret=0.344173
+[DIAG][TURNOVER] avg_raw_turnover=1.308280 avg_capped_turnover=0.800000 avg_cap_hit_rate=1.000000 avg_turnover_budget_left=0.000000 avg_turnover_clipped=0.508280 full_bind_days=504.000000
+[DIAG][EXPORT] json=data\diagnostics\diag_barbell_no_exits__summary.json
+[DIAG] completed successfully
