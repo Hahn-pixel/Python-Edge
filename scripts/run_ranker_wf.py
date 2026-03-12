@@ -9,13 +9,14 @@ import pandas as pd
 
 from python_edge.execution.cost_model import attach_execution_costs
 from python_edge.model.conditional_factors import add_conditional_factors
+from python_edge.model.cross_sectional_signal import build_cross_sectional_signal
 from python_edge.model.cs_normalize import cs_zscore
 from python_edge.model.neutralize import add_beta_proxy, neutralize_score_cross_section
 from python_edge.model.ranker_linear import apply_linear_score, fit_corr_weights
+from python_edge.portfolio.budget_allocation import attach_dynamic_side_budgets, apply_side_budgets
 from python_edge.portfolio.construct import build_long_short_portfolio
 from python_edge.portfolio.exit_rules import apply_adaptive_exit_rules
 from python_edge.portfolio.holding_inertia import apply_holding_inertia
-from python_edge.portfolio.budget_allocation import attach_dynamic_side_budgets, apply_side_budgets
 from python_edge.portfolio.position_limits import apply_position_filters, cap_final_weight, normalize_gross_exposure, renormalize_after_caps
 from python_edge.portfolio.regime_allocation import build_regime_aware_long_short_portfolio
 from python_edge.portfolio.signal_sizing import apply_signal_strength_sizing
@@ -59,6 +60,11 @@ PEAK_TRAIL_DROP_LONG = float(os.getenv("PEAK_TRAIL_DROP_LONG", "0.10"))
 PEAK_TRAIL_DROP_SHORT = float(os.getenv("PEAK_TRAIL_DROP_SHORT", "0.10"))
 PEAK_TRAIL_MIN_AGE_LONG = int(os.getenv("PEAK_TRAIL_MIN_AGE_LONG", "2"))
 PEAK_TRAIL_MIN_AGE_SHORT = int(os.getenv("PEAK_TRAIL_MIN_AGE_SHORT", "1"))
+CS_WINSOR_LOWER_Q = float(os.getenv("CS_WINSOR_LOWER_Q", "0.02"))
+CS_WINSOR_UPPER_Q = float(os.getenv("CS_WINSOR_UPPER_Q", "0.98"))
+CS_CONF_FLOOR = float(os.getenv("CS_CONF_FLOOR", "0.35"))
+CS_CONF_CAP = float(os.getenv("CS_CONF_CAP", "1.25"))
+CS_FINAL_SCORE_CAP = float(os.getenv("CS_FINAL_SCORE_CAP", "6.0"))
 PAUSE_ON_EXIT_ENV = str(os.getenv("PAUSE_ON_EXIT", "auto")).strip().lower()
 
 INTRADAY_CORE_FEATURES = [
@@ -108,6 +114,7 @@ ABLATIONS: dict[str, dict[str, object]] = {
 }
 
 
+
 def _enable_line_buffering() -> None:
     for stream_name in ["stdout", "stderr"]:
         stream = getattr(sys, stream_name, None)
@@ -121,6 +128,7 @@ def _enable_line_buffering() -> None:
                 pass
 
 
+
 def _should_pause_on_exit() -> bool:
     if PAUSE_ON_EXIT_ENV in {"0", "false", "no", "off"}:
         return False
@@ -131,6 +139,7 @@ def _should_pause_on_exit() -> bool:
     stdin_is_tty = bool(stdin_obj is not None and hasattr(stdin_obj, "isatty") and stdin_obj.isatty())
     stdout_is_tty = bool(stdout_obj is not None and hasattr(stdout_obj, "isatty") and stdout_obj.isatty())
     return stdin_is_tty and stdout_is_tty
+
 
 
 def _prepare_base_frame(df: pd.DataFrame, features: list[str]) -> pd.DataFrame:
@@ -172,8 +181,10 @@ def _prepare_base_frame(df: pd.DataFrame, features: list[str]) -> pd.DataFrame:
     return out
 
 
+
 def _slice_by_date(df: pd.DataFrame, start_date: object, end_date: object) -> pd.DataFrame:
     return df.loc[(df["date"] >= start_date) & (df["date"] <= end_date)].copy()
+
 
 
 def _weights_to_frame(model_name: str, fold_id: int, weights: dict[str, float]) -> pd.DataFrame:
@@ -188,6 +199,7 @@ def _weights_to_frame(model_name: str, fold_id: int, weights: dict[str, float]) 
         }
         for feature_name, weight_value in weights.items()
     ])
+
 
 
 def _print_weight_stability(model_name: str, weights_df: pd.DataFrame) -> None:
@@ -206,6 +218,24 @@ def _print_weight_stability(model_name: str, weights_df: pd.DataFrame) -> None:
     grouped = grouped.sort_values(["mean_abs_weight", "feature"], ascending=[False, True]).reset_index(drop=True)
     print(f"[WF][{model_name}][WEIGHTS][STABILITY]")
     print(grouped.to_string(index=False))
+
+
+
+def _build_signal_layer(df: pd.DataFrame, score_col: str) -> tuple[pd.DataFrame, str]:
+    out = df.copy()
+    out["score_raw"] = pd.to_numeric(out[score_col], errors="coerce")
+    out = build_cross_sectional_signal(
+        out,
+        score_col="score_raw",
+        date_col="date",
+        winsor_lower_q=CS_WINSOR_LOWER_Q,
+        winsor_upper_q=CS_WINSOR_UPPER_Q,
+        conf_floor=CS_CONF_FLOOR,
+        conf_cap=CS_CONF_CAP,
+        final_score_cap=CS_FINAL_SCORE_CAP,
+    )
+    return out, "score_final"
+
 
 
 def _build_portfolio(test_df: pd.DataFrame, portfolio_mode: str, score_col: str, adaptive_exits: bool) -> pd.DataFrame:
@@ -248,6 +278,7 @@ def _build_portfolio(test_df: pd.DataFrame, portfolio_mode: str, score_col: str,
         port["exit_signal_flat"] = 0
 
     return port
+
 
 
 def _apply_execution_layer(port_df: pd.DataFrame, use_signal_sizing: bool, sizing_preset: str | None) -> pd.DataFrame:
@@ -300,6 +331,7 @@ def _apply_execution_layer(port_df: pd.DataFrame, use_signal_sizing: bool, sizin
     return out
 
 
+
 def _run_one_model(
     model_name: str,
     raw_df: pd.DataFrame,
@@ -346,21 +378,24 @@ def _run_one_model(
         fit = fit_corr_weights(train_df=train_df, zcols=zcols, target_col=TARGET_COL)
         all_weight_frames.append(_weights_to_frame(model_name, sp.fold_id, fit.weights))
 
-        scored_test = apply_linear_score(test_df, fit=fit, out_col="score")
-        score_col = "score"
+        scored_test = apply_linear_score(test_df, fit=fit, out_col="score_model")
+        score_col = "score_model"
         if neutralize:
             scored_test = neutralize_score_cross_section(
                 scored_test,
-                score_col="score",
+                score_col="score_model",
                 exposure_cols=["liq_rank", "beta_proxy_60d"],
-                out_col="score_neutral",
+                out_col="score_raw",
             )
-            score_col = "score_neutral"
+            score_col = "score_raw"
+        else:
+            scored_test["score_raw"] = pd.to_numeric(scored_test[score_col], errors="coerce")
+            score_col = "score_raw"
 
-        port_test = _build_portfolio(scored_test, portfolio_mode=portfolio_mode, score_col=score_col, adaptive_exits=adaptive_exits)
-        if score_col != "score":
-            port_test["score"] = pd.to_numeric(port_test[score_col], errors="coerce")
+        scored_test, score_col = _build_signal_layer(scored_test, score_col=score_col)
+        scored_test["score"] = pd.to_numeric(scored_test[score_col], errors="coerce")
 
+        port_test = _build_portfolio(scored_test, portfolio_mode=portfolio_mode, score_col="score", adaptive_exits=adaptive_exits)
         port_test = _apply_execution_layer(port_test, use_signal_sizing=sizing, sizing_preset=sizing_preset)
         daily_test = evaluate_long_short(port_test, target_col=TARGET_COL)
         daily_test["fold_id"] = sp.fold_id
@@ -389,6 +424,7 @@ def _run_one_model(
     return overall, weights_df
 
 
+
 def main() -> int:
     _enable_line_buffering()
     print(f"[CFG] feature_file={FEATURE_FILE}")
@@ -408,6 +444,10 @@ def main() -> int:
     print(
         f"[CFG] peak_trail_drop_long={PEAK_TRAIL_DROP_LONG} peak_trail_drop_short={PEAK_TRAIL_DROP_SHORT} "
         f"peak_trail_min_age_long={PEAK_TRAIL_MIN_AGE_LONG} peak_trail_min_age_short={PEAK_TRAIL_MIN_AGE_SHORT}"
+    )
+    print(
+        f"[CFG] cs_winsor_lower_q={CS_WINSOR_LOWER_Q} cs_winsor_upper_q={CS_WINSOR_UPPER_Q} "
+        f"cs_conf_floor={CS_CONF_FLOOR} cs_conf_cap={CS_CONF_CAP} cs_final_score_cap={CS_FINAL_SCORE_CAP}"
     )
     print(f"[CFG] pause_on_exit={PAUSE_ON_EXIT_ENV}")
 
@@ -463,6 +503,14 @@ def main() -> int:
                 "participation_limit_hit_rate": float(summary.get("participation_limit_hit_rate", 0.0)),
                 "avg_hold_days": float(summary.get("avg_hold_days", 0.0)),
                 "exit_rate": float(summary.get("exit_rate", 0.0)),
+                "avg_score_conf": float(summary.get("avg_score_conf", 0.0)),
+                "avg_cs_dispersion": float(summary.get("avg_cs_dispersion", 0.0)),
+                "avg_cs_top_bottom_spread": float(summary.get("avg_cs_top_bottom_spread", 0.0)),
+                "avg_cs_signal_breadth": float(summary.get("avg_cs_signal_breadth", 0.0)),
+                "avg_cs_nonzero_frac": float(summary.get("avg_cs_nonzero_frac", 0.0)),
+                "avg_cs_signal_count": float(summary.get("avg_cs_signal_count", 0.0)),
+                "avg_cs_signal_quality_flag": float(summary.get("avg_cs_signal_quality_flag", 0.0)),
+                "avg_score_abs_rank_pct": float(summary.get("avg_score_abs_rank_pct", 0.0)),
             }
         )
 

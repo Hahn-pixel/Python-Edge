@@ -3,6 +3,7 @@ from __future__ import annotations
 import pandas as pd
 
 
+
 def evaluate_long_short(df: pd.DataFrame, target_col: str = "target_fwd_ret_1d") -> pd.DataFrame:
     out = df.copy()
     required = ["date", "weight", target_col]
@@ -60,6 +61,14 @@ def evaluate_long_short(df: pd.DataFrame, target_col: str = "target_fwd_ret_1d")
         "short_budget",
         "position_age",
         "exit_any",
+        "score_conf",
+        "cs_dispersion",
+        "cs_top_bottom_spread",
+        "cs_signal_breadth",
+        "cs_nonzero_frac",
+        "cs_signal_count",
+        "cs_signal_quality_flag",
+        "score_abs_rank_pct",
     ]
     for col in optional_mean_cols:
         if col in out.columns:
@@ -74,7 +83,12 @@ def evaluate_long_short(df: pd.DataFrame, target_col: str = "target_fwd_ret_1d")
         daily = daily.rename(columns={"position_age": "avg_hold_days"})
     if "exit_any" in daily.columns:
         daily = daily.rename(columns={"exit_any": "exit_rate"})
+    if "score_conf" in daily.columns:
+        daily = daily.rename(columns={"score_conf": "avg_score_conf"})
+    if "score_abs_rank_pct" in daily.columns:
+        daily = daily.rename(columns={"score_abs_rank_pct": "avg_score_abs_rank_pct"})
     return daily
+
 
 
 def summarize_daily_returns(df: pd.DataFrame) -> dict[str, float]:
@@ -113,10 +127,19 @@ def summarize_daily_returns(df: pd.DataFrame) -> dict[str, float]:
         ("short_budget", "avg_short_budget"),
         ("avg_hold_days", "avg_hold_days"),
         ("exit_rate", "exit_rate"),
+        ("avg_score_conf", "avg_score_conf"),
+        ("cs_dispersion", "avg_cs_dispersion"),
+        ("cs_top_bottom_spread", "avg_cs_top_bottom_spread"),
+        ("cs_signal_breadth", "avg_cs_signal_breadth"),
+        ("cs_nonzero_frac", "avg_cs_nonzero_frac"),
+        ("cs_signal_count", "avg_cs_signal_count"),
+        ("cs_signal_quality_flag", "avg_cs_signal_quality_flag"),
+        ("avg_score_abs_rank_pct", "avg_score_abs_rank_pct"),
     ]:
         if col in df.columns:
             out[key] = float(pd.to_numeric(df[col], errors="coerce").fillna(0.0).mean())
     return out
+
 
 
 def print_summary(tag: str, summary: dict[str, float]) -> None:
@@ -151,6 +174,14 @@ def print_summary(tag: str, summary: dict[str, float]) -> None:
         "avg_short_budget",
         "avg_hold_days",
         "exit_rate",
+        "avg_score_conf",
+        "avg_cs_dispersion",
+        "avg_cs_top_bottom_spread",
+        "avg_cs_signal_breadth",
+        "avg_cs_nonzero_frac",
+        "avg_cs_signal_count",
+        "avg_cs_signal_quality_flag",
+        "avg_score_abs_rank_pct",
     ]
     parts: list[str] = [tag]
     for key in ordered_keys:
