@@ -25,7 +25,6 @@ from python_edge.wf.splits import build_walkforward_splits, print_split_summary
 
 
 FEATURE_FILE = Path("data") / "features" / "feature_matrix_v1.parquet"
-
 DIAG_DIR = Path("data") / "diagnostics"
 DIAG_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -34,15 +33,15 @@ TRAIN_DAYS = int(os.getenv("WF_TRAIN_DAYS", "252"))
 TEST_DAYS = int(os.getenv("WF_TEST_DAYS", "63"))
 STEP_DAYS = int(os.getenv("WF_STEP_DAYS", "63"))
 PURGE_DAYS = int(os.getenv("WF_PURGE_DAYS", "5"))
-EMBARGO_DAYS = int(os.getenv("WF_EMBARGO_DAYS", "1"))
+EMBARGO_DAYS = int(os.getenv("WF_EMBARGO_DAYS", "5"))
 TOP_PCT = float(os.getenv("TOP_PCT", "0.10"))
 ENTER_PCT = float(os.getenv("ENTER_PCT", "0.10"))
 EXIT_PCT = float(os.getenv("EXIT_PCT", "0.20"))
 MIN_TRAIN_ROWS = int(os.getenv("MIN_TRAIN_ROWS", "500"))
 MIN_TEST_ROWS = int(os.getenv("MIN_TEST_ROWS", "100"))
-MAX_DAILY_TURNOVER = float(os.getenv("MAX_DAILY_TURNOVER", "0.60"))
+MAX_DAILY_TURNOVER = float(os.getenv("MAX_DAILY_TURNOVER", "0.80"))
 FINAL_WEIGHT_CAP = float(os.getenv("FINAL_WEIGHT_CAP", "0.08"))
-CAPITAL_POLICY = str(os.getenv("CAPITAL_POLICY", "stay_in_cash")).strip().lower()
+CAPITAL_POLICY = str(os.getenv("CAPITAL_POLICY", "scale_up_to_target")).strip().lower()
 MAX_ADV_PARTICIPATION = float(os.getenv("MAX_ADV_PARTICIPATION", "0.05"))
 PORTFOLIO_NOTIONAL = float(os.getenv("PORTFOLIO_NOTIONAL", "1.0"))
 APPLY_DYNAMIC_BUDGETS = str(os.getenv("APPLY_DYNAMIC_BUDGETS", "1")).strip() == "1"
@@ -109,7 +108,6 @@ ABLATIONS: dict[str, dict[str, object]] = {
 }
 
 
-
 def _enable_line_buffering() -> None:
     for stream_name in ["stdout", "stderr"]:
         stream = getattr(sys, stream_name, None)
@@ -123,7 +121,6 @@ def _enable_line_buffering() -> None:
                 pass
 
 
-
 def _should_pause_on_exit() -> bool:
     if PAUSE_ON_EXIT_ENV in {"0", "false", "no", "off"}:
         return False
@@ -134,7 +131,6 @@ def _should_pause_on_exit() -> bool:
     stdin_is_tty = bool(stdin_obj is not None and hasattr(stdin_obj, "isatty") and stdin_obj.isatty())
     stdout_is_tty = bool(stdout_obj is not None and hasattr(stdout_obj, "isatty") and stdout_obj.isatty())
     return stdin_is_tty and stdout_is_tty
-
 
 
 def _prepare_base_frame(df: pd.DataFrame, features: list[str]) -> pd.DataFrame:
@@ -176,10 +172,8 @@ def _prepare_base_frame(df: pd.DataFrame, features: list[str]) -> pd.DataFrame:
     return out
 
 
-
 def _slice_by_date(df: pd.DataFrame, start_date: object, end_date: object) -> pd.DataFrame:
     return df.loc[(df["date"] >= start_date) & (df["date"] <= end_date)].copy()
-
 
 
 def _weights_to_frame(model_name: str, fold_id: int, weights: dict[str, float]) -> pd.DataFrame:
@@ -194,7 +188,6 @@ def _weights_to_frame(model_name: str, fold_id: int, weights: dict[str, float]) 
         }
         for feature_name, weight_value in weights.items()
     ])
-
 
 
 def _print_weight_stability(model_name: str, weights_df: pd.DataFrame) -> None:
@@ -213,7 +206,6 @@ def _print_weight_stability(model_name: str, weights_df: pd.DataFrame) -> None:
     grouped = grouped.sort_values(["mean_abs_weight", "feature"], ascending=[False, True]).reset_index(drop=True)
     print(f"[WF][{model_name}][WEIGHTS][STABILITY]")
     print(grouped.to_string(index=False))
-
 
 
 def _build_portfolio(test_df: pd.DataFrame, portfolio_mode: str, score_col: str, adaptive_exits: bool) -> pd.DataFrame:
@@ -256,7 +248,6 @@ def _build_portfolio(test_df: pd.DataFrame, portfolio_mode: str, score_col: str,
         port["exit_signal_flat"] = 0
 
     return port
-
 
 
 def _apply_execution_layer(port_df: pd.DataFrame, use_signal_sizing: bool, sizing_preset: str | None) -> pd.DataFrame:
@@ -307,7 +298,6 @@ def _apply_execution_layer(port_df: pd.DataFrame, use_signal_sizing: bool, sizin
         portfolio_notional=PORTFOLIO_NOTIONAL,
     )
     return out
-
 
 
 def _run_one_model(
@@ -399,7 +389,6 @@ def _run_one_model(
     return overall, weights_df
 
 
-
 def main() -> int:
     _enable_line_buffering()
     print(f"[CFG] feature_file={FEATURE_FILE}")
@@ -472,6 +461,8 @@ def main() -> int:
                 "avg_deployed_gross": float(summary.get("avg_deployed_gross", 0.0)),
                 "avg_execution_participation": float(summary.get("avg_execution_participation", 0.0)),
                 "participation_limit_hit_rate": float(summary.get("participation_limit_hit_rate", 0.0)),
+                "avg_hold_days": float(summary.get("avg_hold_days", 0.0)),
+                "exit_rate": float(summary.get("exit_rate", 0.0)),
             }
         )
 
