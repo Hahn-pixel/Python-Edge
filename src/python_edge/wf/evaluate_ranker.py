@@ -69,6 +69,15 @@ def evaluate_long_short(df: pd.DataFrame, target_col: str = "target_fwd_ret_1d")
         "cs_signal_count",
         "cs_signal_quality_flag",
         "score_abs_rank_pct",
+        "risk_unit",
+        "score_risk_adj",
+        "score_alpha_to_risk",
+        "risk_penalty_rate",
+        "risk_beta_rank",
+        "risk_vol_rank",
+        "risk_liq_penalty",
+        "risk_market_penalty",
+        "risk_quality_flag",
     ]
     for col in optional_mean_cols:
         if col in out.columns:
@@ -135,6 +144,15 @@ def summarize_daily_returns(df: pd.DataFrame) -> dict[str, float]:
         ("cs_signal_count", "avg_cs_signal_count"),
         ("cs_signal_quality_flag", "avg_cs_signal_quality_flag"),
         ("avg_score_abs_rank_pct", "avg_score_abs_rank_pct"),
+        ("risk_unit", "avg_risk_unit"),
+        ("score_risk_adj", "avg_score_risk_adj"),
+        ("score_alpha_to_risk", "avg_alpha_to_risk"),
+        ("risk_penalty_rate", "avg_risk_penalty_rate"),
+        ("risk_beta_rank", "avg_risk_beta_rank"),
+        ("risk_vol_rank", "avg_risk_vol_rank"),
+        ("risk_liq_penalty", "avg_risk_liq_penalty"),
+        ("risk_market_penalty", "avg_risk_market_penalty"),
+        ("risk_quality_flag", "avg_risk_quality_flag"),
     ]:
         if col in df.columns:
             out[key] = float(pd.to_numeric(df[col], errors="coerce").fillna(0.0).mean())
@@ -182,6 +200,15 @@ def print_summary(tag: str, summary: dict[str, float]) -> None:
         "avg_cs_signal_count",
         "avg_cs_signal_quality_flag",
         "avg_score_abs_rank_pct",
+        "avg_risk_unit",
+        "avg_score_risk_adj",
+        "avg_alpha_to_risk",
+        "avg_risk_penalty_rate",
+        "avg_risk_beta_rank",
+        "avg_risk_vol_rank",
+        "avg_risk_liq_penalty",
+        "avg_risk_market_penalty",
+        "avg_risk_quality_flag",
     ]
     parts: list[str] = [tag]
     for key in ordered_keys:
