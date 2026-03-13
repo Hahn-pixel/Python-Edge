@@ -1,0 +1,126 @@
+
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_ranker_hold_sim.py
+[CFG] vendor=massive dataset_root=D:\massive_dataset
+[CFG] alpha_decay: debug=True entry_mode=next_open delay_days=0 horizons=(1, 2, 3) quantiles=(0.02, 0.05, 0.1)
+[CFG] runtime_mode: USE_FOLD_LOCAL_RUNTIME=True FOLD_LOCAL_ALLOW_OOS_BIG_FALLBACK=True
+[DATA] pooled rows=74302 dates=766 symbols=97
+
+================================================================================
+[LIB/FOLD 1] train=2023-02-01..2024-11-26  test=2024-11-27..2025-07-11
+[LIB/FOLD 1] train rows=44523 test rows=14841
+[LIB/FOLD 1] base_rate train=7.7533% test=5.4781% perm_p95=1.065
+[LIB/FOLD 1] mined_rules(train_kept)=304 OOS big-eval=304 pass(lift>=1.05)=65
+
+================================================================================
+[LIB/FOLD 2] train=2023-02-01..2025-03-21  test=2025-03-24..2025-09-05
+[LIB/FOLD 2] train rows=51992 test rows=11155
+[LIB/FOLD 2] base_rate train=7.5358% test=5.6118% perm_p95=1.051
+[LIB/FOLD 2] mined_rules(train_kept)=304 OOS big-eval=304 pass(lift>=1.05)=59
+
+================================================================================
+[LIB/FOLD 3] train=2023-02-01..2025-07-11  test=2025-07-14..2026-02-20
+[LIB/FOLD 3] train rows=59364 test rows=14938
+[LIB/FOLD 3] base_rate train=7.1845% test=8.6826% perm_p95=1.072
+[LIB/FOLD 3] mined_rules(train_kept)=304 OOS big-eval=304 pass(lift>=1.05)=46
+
+================================================================================
+[GLOBAL] Long Rule Library (OOS-filtered across folds)
+[GLOBAL] Fold pass counts: F1: 65/304 | F2: 59/304 | F3: 46/304
+[GLOBAL] library_size=54 (fold_count>=2 & OOS filtered)
+[RUNTIME/FOLD 1] source=FOLD_LOCAL_OOS_PASS source_n=65 selected=60/60 caps_used={'VOL': 23, 'MOM': 12, 'TREND': 20, 'OTHER': 5, 'PAIR': 0}
+[SIM/FOLD 1][FOLD_LOCAL_OOS_PASS] runtime_rules=60 scored_rows(score>0)=14732/14841 fires_total=319937
+[ALPHA/FOLD 1][FOLD_LOCAL_OOS_PASS] entry-mode / delay / horizon surface
+entry_mode  delay_days       bucket       side  horizon_days  mean_ret  win_rate  n_obs
+ next_open           0     top_2pct       long             1  0.001341  0.539216    306
+ next_open           0  bottom_2pct      short             1  0.001473  0.436782    174
+ next_open           0  spread_2pct long_short             1 -0.000132       NaN    174
+ next_open           0     top_2pct       long             2  0.003449  0.542763    304
+ next_open           0  bottom_2pct      short             2  0.003557  0.393064    173
+ next_open           0  spread_2pct long_short             2 -0.000108       NaN    173
+ next_open           0     top_2pct       long             3  0.003234  0.496689    302
+ next_open           0  bottom_2pct      short             3  0.001404  0.447674    172
+ next_open           0  spread_2pct long_short             3  0.001830       NaN    172
+ next_open           0     top_5pct       long             1  0.001033  0.517060    762
+ next_open           0  bottom_5pct      short             1  0.001478  0.452800    625
+ next_open           0  spread_5pct long_short             1 -0.000445       NaN    625
+ next_open           0     top_5pct       long             2  0.002345  0.538970    757
+ next_open           0  bottom_5pct      short             2  0.002821  0.412238    621
+ next_open           0  spread_5pct long_short             2 -0.000476       NaN    621
+ next_open           0     top_5pct       long             3  0.003902  0.521277    752
+ next_open           0  bottom_5pct      short             3  0.001243  0.439222    617
+ next_open           0  spread_5pct long_short             3  0.002659       NaN    617
+ next_open           0    top_10pct       long             1  0.001789  0.522339   1522
+ next_open           0 bottom_10pct      short             1  0.000928  0.456332   1374
+ next_open           0 spread_10pct long_short             1  0.000861       NaN   1374
+ next_open           0    top_10pct       long             2  0.002701  0.546958   1512
+ next_open           0 bottom_10pct      short             2  0.002193  0.416850   1365
+ next_open           0 spread_10pct long_short             2  0.000508       NaN   1365
+ next_open           0    top_10pct       long             3  0.004035  0.521305   1502
+ next_open           0 bottom_10pct      short             3  0.002069  0.423304   1356
+ next_open           0 spread_10pct long_short             3  0.001966       NaN   1356
+[RUNTIME/FOLD 2] source=FOLD_LOCAL_OOS_PASS source_n=59 selected=59/60 caps_used={'VOL': 30, 'MOM': 12, 'TREND': 8, 'OTHER': 9, 'PAIR': 0}
+[SIM/FOLD 2][FOLD_LOCAL_OOS_PASS] runtime_rules=59 scored_rows(score>0)=11065/11155 fires_total=234311
+[ALPHA/FOLD 2][FOLD_LOCAL_OOS_PASS] entry-mode / delay / horizon surface
+entry_mode  delay_days       bucket       side  horizon_days  mean_ret  win_rate  n_obs
+ next_open           0     top_2pct       long             1  0.001041  0.519481    231
+ next_open           0  bottom_2pct      short             1  0.001994  0.462121    132
+ next_open           0  spread_2pct long_short             1 -0.000953       NaN    132
+ next_open           0     top_2pct       long             2  0.002137  0.537118    229
+ next_open           0  bottom_2pct      short             2  0.003732  0.381679    131
+ next_open           0  spread_2pct long_short             2 -0.001595       NaN    131
+ next_open           0     top_2pct       long             3  0.001325  0.511013    227
+ next_open           0  bottom_2pct      short             3  0.007247  0.369231    130
+ next_open           0  spread_2pct long_short             3 -0.005922       NaN    130
+ next_open           0     top_5pct       long             1  0.000954  0.498246    570
+ next_open           0  bottom_5pct      short             1  0.002032  0.429474    475
+ next_open           0  spread_5pct long_short             1 -0.001078       NaN    475
+ next_open           0     top_5pct       long             2  0.002038  0.527434    565
+ next_open           0  bottom_5pct      short             2  0.003420  0.403397    471
+ next_open           0  spread_5pct long_short             2 -0.001383       NaN    471
+ next_open           0     top_5pct       long             3  0.002368  0.526786    560
+ next_open           0  bottom_5pct      short             3  0.004356  0.389722    467
+ next_open           0  spread_5pct long_short             3 -0.001988       NaN    467
+ next_open           0    top_10pct       long             1  0.001216  0.521815   1146
+ next_open           0 bottom_10pct      short             1  0.001444  0.444981   1036
+ next_open           0 spread_10pct long_short             1 -0.000228       NaN   1036
+ next_open           0    top_10pct       long             2  0.001633  0.535620   1137
+ next_open           0 bottom_10pct      short             2  0.002989  0.407011   1027
+ next_open           0 spread_10pct long_short             2 -0.001356       NaN   1027
+ next_open           0    top_10pct       long             3  0.002562  0.532387   1127
+ next_open           0 bottom_10pct      short             3  0.004288  0.404715   1018
+ next_open           0 spread_10pct long_short             3 -0.001726       NaN   1018
+[RUNTIME/FOLD 3] source=FOLD_LOCAL_OOS_PASS source_n=46 selected=46/60 caps_used={'VOL': 16, 'MOM': 4, 'TREND': 16, 'OTHER': 10, 'PAIR': 0}
+[SIM/FOLD 3][FOLD_LOCAL_OOS_PASS] runtime_rules=46 scored_rows(score>0)=14725/14938 fires_total=248542
+[ALPHA/FOLD 3][FOLD_LOCAL_OOS_PASS] entry-mode / delay / horizon surface
+entry_mode  delay_days       bucket       side  horizon_days  mean_ret  win_rate  n_obs
+ next_open           0     top_2pct       long             1 -0.001107  0.453968    315
+ next_open           0  bottom_2pct      short             1  0.000026  0.472050    161
+ next_open           0  spread_2pct long_short             1 -0.001133       NaN    161
+ next_open           0     top_2pct       long             2 -0.000987  0.444089    313
+ next_open           0  bottom_2pct      short             2  0.002280  0.427673    159
+ next_open           0  spread_2pct long_short             2 -0.003266       NaN    159
+ next_open           0     top_2pct       long             3 -0.000165  0.546624    311
+ next_open           0  bottom_2pct      short             3  0.003213  0.436709    158
+ next_open           0  spread_2pct long_short             3 -0.003378       NaN    158
+ next_open           0     top_5pct       long             1 -0.000034  0.507752    774
+ next_open           0  bottom_5pct      short             1 -0.000196  0.478673    633
+ next_open           0  spread_5pct long_short             1  0.000162       NaN    633
+ next_open           0     top_5pct       long             2 -0.000178  0.482445    769
+ next_open           0  bottom_5pct      short             2  0.000674  0.465819    629
+ next_open           0  spread_5pct long_short             2 -0.000853       NaN    629
+ next_open           0     top_5pct       long             3  0.001580  0.541885    764
+ next_open           0  bottom_5pct      short             3  0.001648  0.451923    624
+ next_open           0  spread_5pct long_short             3 -0.000068       NaN    624
+ next_open           0    top_10pct       long             1 -0.000540  0.499676   1545
+ next_open           0 bottom_10pct      short             1 -0.000268  0.485326   1397
+ next_open           0 spread_10pct long_short             1 -0.000273       NaN   1397
+ next_open           0    top_10pct       long             2  0.000576  0.514007   1535
+ next_open           0 bottom_10pct      short             2  0.001391  0.460375   1388
+ next_open           0 spread_10pct long_short             2 -0.000814       NaN   1388
+ next_open           0    top_10pct       long             3  0.002377  0.548852   1525
+ next_open           0 bottom_10pct      short             3  0.002234  0.463379   1379
+ next_open           0 spread_10pct long_short             3  0.000142       NaN   1379
+[09:36:50] [DONE] Ranker hold-sim completed.
+
+[EXIT] code=0
+Press Enter to exit...
