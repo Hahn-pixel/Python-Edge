@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-import math
-from typing import Iterable, Sequence
+from typing import Sequence
 
 import pandas as pd
 
@@ -30,8 +29,7 @@ def _robust_zscore(x: pd.Series) -> pd.Series:
     med = float(valid.median())
     mad = float((valid - med).abs().median())
     if mad > EPS:
-        z = (s - med) / (1.4826 * mad)
-        return z.fillna(0.0)
+        return ((s - med) / (1.4826 * mad)).fillna(0.0)
     mean = float(valid.mean())
     std = float(valid.std())
     if std > EPS:
@@ -52,19 +50,30 @@ def _build_anchor_return(out: pd.DataFrame, market_col: str, sector_col: str, be
     return beta * market + sector
 
 
-def _build_factor_blend(
-    out: pd.DataFrame,
-    factor_cols: Sequence[str],
-    factor_weights: Sequence[float],
-) -> pd.Series:
+def _build_factor_blend(out: pd.DataFrame, factor_cols: Sequence[str], factor_weights: Sequence[float]) -> pd.Series:
     if len(factor_cols) != len(factor_weights):
         raise ValueError("factor_cols and factor_weights must have the same length")
     blend = pd.Series(0.0, index=out.index, dtype="float64")
     for col, w in zip(factor_cols, factor_weights):
-        if abs(float(w)) <= EPS:
+        fw = float(w)
+        if abs(fw) <= EPS:
             continue
-        blend = blend + float(w) * _ensure_float_column(out, col, 0.0)
+        blend = blend + fw * _ensure_float_column(out, col, 0.0)
     return blend
+
+
+def _resolve_invert_residual(invert_residual: bool | None, residual_direction: str) -> bool:
+    if invert_residual is not None:
+        return bool(invert_residual)
+    direction = str(residual_direction).strip().lower()
+    if direction in {"long_low_short_high", "mean_reversion", "mr", "reversion"}:
+        return True
+    if direction in {"long_high_short_low", "momentum", "continuation", "cont"}:
+        return False
+    raise RuntimeError(
+        f"build_cross_sectional_signal: unsupported residual_direction={residual_direction!r}. "
+        "Allowed: long_low_short_high | long_high_short_low"
+    )
 
 
 def _build_residual_signal(
@@ -75,21 +84,23 @@ def _build_residual_signal(
     beta_col: str,
     factor_cols: Sequence[str],
     factor_weights: Sequence[float],
-    invert_residual: bool,
+    invert_residual: bool | None,
+    residual_direction: str,
 ) -> pd.DataFrame:
     ret_realized = _ensure_float_column(out, realized_ret_col, 0.0)
     anchor_ret = _build_anchor_return(out, market_col=market_col, sector_col=sector_col, beta_col=beta_col)
     factor_blend = _build_factor_blend(out, factor_cols=factor_cols, factor_weights=factor_weights)
     residual_raw = ret_realized - anchor_ret - factor_blend
-    if invert_residual:
-        residual_signal_raw = -residual_raw
-    else:
-        residual_signal_raw = residual_raw
+    resolved_invert = _resolve_invert_residual(invert_residual=invert_residual, residual_direction=residual_direction)
+    residual_signal_raw = -residual_raw if resolved_invert else residual_raw
+
     out["ret_realized"] = ret_realized
     out["anchor_ret"] = anchor_ret
     out["factor_blend"] = factor_blend
     out["residual_raw"] = residual_raw
     out["residual_signal_raw"] = residual_signal_raw
+    out["resolved_invert_residual"] = int(resolved_invert)
+    out["residual_direction"] = "long_low_short_high" if resolved_invert else "long_high_short_low"
     return out
 
 
@@ -109,24 +120,18 @@ def build_cross_sectional_signal(
     beta_col: str = "beta_20d",
     factor_cols: Sequence[str] = ("mom_1d", "mom_3d", "rv_10", "ema_dist", "ema_fast_slope", "ema_slow_slope"),
     factor_weights: Sequence[float] = (0.35, 0.20, 0.15, 0.10, 0.10, 0.10),
-    invert_residual: bool = True,
+    invert_residual: bool | None = None,
+    residual_direction: str = "long_low_short_high",
     residual_quality_floor: float = 0.20,
 ) -> pd.DataFrame:
     out = df.copy()
-    required = [date_col]
-    missing = [c for c in required if c not in out.columns]
+    missing = [c for c in [date_col] if c not in out.columns]
     if missing:
         raise RuntimeError(f"build_cross_sectional_signal: missing columns: {missing}")
     if not (0.0 <= winsor_lower_q < winsor_upper_q <= 1.0):
         raise ValueError("winsor quantiles must satisfy 0 <= lower < upper <= 1")
-    if conf_floor <= 0.0:
-        raise ValueError("conf_floor must be > 0")
-    if conf_cap <= 0.0:
-        raise ValueError("conf_cap must be > 0")
-    if final_score_cap <= 0.0:
-        raise ValueError("final_score_cap must be > 0")
-    if residual_quality_floor <= 0.0:
-        raise ValueError("residual_quality_floor must be > 0")
+    if conf_floor <= 0.0 or conf_cap <= 0.0 or final_score_cap <= 0.0 or residual_quality_floor <= 0.0:
+        raise ValueError("conf_floor/conf_cap/final_score_cap/residual_quality_floor must all be > 0")
 
     mode = str(signal_mode).strip().lower()
     if mode not in {"raw_score", "residual_stat_arb"}:
@@ -142,6 +147,8 @@ def build_cross_sectional_signal(
         out["factor_blend"] = 0.0
         out["residual_raw"] = 0.0
         out["residual_signal_raw"] = 0.0
+        out["resolved_invert_residual"] = 0
+        out["residual_direction"] = "raw_score"
     else:
         out = _build_residual_signal(
             out,
@@ -152,6 +159,7 @@ def build_cross_sectional_signal(
             factor_cols=factor_cols,
             factor_weights=factor_weights,
             invert_residual=invert_residual,
+            residual_direction=residual_direction,
         )
         out["score_input"] = _safe_series(out["residual_signal_raw"])
         out["signal_mode"] = "residual_stat_arb"
@@ -173,7 +181,7 @@ def build_cross_sectional_signal(
     out["residual_quality"] = 0.0
     out["fresh_dislocation_flag"] = 0
 
-    for _, idx in out.groupby(date_col).groups.items():
+    for _, idx in out.groupby(date_col, sort=False).groups.items():
         raw = _safe_series(out.loc[idx, "score_raw"])
         wins = _winsorize_series(raw, winsor_lower_q, winsor_upper_q)
         z = _robust_zscore(wins).clip(lower=-final_score_cap, upper=final_score_cap)

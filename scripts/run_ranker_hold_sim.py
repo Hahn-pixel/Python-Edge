@@ -95,6 +95,8 @@ class Config:
     max_names_per_side: int
     seed: int
     debug: bool
+    residual_direction: str
+    residual_dual_sign_debug: bool
 
 
 def load_config() -> Config:
@@ -115,6 +117,8 @@ def load_config() -> Config:
         max_names_per_side=_env_int("MAX_NAMES_PER_SIDE", 10),
         seed=_env_int("SEED", 7),
         debug=_env_bool("DEBUG_RESIDUAL", True),
+        residual_direction=_env_str("RESIDUAL_DIRECTION", "long_low_short_high"),
+        residual_dual_sign_debug=_env_bool("RESIDUAL_DUAL_SIGN_DEBUG", True),
     )
 
 
@@ -256,13 +260,29 @@ def build_delay_surface(scored_df: pd.DataFrame, cfg: Config) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def print_delay_surface_summary(surface_df: pd.DataFrame) -> None:
+def print_delay_surface_summary(surface_df: pd.DataFrame, label: str) -> None:
     if surface_df.empty:
-        print("[ALPHA] delay surface empty")
+        print(f"[ALPHA][{label}] delay surface empty")
         return
     cols = ["entry_mode", "delay_days", "bucket", "side", "horizon_days", "mean_ret", "win_rate", "n_obs"]
-    print("[ALPHA] entry-mode / delay / horizon surface")
+    print(f"[ALPHA][{label}] entry-mode / delay / horizon surface")
     print(surface_df[cols].to_string(index=False))
+
+
+def print_direction_diagnostics(scored: pd.DataFrame, cfg: Config, label: str) -> None:
+    diag = add_delay_forward_returns(scored.copy(), cfg.signal_delay_days, cfg.entry_mode, (1,))
+    diag = diag.dropna(subset=["score", "entry_ret_1d"]).copy()
+    if diag.empty:
+        print(f"[DIAG][{label}] empty")
+        return
+    corr = float(diag[["score", "entry_ret_1d"]].corr().iloc[0, 1]) if len(diag) >= 2 else float("nan")
+    diag["rank_pct"] = diag.groupby("date")["score"].rank(method="average", pct=True)
+    top_mask = diag["rank_pct"] >= (1.0 - cfg.top_pct)
+    bot_mask = diag["rank_pct"] <= cfg.bottom_pct
+    top_mean = float(pd.to_numeric(diag.loc[top_mask, "entry_ret_1d"], errors="coerce").dropna().mean())
+    bot_mean = float(pd.to_numeric(diag.loc[bot_mask, "entry_ret_1d"], errors="coerce").dropna().mean())
+    spread = top_mean - bot_mean
+    print(f"[DIAG][{label}] residual_direction={diag['residual_direction'].iloc[0]} corr(score,next1d)={corr:+0.6f} top_mean={top_mean:+0.6f} bottom_mean={bot_mean:+0.6f} spread={spread:+0.6f}")
 
 
 def _select_book(df: pd.DataFrame, cfg: Config) -> pd.DataFrame:
@@ -273,15 +293,52 @@ def _select_book(df: pd.DataFrame, cfg: Config) -> pd.DataFrame:
     return out
 
 
-def summarize_book(book: pd.DataFrame) -> None:
+def summarize_book(book: pd.DataFrame, label: str) -> None:
     if book.empty:
-        print("[BOOK] empty")
+        print(f"[BOOK][{label}] empty")
         return
     longs = int((pd.to_numeric(book["side"], errors="coerce").fillna(0.0) > 0).sum())
     shorts = int((pd.to_numeric(book["side"], errors="coerce").fillna(0.0) < 0).sum())
     fresh = int(pd.to_numeric(book.get("fresh_dislocation_flag", 0), errors="coerce").fillna(0).sum())
     qflag = int(pd.to_numeric(book.get("cs_signal_quality_flag", 0), errors="coerce").fillna(0).sum())
-    print(f"[BOOK] rows={len(book)} longs={longs} shorts={shorts} fresh_dislocations={fresh} quality_flag_rows={qflag}")
+    print(f"[BOOK][{label}] rows={len(book)} longs={longs} shorts={shorts} fresh_dislocations={fresh} quality_flag_rows={qflag}")
+
+
+def _build_scored(feat: pd.DataFrame, residual_direction: str) -> pd.DataFrame:
+    scored = build_cross_sectional_signal(
+        feat,
+        signal_mode="residual_stat_arb",
+        realized_ret_col="ret_1d",
+        market_col="mkt_ret_1d",
+        sector_col="sector_ret_1d",
+        beta_col="beta_20d",
+        factor_cols=("mom_1d", "mom_3d", "rv_10", "ema_dist", "ema_fast_slope", "ema_slow_slope"),
+        factor_weights=(0.35, 0.20, 0.15, 0.10, 0.10, 0.10),
+        invert_residual=None,
+        residual_direction=residual_direction,
+        residual_quality_floor=0.20,
+    )
+    scored["score"] = pd.to_numeric(scored["score_final"], errors="coerce").fillna(0.0)
+    return scored
+
+
+def _run_one_direction(feat: pd.DataFrame, cfg: Config, residual_direction: str, label: str) -> None:
+    scored = _build_scored(feat, residual_direction=residual_direction)
+    if cfg.debug:
+        print(f"[DATA][{label}] rows={len(scored)} dates={scored['date'].nunique()} symbols={scored['symbol'].nunique()}")
+        print(f"[DATA][{label}] cs_quality_flag_rate={pd.to_numeric(scored['cs_signal_quality_flag'], errors='coerce').fillna(0).mean():.4f}")
+        print(f"[DATA][{label}] fresh_dislocation_rate={pd.to_numeric(scored['fresh_dislocation_flag'], errors='coerce').fillna(0).mean():.4f}")
+    print_direction_diagnostics(scored, cfg, label)
+    surface = build_delay_surface(scored, cfg)
+    print_delay_surface_summary(surface, label)
+    latest_date = str(pd.Series(scored["date"]).dropna().astype(str).max())
+    book = scored[scored["date"].astype(str) == latest_date].copy()
+    book = _select_book(book, cfg)
+    summarize_book(book, label)
+    if not book.empty:
+        show_cols = [c for c in ["date", "symbol", "score", "side", "side_sized", "conviction_bucket", "fresh_dislocation_flag", "score_abs_rank_pct", "ret_realized", "anchor_ret", "residual_raw", "residual_direction"] if c in book.columns]
+        print(f"[BOOK][{label}] latest date selection")
+        print(book[show_cols].sort_values(["score"], ascending=False).head(20).to_string(index=False))
 
 
 def main() -> int:
@@ -295,31 +352,16 @@ def main() -> int:
     print(f"[CFG] entry_mode={cfg.entry_mode} signal_delay_days={cfg.signal_delay_days} hold_days={cfg.hold_days}")
     print(f"[CFG] top_pct={cfg.top_pct} bottom_pct={cfg.bottom_pct} min_abs_rank_pct={cfg.min_abs_rank_pct} require_fresh_dislocation={cfg.require_fresh_dislocation}")
     print(f"[CFG] alpha_horizons={cfg.alpha_horizons} alpha_quantiles={cfg.alpha_quantiles} sizing_preset={cfg.sizing_preset}")
+    print(f"[CFG] residual_direction={cfg.residual_direction} residual_dual_sign_debug={cfg.residual_dual_sign_debug}")
 
     raw = load_dataset(cfg)
     feat = add_daily_features(raw)
     feat = feat.dropna(subset=["ret_1d", "mom_1d", "mom_3d", "rv_10", "ema_dist", "ema_fast_slope", "ema_slow_slope", "mkt_ret_1d", "sector_ret_1d", "beta_20d"]).copy()
 
-    scored = build_cross_sectional_signal(feat, signal_mode="residual_stat_arb", realized_ret_col="ret_1d", market_col="mkt_ret_1d", sector_col="sector_ret_1d", beta_col="beta_20d", factor_cols=("mom_1d", "mom_3d", "rv_10", "ema_dist", "ema_fast_slope", "ema_slow_slope"), factor_weights=(0.35, 0.20, 0.15, 0.10, 0.10, 0.10), invert_residual=True, residual_quality_floor=0.20)
-    scored["score"] = pd.to_numeric(scored["score_final"], errors="coerce").fillna(0.0)
-
-    if cfg.debug:
-        print(f"[DATA] rows={len(scored)} dates={scored['date'].nunique()} symbols={scored['symbol'].nunique()}")
-        print(f"[DATA] cs_quality_flag_rate={pd.to_numeric(scored['cs_signal_quality_flag'], errors='coerce').fillna(0).mean():.4f}")
-        print(f"[DATA] fresh_dislocation_rate={pd.to_numeric(scored['fresh_dislocation_flag'], errors='coerce').fillna(0).mean():.4f}")
-
-    surface = build_delay_surface(scored, cfg)
-    print_delay_surface_summary(surface)
-
-    latest_date = str(pd.Series(scored["date"]).dropna().astype(str).max())
-    book = scored[scored["date"].astype(str) == latest_date].copy()
-    book = _select_book(book, cfg)
-    summarize_book(book)
-
-    if not book.empty:
-        show_cols = [c for c in ["date", "symbol", "score", "side", "side_sized", "conviction_bucket", "fresh_dislocation_flag", "score_abs_rank_pct", "ret_realized", "anchor_ret", "residual_raw"] if c in book.columns]
-        print("[BOOK] latest date selection")
-        print(book[show_cols].sort_values(["score"], ascending=False).head(20).to_string(index=False))
+    _run_one_direction(feat, cfg, residual_direction=cfg.residual_direction, label="PRIMARY")
+    if cfg.residual_dual_sign_debug:
+        other = "long_high_short_low" if cfg.residual_direction == "long_low_short_high" else "long_low_short_high"
+        _run_one_direction(feat, cfg, residual_direction=other, label="ALT_SIGN")
 
     _log("[DONE] Residual Stat-Arb runner completed.")
     return 0
