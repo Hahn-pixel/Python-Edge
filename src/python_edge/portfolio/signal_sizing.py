@@ -11,30 +11,6 @@ SIZING_PRESETS: dict[str, dict[str, float]] = {
         "short_high": 1.15,
         "short_mid": 0.85,
     },
-    "aggressive": {
-        "long_max": 1.60,
-        "long_high": 1.20,
-        "long_mid": 0.70,
-        "short_max": 1.60,
-        "short_high": 1.20,
-        "short_mid": 0.70,
-    },
-    "conservative": {
-        "long_max": 1.25,
-        "long_high": 1.10,
-        "long_mid": 0.90,
-        "short_max": 1.25,
-        "short_high": 1.10,
-        "short_mid": 0.90,
-    },
-    "barbell": {
-        "long_max": 1.90,
-        "long_high": 1.10,
-        "long_mid": 0.55,
-        "short_max": 1.90,
-        "short_high": 1.10,
-        "short_mid": 0.55,
-    },
     "residual_stat_arb": {
         "long_max": 2.10,
         "long_high": 1.20,
@@ -42,6 +18,14 @@ SIZING_PRESETS: dict[str, dict[str, float]] = {
         "short_max": 2.10,
         "short_high": 1.20,
         "short_mid": 0.45,
+    },
+    "production_residual": {
+        "long_max": 1.60,
+        "long_high": 1.15,
+        "long_mid": 0.60,
+        "short_max": 1.60,
+        "short_high": 1.15,
+        "short_mid": 0.60,
     },
 }
 
@@ -64,11 +48,9 @@ def attach_conviction_bucket(
     fresh_flag = pd.to_numeric(out.get(fresh_flag_col, 0), errors="coerce").fillna(0).astype(int)
 
     bucket = pd.Series("flat", index=out.index, dtype="object")
-
     bucket.loc[out["rank_pct_for_sizing"] >= 0.98] = "long_max"
     bucket.loc[(out["rank_pct_for_sizing"] >= 0.94) & (out["rank_pct_for_sizing"] < 0.98)] = "long_high"
     bucket.loc[(out["rank_pct_for_sizing"] >= 0.88) & (out["rank_pct_for_sizing"] < 0.94)] = "long_mid"
-
     bucket.loc[out["rank_pct_for_sizing"] <= 0.02] = "short_max"
     bucket.loc[(out["rank_pct_for_sizing"] > 0.02) & (out["rank_pct_for_sizing"] <= 0.06)] = "short_high"
     bucket.loc[(out["rank_pct_for_sizing"] > 0.06) & (out["rank_pct_for_sizing"] <= 0.12)] = "short_mid"
@@ -91,7 +73,7 @@ def apply_signal_strength_sizing(
     side_col: str = "side",
     score_col: str = "score",
     out_col: str = "side_sized",
-    preset_name: str = "residual_stat_arb",
+    preset_name: str = "production_residual",
 ) -> pd.DataFrame:
     out = attach_conviction_bucket(df, score_col=score_col)
     if side_col not in out.columns:
@@ -113,4 +95,42 @@ def apply_signal_strength_sizing(
     out[out_col] = side * mult
     out["conviction_mult"] = mult
     out["sizing_preset"] = preset_name
+    return out
+
+
+def normalize_side_weights(
+    df: pd.DataFrame,
+    sized_col: str = "side_sized",
+    out_col: str = "target_weight",
+    gross_target: float = 1.0,
+    side_target: float = 0.5,
+    max_weight_per_name: float = 0.10,
+) -> pd.DataFrame:
+    out = df.copy()
+    sized = pd.to_numeric(out.get(sized_col, 0.0), errors="coerce").fillna(0.0)
+    out[out_col] = 0.0
+
+    for _, idx in out.groupby("date", sort=False).groups.items():
+        g = out.loc[idx].copy()
+        s = pd.to_numeric(g[sized_col], errors="coerce").fillna(0.0)
+        long_raw = s.where(s > 0.0, 0.0)
+        short_raw = (-s.where(s < 0.0, 0.0))
+
+        long_sum = float(long_raw.sum())
+        short_sum = float(short_raw.sum())
+
+        w = pd.Series(0.0, index=g.index, dtype="float64")
+        if long_sum > 0.0:
+            w_long = (long_raw / long_sum) * float(side_target)
+            w.loc[w_long.index] += w_long
+        if short_sum > 0.0:
+            w_short = (short_raw / short_sum) * float(side_target)
+            w.loc[w_short.index] -= w_short
+
+        w = w.clip(lower=-float(max_weight_per_name), upper=float(max_weight_per_name))
+        gross_now = float(w.abs().sum())
+        if gross_now > 0.0:
+            w = w * (float(gross_target) / gross_now)
+        out.loc[idx, out_col] = w.to_numpy()
+
     return out

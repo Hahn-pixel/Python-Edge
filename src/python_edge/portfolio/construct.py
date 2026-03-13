@@ -13,6 +13,7 @@ def build_long_short_portfolio(
     require_fresh_dislocation: bool = False,
     fresh_flag_col: str = "fresh_dislocation_flag",
     abs_rank_col: str = "score_abs_rank_pct",
+    max_names_per_side: int | None = None,
 ) -> pd.DataFrame:
     if date_col not in df.columns:
         raise RuntimeError("portfolio: missing date")
@@ -35,10 +36,20 @@ def build_long_short_portfolio(
     long_mask = out["rank"] >= (1.0 - float(top_pct))
     short_mask = out["rank"] <= float(bottom_pct)
     quality_mask = abs_rank >= float(min_abs_rank_pct)
-
     if require_fresh_dislocation:
         quality_mask = quality_mask & (fresh_flag == 1)
 
     out.loc[long_mask & quality_mask, "side"] = 1
     out.loc[short_mask & quality_mask, "side"] = -1
+
+    if max_names_per_side is not None and int(max_names_per_side) > 0:
+        keep_idx: list[int] = []
+        for _, g in out.groupby(date_col, sort=False):
+            longs = g[g["side"] > 0].sort_values(score_col, ascending=False).head(int(max_names_per_side))
+            shorts = g[g["side"] < 0].sort_values(score_col, ascending=True).head(int(max_names_per_side))
+            keep_idx.extend(longs.index.tolist())
+            keep_idx.extend(shorts.index.tolist())
+        keep_set = set(keep_idx)
+        out.loc[~out.index.isin(keep_set), "side"] = 0
+
     return out
