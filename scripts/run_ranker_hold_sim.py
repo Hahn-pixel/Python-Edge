@@ -139,6 +139,13 @@ class Config:
     # reproducibility
     seed: int
 
+    # alpha-decay / delay diagnostics
+    alpha_decay_debug: bool
+    delay_days: int
+    entry_mode: str
+    alpha_horizons: Tuple[int, ...]
+    alpha_quantiles: Tuple[float, ...]
+
 
 def load_config() -> Config:
     dataset_root = Path(_env_str("DATASET_ROOT", r"data\raw\massive_dataset"))
@@ -187,6 +194,12 @@ def load_config() -> Config:
         fold2_only_slices=_env_bool("FOLD2_ONLY", True),
 
         seed=_env_int("SEED", 7),
+
+        alpha_decay_debug=_env_bool("ALPHA_DECAY_DEBUG", True),
+        delay_days=max(0, _env_int("SIGNAL_DELAY_DAYS", 0)),
+        entry_mode=_env_str("ENTRY_MODE", "next_open").lower(),
+        alpha_horizons=tuple(int(x) for x in _env_str("ALPHA_HORIZONS", "1,2,3").split(",") if str(x).strip()),
+        alpha_quantiles=tuple(float(x) for x in _env_str("ALPHA_QUANTILES", "0.02,0.05,0.10").split(",") if str(x).strip()),
     )
     return cfg
 
@@ -222,12 +235,15 @@ def _load_aggs_1d(sym: str, path: Path) -> pd.DataFrame:
     # polygon/massive aggs fields: t (ms), o,h,l,c,v, vw, n
     if "t" not in df.columns:
         return pd.DataFrame()
+
     df["date"] = pd.to_datetime(df["t"], unit="ms", utc=True).dt.date.astype(str)
     df["symbol"] = sym
+
     # normalize
     for c in ("o", "h", "l", "c", "v"):
         if c in df.columns:
             df[c] = pd.to_numeric(df[c], errors="coerce")
+
     df = df[["date", "symbol", "o", "h", "l", "c", "v"]].dropna()
     df = df.sort_values(["date"]).reset_index(drop=True)
     return df
@@ -265,12 +281,12 @@ def _winsorize_series(x: pd.Series, p: float = 0.01) -> pd.Series:
 def add_features(df: pd.DataFrame, cfg: Config) -> pd.DataFrame:
     """
     Produces cross-sectional percentile features per date:
-      - atr_pct: ATR-like range/close percent, then percentile within date
-      - rv_10: realized vol of daily returns (rolling std), then percentile within date
-      - mom_1d, mom_3d: close returns, then percentile within date
-      - compression: rolling range compression proxy, then percentile within date
-      - ema_dist: distance to EMA(20), then percentile within date
-      - ema_fast_slope (EMA10 slope), ema_slow_slope (EMA50 slope), percentiles within date
+    - atr_pct: ATR-like range/close percent, then percentile within date
+    - rv_10: realized vol of daily returns (rolling std), then percentile within date
+    - mom_1d, mom_3d: close returns, then percentile within date
+    - compression: rolling range compression proxy, then percentile within date
+    - ema_dist: distance to EMA(20), then percentile within date
+    - ema_fast_slope (EMA10 slope), ema_slow_slope (EMA50 slope), percentiles within date
     """
     df = df.copy()
     df["c"] = pd.to_numeric(df["c"], errors="coerce")
@@ -299,7 +315,6 @@ def add_features(df: pd.DataFrame, cfg: Config) -> pd.DataFrame:
     df["ema20"] = df.groupby("symbol")["c"].apply(lambda s: _ema(s, 20)).reset_index(level=0, drop=True)
     df["ema10"] = df.groupby("symbol")["c"].apply(lambda s: _ema(s, 10)).reset_index(level=0, drop=True)
     df["ema50"] = df.groupby("symbol")["c"].apply(lambda s: _ema(s, 50)).reset_index(level=0, drop=True)
-
     df["ema_dist_raw"] = (df["c"] - df["ema20"]) / df["ema20"].replace(0, np.nan)
 
     # EMA slopes (1d diff)
@@ -313,30 +328,19 @@ def add_features(df: pd.DataFrame, cfg: Config) -> pd.DataFrame:
     # Cross-sectional percentiles per date (robust)
     def _cs_pct_series(df_: pd.DataFrame, col: str, winsor_p: float = 0.01) -> pd.Series:
         """
-        Cross-sectional percentile rank per date for df_[col],
-        with optional winsorization inside each date group.
+        Cross-sectional percentile rank per date for df_[col], with optional winsorization inside each date group.
         No groupby.apply => no pandas DeprecationWarning.
         """
-        x = pd.to_numeric(df_[col], errors="coerce")
-
-        if winsor_p is not None and winsor_p > 0:
-            # winsorize within each date: clip to date-specific quantiles
-            g = df_[["date"]].copy()
-            g["_x"] = x
-
-            # compute per-date quantile bounds
-            lo = g.groupby("date")["_x"].transform(lambda s: s.quantile(winsor_p) if s.notna().sum() >= 5 else np.nan)
-            hi = g.groupby("date")["_x"].transform(lambda s: s.quantile(1.0 - winsor_p) if s.notna().sum() >= 5 else np.nan)
-            x = x.clip(lower=lo, upper=hi)
-
-        # percentile rank per date
-        pct = df_.assign(_x=x).groupby("date")["_x"].rank(pct=True)
-        # if a date has too few non-nans, rank(pct=True) still returns values for existing points;
-        # we optionally blank those small groups:
-        nn = df_.assign(_x=x).groupby("date")["_x"].transform(lambda s: s.notna().sum())
-        pct = pct.where(nn >= 5, np.nan)
-
-        return pct
+        out = pd.Series(index=df_.index, dtype=float)
+        for d, g in df_.groupby("date", sort=False):
+            x = pd.to_numeric(g[col], errors="coerce")
+            if x.notna().sum() == 0:
+                out.loc[g.index] = np.nan
+                continue
+            if winsor_p > 0.0 and x.notna().sum() >= 5:
+                x = _winsorize_series(x, p=winsor_p)
+            out.loc[g.index] = x.rank(method="average", pct=True)
+        return out
 
     df["atr_pct"] = _cs_pct_series(df, "rng")
     df["rv_10"] = _cs_pct_series(df, "rv")
@@ -347,26 +351,22 @@ def add_features(df: pd.DataFrame, cfg: Config) -> pd.DataFrame:
     df["ema_fast_slope"] = _cs_pct_series(df, "ema_fast_slope_raw")
     df["ema_slow_slope"] = _cs_pct_series(df, "ema_slow_slope_raw")
 
-    # keep minimal columns used later
     return df
 
 
-# ------------------------- Event definition -------------------------
+# ------------------------- Event labels -------------------------
 
 def add_event_labels(df: pd.DataFrame, cfg: Config) -> pd.DataFrame:
-    """
-    Define a LONG event:
-      signed_fwd = future close-to-close return over fwd_days
-      sigma = realized vol (rv, already)
-      event_up = signed_fwd > k_sigma * sigma
-    Also keep fwd_ret for scoring / sim.
-    """
     df = df.copy()
-    df["fwd_ret"] = df.groupby("symbol")["c"].pct_change(cfg.fwd_days).shift(-cfg.fwd_days)
-    # sigma proxy: rv (std of daily returns)
-    sigma = df["rv"].copy()
-    # if sigma is percentile already (rv_10), use raw rv; we kept raw rv in df["rv"]
-    df["event_up"] = (df["fwd_ret"] > (cfg.k_sigma * sigma)).astype(int)
+
+    # forward return over fwd_days
+    df["fwd_ret"] = df.groupby("symbol")["c"].shift(-cfg.fwd_days) / df["c"] - 1.0
+
+    # event if fwd_ret > k_sigma * rv_today * sqrt(fwd_days)
+    sigma_term = df["rv"] * math.sqrt(float(max(1, cfg.fwd_days)))
+    thresh = cfg.k_sigma * sigma_term
+    df["event_up"] = (df["fwd_ret"] > thresh).astype(float)
+
     return df
 
 
@@ -374,61 +374,17 @@ def add_event_labels(df: pd.DataFrame, cfg: Config) -> pd.DataFrame:
 
 @dataclass(frozen=True)
 class Rule:
-    side: str  # "long"
-    conds: Tuple[Tuple[str, str], ...]  # e.g. (("atr_pct", ">q80"), ("rv_10", ">q50"))
-    cluster: str  # "VOL" "MOM" "TREND" "OTHER" "PAIR"
+    cluster: str
+    a: str
+    op: str
+    b: Optional[str] = None
+    thr: Optional[float] = None
 
+    def sig(self) -> str:
+        if self.b is not None:
+            return f"{self.cluster}:{self.a}{self.op}{self.b}"
+        return f"{self.cluster}:{self.a}{self.op}{self.thr:.2f}"
 
-def _parse_q(spec: str) -> float:
-    # spec like "q80" => 0.80
-    if not spec.startswith("q"):
-        raise ValueError(spec)
-    return float(spec[1:]) / 100.0
-
-
-def rule_signature(rule: Rule) -> str:
-    parts = [rule.side]
-    for feat, op in rule.conds:
-        parts.append(f"{feat}{op}")
-    return "|".join(parts)
-
-
-def _cluster_for_conds(conds: Tuple[Tuple[str, str], ...]) -> str:
-    feats = [c[0] for c in conds]
-    s = set(feats)
-    if s == {"atr_pct", "rv_10"}:
-        return "PAIR"
-    if "atr_pct" in s or "rv_10" in s or "compression" in s:
-        return "VOL"
-    if "mom_1d" in s or "mom_3d" in s:
-        return "MOM"
-    if "ema_fast_slope" in s or "ema_slow_slope" in s or "ema_dist" in s:
-        return "TREND"
-    return "OTHER"
-
-
-def _apply_cond(df: pd.DataFrame, feat: str, op: str) -> pd.Series:
-    # op like ">q80" or "<q20"
-    if feat not in df.columns:
-        return pd.Series(False, index=df.index)
-    x = df[feat]
-    if op.startswith(">q"):
-        q = _parse_q(op[1:])  # op[1:] -> "q80"
-        return x > q
-    if op.startswith("<q"):
-        q = _parse_q(op[1:])
-        return x < q
-    raise ValueError(f"bad op: {op}")
-
-
-def fire_rule(df: pd.DataFrame, rule: Rule) -> pd.Series:
-    m = pd.Series(True, index=df.index)
-    for feat, op in rule.conds:
-        m &= _apply_cond(df, feat, op)
-    return m
-
-
-# ------------------------- Mining / Scoring metrics -------------------------
 
 @dataclass
 class RuleStats:
@@ -441,173 +397,156 @@ class RuleStats:
     mean: float
     med: float
     p_pos: float
-    es5: float  # Expected shortfall (5%) of fwd_ret
-    w: float    # weight used in ranker
+    es5: float
+    w: float
 
 
-def _expected_shortfall(x: np.ndarray, q: float = 0.05) -> float:
-    if x.size == 0:
-        return float("nan")
-    x = x[~np.isnan(x)]
-    if x.size == 0:
-        return float("nan")
-    thr = np.quantile(x, q)
-    tail = x[x <= thr]
-    if tail.size == 0:
-        return float("nan")
-    return float(np.mean(tail))
+FEATURES = [
+    "atr_pct",
+    "rv_10",
+    "mom_1d",
+    "mom_3d",
+    "compression",
+    "ema_dist",
+    "ema_fast_slope",
+    "ema_slow_slope",
+]
 
 
 def compute_base_rate(df: pd.DataFrame) -> float:
-    x = df["event_up"].to_numpy(dtype=float)
-    x = x[~np.isnan(x)]
-    if x.size == 0:
+    if df.empty:
         return 0.0
-    return float(np.mean(x))
+    return float(pd.to_numeric(df["event_up"], errors="coerce").fillna(0.0).mean())
+
+
+def _cluster_of(rule: Rule) -> str:
+    return rule.cluster
+
+
+def _rule_cluster(a: str, b: Optional[str], thr: Optional[float]) -> str:
+    # simple bucket naming for caps
+    s = {a, b} if b is not None else {a}
+    if {"atr_pct", "rv_10"} & s:
+        return "VOL"
+    if {"mom_1d", "mom_3d"} & s:
+        return "MOM"
+    if {"ema_dist", "ema_fast_slope", "ema_slow_slope"} & s:
+        return "TREND"
+    if b is not None:
+        return "PAIR"
+    return "OTHER"
+
+
+def random_rule(rng: random.Random) -> Rule:
+    # either threshold rule or pair-comparison rule
+    if rng.random() < 0.45:
+        a = rng.choice(FEATURES)
+        thr = rng.choice([0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90])
+        op = rng.choice([">=", "<="])
+        return Rule(cluster=_rule_cluster(a, None, thr), a=a, op=op, thr=float(thr))
+    else:
+        a, b = rng.sample(FEATURES, 2)
+        op = rng.choice([">=", "<="])
+        return Rule(cluster=_rule_cluster(a, b, None), a=a, op=op, b=b)
+
+
+def fire_rule(df: pd.DataFrame, rule: Rule) -> pd.Series:
+    a = pd.to_numeric(df[rule.a], errors="coerce")
+    if rule.b is not None:
+        b = pd.to_numeric(df[rule.b], errors="coerce")
+        if rule.op == ">=":
+            return (a >= b) & a.notna() & b.notna()
+        else:
+            return (a <= b) & a.notna() & b.notna()
+    else:
+        thr = float(rule.thr if rule.thr is not None else 0.5)
+        if rule.op == ">=":
+            return (a >= thr) & a.notna()
+        else:
+            return (a <= thr) & a.notna()
 
 
 def eval_rule(df: pd.DataFrame, rule: Rule, base_rate: float) -> RuleStats:
     m = fire_rule(df, rule)
-    sub = df.loc[m]
-    support = int(sub.shape[0])
-    hits = int(sub["event_up"].sum()) if support > 0 else 0
-    prec = (hits / support) if support > 0 else 0.0
-    lift = (prec / base_rate) if base_rate > 1e-12 else 0.0
+    sub = df.loc[m].copy()
+    support = int(len(sub))
+    if support <= 0:
+        return RuleStats(rule.sig(), rule, 0, 0, 0.0, 0.0, 0.0, 0.0, 0.0, float("nan"), 0.0)
 
-    fwd = sub["fwd_ret"].to_numpy(dtype=float)
-    mean = float(np.nanmean(fwd)) if support > 0 else 0.0
-    med = float(np.nanmedian(fwd)) if support > 0 else 0.0
-    p_pos = float(np.mean(fwd > 0.0)) if support > 0 else 0.0
-    es5 = _expected_shortfall(fwd, 0.05) if support > 0 else float("nan")
+    evt = pd.to_numeric(sub["event_up"], errors="coerce").fillna(0.0)
+    fwd = pd.to_numeric(sub["fwd_ret"], errors="coerce")
+    prec = float(evt.mean()) if support > 0 else 0.0
+    hits = int(evt.sum())
+    lift = float(prec / base_rate) if base_rate > 1e-12 else 0.0
+    mean = float(fwd.mean()) if len(fwd) else 0.0
+    med = float(fwd.median()) if len(fwd) else 0.0
+    p_pos = float((fwd > 0).mean()) if len(fwd) else 0.0
+    es5 = float(fwd[fwd <= fwd.quantile(0.05)].mean()) if len(fwd) >= 20 else float("nan")
 
-    # Weight: emphasize lift and median, penalize tail (more negative es5 -> lower weight)
-    # Keep it simple & monotonic.
-    tail_pen = 1.0
-    if not math.isnan(es5):
-        tail_pen = 1.0 / (1.0 + max(0.0, -es5) * 5.0)  # if es5=-0.10 => penalty ~ 1/(1+0.5)=0.67
-    w = float(max(0.0, (lift - 1.0))) * float(max(0.0, med)) * tail_pen
-
-    return RuleStats(
-        sig=rule_signature(rule),
-        rule=rule,
-        support=support,
-        hits=hits,
-        prec=prec,
-        lift=lift,
-        mean=mean,
-        med=med,
-        p_pos=p_pos,
-        es5=float(es5) if not math.isnan(es5) else float("nan"),
-        w=w,
-    )
+    # simple weight proxy (explicit, no hidden magic)
+    w = max(0.0, lift - 1.0) * max(0.0, mean)
+    return RuleStats(rule.sig(), rule, support, hits, prec, lift, mean, med, p_pos, es5, w)
 
 
-def _random_rule_space(rng: random.Random) -> Rule:
-    # Build a random long rule with 2-3 conditions.
-    feats = ["atr_pct", "rv_10", "compression", "mom_1d", "mom_3d", "ema_dist", "ema_fast_slope", "ema_slow_slope"]
-    qs_hi = ["q50", "q80"]
-    qs_lo = ["q50", "q20"]
-
-    n_conds = 2 if rng.random() < 0.75 else 3
-    chosen = rng.sample(feats, k=n_conds)
-
-    conds: List[Tuple[str, str]] = []
-    for f in chosen:
-        # heuristic: vol features mostly high, momentum sometimes low (mean-reversion flavor)
-        if f in ("atr_pct", "rv_10", "compression"):
-            op = ">" + rng.choice(qs_hi)
-        elif f in ("mom_1d", "mom_3d"):
-            op = "<" + rng.choice(qs_lo) if rng.random() < 0.7 else ">" + rng.choice(qs_hi)
-        else:
-            # trend features: mix
-            op = "<" + rng.choice(qs_lo) if rng.random() < 0.5 else ">" + rng.choice(qs_hi)
-        conds.append((f, op))
-
-    conds_t = tuple(sorted(conds, key=lambda x: (x[0], x[1])))
-    cluster = _cluster_for_conds(conds_t)
-    return Rule(side="long", conds=conds_t, cluster=cluster)
-
-
-def mine_rules(train_df: pd.DataFrame, cfg: Config, rng: random.Random) -> Tuple[List[RuleStats], float, float]:
+def mine_rules(df: pd.DataFrame, cfg: Config, rng: random.Random) -> Tuple[List[RuleStats], float, List[RuleStats]]:
     """
-    Mine rules on train:
-      - generate cfg.rules_try random rules
-      - compute metrics vs train base_rate
-      - filter by min_support/min_event_hits
-      - keep top cfg.rules_keep by weight or lift
-      - permutation gate: estimate perm_topk_p95 for lift (optional)
-    Returns: (kept_stats, perm_p95, base_rate_train)
+    Mine try=N random rules on TRAIN. Keep up to rules_keep after support/hits filters.
+    Also run a null/permutation benchmark on event_up to estimate p95 of null lift.
+    Returns: kept_rules, perm_p95, all_kept_before_topk
     """
-    base_rate_train = compute_base_rate(train_df)
+    br = compute_base_rate(df)
+    seen = set()
+    mined: List[RuleStats] = []
 
-    # random candidate rules, dedup by signature
-    cand: Dict[str, RuleStats] = {}
-    for _ in range(cfg.rules_try):
-        r = _random_rule_space(rng)
-        sig = rule_signature(r)
-        if sig in cand:
+    tries = 0
+    while tries < cfg.rules_try:
+        tries += 1
+        r = random_rule(rng)
+        s = r.sig()
+        if s in seen:
             continue
-        st = eval_rule(train_df, r, base_rate_train)
+        seen.add(s)
+        st = eval_rule(df, r, br)
         if st.support < cfg.min_support:
             continue
         if st.hits < cfg.min_event_hits:
             continue
-        cand[sig] = st
-        if len(cand) >= cfg.rules_try:
-            break
+        mined.append(st)
 
-    stats = list(cand.values())
+    # sort by weight -> lift -> support
+    mined.sort(key=lambda x: (x.w, x.lift, x.support), reverse=True)
+    kept = mined[: cfg.rules_keep]
 
-    # If gate: compute a permutation-based lift distribution for top-k
-    perm_p95 = 1.0
-    if cfg.gate and stats and cfg.perm_trials > 0:
-        # permute event labels within date (preserves cross-section sizes)
-        lifts_topk = []
-        ev = train_df["event_up"].to_numpy(dtype=int)
-        idx_by_date = train_df.groupby("date").indices
+    # permutation benchmark: preserve df rows, shuffle labels only
+    perm_best: List[float] = []
+    if cfg.perm_trials > 0 and len(df) > 0:
+        evt = df["event_up"].to_numpy(copy=True)
+        for _ in range(cfg.perm_trials):
+            evt2 = evt.copy()
+            rng.shuffle(evt2)
+            d2 = df.copy()
+            d2["event_up"] = evt2
+            br2 = float(np.mean(evt2)) if len(evt2) else 0.0
+            best_lifts = []
+            # evaluate a small random subset for benchmark speed
+            sub_rules = [random_rule(rng) for _ in range(max(20, cfg.perm_topk))]
+            for r in sub_rules:
+                st = eval_rule(d2, r, br2)
+                if st.support >= cfg.min_support and st.hits >= cfg.min_event_hits:
+                    best_lifts.append(st.lift)
+            perm_best.append(float(max(best_lifts)) if best_lifts else 1.0)
+        perm_p95 = float(np.quantile(np.array(perm_best, dtype=float), 0.95)) if perm_best else 1.0
+    else:
+        perm_p95 = 1.0
 
-        for _t in range(cfg.perm_trials):
-            ev_perm = ev.copy()
-            # permute within each date
-            for _, idxs in idx_by_date.items():
-                if len(idxs) >= 2:
-                    rng.shuffle(idxs)
-                # easier: numpy permutation (stable)
-            # better: direct permute per date
-            for _, idxs in idx_by_date.items():
-                if len(idxs) < 2:
-                    continue
-                ev_perm[idxs] = ev_perm[np.random.permutation(idxs)]
-            # build a temp df view
-            tmp = train_df.copy()
-            tmp["event_up"] = ev_perm
-            brp = compute_base_rate(tmp)
-            # evaluate same rules
-            lifts = []
-            for st in stats:
-                s2 = eval_rule(tmp, st.rule, brp)
-                lifts.append(s2.lift)
-            lifts.sort(reverse=True)
-            topk = lifts[: max(1, min(cfg.perm_topk, len(lifts)))]
-            lifts_topk.append(float(np.mean(topk)) if topk else 1.0)
+    if cfg.gate:
+        gate_thr = perm_p95 + cfg.gate_margin
+        kept = [x for x in kept if x.lift >= gate_thr]
 
-        if lifts_topk:
-            perm_p95 = float(np.quantile(np.array(lifts_topk), 0.95))
-
-    # select keep
-    # use weight primarily; tie-break by lift then support
-    stats.sort(key=lambda s: (s.w, s.lift, s.support), reverse=True)
-    kept = stats[: cfg.rules_keep]
-
-    # gate filter: require lift >= perm_p95*(1+margin)
-    if cfg.gate and kept:
-        thr = perm_p95 * (1.0 + cfg.gate_margin)
-        kept = [s for s in kept if s.lift >= thr]
-
-    return kept, float(perm_p95), float(base_rate_train)
+    return kept, perm_p95, mined
 
 
-# ------------------------- Walk-forward splits -------------------------
+# ------------------------- Folds -------------------------
 
 @dataclass(frozen=True)
 class Fold:
@@ -618,50 +557,42 @@ class Fold:
     test_end: str
 
 
-def build_folds(all_dates: List[str]) -> List[Fold]:
+def build_folds(dates: List[str]) -> List[Fold]:
     """
-    Simple 3-fold WF similar to your logs:
-      - each fold uses large train and 90 trading-day test
-      - uses embargo gap ~10 trading days
-    If date count differs, we compute approximate split points.
+    3 expanding folds over the full range.
+    Assumes dates sorted ascending.
     """
-    if len(all_dates) < 400:
-        raise RuntimeError("Not enough dates for folds. Need ~400+ daily points.")
-    dates = sorted(all_dates)
+    if len(dates) < 120:
+        raise RuntimeError("Not enough dates to build folds")
+
     n = len(dates)
+    # 60/20, 70/15, 80/10-ish expanding windows
+    i1 = int(n * 0.60)
+    j1 = int(n * 0.80)
 
-    test_len = 90
-    gap = 10
+    i2 = int(n * 0.70)
+    j2 = int(n * 0.85)
 
-    # place 3 tests near 70%, 80%, 90% quantiles
-    anchors = [int(n * 0.70), int(n * 0.80), int(n * 0.90)]
-    folds: List[Fold] = []
-    for i, a in enumerate(anchors, 1):
-        test_end_i = min(n - 1, a)
-        test_start_i = max(0, test_end_i - test_len + 1)
-        train_end_i = max(0, test_start_i - gap - 1)
-        train_start_i = 0  # expanding
-        folds.append(Fold(
-            k=i,
-            train_start=dates[train_start_i],
-            train_end=dates[train_end_i],
-            test_start=dates[test_start_i],
-            test_end=dates[test_end_i],
-        ))
-    # ensure increasing tests
-    folds = sorted(folds, key=lambda f: f.test_start)
+    i3 = int(n * 0.80)
+    j3 = n
+
+    folds = [
+        Fold(1, dates[0], dates[i1 - 1], dates[i1], dates[j1 - 1]),
+        Fold(2, dates[0], dates[i2 - 1], dates[i2], dates[j2 - 1]),
+        Fold(3, dates[0], dates[i3 - 1], dates[i3], dates[j3 - 1]),
+    ]
     return folds
 
 
 def slice_dates(dates: List[str], slices: int) -> List[Tuple[str, str, List[str]]]:
     if slices <= 1:
         return [(dates[0], dates[-1], dates)]
-    n = len(dates)
     out = []
-    chunk = max(1, n // slices)
+    n = len(dates)
+    step = max(1, n // slices)
     for i in range(slices):
-        a = i * chunk
-        b = (i + 1) * chunk if i < slices - 1 else n
+        a = i * step
+        b = (i + 1) * step if i < slices - 1 else n
         sub = dates[a:b]
         if not sub:
             continue
@@ -669,37 +600,177 @@ def slice_dates(dates: List[str], slices: int) -> List[Tuple[str, str, List[str]
     return out
 
 
-# ------------------------- Library aggregation + caps -------------------------
+# ------------------------- Library selection with caps -------------------------
 
-def _cluster_caps(cfg: Config) -> Dict[str, int]:
-    return {
+def select_with_cluster_caps(rules: List[RuleStats], cfg: Config, want_n: int) -> Tuple[List[RuleStats], Dict[str, int]]:
+    caps = {
         "VOL": cfg.cap_vol,
         "MOM": cfg.cap_mom,
         "TREND": cfg.cap_trend,
         "OTHER": cfg.cap_other,
         "PAIR": cfg.cap_pair,
     }
-
-
-def select_with_cluster_caps(stats: List[RuleStats], cfg: Config, topn: int) -> Tuple[List[RuleStats], Dict[str, int]]:
-    caps = _cluster_caps(cfg)
     used = {k: 0 for k in caps.keys()}
-    used["SKIP"] = 0
-
     out: List[RuleStats] = []
-    for s in stats:
-        cl = s.rule.cluster
+    for rs in rules:
+        cl = rs.rule.cluster
         if cl not in caps:
             cl = "OTHER"
-        if used.get(cl, 0) >= caps[cl]:
-            used["SKIP"] += 1
+        if used[cl] >= caps[cl]:
             continue
-        out.append(s)
+        out.append(rs)
         used[cl] += 1
-        if len(out) >= topn:
+        if len(out) >= want_n:
             break
     return out, used
 
+
+
+def _validate_entry_mode(entry_mode: str) -> str:
+    mode = str(entry_mode).strip().lower()
+    allowed = {"next_open", "next_close", "same_close"}
+    if mode not in allowed:
+        raise RuntimeError(f"Unsupported ENTRY_MODE={entry_mode!r}. Allowed: {sorted(allowed)}")
+    return mode
+
+
+def _score_rank_pct_by_date(df: pd.DataFrame, score_col: str = "score") -> pd.Series:
+    return df.groupby("date")[score_col].rank(method="average", pct=True)
+
+
+def add_delay_entry_forward_returns(
+    df: pd.DataFrame,
+    delay_days: int,
+    entry_mode: str,
+    horizons: Tuple[int, ...],
+) -> pd.DataFrame:
+    """
+    delay_days semantics:
+    - same_close: delay=0 => enter at close[t], delay=1 => enter at close[t+1]
+    - next_open / next_close: delay=0 => enter at first tradable session after signal date
+      i.e. open[t+1] / close[t+1]. delay=1 => one additional full trading day later.
+    exit is always close-based after `horizon` trading days from the entry day:
+    - entry next_open on t+1, horizon=1 => exit close[t+1]
+    - entry next_open on t+1, horizon=2 => exit close[t+2]
+    """
+    out = df.copy()
+    mode = _validate_entry_mode(entry_mode)
+
+    if mode == "same_close":
+        entry_shift = delay_days
+        out["entry_px"] = out.groupby("symbol")["c"].shift(-entry_shift)
+        entry_day_idx = entry_shift
+    elif mode == "next_close":
+        entry_shift = delay_days + 1
+        out["entry_px"] = out.groupby("symbol")["c"].shift(-entry_shift)
+        entry_day_idx = entry_shift
+    else:
+        entry_shift = delay_days + 1
+        out["entry_px"] = out.groupby("symbol")["o"].shift(-entry_shift)
+        entry_day_idx = entry_shift
+
+    for h in horizons:
+        exit_shift = entry_day_idx + (h - 1)
+        exit_px = out.groupby("symbol")["c"].shift(-exit_shift)
+        out[f"entry_ret_{h}d"] = (exit_px / out["entry_px"]) - 1.0
+
+    return out
+
+
+def build_delay_surface(
+    scored_df: pd.DataFrame,
+    delay_days: int,
+    entry_mode: str,
+    quantiles: Tuple[float, ...],
+    horizons: Tuple[int, ...],
+) -> pd.DataFrame:
+    required = ["date", "symbol", "score", "c", "o"]
+    miss = [c for c in required if c not in scored_df.columns]
+    if miss:
+        raise RuntimeError(f"delay_surface: missing columns: {miss}")
+
+    out = scored_df.copy()
+    out["date"] = pd.to_datetime(out["date"], errors="coerce")
+    out = out.dropna(subset=["date", "symbol", "score", "c", "o"]).copy()
+    out = add_delay_entry_forward_returns(out, delay_days=delay_days, entry_mode=entry_mode, horizons=horizons)
+    out["score_rank_pct"] = _score_rank_pct_by_date(out, score_col="score")
+
+    rows: list[dict[str, float | int | str]] = []
+    for q in quantiles:
+        long_mask = out["score_rank_pct"] >= (1.0 - q)
+        short_mask = out["score_rank_pct"] <= q
+        long_n = int(long_mask.sum())
+        short_n = int(short_mask.sum())
+
+        for h in horizons:
+            col = f"entry_ret_{h}d"
+            long_vals = pd.to_numeric(out.loc[long_mask, col], errors="coerce").dropna()
+            short_vals = pd.to_numeric(out.loc[short_mask, col], errors="coerce").dropna()
+
+            long_mean = float(long_vals.mean()) if len(long_vals) > 0 else float("nan")
+            short_mean = float(short_vals.mean()) if len(short_vals) > 0 else float("nan")
+            spread_mean = long_mean - short_mean if pd.notna(long_mean) and pd.notna(short_mean) else float("nan")
+
+            rows.append({
+                "bucket": f"top_{int(round(q * 100.0))}pct",
+                "side": "long",
+                "delay_days": int(delay_days),
+                "entry_mode": str(entry_mode),
+                "horizon_days": int(h),
+                "mean_ret": long_mean,
+                "win_rate": float((long_vals > 0.0).mean()) if len(long_vals) > 0 else float("nan"),
+                "n_obs": int(len(long_vals)),
+                "raw_bucket_n": long_n,
+            })
+            rows.append({
+                "bucket": f"bottom_{int(round(q * 100.0))}pct",
+                "side": "short",
+                "delay_days": int(delay_days),
+                "entry_mode": str(entry_mode),
+                "horizon_days": int(h),
+                "mean_ret": short_mean,
+                "win_rate": float((short_vals < 0.0).mean()) if len(short_vals) > 0 else float("nan"),
+                "n_obs": int(len(short_vals)),
+                "raw_bucket_n": short_n,
+            })
+            rows.append({
+                "bucket": f"spread_{int(round(q * 100.0))}pct",
+                "side": "long_short",
+                "delay_days": int(delay_days),
+                "entry_mode": str(entry_mode),
+                "horizon_days": int(h),
+                "mean_ret": spread_mean,
+                "win_rate": float("nan"),
+                "n_obs": int(min(len(long_vals), len(short_vals))),
+                "raw_bucket_n": int(min(long_n, short_n)),
+            })
+
+    res = pd.DataFrame(rows)
+    if res.empty:
+        raise RuntimeError("delay_surface: empty surface")
+    return res
+
+
+def print_delay_surface_summary(surface_df: pd.DataFrame, fold_k: int) -> None:
+    if surface_df.empty:
+        print(f"[ALPHA/FOLD {fold_k}] delay surface empty")
+        return
+
+    print(f"[ALPHA/FOLD {fold_k}] entry-mode / delay / horizon surface")
+    cols = ["entry_mode", "delay_days", "bucket", "side", "horizon_days", "mean_ret", "win_rate", "n_obs"]
+    shown = surface_df[cols].copy()
+    print(shown.to_string(index=False))
+
+    spreads = surface_df[surface_df["side"] == "long_short"].copy()
+    if not spreads.empty:
+        best_rows = []
+        for bucket, g in spreads.groupby("bucket", sort=True):
+            gg = g.sort_values("mean_ret", ascending=False).reset_index(drop=True)
+            best_rows.append(gg.iloc[0].to_dict())
+        best = pd.DataFrame(best_rows)
+        best = best[["entry_mode", "delay_days", "bucket", "horizon_days", "mean_ret", "n_obs"]]
+        print(f"[ALPHA/FOLD {fold_k}] best spread rows")
+        print(best.to_string(index=False))
 
 # ------------------------- Ranker & Sim -------------------------
 
@@ -1159,6 +1230,7 @@ def print_slice_report(oos_df: pd.DataFrame, library: List[RuleStats], fold: Fol
 
 def main() -> int:
     cfg = load_config()
+    _validate_entry_mode(cfg.entry_mode)
     random.seed(cfg.seed)
     np.random.seed(cfg.seed)
     rng = random.Random(cfg.seed)
@@ -1174,6 +1246,7 @@ def main() -> int:
     print(f"[CFG] cash: floor={cfg.cash_floor} clamp={cfg.clamp_cash} REBALANCE_BAND={cfg.rebalance_band}")
     print(f"[CFG] cluster caps: VOL={cfg.cap_vol} MOM={cfg.cap_mom} TREND={cfg.cap_trend} OTHER={cfg.cap_other} PAIR={cfg.cap_pair}")
     print(f"[CFG] slices: slices={cfg.slices} fold2_only={cfg.fold2_only_slices}")
+    print(f"[CFG] alpha_decay: debug={cfg.alpha_decay_debug} entry_mode={cfg.entry_mode} delay_days={cfg.delay_days} horizons={cfg.alpha_horizons} quantiles={cfg.alpha_quantiles}")
 
     raw = load_dataset(cfg)
     feat = add_features(raw, cfg)
@@ -1241,6 +1314,19 @@ def main() -> int:
             cov = scored.groupby("date")["score"].apply(lambda s: float((s > 0).mean()))
             if len(cov) > 0:
                 print(f"[SIM/FOLD {fold.k}] coverage per-day: mean={100*cov.mean():.2f}% p10={100*cov.quantile(0.10):.2f}% p90={100*cov.quantile(0.90):.2f}%")
+
+            if cfg.alpha_decay_debug:
+                try:
+                    delay_surface = build_delay_surface(
+                        scored,
+                        delay_days=cfg.delay_days,
+                        entry_mode=cfg.entry_mode,
+                        quantiles=cfg.alpha_quantiles,
+                        horizons=cfg.alpha_horizons,
+                    )
+                    print_delay_surface_summary(delay_surface, fold.k)
+                except Exception as e:
+                    print(f"[ALPHA/FOLD {fold.k}] delay surface failed: {e}")
 
             res = simulate_hold_equal_weight(oos_df, cfg, runtime_sel)
             print(f"\n[SIM/FOLD {fold.k}] RESULTS (long-only, close-to-close)")
