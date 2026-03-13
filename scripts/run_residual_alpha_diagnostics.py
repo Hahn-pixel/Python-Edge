@@ -1,33 +1,17 @@
 # scripts/run_residual_alpha_diagnostics.py
-# Extended alpha diagnostics with multi-factor exploration
+# Extended alpha diagnostics with MANY experimental factors
 # Double-click runnable. Never auto-closes.
-#
-# Adds exploration factors commonly used in stat-arb:
-# - relative volume shock
-# - volatility compression
-# - short-term reversal
-# - intraday range pressure
-# - liquidity proxy
-# - momentum interactions
-#
-# Diagnostics:
-# quantile curve
-# decile curve
-# horizon decay
-# IC table
-# factor IC table
 
 from __future__ import annotations
 
 import json
 import os
 import random
-import sys
 import traceback
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -66,10 +50,6 @@ def _env_int(name: str, default: int) -> int:
         return int(float(str(v).strip()))
     except Exception:
         return default
-
-
-def _safe(x: pd.Series) -> pd.Series:
-    return pd.to_numeric(x, errors="coerce").astype("float64")
 
 
 @dataclass(frozen=True)
@@ -112,22 +92,34 @@ def _load_file(sym: str, path: Path) -> pd.DataFrame:
     rows = js.get("results") or []
     if not rows:
         return pd.DataFrame()
+
     df = pd.DataFrame(rows)
+
     df["date"] = pd.to_datetime(df["t"], unit="ms", utc=True).dt.date.astype(str)
     df["symbol"] = sym
+
     for c in ["o", "h", "l", "c", "v"]:
         df[c] = pd.to_numeric(df[c], errors="coerce")
+
     return df[["date", "symbol", "o", "h", "l", "c", "v"]]
 
 
 def load_dataset(cfg: Config) -> pd.DataFrame:
+
     dfs = []
+
     for sym, path in _find_files(cfg.dataset_root):
+
         d = _load_file(sym, path)
+
         if not d.empty:
+
             dfs.append(d)
+
     df = pd.concat(dfs, ignore_index=True)
+
     df = df[(df.date >= cfg.start) & (df.date <= cfg.end)]
+
     return df.sort_values(["date", "symbol"]).reset_index(drop=True)
 
 
@@ -144,52 +136,53 @@ def add_factors(df: pd.DataFrame) -> pd.DataFrame:
     # momentum
     out["mom3"] = out.groupby("symbol")["c"].pct_change(3)
     out["mom5"] = out.groupby("symbol")["c"].pct_change(5)
+    out["mom10"] = out.groupby("symbol")["c"].pct_change(10)
 
-    # short term reversal
+    # reversal
     out["rev1"] = -out["ret1"]
+    out["rev3"] = -out.groupby("symbol")["ret1"].rolling(3).sum().reset_index(level=0, drop=True)
 
     # volatility
-    out["vol10"] = (
-        out.groupby("symbol")["ret1"]
-        .rolling(10)
-        .std()
-        .reset_index(level=0, drop=True)
-    )
+    out["vol10"] = out.groupby("symbol")["ret1"].rolling(10).std().reset_index(level=0, drop=True)
+    out["vol20"] = out.groupby("symbol")["ret1"].rolling(20).std().reset_index(level=0, drop=True)
 
     # volatility compression
-    vol_long = (
-        out.groupby("symbol")["ret1"]
-        .rolling(30)
-        .std()
-        .reset_index(level=0, drop=True)
-    )
+    out["vol_comp"] = out["vol10"] / (out["vol20"] + EPS)
 
-    out["vol_comp"] = out["vol10"] / (vol_long + EPS)
+    # range factors
+    out["range"] = (out["h"] - out["l"]) / (out["c"] + EPS)
+    out["range_norm"] = out["range"] / (out.groupby("symbol")["range"].rolling(20).mean().reset_index(level=0, drop=True) + EPS)
 
     # relative volume
-    vol_mean = (
-        out.groupby("symbol")["v"]
-        .rolling(20)
-        .mean()
-        .reset_index(level=0, drop=True)
-    )
+    vol_mean = out.groupby("symbol")["v"].rolling(20).mean().reset_index(level=0, drop=True)
 
     out["rel_volume"] = out["v"] / (vol_mean + EPS)
 
+    # turnover shock
+    out["turnover"] = out["v"] * out["c"]
+
+    turn_mean = out.groupby("symbol")["turnover"].rolling(20).mean().reset_index(level=0, drop=True)
+
+    out["turnover_shock"] = out["turnover"] / (turn_mean + EPS)
+
     # liquidity proxy
-    out["dollar_vol"] = out["v"] * out["c"]
+    out["liq"] = np.log(out["turnover"] + 1)
 
-    dv_mean = (
-        out.groupby("symbol")["dollar_vol"]
-        .rolling(20)
-        .mean()
-        .reset_index(level=0, drop=True)
-    )
+    # price acceleration
+    out["accel"] = out.groupby("symbol")["mom3"].diff()
 
-    out["liq_factor"] = out["dollar_vol"] / (dv_mean + EPS)
+    # gap
+    prev_close = out.groupby("symbol")["c"].shift(1)
 
-    # range pressure
-    out["range"] = (out["h"] - out["l"]) / (out["c"] + EPS)
+    out["gap"] = (out["o"] / prev_close) - 1
+
+    # mean reversion pressure
+    ema10 = out.groupby("symbol")["c"].transform(lambda x: x.ewm(span=10).mean())
+
+    out["dist_ema"] = (out["c"] - ema10) / (ema10 + EPS)
+
+    # abnormal range + volume
+    out["range_vol"] = out["range"] * out["rel_volume"]
 
     return out
 
@@ -206,7 +199,7 @@ def add_forward_returns(df: pd.DataFrame, horizons=(1, 2, 3, 5)) -> pd.DataFrame
 
     for h in horizons:
 
-        exit_px = out.groupby("symbol")["c"].shift(-(h))
+        exit_px = out.groupby("symbol")["c"].shift(-h)
 
         out[f"fwd_{h}d"] = (exit_px / entry) - 1
 
@@ -221,11 +214,11 @@ def factor_ic(df: pd.DataFrame, factor: str, horizon: str) -> float:
 
     rows = []
 
-    for d, g in df.groupby("date"):
+    for _, g in df.groupby("date"):
 
         g = g[[factor, horizon]].dropna()
 
-        if len(g) < 10:
+        if len(g) < 20:
             continue
 
         ic = g[factor].corr(g[horizon], method="spearman")
@@ -253,7 +246,7 @@ def main() -> int:
 
     df = load_dataset(cfg)
 
-    print("[LOAD] rows", len(df))
+    print("[ROWS]", len(df))
 
     print("[FACTORS]")
 
@@ -264,11 +257,19 @@ def main() -> int:
     factors = [
         "mom3",
         "mom5",
+        "mom10",
         "rev1",
+        "rev3",
         "vol_comp",
-        "rel_volume",
-        "liq_factor",
         "range",
+        "range_norm",
+        "rel_volume",
+        "turnover_shock",
+        "liq",
+        "accel",
+        "gap",
+        "dist_ema",
+        "range_vol",
     ]
 
     horizons = ["fwd_1d", "fwd_2d", "fwd_3d", "fwd_5d"]
@@ -281,19 +282,13 @@ def main() -> int:
 
             ic = factor_ic(df, f, h)
 
-            rows.append(
-                {
-                    "factor": f,
-                    "horizon": h,
-                    "ic": ic,
-                }
-            )
+            rows.append({"factor": f, "horizon": h, "ic": ic})
 
     res = pd.DataFrame(rows)
 
     print("\n[FACTOR IC]")
 
-    print(res.to_string(index=False))
+    print(res.sort_values("ic", ascending=False).to_string(index=False))
 
     _ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
 
