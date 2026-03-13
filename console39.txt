@@ -1,0 +1,301 @@
+
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> Set-StrictMode -Version Latest
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $ErrorActionPreference = "Stop"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> Set-Location "C:\Users\Dmytro Govor\Documents\Python-Edge"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python -c "import ast; ast.parse(open(r'.\scripts\run_ranker_hold_sim.py','rb').read())"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> if ($LASTEXITCODE -ne 0) {
+>>     throw "AST parse failed"
+>> }
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:PYTHONUNBUFFERED = "1"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:DATASET_ROOT = "D:\massive_dataset"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:START = "2023-01-01"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:END = "2026-02-28"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:RULES_TRY = "6000"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:RULES_KEEP = "800"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:MIN_SUPPORT = "200"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:MIN_EVENT_HITS = "30"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:PERM_TRIALS = "50"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:PERM_TOPK = "20"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:GATE = "1"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:GATE_MARGIN = "0.15"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:OOS_MIN_SUPPORT = "200"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:OOS_MIN_LIFT = "1.35"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:RUNTIME_TOPN_LONG = "40"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:RANK_K = "3"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:HOLD_DAYS = "2"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:MAX_POS = "3"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:TC_BPS_IN = "4.0"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:TC_BPS_OUT = "4.0"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:CASH_FLOOR = "0.00"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:CLAMP_CASH = "1"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:CAP_VOL = "20"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:CAP_MOM = "15"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:CAP_TREND = "16"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:CAP_OTHER = "40"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:CAP_PAIR = "5"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:SLICES = "3"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:FOLD2_ONLY = "1"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:SEED = "7"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:ALPHA_DECAY_DEBUG = "1"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:ENTRY_MODE = "next_open"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:SIGNAL_DELAY_DAYS = "0"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:ALPHA_HORIZONS = "1,2,3"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:ALPHA_QUANTILES = "0.02,0.05,0.10"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:USE_FOLD_LOCAL_RUNTIME = "1"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:FOLD_LOCAL_ALLOW_OOS_BIG_FALLBACK = "1"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_ranker_hold_sim.py
+[CFG] vendor=massive dataset_root=D:\massive_dataset
+[CFG] alpha_decay: debug=True entry_mode=next_open delay_days=0 horizons=(1, 2, 3) quantiles=(0.02, 0.05, 0.1)
+[CFG] runtime_mode: USE_FOLD_LOCAL_RUNTIME=True FOLD_LOCAL_ALLOW_OOS_BIG_FALLBACK=True
+[DATA] pooled rows=74302 dates=766 symbols=97
+
+================================================================================
+[LIB/FOLD 1] train=2023-02-01..2024-11-26  test=2024-11-27..2025-07-11
+[LIB/FOLD 1] train rows=44523 test rows=14841
+[LIB/FOLD 1] base_rate train=7.7533% test=5.4781% perm_p95=1.087
+[LIB/FOLD 1] mined_rules(train_kept)=0 OOS big-eval=0 pass(lift>=1.35)=0
+
+================================================================================
+[LIB/FOLD 2] train=2023-02-01..2025-03-21  test=2025-03-24..2025-09-05
+[LIB/FOLD 2] train rows=51992 test rows=11155
+[LIB/FOLD 2] base_rate train=7.5358% test=5.6118% perm_p95=1.112
+[LIB/FOLD 2] mined_rules(train_kept)=0 OOS big-eval=0 pass(lift>=1.35)=0
+
+================================================================================
+[LIB/FOLD 3] train=2023-02-01..2025-07-11  test=2025-07-14..2026-02-20
+[LIB/FOLD 3] train rows=59364 test rows=14938
+[LIB/FOLD 3] base_rate train=7.1845% test=8.6826% perm_p95=1.080
+[LIB/FOLD 3] mined_rules(train_kept)=0 OOS big-eval=0 pass(lift>=1.35)=0
+
+================================================================================
+[GLOBAL] Long Rule Library (OOS-filtered across folds)
+[GLOBAL] Fold pass counts: F1: 0/0 | F2: 0/0 | F3: 0/0
+[GLOBAL] library_size=0 (fold_count>=2 & OOS filtered)
+[GLOBAL] library empty -> global reusable library not available in this run.
+[RUNTIME/FOLD 1] source=FOLD_LOCAL_OOS_BIG source_n=0 selected=0/40 caps_used={'VOL': 0, 'MOM': 0, 'TREND': 0, 'OTHER': 0, 'PAIR': 0}
+[SIM/FOLD 1][FOLD_LOCAL_OOS_BIG] runtime selection empty -> skip
+[RUNTIME/FOLD 2] source=FOLD_LOCAL_OOS_BIG source_n=0 selected=0/40 caps_used={'VOL': 0, 'MOM': 0, 'TREND': 0, 'OTHER': 0, 'PAIR': 0}
+[SIM/FOLD 2][FOLD_LOCAL_OOS_BIG] runtime selection empty -> skip
+[RUNTIME/FOLD 3] source=FOLD_LOCAL_OOS_BIG source_n=0 selected=0/40 caps_used={'VOL': 0, 'MOM': 0, 'TREND': 0, 'OTHER': 0, 'PAIR': 0}
+[SIM/FOLD 3][FOLD_LOCAL_OOS_BIG] runtime selection empty -> skip
+[08:58:39] [DONE] Ranker hold-sim completed.
+
+[EXIT] code=0
+Press Enter to exit...
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> if ($LASTEXITCODE -ne 0) {
+>>     throw "run_ranker_hold_sim.py failed"
+>> }
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> Set-StrictMode -Version Latest
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $ErrorActionPreference = "Stop"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> Set-Location "C:\Users\Dmytro Govor\Documents\Python-Edge"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python -c "import ast; ast.parse(open(r'.\scripts\run_ranker_hold_sim.py','rb').read())"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> if ($LASTEXITCODE -ne 0) {
+>>     throw "AST parse failed"
+>> }
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:PYTHONUNBUFFERED = "1"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:DATASET_ROOT = "D:\massive_dataset"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:START = "2023-01-01"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:END = "2026-02-28"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:RULES_TRY = "6000"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:RULES_KEEP = "800"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:MIN_SUPPORT = "200"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:MIN_EVENT_HITS = "30"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:PERM_TRIALS = "50"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:PERM_TOPK = "20"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:GATE = "1"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:GATE_MARGIN = "0.15"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:OOS_MIN_SUPPORT = "200"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:OOS_MIN_LIFT = "1.35"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:RUNTIME_TOPN_LONG = "40"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:RANK_K = "3"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:HOLD_DAYS = "2"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:MAX_POS = "3"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:TC_BPS_IN = "4.0"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:TC_BPS_OUT = "4.0"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:CASH_FLOOR = "0.00"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:CLAMP_CASH = "1"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:CAP_VOL = "20"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:CAP_MOM = "15"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:CAP_TREND = "16"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:CAP_OTHER = "40"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:CAP_PAIR = "5"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:SLICES = "3"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:FOLD2_ONLY = "1"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:SEED = "7"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:ALPHA_DECAY_DEBUG = "1"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:ENTRY_MODE = "next_open"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:ALPHA_HORIZONS = "1,2,3"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:ALPHA_QUANTILES = "0.02,0.05,0.10"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:USE_FOLD_LOCAL_RUNTIME = "1"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:FOLD_LOCAL_ALLOW_OOS_BIG_FALLBACK = "1"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $delays = @("0", "1", "2")
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> foreach ($delay in $delays) {
+>>     $env:SIGNAL_DELAY_DAYS = $delay
+>>
+>>     Write-Host ""
+>>     Write-Host "============================================================"
+>>     Write-Host "[RUN] ENTRY_MODE=$env:ENTRY_MODE SIGNAL_DELAY_DAYS=$delay HOLD_DAYS=$env:HOLD_DAYS"
+>>     Write-Host "============================================================"
+>>     Write-Host ""
+>>
+>>     python .\scripts\run_ranker_hold_sim.py
+>>
+>>     if ($LASTEXITCODE -ne 0) {
+>>         throw "run_ranker_hold_sim.py failed for SIGNAL_DELAY_DAYS=$delay"
+>>     }
+>> }
+
+============================================================
+[RUN] ENTRY_MODE=next_open SIGNAL_DELAY_DAYS=0 HOLD_DAYS=2
+============================================================
+
+[CFG] vendor=massive dataset_root=D:\massive_dataset
+[CFG] alpha_decay: debug=True entry_mode=next_open delay_days=0 horizons=(1, 2, 3) quantiles=(0.02, 0.05, 0.1)
+[CFG] runtime_mode: USE_FOLD_LOCAL_RUNTIME=True FOLD_LOCAL_ALLOW_OOS_BIG_FALLBACK=True
+[DATA] pooled rows=74302 dates=766 symbols=97
+
+================================================================================
+[LIB/FOLD 1] train=2023-02-01..2024-11-26  test=2024-11-27..2025-07-11
+[LIB/FOLD 1] train rows=44523 test rows=14841
+[LIB/FOLD 1] base_rate train=7.7533% test=5.4781% perm_p95=1.087
+[LIB/FOLD 1] mined_rules(train_kept)=0 OOS big-eval=0 pass(lift>=1.35)=0
+
+================================================================================
+[LIB/FOLD 2] train=2023-02-01..2025-03-21  test=2025-03-24..2025-09-05
+[LIB/FOLD 2] train rows=51992 test rows=11155
+[LIB/FOLD 2] base_rate train=7.5358% test=5.6118% perm_p95=1.112
+[LIB/FOLD 2] mined_rules(train_kept)=0 OOS big-eval=0 pass(lift>=1.35)=0
+
+================================================================================
+[LIB/FOLD 3] train=2023-02-01..2025-07-11  test=2025-07-14..2026-02-20
+[LIB/FOLD 3] train rows=59364 test rows=14938
+[LIB/FOLD 3] base_rate train=7.1845% test=8.6826% perm_p95=1.080
+[LIB/FOLD 3] mined_rules(train_kept)=0 OOS big-eval=0 pass(lift>=1.35)=0
+
+================================================================================
+[GLOBAL] Long Rule Library (OOS-filtered across folds)
+[GLOBAL] Fold pass counts: F1: 0/0 | F2: 0/0 | F3: 0/0
+[GLOBAL] library_size=0 (fold_count>=2 & OOS filtered)
+[GLOBAL] library empty -> global reusable library not available in this run.
+[RUNTIME/FOLD 1] source=FOLD_LOCAL_OOS_BIG source_n=0 selected=0/40 caps_used={'VOL': 0, 'MOM': 0, 'TREND': 0, 'OTHER': 0, 'PAIR': 0}
+[SIM/FOLD 1][FOLD_LOCAL_OOS_BIG] runtime selection empty -> skip
+[RUNTIME/FOLD 2] source=FOLD_LOCAL_OOS_BIG source_n=0 selected=0/40 caps_used={'VOL': 0, 'MOM': 0, 'TREND': 0, 'OTHER': 0, 'PAIR': 0}
+[SIM/FOLD 2][FOLD_LOCAL_OOS_BIG] runtime selection empty -> skip
+[RUNTIME/FOLD 3] source=FOLD_LOCAL_OOS_BIG source_n=0 selected=0/40 caps_used={'VOL': 0, 'MOM': 0, 'TREND': 0, 'OTHER': 0, 'PAIR': 0}
+[SIM/FOLD 3][FOLD_LOCAL_OOS_BIG] runtime selection empty -> skip
+[09:05:00] [DONE] Ranker hold-sim completed.
+
+[EXIT] code=0
+Press Enter to exit...
+
+============================================================
+[RUN] ENTRY_MODE=next_open SIGNAL_DELAY_DAYS=1 HOLD_DAYS=2
+============================================================
+
+[CFG] vendor=massive dataset_root=D:\massive_dataset
+[CFG] alpha_decay: debug=True entry_mode=next_open delay_days=1 horizons=(1, 2, 3) quantiles=(0.02, 0.05, 0.1)
+[CFG] runtime_mode: USE_FOLD_LOCAL_RUNTIME=True FOLD_LOCAL_ALLOW_OOS_BIG_FALLBACK=True
+[DATA] pooled rows=74302 dates=766 symbols=97
+
+================================================================================
+[LIB/FOLD 1] train=2023-02-01..2024-11-26  test=2024-11-27..2025-07-11
+[LIB/FOLD 1] train rows=44523 test rows=14841
+[LIB/FOLD 1] base_rate train=7.7533% test=5.4781% perm_p95=1.087
+[LIB/FOLD 1] mined_rules(train_kept)=0 OOS big-eval=0 pass(lift>=1.35)=0
+
+================================================================================
+[LIB/FOLD 2] train=2023-02-01..2025-03-21  test=2025-03-24..2025-09-05
+[LIB/FOLD 2] train rows=51992 test rows=11155
+[LIB/FOLD 2] base_rate train=7.5358% test=5.6118% perm_p95=1.112
+[LIB/FOLD 2] mined_rules(train_kept)=0 OOS big-eval=0 pass(lift>=1.35)=0
+
+================================================================================
+[LIB/FOLD 3] train=2023-02-01..2025-07-11  test=2025-07-14..2026-02-20
+[LIB/FOLD 3] train rows=59364 test rows=14938
+[LIB/FOLD 3] base_rate train=7.1845% test=8.6826% perm_p95=1.080
+[LIB/FOLD 3] mined_rules(train_kept)=0 OOS big-eval=0 pass(lift>=1.35)=0
+
+================================================================================
+[GLOBAL] Long Rule Library (OOS-filtered across folds)
+[GLOBAL] Fold pass counts: F1: 0/0 | F2: 0/0 | F3: 0/0
+[GLOBAL] library_size=0 (fold_count>=2 & OOS filtered)
+[GLOBAL] library empty -> global reusable library not available in this run.
+[RUNTIME/FOLD 1] source=FOLD_LOCAL_OOS_BIG source_n=0 selected=0/40 caps_used={'VOL': 0, 'MOM': 0, 'TREND': 0, 'OTHER': 0, 'PAIR': 0}
+[SIM/FOLD 1][FOLD_LOCAL_OOS_BIG] runtime selection empty -> skip
+[RUNTIME/FOLD 2] source=FOLD_LOCAL_OOS_BIG source_n=0 selected=0/40 caps_used={'VOL': 0, 'MOM': 0, 'TREND': 0, 'OTHER': 0, 'PAIR': 0}
+[SIM/FOLD 2][FOLD_LOCAL_OOS_BIG] runtime selection empty -> skip
+[RUNTIME/FOLD 3] source=FOLD_LOCAL_OOS_BIG source_n=0 selected=0/40 caps_used={'VOL': 0, 'MOM': 0, 'TREND': 0, 'OTHER': 0, 'PAIR': 0}
+[SIM/FOLD 3][FOLD_LOCAL_OOS_BIG] runtime selection empty -> skip
+[09:08:15] [DONE] Ranker hold-sim completed.
+
+[EXIT] code=0
+Press Enter to exit...
+
+============================================================
+[RUN] ENTRY_MODE=next_open SIGNAL_DELAY_DAYS=2 HOLD_DAYS=2
+============================================================
+
+[CFG] vendor=massive dataset_root=D:\massive_dataset
+[CFG] alpha_decay: debug=True entry_mode=next_open delay_days=2 horizons=(1, 2, 3) quantiles=(0.02, 0.05, 0.1)
+[CFG] runtime_mode: USE_FOLD_LOCAL_RUNTIME=True FOLD_LOCAL_ALLOW_OOS_BIG_FALLBACK=True
+[DATA] pooled rows=74302 dates=766 symbols=97
+
+================================================================================
+[LIB/FOLD 1] train=2023-02-01..2024-11-26  test=2024-11-27..2025-07-11
+[LIB/FOLD 1] train rows=44523 test rows=14841
+[LIB/FOLD 1] base_rate train=7.7533% test=5.4781% perm_p95=1.087
+[LIB/FOLD 1] mined_rules(train_kept)=0 OOS big-eval=0 pass(lift>=1.35)=0
+
+================================================================================
+[LIB/FOLD 2] train=2023-02-01..2025-03-21  test=2025-03-24..2025-09-05
+[LIB/FOLD 2] train rows=51992 test rows=11155
+[LIB/FOLD 2] base_rate train=7.5358% test=5.6118% perm_p95=1.112
+[LIB/FOLD 2] mined_rules(train_kept)=0 OOS big-eval=0 pass(lift>=1.35)=0
+
+================================================================================
+[LIB/FOLD 3] train=2023-02-01..2025-07-11  test=2025-07-14..2026-02-20
+[LIB/FOLD 3] train rows=59364 test rows=14938
+[LIB/FOLD 3] base_rate train=7.1845% test=8.6826% perm_p95=1.080
+[LIB/FOLD 3] mined_rules(train_kept)=0 OOS big-eval=0 pass(lift>=1.35)=0
+
+================================================================================
+[GLOBAL] Long Rule Library (OOS-filtered across folds)
+[GLOBAL] Fold pass counts: F1: 0/0 | F2: 0/0 | F3: 0/0
+[GLOBAL] library_size=0 (fold_count>=2 & OOS filtered)
+[GLOBAL] library empty -> global reusable library not available in this run.
+[RUNTIME/FOLD 1] source=FOLD_LOCAL_OOS_BIG source_n=0 selected=0/40 caps_used={'VOL': 0, 'MOM': 0, 'TREND': 0, 'OTHER': 0, 'PAIR': 0}
+[SIM/FOLD 1][FOLD_LOCAL_OOS_BIG] runtime selection empty -> skip
+[RUNTIME/FOLD 2] source=FOLD_LOCAL_OOS_BIG source_n=0 selected=0/40 caps_used={'VOL': 0, 'MOM': 0, 'TREND': 0, 'OTHER': 0, 'PAIR': 0}
+[SIM/FOLD 2][FOLD_LOCAL_OOS_BIG] runtime selection empty -> skip
+[RUNTIME/FOLD 3] source=FOLD_LOCAL_OOS_BIG source_n=0 selected=0/40 caps_used={'VOL': 0, 'MOM': 0, 'TREND': 0, 'OTHER': 0, 'PAIR': 0}
+[SIM/FOLD 3][FOLD_LOCAL_OOS_BIG] runtime selection empty -> skip
+[09:14:45] [DONE] Ranker hold-sim completed.
+
+[EXIT] code=0
+Press Enter to exit...

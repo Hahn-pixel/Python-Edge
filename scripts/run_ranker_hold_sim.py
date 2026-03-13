@@ -1,42 +1,29 @@
 # scripts/run_ranker_hold_sim.py
-# Python-Edge / massive (ex-Polygon) dataset
+# Python-Edge / massive dataset
 # Double-click runnable. Never auto-closes (always waits for Enter).
 #
 # Purpose:
-# - Mine cross-sectional "rules" (binary conditions) on DAILY bars (close-to-close).
+# - Mine cross-sectional "rules" on DAILY bars.
 # - Walk-forward CV: mine on train, evaluate on OOS with NO leakage.
-# - Build a global rule library (fold_count>=2) with OOS filters.
-# - Runtime: score each (date,symbol) by weighted sum of rule fires; pick Top-K longs.
-# - Hold-sim: equal-weight, hold_days, max_pos, transaction costs, cash floor, clamp.
-# - Optional: time-slice diagnostics + rolling health retirement hooks (kept minimal, explicit debug counters).
-#
-# IMPORTANT FIXES vs your last run:
-# - We DO NOT "hand-pick 12 signatures". We actually mine try=N rules and keep=K.
-# - OOS lift is computed versus OOS base_rate (NOT train base_rate), so regime drift doesn't zero out passes.
-#
-# Dataset layout assumed:
-# data/raw/massive_dataset/<TICKER>/aggs_1d_<START>_<END>.json   (Polygon/massive v2 aggs payload)
-# If your file naming differs, adjust _find_aggs_1d_files().
+# - Try global rule library first.
+# - If global library is empty or explicitly disabled, fall back to FOLD-LOCAL runtime.
+# - Print alpha-delay surface so we can test the same-day dislocation thesis.
 
 from __future__ import annotations
 
-import os
-import sys
 import json
 import math
-import time
+import os
 import random
 import traceback
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional, Iterable
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 
-
-# ------------------------- UX / Exit -------------------------
 
 def _log(msg: str) -> None:
     ts = datetime.now().strftime("%H:%M:%S")
@@ -85,20 +72,14 @@ def _env_bool(name: str, default: bool = False) -> bool:
     return s in ("1", "true", "yes", "y", "on")
 
 
-# ------------------------- Config -------------------------
-
 @dataclass(frozen=True)
 class Config:
     dataset_root: Path
     start: str
     end: str
-
-    # event definition (long)
     fwd_days: int
     k_sigma: float
-    sigma_lookback: int  # realized vol lookback (daily returns)
-
-    # mining
+    sigma_lookback: int
     rules_try: int
     rules_keep: int
     min_support: int
@@ -107,60 +88,42 @@ class Config:
     perm_topk: int
     gate: bool
     gate_margin: float
-
-    # OOS filter for library inclusion
     oos_min_support: int
     oos_min_lift: float
-
-    # runtime / ranker
     runtime_topn_long: int
-    rank_k: int  # top-K per day
-
-    # sim
+    rank_k: int
     hold_days: int
     max_pos: int
     tc_bps_in: float
     tc_bps_out: float
-    rebalance_band: float  # (kept; currently used for optional rebalance logic)
-    cash_floor: float      # minimum cash fraction, e.g. 0.00 or 0.02
-    clamp_cash: bool       # if True, clamp cash>=cash_floor and shrink target weights
-
-    # cluster caps for library diversity
+    rebalance_band: float
+    cash_floor: float
+    clamp_cash: bool
     cap_vol: int
     cap_mom: int
     cap_trend: int
     cap_other: int
     cap_pair: int
-
-    # diagnostics
     slices: int
     fold2_only_slices: bool
-
-    # reproducibility
     seed: int
-
-    # alpha-decay / delay diagnostics
     alpha_decay_debug: bool
     delay_days: int
     entry_mode: str
     alpha_horizons: Tuple[int, ...]
     alpha_quantiles: Tuple[float, ...]
+    use_fold_local_runtime: bool
+    fold_local_allow_oos_big_fallback: bool
 
 
 def load_config() -> Config:
-    dataset_root = Path(_env_str("DATASET_ROOT", r"data\raw\massive_dataset"))
-    start = _env_str("START", "2023-01-01")
-    end = _env_str("END", "2026-02-28")
-
-    cfg = Config(
-        dataset_root=dataset_root,
-        start=start,
-        end=end,
-
+    return Config(
+        dataset_root=Path(_env_str("DATASET_ROOT", r"D:\massive_dataset")),
+        start=_env_str("START", "2023-01-01"),
+        end=_env_str("END", "2026-02-28"),
         fwd_days=_env_int("FWD_DAYS", 5),
         k_sigma=_env_float("K_SIGMA", 1.5),
         sigma_lookback=_env_int("SIGMA_LOOKBACK", 60),
-
         rules_try=_env_int("RULES_TRY", 6000),
         rules_keep=_env_int("RULES_KEEP", 800),
         min_support=_env_int("MIN_SUPPORT", 200),
@@ -169,13 +132,10 @@ def load_config() -> Config:
         perm_topk=_env_int("PERM_TOPK", 20),
         gate=_env_bool("GATE", True),
         gate_margin=_env_float("GATE_MARGIN", 0.15),
-
         oos_min_support=_env_int("OOS_MIN_SUPPORT", 200),
         oos_min_lift=_env_float("OOS_MIN_LIFT", 1.35),
-
         runtime_topn_long=_env_int("RUNTIME_TOPN_LONG", 40),
         rank_k=_env_int("RANK_K", 3),
-
         hold_days=_env_int("HOLD_DAYS", 5),
         max_pos=_env_int("MAX_POS", 3),
         tc_bps_in=_env_float("TC_BPS_IN", 4.0),
@@ -183,43 +143,33 @@ def load_config() -> Config:
         rebalance_band=_env_float("REBALANCE_BAND", 0.10),
         cash_floor=_env_float("CASH_FLOOR", 0.00),
         clamp_cash=_env_bool("CLAMP_CASH", True),
-
         cap_vol=_env_int("CAP_VOL", 20),
         cap_mom=_env_int("CAP_MOM", 15),
         cap_trend=_env_int("CAP_TREND", 16),
         cap_other=_env_int("CAP_OTHER", 40),
         cap_pair=_env_int("CAP_PAIR", 5),
-
         slices=_env_int("SLICES", 3),
         fold2_only_slices=_env_bool("FOLD2_ONLY", True),
-
         seed=_env_int("SEED", 7),
-
         alpha_decay_debug=_env_bool("ALPHA_DECAY_DEBUG", True),
         delay_days=max(0, _env_int("SIGNAL_DELAY_DAYS", 0)),
         entry_mode=_env_str("ENTRY_MODE", "next_open").lower(),
         alpha_horizons=tuple(int(x) for x in _env_str("ALPHA_HORIZONS", "1,2,3").split(",") if str(x).strip()),
         alpha_quantiles=tuple(float(x) for x in _env_str("ALPHA_QUANTILES", "0.02,0.05,0.10").split(",") if str(x).strip()),
+        use_fold_local_runtime=_env_bool("USE_FOLD_LOCAL_RUNTIME", True),
+        fold_local_allow_oos_big_fallback=_env_bool("FOLD_LOCAL_ALLOW_OOS_BIG_FALLBACK", True),
     )
-    return cfg
 
-
-# ------------------------- Data ingest -------------------------
 
 def _find_aggs_1d_files(dataset_root: Path) -> List[Tuple[str, Path]]:
-    """
-    Find per-symbol daily aggs JSON files under dataset_root/<TICKER>/aggs_1d_*.json
-    """
     out: List[Tuple[str, Path]] = []
     if not dataset_root.exists():
         raise RuntimeError(f"dataset_root not found: {dataset_root}")
-
     for sym_dir in sorted([p for p in dataset_root.iterdir() if p.is_dir()]):
         sym = sym_dir.name.strip().upper()
         candidates = sorted(sym_dir.glob("aggs_1d_*.json"))
         if not candidates:
             continue
-        # pick the largest file (usually the widest date range)
         best = max(candidates, key=lambda p: p.stat().st_size)
         out.append((sym, best))
     return out
@@ -230,20 +180,14 @@ def _load_aggs_1d(sym: str, path: Path) -> pd.DataFrame:
     rows = js.get("results") or []
     if not rows:
         return pd.DataFrame()
-
     df = pd.DataFrame(rows)
-    # polygon/massive aggs fields: t (ms), o,h,l,c,v, vw, n
     if "t" not in df.columns:
         return pd.DataFrame()
-
     df["date"] = pd.to_datetime(df["t"], unit="ms", utc=True).dt.date.astype(str)
     df["symbol"] = sym
-
-    # normalize
     for c in ("o", "h", "l", "c", "v"):
         if c in df.columns:
             df[c] = pd.to_numeric(df[c], errors="coerce")
-
     df = df[["date", "symbol", "o", "h", "l", "c", "v"]].dropna()
     df = df.sort_values(["date"]).reset_index(drop=True)
     return df
@@ -253,24 +197,18 @@ def load_dataset(cfg: Config) -> pd.DataFrame:
     pairs = _find_aggs_1d_files(cfg.dataset_root)
     if not pairs:
         raise RuntimeError(f"No aggs_1d_*.json found under {cfg.dataset_root}")
-
-    dfs = []
+    dfs: List[pd.DataFrame] = []
     for sym, fp in pairs:
         d = _load_aggs_1d(sym, fp)
         if not d.empty:
             dfs.append(d)
-
     if not dfs:
         raise RuntimeError("All aggs files loaded empty")
-
     df = pd.concat(dfs, ignore_index=True)
-    # filter date range (string compare ok for YYYY-MM-DD)
     df = df[(df["date"] >= cfg.start) & (df["date"] <= cfg.end)].copy()
     df = df.sort_values(["date", "symbol"]).reset_index(drop=True)
     return df
 
-
-# ------------------------- Features (daily) -------------------------
 
 def _winsorize_series(x: pd.Series, p: float = 0.01) -> pd.Series:
     lo = x.quantile(p)
@@ -279,36 +217,16 @@ def _winsorize_series(x: pd.Series, p: float = 0.01) -> pd.Series:
 
 
 def add_features(df: pd.DataFrame, cfg: Config) -> pd.DataFrame:
-    """
-    Produces cross-sectional percentile features per date:
-    - atr_pct: ATR-like range/close percent, then percentile within date
-    - rv_10: realized vol of daily returns (rolling std), then percentile within date
-    - mom_1d, mom_3d: close returns, then percentile within date
-    - compression: rolling range compression proxy, then percentile within date
-    - ema_dist: distance to EMA(20), then percentile within date
-    - ema_fast_slope (EMA10 slope), ema_slow_slope (EMA50 slope), percentiles within date
-    """
     df = df.copy()
-    df["c"] = pd.to_numeric(df["c"], errors="coerce")
-    df["o"] = pd.to_numeric(df["o"], errors="coerce")
-    df["h"] = pd.to_numeric(df["h"], errors="coerce")
-    df["l"] = pd.to_numeric(df["l"], errors="coerce")
-    df["v"] = pd.to_numeric(df["v"], errors="coerce")
-
+    for c in ("c", "o", "h", "l", "v"):
+        df[c] = pd.to_numeric(df[c], errors="coerce")
     df["ret_1d"] = df.groupby("symbol")["c"].pct_change(1)
     df["ret_3d"] = df.groupby("symbol")["c"].pct_change(3)
-
-    # ATR-like: range / close
     df["rng"] = (df["h"] - df["l"]) / df["c"].replace(0, np.nan)
-
-    # realized vol (sigma_lookback)
     df["rv"] = df.groupby("symbol")["ret_1d"].rolling(cfg.sigma_lookback, min_periods=max(10, cfg.sigma_lookback // 3)).std().reset_index(level=0, drop=True)
-
-    # compression: rolling mean range ratio
     df["rng_ma20"] = df.groupby("symbol")["rng"].rolling(20, min_periods=10).mean().reset_index(level=0, drop=True)
     df["compression_raw"] = (df["rng_ma20"] / df["rng"].replace(0, np.nan)).replace([np.inf, -np.inf], np.nan)
 
-    # EMA distance
     def _ema(s: pd.Series, span: int) -> pd.Series:
         return s.ewm(span=span, adjust=False, min_periods=max(5, span // 3)).mean()
 
@@ -316,23 +234,14 @@ def add_features(df: pd.DataFrame, cfg: Config) -> pd.DataFrame:
     df["ema10"] = df.groupby("symbol")["c"].apply(lambda s: _ema(s, 10)).reset_index(level=0, drop=True)
     df["ema50"] = df.groupby("symbol")["c"].apply(lambda s: _ema(s, 50)).reset_index(level=0, drop=True)
     df["ema_dist_raw"] = (df["c"] - df["ema20"]) / df["ema20"].replace(0, np.nan)
-
-    # EMA slopes (1d diff)
-    df["ema_fast_slope_raw"] = df.groupby("symbol")["ema10"].diff(1) / df["ema10"].shift(1).replace(0, np.nan)
-    df["ema_slow_slope_raw"] = df.groupby("symbol")["ema50"].diff(1) / df["ema50"].shift(1).replace(0, np.nan)
-
-    # Clean
+    df["ema_fast_slope_raw"] = df.groupby("symbol")["ema10"].diff(1) / df.groupby("symbol")["ema10"].shift(1).replace(0, np.nan)
+    df["ema_slow_slope_raw"] = df.groupby("symbol")["ema50"].diff(1) / df.groupby("symbol")["ema50"].shift(1).replace(0, np.nan)
     for c in ("ret_1d", "ret_3d", "rng", "rv", "compression_raw", "ema_dist_raw", "ema_fast_slope_raw", "ema_slow_slope_raw"):
         df[c] = pd.to_numeric(df[c], errors="coerce").replace([np.inf, -np.inf], np.nan)
 
-    # Cross-sectional percentiles per date (robust)
     def _cs_pct_series(df_: pd.DataFrame, col: str, winsor_p: float = 0.01) -> pd.Series:
-        """
-        Cross-sectional percentile rank per date for df_[col], with optional winsorization inside each date group.
-        No groupby.apply => no pandas DeprecationWarning.
-        """
         out = pd.Series(index=df_.index, dtype=float)
-        for d, g in df_.groupby("date", sort=False):
+        for _, g in df_.groupby("date", sort=False):
             x = pd.to_numeric(g[col], errors="coerce")
             if x.notna().sum() == 0:
                 out.loc[g.index] = np.nan
@@ -350,27 +259,17 @@ def add_features(df: pd.DataFrame, cfg: Config) -> pd.DataFrame:
     df["ema_dist"] = _cs_pct_series(df, "ema_dist_raw")
     df["ema_fast_slope"] = _cs_pct_series(df, "ema_fast_slope_raw")
     df["ema_slow_slope"] = _cs_pct_series(df, "ema_slow_slope_raw")
-
     return df
 
-
-# ------------------------- Event labels -------------------------
 
 def add_event_labels(df: pd.DataFrame, cfg: Config) -> pd.DataFrame:
     df = df.copy()
-
-    # forward return over fwd_days
     df["fwd_ret"] = df.groupby("symbol")["c"].shift(-cfg.fwd_days) / df["c"] - 1.0
-
-    # event if fwd_ret > k_sigma * rv_today * sqrt(fwd_days)
     sigma_term = df["rv"] * math.sqrt(float(max(1, cfg.fwd_days)))
     thresh = cfg.k_sigma * sigma_term
     df["event_up"] = (df["fwd_ret"] > thresh).astype(float)
-
     return df
 
-
-# ------------------------- Rules -------------------------
 
 @dataclass(frozen=True)
 class Rule:
@@ -401,16 +300,7 @@ class RuleStats:
     w: float
 
 
-FEATURES = [
-    "atr_pct",
-    "rv_10",
-    "mom_1d",
-    "mom_3d",
-    "compression",
-    "ema_dist",
-    "ema_fast_slope",
-    "ema_slow_slope",
-]
+FEATURES = ["atr_pct", "rv_10", "mom_1d", "mom_3d", "compression", "ema_dist", "ema_fast_slope", "ema_slow_slope"]
 
 
 def compute_base_rate(df: pd.DataFrame) -> float:
@@ -419,12 +309,7 @@ def compute_base_rate(df: pd.DataFrame) -> float:
     return float(pd.to_numeric(df["event_up"], errors="coerce").fillna(0.0).mean())
 
 
-def _cluster_of(rule: Rule) -> str:
-    return rule.cluster
-
-
 def _rule_cluster(a: str, b: Optional[str], thr: Optional[float]) -> str:
-    # simple bucket naming for caps
     s = {a, b} if b is not None else {a}
     if {"atr_pct", "rv_10"} & s:
         return "VOL"
@@ -438,16 +323,14 @@ def _rule_cluster(a: str, b: Optional[str], thr: Optional[float]) -> str:
 
 
 def random_rule(rng: random.Random) -> Rule:
-    # either threshold rule or pair-comparison rule
     if rng.random() < 0.45:
         a = rng.choice(FEATURES)
         thr = rng.choice([0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90])
         op = rng.choice([">=", "<="])
         return Rule(cluster=_rule_cluster(a, None, thr), a=a, op=op, thr=float(thr))
-    else:
-        a, b = rng.sample(FEATURES, 2)
-        op = rng.choice([">=", "<="])
-        return Rule(cluster=_rule_cluster(a, b, None), a=a, op=op, b=b)
+    a, b = rng.sample(FEATURES, 2)
+    op = rng.choice([">=", "<="])
+    return Rule(cluster=_rule_cluster(a, b, None), a=a, op=op, b=b)
 
 
 def fire_rule(df: pd.DataFrame, rule: Rule) -> pd.Series:
@@ -456,14 +339,11 @@ def fire_rule(df: pd.DataFrame, rule: Rule) -> pd.Series:
         b = pd.to_numeric(df[rule.b], errors="coerce")
         if rule.op == ">=":
             return (a >= b) & a.notna() & b.notna()
-        else:
-            return (a <= b) & a.notna() & b.notna()
-    else:
-        thr = float(rule.thr if rule.thr is not None else 0.5)
-        if rule.op == ">=":
-            return (a >= thr) & a.notna()
-        else:
-            return (a <= thr) & a.notna()
+        return (a <= b) & a.notna() & b.notna()
+    thr = float(rule.thr if rule.thr is not None else 0.5)
+    if rule.op == ">=":
+        return (a >= thr) & a.notna()
+    return (a <= thr) & a.notna()
 
 
 def eval_rule(df: pd.DataFrame, rule: Rule, base_rate: float) -> RuleStats:
@@ -472,7 +352,6 @@ def eval_rule(df: pd.DataFrame, rule: Rule, base_rate: float) -> RuleStats:
     support = int(len(sub))
     if support <= 0:
         return RuleStats(rule.sig(), rule, 0, 0, 0.0, 0.0, 0.0, 0.0, 0.0, float("nan"), 0.0)
-
     evt = pd.to_numeric(sub["event_up"], errors="coerce").fillna(0.0)
     fwd = pd.to_numeric(sub["fwd_ret"], errors="coerce")
     prec = float(evt.mean()) if support > 0 else 0.0
@@ -482,22 +361,14 @@ def eval_rule(df: pd.DataFrame, rule: Rule, base_rate: float) -> RuleStats:
     med = float(fwd.median()) if len(fwd) else 0.0
     p_pos = float((fwd > 0).mean()) if len(fwd) else 0.0
     es5 = float(fwd[fwd <= fwd.quantile(0.05)].mean()) if len(fwd) >= 20 else float("nan")
-
-    # simple weight proxy (explicit, no hidden magic)
     w = max(0.0, lift - 1.0) * max(0.0, mean)
     return RuleStats(rule.sig(), rule, support, hits, prec, lift, mean, med, p_pos, es5, w)
 
 
 def mine_rules(df: pd.DataFrame, cfg: Config, rng: random.Random) -> Tuple[List[RuleStats], float, List[RuleStats]]:
-    """
-    Mine try=N random rules on TRAIN. Keep up to rules_keep after support/hits filters.
-    Also run a null/permutation benchmark on event_up to estimate p95 of null lift.
-    Returns: kept_rules, perm_p95, all_kept_before_topk
-    """
     br = compute_base_rate(df)
     seen = set()
     mined: List[RuleStats] = []
-
     tries = 0
     while tries < cfg.rules_try:
         tries += 1
@@ -512,12 +383,8 @@ def mine_rules(df: pd.DataFrame, cfg: Config, rng: random.Random) -> Tuple[List[
         if st.hits < cfg.min_event_hits:
             continue
         mined.append(st)
-
-    # sort by weight -> lift -> support
     mined.sort(key=lambda x: (x.w, x.lift, x.support), reverse=True)
     kept = mined[: cfg.rules_keep]
-
-    # permutation benchmark: preserve df rows, shuffle labels only
     perm_best: List[float] = []
     if cfg.perm_trials > 0 and len(df) > 0:
         evt = df["event_up"].to_numpy(copy=True)
@@ -528,7 +395,6 @@ def mine_rules(df: pd.DataFrame, cfg: Config, rng: random.Random) -> Tuple[List[
             d2["event_up"] = evt2
             br2 = float(np.mean(evt2)) if len(evt2) else 0.0
             best_lifts = []
-            # evaluate a small random subset for benchmark speed
             sub_rules = [random_rule(rng) for _ in range(max(20, cfg.perm_topk))]
             for r in sub_rules:
                 st = eval_rule(d2, r, br2)
@@ -538,15 +404,11 @@ def mine_rules(df: pd.DataFrame, cfg: Config, rng: random.Random) -> Tuple[List[
         perm_p95 = float(np.quantile(np.array(perm_best, dtype=float), 0.95)) if perm_best else 1.0
     else:
         perm_p95 = 1.0
-
     if cfg.gate:
         gate_thr = perm_p95 + cfg.gate_margin
         kept = [x for x in kept if x.lift >= gate_thr]
-
     return kept, perm_p95, mined
 
-
-# ------------------------- Folds -------------------------
 
 @dataclass(frozen=True)
 class Fold:
@@ -558,64 +420,28 @@ class Fold:
 
 
 def build_folds(dates: List[str]) -> List[Fold]:
-    """
-    3 expanding folds over the full range.
-    Assumes dates sorted ascending.
-    """
     if len(dates) < 120:
         raise RuntimeError("Not enough dates to build folds")
-
     n = len(dates)
-    # 60/20, 70/15, 80/10-ish expanding windows
     i1 = int(n * 0.60)
     j1 = int(n * 0.80)
-
     i2 = int(n * 0.70)
     j2 = int(n * 0.85)
-
     i3 = int(n * 0.80)
     j3 = n
-
-    folds = [
+    return [
         Fold(1, dates[0], dates[i1 - 1], dates[i1], dates[j1 - 1]),
         Fold(2, dates[0], dates[i2 - 1], dates[i2], dates[j2 - 1]),
         Fold(3, dates[0], dates[i3 - 1], dates[i3], dates[j3 - 1]),
     ]
-    return folds
 
-
-def slice_dates(dates: List[str], slices: int) -> List[Tuple[str, str, List[str]]]:
-    if slices <= 1:
-        return [(dates[0], dates[-1], dates)]
-    out = []
-    n = len(dates)
-    step = max(1, n // slices)
-    for i in range(slices):
-        a = i * step
-        b = (i + 1) * step if i < slices - 1 else n
-        sub = dates[a:b]
-        if not sub:
-            continue
-        out.append((sub[0], sub[-1], sub))
-    return out
-
-
-# ------------------------- Library selection with caps -------------------------
 
 def select_with_cluster_caps(rules: List[RuleStats], cfg: Config, want_n: int) -> Tuple[List[RuleStats], Dict[str, int]]:
-    caps = {
-        "VOL": cfg.cap_vol,
-        "MOM": cfg.cap_mom,
-        "TREND": cfg.cap_trend,
-        "OTHER": cfg.cap_other,
-        "PAIR": cfg.cap_pair,
-    }
+    caps = {"VOL": cfg.cap_vol, "MOM": cfg.cap_mom, "TREND": cfg.cap_trend, "OTHER": cfg.cap_other, "PAIR": cfg.cap_pair}
     used = {k: 0 for k in caps.keys()}
     out: List[RuleStats] = []
     for rs in rules:
-        cl = rs.rule.cluster
-        if cl not in caps:
-            cl = "OTHER"
+        cl = rs.rule.cluster if rs.rule.cluster in caps else "OTHER"
         if used[cl] >= caps[cl]:
             continue
         out.append(rs)
@@ -623,7 +449,6 @@ def select_with_cluster_caps(rules: List[RuleStats], cfg: Config, want_n: int) -
         if len(out) >= want_n:
             break
     return out, used
-
 
 
 def _validate_entry_mode(entry_mode: str) -> str:
@@ -638,24 +463,9 @@ def _score_rank_pct_by_date(df: pd.DataFrame, score_col: str = "score") -> pd.Se
     return df.groupby("date")[score_col].rank(method="average", pct=True)
 
 
-def add_delay_entry_forward_returns(
-    df: pd.DataFrame,
-    delay_days: int,
-    entry_mode: str,
-    horizons: Tuple[int, ...],
-) -> pd.DataFrame:
-    """
-    delay_days semantics:
-    - same_close: delay=0 => enter at close[t], delay=1 => enter at close[t+1]
-    - next_open / next_close: delay=0 => enter at first tradable session after signal date
-      i.e. open[t+1] / close[t+1]. delay=1 => one additional full trading day later.
-    exit is always close-based after `horizon` trading days from the entry day:
-    - entry next_open on t+1, horizon=1 => exit close[t+1]
-    - entry next_open on t+1, horizon=2 => exit close[t+2]
-    """
+def add_delay_entry_forward_returns(df: pd.DataFrame, delay_days: int, entry_mode: str, horizons: Tuple[int, ...]) -> pd.DataFrame:
     out = df.copy()
     mode = _validate_entry_mode(entry_mode)
-
     if mode == "same_close":
         entry_shift = delay_days
         out["entry_px"] = out.groupby("symbol")["c"].shift(-entry_shift)
@@ -668,116 +478,37 @@ def add_delay_entry_forward_returns(
         entry_shift = delay_days + 1
         out["entry_px"] = out.groupby("symbol")["o"].shift(-entry_shift)
         entry_day_idx = entry_shift
-
     for h in horizons:
         exit_shift = entry_day_idx + (h - 1)
         exit_px = out.groupby("symbol")["c"].shift(-exit_shift)
         out[f"entry_ret_{h}d"] = (exit_px / out["entry_px"]) - 1.0
-
     return out
 
 
-def build_delay_surface(
-    scored_df: pd.DataFrame,
-    delay_days: int,
-    entry_mode: str,
-    quantiles: Tuple[float, ...],
-    horizons: Tuple[int, ...],
-) -> pd.DataFrame:
-    required = ["date", "symbol", "score", "c", "o"]
-    miss = [c for c in required if c not in scored_df.columns]
-    if miss:
-        raise RuntimeError(f"delay_surface: missing columns: {miss}")
-
+def build_delay_surface(scored_df: pd.DataFrame, delay_days: int, entry_mode: str, quantiles: Tuple[float, ...], horizons: Tuple[int, ...]) -> pd.DataFrame:
     out = scored_df.copy()
     out["date"] = pd.to_datetime(out["date"], errors="coerce")
     out = out.dropna(subset=["date", "symbol", "score", "c", "o"]).copy()
     out = add_delay_entry_forward_returns(out, delay_days=delay_days, entry_mode=entry_mode, horizons=horizons)
     out["score_rank_pct"] = _score_rank_pct_by_date(out, score_col="score")
-
-    rows: list[dict[str, float | int | str]] = []
+    rows: List[Dict[str, object]] = []
     for q in quantiles:
         long_mask = out["score_rank_pct"] >= (1.0 - q)
         short_mask = out["score_rank_pct"] <= q
-        long_n = int(long_mask.sum())
-        short_n = int(short_mask.sum())
-
         for h in horizons:
             col = f"entry_ret_{h}d"
             long_vals = pd.to_numeric(out.loc[long_mask, col], errors="coerce").dropna()
             short_vals = pd.to_numeric(out.loc[short_mask, col], errors="coerce").dropna()
-
-            long_mean = float(long_vals.mean()) if len(long_vals) > 0 else float("nan")
-            short_mean = float(short_vals.mean()) if len(short_vals) > 0 else float("nan")
+            long_mean = float(long_vals.mean()) if len(long_vals) else float("nan")
+            short_mean = float(short_vals.mean()) if len(short_vals) else float("nan")
             spread_mean = long_mean - short_mean if pd.notna(long_mean) and pd.notna(short_mean) else float("nan")
-
-            rows.append({
-                "bucket": f"top_{int(round(q * 100.0))}pct",
-                "side": "long",
-                "delay_days": int(delay_days),
-                "entry_mode": str(entry_mode),
-                "horizon_days": int(h),
-                "mean_ret": long_mean,
-                "win_rate": float((long_vals > 0.0).mean()) if len(long_vals) > 0 else float("nan"),
-                "n_obs": int(len(long_vals)),
-                "raw_bucket_n": long_n,
-            })
-            rows.append({
-                "bucket": f"bottom_{int(round(q * 100.0))}pct",
-                "side": "short",
-                "delay_days": int(delay_days),
-                "entry_mode": str(entry_mode),
-                "horizon_days": int(h),
-                "mean_ret": short_mean,
-                "win_rate": float((short_vals < 0.0).mean()) if len(short_vals) > 0 else float("nan"),
-                "n_obs": int(len(short_vals)),
-                "raw_bucket_n": short_n,
-            })
-            rows.append({
-                "bucket": f"spread_{int(round(q * 100.0))}pct",
-                "side": "long_short",
-                "delay_days": int(delay_days),
-                "entry_mode": str(entry_mode),
-                "horizon_days": int(h),
-                "mean_ret": spread_mean,
-                "win_rate": float("nan"),
-                "n_obs": int(min(len(long_vals), len(short_vals))),
-                "raw_bucket_n": int(min(long_n, short_n)),
-            })
-
-    res = pd.DataFrame(rows)
-    if res.empty:
-        raise RuntimeError("delay_surface: empty surface")
-    return res
+            rows.append({"bucket": f"top_{int(round(q * 100.0))}pct", "side": "long", "delay_days": delay_days, "entry_mode": entry_mode, "horizon_days": h, "mean_ret": long_mean, "win_rate": float((long_vals > 0).mean()) if len(long_vals) else float("nan"), "n_obs": int(len(long_vals))})
+            rows.append({"bucket": f"bottom_{int(round(q * 100.0))}pct", "side": "short", "delay_days": delay_days, "entry_mode": entry_mode, "horizon_days": h, "mean_ret": short_mean, "win_rate": float((short_vals < 0).mean()) if len(short_vals) else float("nan"), "n_obs": int(len(short_vals))})
+            rows.append({"bucket": f"spread_{int(round(q * 100.0))}pct", "side": "long_short", "delay_days": delay_days, "entry_mode": entry_mode, "horizon_days": h, "mean_ret": spread_mean, "win_rate": float("nan"), "n_obs": int(min(len(long_vals), len(short_vals)))})
+    return pd.DataFrame(rows)
 
 
-def print_delay_surface_summary(surface_df: pd.DataFrame, fold_k: int) -> None:
-    if surface_df.empty:
-        print(f"[ALPHA/FOLD {fold_k}] delay surface empty")
-        return
-
-    print(f"[ALPHA/FOLD {fold_k}] entry-mode / delay / horizon surface")
-    cols = ["entry_mode", "delay_days", "bucket", "side", "horizon_days", "mean_ret", "win_rate", "n_obs"]
-    shown = surface_df[cols].copy()
-    print(shown.to_string(index=False))
-
-    spreads = surface_df[surface_df["side"] == "long_short"].copy()
-    if not spreads.empty:
-        best_rows = []
-        for bucket, g in spreads.groupby("bucket", sort=True):
-            gg = g.sort_values("mean_ret", ascending=False).reset_index(drop=True)
-            best_rows.append(gg.iloc[0].to_dict())
-        best = pd.DataFrame(best_rows)
-        best = best[["entry_mode", "delay_days", "bucket", "horizon_days", "mean_ret", "n_obs"]]
-        print(f"[ALPHA/FOLD {fold_k}] best spread rows")
-        print(best.to_string(index=False))
-
-# ------------------------- Ranker & Sim -------------------------
-
-def score_oos(oos_df: pd.DataFrame, rules: List[RuleStats]) -> pd.DataFrame:
-    """
-    Adds 'score' column: sum(w_i * fire_i).
-    """
+def score_oos(oos_df: pd.DataFrame, rules: List[RuleStats]) -> Tuple[pd.DataFrame, int]:
     df = oos_df.copy()
     score = np.zeros(len(df), dtype=float)
     fires_total = 0
@@ -786,446 +517,55 @@ def score_oos(oos_df: pd.DataFrame, rules: List[RuleStats]) -> pd.DataFrame:
         fires_total += int(m.sum())
         if rs.w > 0:
             score += rs.w * m.astype(float)
-        else:
-            # even if w==0, keep it neutral
-            pass
     df["score"] = score
     return df, fires_total
 
 
-def _bps_cost(frac: float, bps: float) -> float:
-    # cost applied as fraction of notional traded: frac * (bps/10000)
-    return frac * (bps / 10000.0)
-
-
-def simulate_hold_equal_weight(
-    oos_df: pd.DataFrame,
-    cfg: Config,
-    rules_for_fold: List[RuleStats],
-) -> Dict[str, float]:
-    """
-    Daily rebalance-to-target with hold_days (forced exit at age==hold_days).
-    Max positions = cfg.max_pos.
-    Equal weight among open positions (subject to cash floor & clamp).
-    Transaction costs: bps in/out applied to notional traded.
-    Close-to-close returns.
-    """
-    # Prepare daily candidates
-    df, fires_total = score_oos(oos_df, rules_for_fold)
-    df = df.dropna(subset=["c", "fwd_ret"]).copy()
-
-    dates = sorted(df["date"].unique().tolist())
-
-    # Debug counters
-    dbg = {
-        "cand_missing_px_skips": 0,
-        "open_fail_low_cash": 0,
-        "open_fail_px_bad": 0,
-        "open_fail_no_opens": 0,
-    }
-
-    # Portfolio state: symbol -> (shares_value_fraction, age)
-    # We'll track weights (fractions of equity), no shares.
-    pos_w: Dict[str, float] = {}
-    pos_age: Dict[str, int] = {}
-
-    equity = 1.0
-    cash = 1.0
-
-    tc_paid = 0.0
-    entries = 0
-    exits = 0
-
-    cash_pcts = []
-    cash_low_days = 0
-
-    # Precompute close-to-close returns per day/symbol
-    # Use daily return next close vs current close:
-    # ret_next = c[t+1]/c[t]-1 (but our df has per-row next returns via groupby in features)
-    # We'll compute realized daily returns from ret_1d column.
-    if "ret_1d" not in df.columns:
-        df["ret_1d"] = df.groupby("symbol")["c"].pct_change(1)
-
-    # For quick lookup
-    by_day = {d: g for d, g in df.groupby("date")}
-
-    # Holding loop
-    for di, d in enumerate(dates):
-        g = by_day[d]
-
-        # 1) Apply PnL for existing positions using today's ret_1d (close-to-close)
-        # Since positions are held from previous close to today's close.
-        if di > 0:
-            day_ret = g.set_index("symbol")["ret_1d"].to_dict()
-            # update equity by weighted sum returns
-            port_ret = 0.0
-            for sym, w in list(pos_w.items()):
-                r = float(day_ret.get(sym, 0.0))
-                port_ret += w * r
-            equity *= (1.0 + port_ret)
-
-        # 2) Age positions; mark exits if age == hold_days
-        to_close = []
-        for sym in list(pos_age.keys()):
-            pos_age[sym] += 1
-            if pos_age[sym] >= cfg.hold_days:
-                to_close.append(sym)
-
-        # 3) Close those positions (sell to cash)
-        if to_close:
-            for sym in to_close:
-                w = pos_w.get(sym, 0.0)
-                if w > 0:
-                    # sell notional = w * equity
-                    tc = _bps_cost(w, cfg.tc_bps_out)
-                    tc_paid += tc
-                    equity *= (1.0 - tc)  # apply cost directly
-                    cash += w
-                    exits += 1
-                pos_w.pop(sym, None)
-                pos_age.pop(sym, None)
-
-        # 4) Build target set for today based on ranker
-        # Candidate pool: score>0
-        g2 = g.copy()
-        g2 = g2.sort_values(["score"], ascending=False)
-        g2 = g2[g2["score"] > 0.0]
-        # choose top K candidates
-        top = g2.head(cfg.rank_k)["symbol"].tolist()
-
-        # 5) Open new positions to reach max_pos (no cooldown here; you control elsewhere)
-        # Keep current positions if still held; fill empty slots from top list.
-        desired = []
-        for sym in top:
-            if sym in pos_w:
-                desired.append(sym)
-        for sym in top:
-            if sym not in pos_w:
-                desired.append(sym)
-            if len(desired) >= cfg.max_pos:
-                break
-
-        # 6) Rebalance logic:
-        # We keep exactly desired set, selling any positions not in desired (optional).
-        # For simplicity in MVP, we DO NOT force-sell non-desired before hold_days (pure hold model).
-        # We only open new if slots available.
-        # This matches your hold_days philosophy.
-
-        # Count slots
-        slots = cfg.max_pos - len(pos_w)
-        opens = []
-        for sym in desired:
-            if sym in pos_w:
-                continue
-            if slots <= 0:
-                break
-            opens.append(sym)
-            slots -= 1
-
-        # Determine target weight per position (equal weight) while respecting cash floor
-        # If clamp_cash: ensure cash >= cash_floor by shrinking target total invested
-        investable = 1.0 - cfg.cash_floor if cfg.clamp_cash else 1.0
-        # Current invested weight
-        invested_now = sum(pos_w.values())
-        cash = max(0.0, 1.0 - invested_now)  # recompute from weights (keeps consistent)
-
-        # Open positions
-        if opens:
-            # basic guard
-            if cash <= 1e-12:
-                dbg["open_fail_low_cash"] += 1
-                cash_low_days += 1
-            else:
-                # determine new target after opens (equal weights)
-                n_after = len(pos_w) + len(opens)
-                target_total = min(investable, 1.0)  # max invested
-                target_w = target_total / max(1, n_after)
-
-                # how much cash to allocate to each open
-                for sym in opens:
-                    # buy notional = target_w
-                    if cash < target_w - 1e-12:
-                        dbg["open_fail_low_cash"] += 1
-                        cash_low_days += 1
-                        break
-                    # apply entry cost
-                    tc = _bps_cost(target_w, cfg.tc_bps_in)
-                    tc_paid += tc
-                    equity *= (1.0 - tc)
-                    pos_w[sym] = target_w
-                    pos_age[sym] = 0
-                    cash -= target_w
-                    entries += 1
-
-        # Optional clamp to cash_floor if numerical drift
-        if cfg.clamp_cash:
-            # If cash < cash_floor, shrink all position weights proportionally
-            if cash < cfg.cash_floor - 1e-10 and pos_w:
-                need = (cfg.cash_floor - cash)
-                invested = sum(pos_w.values())
-                if invested > 1e-12:
-                    shrink = max(0.0, 1.0 - need / invested)
-                    for sym in list(pos_w.keys()):
-                        pos_w[sym] *= shrink
-                    cash = 1.0 - sum(pos_w.values())
-
-        cash_pcts.append(cash)
-
-    # End metrics
-    # Build daily equity curve approx: We didn’t store full curve to keep minimal.
-    # For Sharpe we’ll approximate from per-day realized portfolio returns by replaying again with stored rules is heavy.
-    # Instead: compute only equity_end, CAGR, MaxDD approximated from simulated equity curve is missing -> keep minimal:
-    # We'll compute a simplified daily equity curve by rerunning quickly (cheap).
-    eq_curve = _replay_equity_curve(df, cfg, rules_for_fold)
-    maxdd = _max_drawdown(eq_curve)
-    sharpe = _sharpe_from_curve(eq_curve)
-
-    return {
-        "equity_end": float(eq_curve[-1]) if len(eq_curve) else 1.0,
-        "cagr": _cagr(eq_curve, trading_days=252),
-        "sharpe": sharpe,
-        "maxdd": maxdd,
-        "entries": float(entries),
-        "exits": float(exits),
-        "turnover_per_day": float(entries) / max(1.0, float(len(dates))),
-        "tc_paid": float(tc_paid),
-        "fires_total": float(fires_total),
-        "cash_low_days": float(cash_low_days),
-        "avg_cash_pct": float(np.mean(cash_pcts)) if cash_pcts else 0.0,
-        "p10_cash_pct": float(np.quantile(np.array(cash_pcts), 0.10)) if cash_pcts else 0.0,
-        "dbg_open_fail_low_cash": float(dbg["open_fail_low_cash"]),
-    }
-
-
-def _replay_equity_curve(df: pd.DataFrame, cfg: Config, rules_for_fold: List[RuleStats]) -> List[float]:
-    # A minimal replay to compute equity curve (daily) consistent with hold sim:
-    # This is intentionally simple and may differ slightly from the main sim due to simplifications,
-    # but gives usable Sharpe/DD. (No hidden fail-open.)
-    dates = sorted(df["date"].unique().tolist())
-    by_day = {d: g for d, g in df.groupby("date")}
-    pos: Dict[str, int] = {}  # age
-    pos_syms: List[str] = []
-
-    equity = 1.0
-    curve = [equity]
-
-    # score cache per date
-    score_cache: Dict[str, pd.DataFrame] = {}
-
-    for di, d in enumerate(dates):
-        g = by_day[d].copy()
-        if "ret_1d" not in g.columns:
-            g["ret_1d"] = g.groupby("symbol")["c"].pct_change(1)
-
-        # apply pnl
-        if di > 0 and pos_syms:
-            rmap = g.set_index("symbol")["ret_1d"].to_dict()
-            w = 1.0 / cfg.max_pos if cfg.max_pos > 0 else 0.0
-            port_ret = 0.0
-            for sym in pos_syms:
-                port_ret += w * float(rmap.get(sym, 0.0))
-            equity *= (1.0 + port_ret)
-
-        # age and exit
-        new_pos_syms = []
-        for sym in pos_syms:
-            pos[sym] += 1
-            if pos[sym] < cfg.hold_days:
-                new_pos_syms.append(sym)
-            else:
-                # exit cost
-                equity *= (1.0 - (cfg.tc_bps_out / 10000.0) * (1.0 / cfg.max_pos))
-                pos.pop(sym, None)
-        pos_syms = new_pos_syms
-
-        # open to fill
-        if d not in score_cache:
-            g_sc, _ = score_oos(g, rules_for_fold)
-            score_cache[d] = g_sc
-        g_sc = score_cache[d]
-        g_sc = g_sc.sort_values("score", ascending=False)
-        g_sc = g_sc[g_sc["score"] > 0.0]
-        cands = g_sc["symbol"].tolist()
-
-        while len(pos_syms) < cfg.max_pos and cands:
-            sym = cands.pop(0)
-            if sym in pos:
-                continue
-            # entry cost
-            equity *= (1.0 - (cfg.tc_bps_in / 10000.0) * (1.0 / cfg.max_pos))
-            pos[sym] = 0
-            pos_syms.append(sym)
-
-        curve.append(equity)
-
-    return curve
-
-
-def _max_drawdown(curve: List[float]) -> float:
-    if not curve:
-        return 0.0
-    peak = curve[0]
-    mdd = 0.0
-    for x in curve:
-        if x > peak:
-            peak = x
-        dd = (x / peak) - 1.0
-        if dd < mdd:
-            mdd = dd
-    return float(mdd)
-
-
-def _sharpe_from_curve(curve: List[float]) -> float:
-    if len(curve) < 3:
-        return 0.0
-    rets = []
-    for i in range(1, len(curve)):
-        a = curve[i - 1]
-        b = curve[i]
-        if a > 0:
-            rets.append((b / a) - 1.0)
-    if len(rets) < 10:
-        return 0.0
-    r = np.array(rets, dtype=float)
-    mu = float(np.mean(r))
-    sd = float(np.std(r, ddof=1))
-    if sd <= 1e-12:
-        return 0.0
-    return float((mu / sd) * math.sqrt(252.0))
-
-
-def _cagr(curve: List[float], trading_days: int = 252) -> float:
-    if len(curve) < 2:
-        return 0.0
-    years = max(1e-9, (len(curve) - 1) / float(trading_days))
-    end = curve[-1]
-    if end <= 0:
-        return -1.0
-    return float((end ** (1.0 / years)) - 1.0)
-
-
-# ------------------------- Main pipeline -------------------------
-
-def run_fold_library(
-    full_df: pd.DataFrame,
-    fold: Fold,
-    cfg: Config,
-    rng: random.Random,
-) -> Dict[str, object]:
+def run_fold_library(full_df: pd.DataFrame, fold: Fold, cfg: Config, rng: random.Random) -> Dict[str, object]:
     train = full_df[(full_df["date"] >= fold.train_start) & (full_df["date"] <= fold.train_end)].copy()
     test = full_df[(full_df["date"] >= fold.test_start) & (full_df["date"] <= fold.test_end)].copy()
-
     br_train = compute_base_rate(train)
     br_test = compute_base_rate(test)
-
     mined, perm_p95, _ = mine_rules(train, cfg, rng)
-
-    # Evaluate mined rules on OOS with OOS base rate (CRITICAL FIX)
-    oos_stats = []
+    oos_stats: List[RuleStats] = []
     for st in mined:
         s2 = eval_rule(test, st.rule, br_test)
-        # keep weight from TRAIN? better: keep weight from TRAIN for stability, but print OOS metrics
-        # We'll store OOS stats with TRAIN weight for scoring consistency:
         s2.w = st.w
         oos_stats.append(s2)
-
-    # OOS filter
     oos_big = [s for s in oos_stats if s.support >= cfg.oos_min_support]
     oos_pass = [s for s in oos_big if s.lift >= cfg.oos_min_lift]
-
-    return {
-        "fold": fold,
-        "train_rows": int(train.shape[0]),
-        "test_rows": int(test.shape[0]),
-        "br_train": float(br_train),
-        "br_test": float(br_test),
-        "perm_p95": float(perm_p95),
-        "mined_train": mined,        # train-mined stats
-        "oos_big": oos_big,          # oos evaluated, support-filtered
-        "oos_pass": oos_pass,        # oos passes lift threshold
-        "test_df": test,             # for ranker/sim
-    }
+    return {"fold": fold, "train_rows": int(train.shape[0]), "test_rows": int(test.shape[0]), "br_train": float(br_train), "br_test": float(br_test), "perm_p95": float(perm_p95), "mined_train": mined, "oos_big": oos_big, "oos_pass": oos_pass, "test_df": test}
 
 
-def global_library_from_folds(fold_runs: List[Dict[str, object]], cfg: Config) -> Tuple[List[RuleStats], Dict[str, List[int]]]:
-    """
-    Build global library: use OOS-pass rules per fold, count signatures across folds.
-    Keep fold_count>=2, aggregate metrics by averaging OOS stats across folds.
-    """
+def global_library_from_folds(fold_runs: List[Dict[str, object]]) -> Tuple[List[RuleStats], Dict[str, List[int]]]:
     sig_to_stats: Dict[str, List[RuleStats]] = {}
     sig_to_folds: Dict[str, List[int]] = {}
-
     for fr in fold_runs:
         fold: Fold = fr["fold"]  # type: ignore
         for st in fr["oos_pass"]:  # type: ignore
-            sig = st.sig
-            sig_to_stats.setdefault(sig, []).append(st)
-            sig_to_folds.setdefault(sig, []).append(fold.k)
-
-    # Aggregate
+            sig_to_stats.setdefault(st.sig, []).append(st)
+            sig_to_folds.setdefault(st.sig, []).append(fold.k)
     library: List[RuleStats] = []
     for sig, lst in sig_to_stats.items():
         folds = sig_to_folds.get(sig, [])
         if len(set(folds)) < 2:
             continue
-        # aggregate metrics (mean across folds)
-        support = int(np.mean([x.support for x in lst]))
-        hits = int(np.mean([x.hits for x in lst]))
-        prec = float(np.mean([x.prec for x in lst]))
-        lift = float(np.mean([x.lift for x in lst]))
-        mean = float(np.mean([x.mean for x in lst]))
-        med = float(np.mean([x.med for x in lst]))
-        p_pos = float(np.mean([x.p_pos for x in lst]))
-        es5 = float(np.mean([x.es5 for x in lst if not math.isnan(x.es5)])) if any(not math.isnan(x.es5) for x in lst) else float("nan")
-        # use average TRAIN weight proxy: stored in st.w already from train
-        w = float(np.mean([x.w for x in lst]))
-
-        library.append(RuleStats(
-            sig=sig,
-            rule=lst[0].rule,
-            support=support,
-            hits=hits,
-            prec=prec,
-            lift=lift,
-            mean=mean,
-            med=med,
-            p_pos=p_pos,
-            es5=es5,
-            w=w,
-        ))
-
-    # sort by weight then lift
+        library.append(RuleStats(sig=sig, rule=lst[0].rule, support=int(np.mean([x.support for x in lst])), hits=int(np.mean([x.hits for x in lst])), prec=float(np.mean([x.prec for x in lst])), lift=float(np.mean([x.lift for x in lst])), mean=float(np.mean([x.mean for x in lst])), med=float(np.mean([x.med for x in lst])), p_pos=float(np.mean([x.p_pos for x in lst])), es5=float(np.mean([x.es5 for x in lst if not math.isnan(x.es5)])) if any(not math.isnan(x.es5) for x in lst) else float("nan"), w=float(np.mean([x.w for x in lst]))))
     library.sort(key=lambda s: (s.w, s.lift, s.support), reverse=True)
     return library, sig_to_folds
 
 
-def print_slice_report(oos_df: pd.DataFrame, library: List[RuleStats], fold: Fold, cfg: Config) -> None:
-    if cfg.slices <= 1:
-        return
-    dates = sorted(oos_df["date"].unique().tolist())
-    if len(dates) < cfg.slices * 5:
-        return
+def build_runtime_selection(candidates: List[RuleStats], cfg: Config) -> Tuple[List[RuleStats], Dict[str, int]]:
+    candidates = sorted(candidates, key=lambda s: (s.w, s.lift, s.support), reverse=True)
+    return select_with_cluster_caps(candidates, cfg, cfg.runtime_topn_long)
 
-    print("\n" + "=" * 80)
-    _log(f"[SLICE] Fold {fold.k} OOS slices={cfg.slices} dates={len(dates)}")
-    for i, (a, b, subdates) in enumerate(slice_dates(dates, cfg.slices), 1):
-        sub = oos_df[oos_df["date"].isin(subdates)].copy()
-        if sub.empty:
-            continue
-        rows = []
-        for st in library[: min(50, len(library))]:
-            # evaluate slice using slice base rate
-            br = compute_base_rate(sub)
-            s2 = eval_rule(sub, st.rule, br)
-            rows.append((st.sig, s2.support, s2.mean, s2.med, s2.p_pos, s2.es5))
-        rows.sort(key=lambda x: x[2])  # by mean
-        print(f"[SLICE {i}] {a}..{b} (n_dates={len(subdates)})")
-        print(f"[SLICE {i}] LOWEST 10 by mean:")
-        for r in rows[:10]:
-            print(f"  {r[0]:40s} n={r[1]:4d} mean={r[2]:+0.4f} med={r[3]:+0.4f} p>0={100*r[4]:5.1f}% es5={r[5]:+0.4f}")
-        print(f"[SLICE {i}] HIGHEST 10 by mean:")
-        for r in rows[-10:]:
-            print(f"  {r[0]:40s} n={r[1]:4d} mean={r[2]:+0.4f} med={r[3]:+0.4f} p>0={100*r[4]:5.1f}% es5={r[5]:+0.4f}")
+
+def _print_delay_surface(surface_df: pd.DataFrame, fold_k: int, runtime_label: str) -> None:
+    if surface_df.empty:
+        print(f"[ALPHA/FOLD {fold_k}][{runtime_label}] delay surface empty")
+        return
+    print(f"[ALPHA/FOLD {fold_k}][{runtime_label}] entry-mode / delay / horizon surface")
+    print(surface_df[["entry_mode", "delay_days", "bucket", "side", "horizon_days", "mean_ret", "win_rate", "n_obs"]].to_string(index=False))
 
 
 def main() -> int:
@@ -1236,32 +576,19 @@ def main() -> int:
     rng = random.Random(cfg.seed)
 
     print(f"[CFG] vendor=massive dataset_root={cfg.dataset_root}")
-    print(f"[CFG] start={cfg.start} end={cfg.end} universe=auto(from folders)")
-    print(f"[CFG] event: fwd_days={cfg.fwd_days} k_sigma={cfg.k_sigma} sigma_lookback={cfg.sigma_lookback}")
-    print(f"[CFG] rules: try={cfg.rules_try} keep={cfg.rules_keep} min_support={cfg.min_support} min_event_hits={cfg.min_event_hits}")
-    print(f"[CFG] perm: trials={cfg.perm_trials} topk={cfg.perm_topk} gate={cfg.gate} margin={cfg.gate_margin}")
-    print(f"[CFG] OOS filter: support>={cfg.oos_min_support} lift>={cfg.oos_min_lift}")
-    print(f"[CFG] runtime_topn_long={cfg.runtime_topn_long} rank_k={cfg.rank_k}")
-    print(f"[CFG] hold_days={cfg.hold_days} max_pos={cfg.max_pos} TC(in/out)={cfg.tc_bps_in}/{cfg.tc_bps_out} bps")
-    print(f"[CFG] cash: floor={cfg.cash_floor} clamp={cfg.clamp_cash} REBALANCE_BAND={cfg.rebalance_band}")
-    print(f"[CFG] cluster caps: VOL={cfg.cap_vol} MOM={cfg.cap_mom} TREND={cfg.cap_trend} OTHER={cfg.cap_other} PAIR={cfg.cap_pair}")
-    print(f"[CFG] slices: slices={cfg.slices} fold2_only={cfg.fold2_only_slices}")
     print(f"[CFG] alpha_decay: debug={cfg.alpha_decay_debug} entry_mode={cfg.entry_mode} delay_days={cfg.delay_days} horizons={cfg.alpha_horizons} quantiles={cfg.alpha_quantiles}")
+    print(f"[CFG] runtime_mode: USE_FOLD_LOCAL_RUNTIME={cfg.use_fold_local_runtime} FOLD_LOCAL_ALLOW_OOS_BIG_FALLBACK={cfg.fold_local_allow_oos_big_fallback}")
 
     raw = load_dataset(cfg)
     feat = add_features(raw, cfg)
     feat = add_event_labels(feat, cfg)
-
-    # drop rows where features/event are undefined
     feat = feat.dropna(subset=["atr_pct", "rv_10", "mom_1d", "mom_3d", "compression", "ema_dist", "ema_fast_slope", "ema_slow_slope", "fwd_ret", "event_up"]).copy()
     feat["event_up"] = feat["event_up"].astype(int)
 
     all_dates = sorted(feat["date"].unique().tolist())
-    syms = sorted(feat["symbol"].unique().tolist())
-    print(f"[DATA] pooled rows={len(feat)} dates={len(all_dates)} symbols={len(syms)}")
+    print(f"[DATA] pooled rows={len(feat)} dates={len(all_dates)} symbols={feat['symbol'].nunique()}")
 
     folds = build_folds(all_dates)
-
     fold_runs: List[Dict[str, object]] = []
     for fold in folds:
         print("\n" + "=" * 80)
@@ -1270,7 +597,6 @@ def main() -> int:
         print(f"[LIB/FOLD {fold.k}] train rows={fr['train_rows']} test rows={fr['test_rows']}")
         print(f"[LIB/FOLD {fold.k}] base_rate train={fr['br_train']:.4%} test={fr['br_test']:.4%} perm_p95={fr['perm_p95']:.3f}")
         print(f"[LIB/FOLD {fold.k}] mined_rules(train_kept)={len(fr['mined_train'])} OOS big-eval={len(fr['oos_big'])} pass(lift>={cfg.oos_min_lift})={len(fr['oos_pass'])}")
-
         fold_runs.append(fr)
 
     print("\n" + "=" * 80)
@@ -1281,63 +607,34 @@ def main() -> int:
         pass_counts.append((fold.k, len(fr["oos_pass"]), len(fr["oos_big"])))  # type: ignore
     print("[GLOBAL] Fold pass counts: " + " | ".join([f"F{k}: {p}/{b}" for k, p, b in pass_counts]))
 
-    library, sig_to_folds = global_library_from_folds(fold_runs, cfg)
+    library, _ = global_library_from_folds(fold_runs)
     print(f"[GLOBAL] library_size={len(library)} (fold_count>=2 & OOS filtered)")
+    if not library:
+        print("[GLOBAL] library empty -> global reusable library not available in this run.")
 
-    if library:
-        # Select runtime signatures with caps
-        runtime_pool = library[: max(cfg.runtime_topn_long, len(library))]
-        runtime_sel, caps_used = select_with_cluster_caps(runtime_pool, cfg, cfg.runtime_topn_long)
-        print(f"[RUNTIME] selected signatures={len(runtime_sel)}/{cfg.runtime_topn_long} caps_used={caps_used}")
-        print("[RUNTIME] TOP 10 runtime signatures:")
-        for i, st in enumerate(runtime_sel[:10], 1):
-            folds = sorted(set(sig_to_folds.get(st.sig, [])))
-            ftxt = ",".join(str(x) for x in folds)
-            print(f"  #{i:02d} folds={len(folds)} ({ftxt}) lift={st.lift:.2f} supp={st.support:4d} mean={st.mean:+0.4f} med={st.med:+0.4f} p>0={100*st.p_pos:5.1f}% es5={st.es5:+0.4f} w={st.w:0.4f}")
-            print(f"       sig={st.sig}")
+    for fr in fold_runs:
+        fold: Fold = fr["fold"]  # type: ignore
+        oos_df: pd.DataFrame = fr["test_df"]  # type: ignore
+        source: List[RuleStats] = list(fr["oos_pass"])  # type: ignore
+        runtime_label = "FOLD_LOCAL_OOS_PASS"
+        if not source and cfg.fold_local_allow_oos_big_fallback:
+            source = list(fr["oos_big"])  # type: ignore
+            runtime_label = "FOLD_LOCAL_OOS_BIG"
+        runtime_sel, caps_used = build_runtime_selection(source, cfg)
+        print(f"[RUNTIME/FOLD {fold.k}] source={runtime_label} source_n={len(source)} selected={len(runtime_sel)}/{cfg.runtime_topn_long} caps_used={caps_used}")
+        if not runtime_sel:
+            print(f"[SIM/FOLD {fold.k}][{runtime_label}] runtime selection empty -> skip")
+            continue
+        scored, fires_total = score_oos(oos_df, runtime_sel)
+        print(f"[SIM/FOLD {fold.k}][{runtime_label}] runtime_rules={len(runtime_sel)} scored_rows(score>0)={(scored['score'] > 0).sum()}/{len(scored)} fires_total={fires_total}")
+        if cfg.alpha_decay_debug:
+            try:
+                surface = build_delay_surface(scored, cfg.delay_days, cfg.entry_mode, cfg.alpha_quantiles, cfg.alpha_horizons)
+                _print_delay_surface(surface, fold.k, runtime_label)
+            except Exception as e:
+                print(f"[ALPHA/FOLD {fold.k}][{runtime_label}] delay surface failed: {e}")
 
-        # Sim per fold
-        for fr in fold_runs:
-            fold: Fold = fr["fold"]  # type: ignore
-            oos_df: pd.DataFrame = fr["test_df"]  # type: ignore
-
-            if cfg.fold2_only_slices and fold.k == 2:
-                print_slice_report(oos_df, runtime_sel, fold, cfg)
-
-            print("\n" + "=" * 80)
-            print(f"[SIM/FOLD {fold.k}] OOS window={fold.test_start}..{fold.test_end} rows={len(oos_df)}")
-            scored, fires_total = score_oos(oos_df, runtime_sel)
-            scored_rows = int((scored["score"] > 0).sum())
-            print(f"[SIM/FOLD {fold.k}] scored_rows(score>0)={scored_rows}/{len(scored)} fires_total={fires_total}")
-
-            # coverage per day
-            cov = scored.groupby("date")["score"].apply(lambda s: float((s > 0).mean()))
-            if len(cov) > 0:
-                print(f"[SIM/FOLD {fold.k}] coverage per-day: mean={100*cov.mean():.2f}% p10={100*cov.quantile(0.10):.2f}% p90={100*cov.quantile(0.90):.2f}%")
-
-            if cfg.alpha_decay_debug:
-                try:
-                    delay_surface = build_delay_surface(
-                        scored,
-                        delay_days=cfg.delay_days,
-                        entry_mode=cfg.entry_mode,
-                        quantiles=cfg.alpha_quantiles,
-                        horizons=cfg.alpha_horizons,
-                    )
-                    print_delay_surface_summary(delay_surface, fold.k)
-                except Exception as e:
-                    print(f"[ALPHA/FOLD {fold.k}] delay surface failed: {e}")
-
-            res = simulate_hold_equal_weight(oos_df, cfg, runtime_sel)
-            print(f"\n[SIM/FOLD {fold.k}] RESULTS (long-only, close-to-close)")
-            print(f"[SIM/FOLD {fold.k}] equity_end={res['equity_end']:.4f}  CAGR~={100*res['cagr']:.2f}%  Sharpe~={res['sharpe']:.2f}  MaxDD={100*res['maxdd']:.2f}%")
-            print(f"[SIM/FOLD {fold.k}] entries={int(res['entries'])} exits={int(res['exits'])} turnover(entries/day)={res['turnover_per_day']:.3f}  TC_paid={res['tc_paid']:.4f}")
-            print(f"[SIM/FOLD {fold.k}] QA cash_low_days={int(res['cash_low_days'])} avg_cash_pct={100*res['avg_cash_pct']:.2f}% p10_cash_pct={100*res['p10_cash_pct']:.2f}% open_fail_low_cash={int(res['dbg_open_fail_low_cash'])}")
-
-    else:
-        print("[GLOBAL] library empty -> nothing to simulate. (This is now meaningful, not due to '12 rules' bug.)")
-
-    _log("[DONE] Ranker hold-sim MVP completed.")
+    _log("[DONE] Ranker hold-sim completed.")
     return 0
 
 
@@ -1348,4 +645,4 @@ if __name__ == "__main__":
         _log("[FATAL] unhandled exception")
         traceback.print_exc()
         rc = 1
-    _press_enter_exit(int(rc))
+    _press_enter_exit(rc)
