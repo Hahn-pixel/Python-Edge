@@ -1,0 +1,742 @@
+
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_residual_edge_analyzer.py
+[CFG] dataset_root=D:\massive_dataset
+[CFG] start=2023-01-01 end=2026-02-28
+[CFG] residual_direction=long_low_short_high
+[CFG] quantile_grid=(0.01, 0.02, 0.05, 0.1, 0.2)
+[CFG] horizon_grid=(1, 2, 3, 4, 5)
+[CFG] entry_modes=('next_open', 'next_close', 'same_close')
+[DATA] rows=75175 dates=775 symbols=97
+[DATA] fresh_dislocation_rate=0.1032
+[DIAG] residual_direction=long_low_short_high corr(score,next1d)=-0.016681 top_mean=-0.000264 bottom_mean=+0.000839 spread=-0.001103
+
+[SHAPE] quantile curve (first 40 rows)
+entry_mode  delay_days  quantile  horizon_days  long_mean  short_mean  spread_mean  long_n  short_n
+next_close           0      0.01             1   0.000000         NaN          NaN    1450        0
+next_close           0      0.01             2   0.000175         NaN          NaN    1448        0
+next_close           0      0.01             3  -0.000530         NaN          NaN    1446        0
+next_close           0      0.01             4   0.000253         NaN          NaN    1444        0
+next_close           0      0.01             5   0.001764         NaN          NaN    1442        0
+next_close           0      0.02             1   0.000000    0.000000     0.000000    1581     1462
+next_close           0      0.02             2  -0.000655    0.000943    -0.001598    1579     1460
+next_close           0      0.02             3  -0.002675    0.002525    -0.005199    1577     1458
+next_close           0      0.02             4  -0.002917    0.002872    -0.005789    1575     1456
+next_close           0      0.02             5  -0.002044    0.002632    -0.004676    1573     1454
+next_close           0      0.05             1   0.000000    0.000000     0.000000    3877     3098
+next_close           0      0.05             2  -0.000211    0.000969    -0.001180    3872     3094
+next_close           0      0.05             3  -0.001259    0.002027    -0.003286    3867     3090
+next_close           0      0.05             4  -0.000882    0.002499    -0.003381    3862     3086
+next_close           0      0.05             5   0.000156    0.002377    -0.002220    3857     3082
+next_close           0      0.10             1   0.000000    0.000000     0.000000    7740     6966
+next_close           0      0.10             2  -0.000063    0.001111    -0.001175    7730     6957
+next_close           0      0.10             3  -0.000440    0.002213    -0.002653    7720     6948
+next_close           0      0.10             4   0.000208    0.002762    -0.002554    7710     6939
+next_close           0      0.10             5   0.001127    0.002933    -0.001806    7700     6930
+next_close           0      0.20             1   0.000000    0.000000     0.000000   15480    14706
+next_close           0      0.20             2   0.000261    0.000898    -0.000637   15460    14687
+next_close           0      0.20             3   0.000503    0.001864    -0.001361   15440    14668
+next_close           0      0.20             4   0.001344    0.002400    -0.001055   15420    14649
+next_close           0      0.20             5   0.002213    0.002674    -0.000462   15400    14630
+next_close           1      0.01             1   0.000000         NaN          NaN    1448        0
+next_close           1      0.01             2  -0.000617         NaN          NaN    1446        0
+next_close           1      0.01             3   0.000211         NaN          NaN    1444        0
+next_close           1      0.01             4   0.001623         NaN          NaN    1442        0
+next_close           1      0.01             5   0.001577         NaN          NaN    1440        0
+next_close           1      0.02             1   0.000000    0.000000     0.000000    1579     1460
+next_close           1      0.02             2  -0.001802    0.001419    -0.003221    1577     1458
+next_close           1      0.02             3  -0.002106    0.001971    -0.004077    1575     1456
+next_close           1      0.02             4  -0.001374    0.001833    -0.003206    1573     1454
+next_close           1      0.02             5  -0.001776    0.001404    -0.003180    1571     1452
+next_close           1      0.05             1   0.000000    0.000000     0.000000    3872     3094
+next_close           1      0.05             2  -0.000928    0.000970    -0.001898    3867     3090
+next_close           1      0.05             3  -0.000601    0.001528    -0.002129    3862     3086
+next_close           1      0.05             4   0.000338    0.001503    -0.001166    3857     3082
+next_close           1      0.05             5   0.001005    0.001379    -0.000374    3852     3078
+
+[SHAPE] horizon decay
+entry_mode  delay_days  horizon_days  spread_mean
+next_close           0             1     0.000000
+next_close           0             2    -0.001147
+next_close           0             3    -0.003125
+next_close           0             4    -0.003195
+next_close           0             5    -0.002291
+next_close           1             1     0.000000
+next_close           1             2    -0.001796
+next_close           1             3    -0.001997
+next_close           1             4    -0.001234
+next_close           1             5    -0.000865
+next_close           2             1     0.000000
+next_close           2             2    -0.000310
+next_close           2             3     0.000385
+next_close           2             4     0.000689
+next_close           2             5     0.001687
+ next_open           0             1    -0.001461
+ next_open           0             2    -0.002740
+ next_open           0             3    -0.004784
+ next_open           0             4    -0.004813
+ next_open           0             5    -0.003887
+ next_open           1             1    -0.000984
+ next_open           1             2    -0.002922
+ next_open           1             3    -0.003039
+ next_open           1             4    -0.002225
+ next_open           1             5    -0.001913
+ next_open           2             1    -0.001277
+ next_open           2             2    -0.001614
+ next_open           2             3    -0.000923
+ next_open           2             4    -0.000563
+ next_open           2             5     0.000339
+same_close           0             1     0.000000
+same_close           0             2    -0.000807
+same_close           0             3    -0.002024
+same_close           0             4    -0.004030
+same_close           0             5    -0.004149
+same_close           1             1     0.000000
+same_close           1             2    -0.001147
+same_close           1             3    -0.003125
+same_close           1             4    -0.003195
+same_close           1             5    -0.002291
+same_close           2             1     0.000000
+same_close           2             2    -0.001796
+same_close           2             3    -0.001997
+same_close           2             4    -0.001234
+same_close           2             5    -0.000865
+
+[SHAPE] entry price comparison
+entry_mode  delay_days  spread_mean
+next_close           0    -0.001952
+same_close           0    -0.002202
+ next_open           0    -0.003537
+next_close           1    -0.001179
+same_close           1    -0.001952
+ next_open           1    -0.002217
+next_close           2     0.000490
+ next_open           2    -0.000808
+same_close           2    -0.001179
+
+[ARTIFACT] saved=C:\Users\Dmytro Govor\Documents\Python-Edge\artifacts\residual_edge_analyzer\quantile_curve.csv
+[ARTIFACT] saved=C:\Users\Dmytro Govor\Documents\Python-Edge\artifacts\residual_edge_analyzer\horizon_decay.csv
+[ARTIFACT] saved=C:\Users\Dmytro Govor\Documents\Python-Edge\artifacts\residual_edge_analyzer\entry_price_comparison.csv
+[16:40:55] [DONE] Residual edge analyzer completed.
+
+[EXIT] code=0
+Press Enter to exit...
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> if ($LASTEXITCODE -ne 0) {
+>>     throw "run_residual_edge_analyzer.py failed"
+>> }
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> Set-StrictMode -Version Latest
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $ErrorActionPreference = "Stop"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> Set-Location "C:\Users\Dmytro Govor\Documents\Python-Edge"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python -c "import ast; ast.parse(open(r'.\scripts\run_residual_edge_analyzer.py','rb').read())"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> if ($LASTEXITCODE -ne 0) {
+>>     throw "AST parse failed: run_residual_edge_analyzer.py"
+>> }
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:PYTHONUNBUFFERED = "1"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:DATASET_ROOT = "D:\massive_dataset"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:START = "2023-01-01"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:END = "2026-02-28"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:SEED = "7"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:DEBUG_RESIDUAL = "1"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:EDGE_QUANTILES = "0.01,0.02,0.05,0.10,0.20"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:EDGE_HORIZONS = "1,2,3,4,5"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:EDGE_ENTRY_MODES = "next_open,next_close,same_close"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:TOP_PCT = "0.10"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:BOTTOM_PCT = "0.10"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:WINSOR_LOWER_Q = "0.02"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:WINSOR_UPPER_Q = "0.98"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:SCORE_CAP = "6.0"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $dirs = @("long_low_short_high", "long_high_short_low")
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> foreach ($dir in $dirs) {
+>>     $env:RESIDUAL_DIRECTION = $dir
+>>
+>>     Write-Host ""
+>>     Write-Host "============================================================"
+>>     Write-Host "[RUN] RESIDUAL_DIRECTION=$dir"
+>>     Write-Host "============================================================"
+>>     Write-Host ""
+>>
+>>     python .\scripts\run_residual_edge_analyzer.py
+>>
+>>     if ($LASTEXITCODE -ne 0) {
+>>         throw "run_residual_edge_analyzer.py failed for RESIDUAL_DIRECTION=$dir"
+>>     }
+>> }
+
+============================================================
+[RUN] RESIDUAL_DIRECTION=long_low_short_high
+============================================================
+
+[CFG] dataset_root=D:\massive_dataset
+[CFG] start=2023-01-01 end=2026-02-28
+[CFG] residual_direction=long_low_short_high
+[CFG] quantile_grid=(0.01, 0.02, 0.05, 0.1, 0.2)
+[CFG] horizon_grid=(1, 2, 3, 4, 5)
+[CFG] entry_modes=('next_open', 'next_close', 'same_close')
+[DATA] rows=75175 dates=775 symbols=97
+[DATA] fresh_dislocation_rate=0.1032
+[DIAG] residual_direction=long_low_short_high corr(score,next1d)=-0.016681 top_mean=-0.000264 bottom_mean=+0.000839 spread=-0.001103
+
+[SHAPE] quantile curve (first 40 rows)
+entry_mode  delay_days  quantile  horizon_days  long_mean  short_mean  spread_mean  long_n  short_n
+next_close           0      0.01             1   0.000000         NaN          NaN    1450        0
+next_close           0      0.01             2   0.000175         NaN          NaN    1448        0
+next_close           0      0.01             3  -0.000530         NaN          NaN    1446        0
+next_close           0      0.01             4   0.000253         NaN          NaN    1444        0
+next_close           0      0.01             5   0.001764         NaN          NaN    1442        0
+next_close           0      0.02             1   0.000000    0.000000     0.000000    1581     1462
+next_close           0      0.02             2  -0.000655    0.000943    -0.001598    1579     1460
+next_close           0      0.02             3  -0.002675    0.002525    -0.005199    1577     1458
+next_close           0      0.02             4  -0.002917    0.002872    -0.005789    1575     1456
+next_close           0      0.02             5  -0.002044    0.002632    -0.004676    1573     1454
+next_close           0      0.05             1   0.000000    0.000000     0.000000    3877     3098
+next_close           0      0.05             2  -0.000211    0.000969    -0.001180    3872     3094
+next_close           0      0.05             3  -0.001259    0.002027    -0.003286    3867     3090
+next_close           0      0.05             4  -0.000882    0.002499    -0.003381    3862     3086
+next_close           0      0.05             5   0.000156    0.002377    -0.002220    3857     3082
+next_close           0      0.10             1   0.000000    0.000000     0.000000    7740     6966
+next_close           0      0.10             2  -0.000063    0.001111    -0.001175    7730     6957
+next_close           0      0.10             3  -0.000440    0.002213    -0.002653    7720     6948
+next_close           0      0.10             4   0.000208    0.002762    -0.002554    7710     6939
+next_close           0      0.10             5   0.001127    0.002933    -0.001806    7700     6930
+next_close           0      0.20             1   0.000000    0.000000     0.000000   15480    14706
+next_close           0      0.20             2   0.000261    0.000898    -0.000637   15460    14687
+next_close           0      0.20             3   0.000503    0.001864    -0.001361   15440    14668
+next_close           0      0.20             4   0.001344    0.002400    -0.001055   15420    14649
+next_close           0      0.20             5   0.002213    0.002674    -0.000462   15400    14630
+next_close           1      0.01             1   0.000000         NaN          NaN    1448        0
+next_close           1      0.01             2  -0.000617         NaN          NaN    1446        0
+next_close           1      0.01             3   0.000211         NaN          NaN    1444        0
+next_close           1      0.01             4   0.001623         NaN          NaN    1442        0
+next_close           1      0.01             5   0.001577         NaN          NaN    1440        0
+next_close           1      0.02             1   0.000000    0.000000     0.000000    1579     1460
+next_close           1      0.02             2  -0.001802    0.001419    -0.003221    1577     1458
+next_close           1      0.02             3  -0.002106    0.001971    -0.004077    1575     1456
+next_close           1      0.02             4  -0.001374    0.001833    -0.003206    1573     1454
+next_close           1      0.02             5  -0.001776    0.001404    -0.003180    1571     1452
+next_close           1      0.05             1   0.000000    0.000000     0.000000    3872     3094
+next_close           1      0.05             2  -0.000928    0.000970    -0.001898    3867     3090
+next_close           1      0.05             3  -0.000601    0.001528    -0.002129    3862     3086
+next_close           1      0.05             4   0.000338    0.001503    -0.001166    3857     3082
+next_close           1      0.05             5   0.001005    0.001379    -0.000374    3852     3078
+
+[SHAPE] horizon decay
+entry_mode  delay_days  horizon_days  spread_mean
+next_close           0             1     0.000000
+next_close           0             2    -0.001147
+next_close           0             3    -0.003125
+next_close           0             4    -0.003195
+next_close           0             5    -0.002291
+next_close           1             1     0.000000
+next_close           1             2    -0.001796
+next_close           1             3    -0.001997
+next_close           1             4    -0.001234
+next_close           1             5    -0.000865
+next_close           2             1     0.000000
+next_close           2             2    -0.000310
+next_close           2             3     0.000385
+next_close           2             4     0.000689
+next_close           2             5     0.001687
+ next_open           0             1    -0.001461
+ next_open           0             2    -0.002740
+ next_open           0             3    -0.004784
+ next_open           0             4    -0.004813
+ next_open           0             5    -0.003887
+ next_open           1             1    -0.000984
+ next_open           1             2    -0.002922
+ next_open           1             3    -0.003039
+ next_open           1             4    -0.002225
+ next_open           1             5    -0.001913
+ next_open           2             1    -0.001277
+ next_open           2             2    -0.001614
+ next_open           2             3    -0.000923
+ next_open           2             4    -0.000563
+ next_open           2             5     0.000339
+same_close           0             1     0.000000
+same_close           0             2    -0.000807
+same_close           0             3    -0.002024
+same_close           0             4    -0.004030
+same_close           0             5    -0.004149
+same_close           1             1     0.000000
+same_close           1             2    -0.001147
+same_close           1             3    -0.003125
+same_close           1             4    -0.003195
+same_close           1             5    -0.002291
+same_close           2             1     0.000000
+same_close           2             2    -0.001796
+same_close           2             3    -0.001997
+same_close           2             4    -0.001234
+same_close           2             5    -0.000865
+
+[SHAPE] entry price comparison
+entry_mode  delay_days  spread_mean
+next_close           0    -0.001952
+same_close           0    -0.002202
+ next_open           0    -0.003537
+next_close           1    -0.001179
+same_close           1    -0.001952
+ next_open           1    -0.002217
+next_close           2     0.000490
+ next_open           2    -0.000808
+same_close           2    -0.001179
+
+[ARTIFACT] saved=C:\Users\Dmytro Govor\Documents\Python-Edge\artifacts\residual_edge_analyzer\quantile_curve.csv
+[ARTIFACT] saved=C:\Users\Dmytro Govor\Documents\Python-Edge\artifacts\residual_edge_analyzer\horizon_decay.csv
+[ARTIFACT] saved=C:\Users\Dmytro Govor\Documents\Python-Edge\artifacts\residual_edge_analyzer\entry_price_comparison.csv
+[16:43:17] [DONE] Residual edge analyzer completed.
+
+[EXIT] code=0
+Press Enter to exit...
+
+============================================================
+[RUN] RESIDUAL_DIRECTION=long_high_short_low
+============================================================
+
+[CFG] dataset_root=D:\massive_dataset
+[CFG] start=2023-01-01 end=2026-02-28
+[CFG] residual_direction=long_high_short_low
+[CFG] quantile_grid=(0.01, 0.02, 0.05, 0.1, 0.2)
+[CFG] horizon_grid=(1, 2, 3, 4, 5)
+[CFG] entry_modes=('next_open', 'next_close', 'same_close')
+[DATA] rows=75175 dates=775 symbols=97
+[DATA] fresh_dislocation_rate=0.1032
+[DIAG] residual_direction=long_high_short_low corr(score,next1d)=+0.016681 top_mean=+0.000807 bottom_mean=-0.000294 spread=+0.001101
+
+[SHAPE] quantile curve (first 40 rows)
+entry_mode  delay_days  quantile  horizon_days  long_mean  short_mean  spread_mean  long_n  short_n
+next_close           0      0.01             1   0.000000         NaN          NaN    1462        0
+next_close           0      0.01             2   0.000943         NaN          NaN    1460        0
+next_close           0      0.01             3   0.002525         NaN          NaN    1458        0
+next_close           0      0.01             4   0.002872         NaN          NaN    1456        0
+next_close           0      0.01             5   0.002632         NaN          NaN    1454        0
+next_close           0      0.02             1   0.000000    0.000000     0.000000    1586     1450
+next_close           0      0.02             2   0.000629    0.000175     0.000454    1584     1448
+next_close           0      0.02             3   0.001883   -0.000530     0.002413    1582     1446
+next_close           0      0.02             4   0.002343    0.000253     0.002090    1580     1444
+next_close           0      0.02             5   0.002730    0.001764     0.000966    1578     1442
+next_close           0      0.05             1   0.000000    0.000000     0.000000    3870     3110
+next_close           0      0.05             2   0.001062   -0.000165     0.001227    3865     3106
+next_close           0      0.05             3   0.002011   -0.001456     0.003467    3860     3102
+next_close           0      0.05             4   0.002379   -0.001516     0.003895    3855     3098
+next_close           0      0.05             5   0.002483   -0.000275     0.002758    3850     3094
+next_close           0      0.10             1   0.000000    0.000000     0.000000    7740     6966
+next_close           0      0.10             2   0.001012   -0.000139     0.001151    7730     6957
+next_close           0      0.10             3   0.002071   -0.000627     0.002699    7720     6948
+next_close           0      0.10             4   0.002540   -0.000034     0.002574    7710     6939
+next_close           0      0.10             5   0.002700    0.000824     0.001876    7700     6930
+next_close           0      0.20             1   0.000000    0.000000     0.000000   15480    14706
+next_close           0      0.20             2   0.000908    0.000283     0.000625   15460    14687
+next_close           0      0.20             3   0.001860    0.000499     0.001360   15440    14668
+next_close           0      0.20             4   0.002411    0.001360     0.001051   15420    14649
+next_close           0      0.20             5   0.002703    0.002221     0.000481   15400    14630
+next_close           1      0.01             1   0.000000         NaN          NaN    1460        0
+next_close           1      0.01             2   0.001419         NaN          NaN    1458        0
+next_close           1      0.01             3   0.001971         NaN          NaN    1456        0
+next_close           1      0.01             4   0.001833         NaN          NaN    1454        0
+next_close           1      0.01             5   0.001404         NaN          NaN    1452        0
+next_close           1      0.02             1   0.000000    0.000000     0.000000    1584     1448
+next_close           1      0.02             2   0.001104   -0.000617     0.001721    1582     1446
+next_close           1      0.02             3   0.001722    0.000211     0.001511    1580     1444
+next_close           1      0.02             4   0.002198    0.001623     0.000575    1578     1442
+next_close           1      0.02             5   0.001623    0.001577     0.000046    1576     1440
+next_close           1      0.05             1   0.000000    0.000000     0.000000    3865     3106
+next_close           1      0.05             2   0.000886   -0.001145     0.002031    3860     3102
+next_close           1      0.05             3   0.001321   -0.001266     0.002587    3855     3098
+next_close           1      0.05             4   0.001508   -0.000123     0.001631    3850     3094
+next_close           1      0.05             5   0.001465    0.000253     0.001213    3845     3090
+
+[SHAPE] horizon decay
+entry_mode  delay_days  horizon_days  spread_mean
+next_close           0             1     0.000000
+next_close           0             2     0.000864
+next_close           0             3     0.002485
+next_close           0             4     0.002403
+next_close           0             5     0.001521
+next_close           1             1     0.000000
+next_close           1             2     0.001477
+next_close           1             3     0.001487
+next_close           1             4     0.000730
+next_close           1             5     0.000323
+next_close           2             1     0.000000
+next_close           2             2     0.000158
+next_close           2             3    -0.000538
+next_close           2             4    -0.000909
+next_close           2             5    -0.002181
+ next_open           0             1     0.001145
+ next_open           0             2     0.002083
+ next_open           0             3     0.003809
+ next_open           0             4     0.003697
+ next_open           0             5     0.002762
+ next_open           1             1     0.000748
+ next_open           1             2     0.002309
+ next_open           1             3     0.002284
+ next_open           1             4     0.001487
+ next_open           1             5     0.001128
+ next_open           2             1     0.001085
+ next_open           2             2     0.001208
+ next_open           2             3     0.000525
+ next_open           2             4     0.000132
+ next_open           2             5    -0.001067
+same_close           0             1     0.000000
+same_close           0             2     0.000332
+same_close           0             3     0.001246
+same_close           0             4     0.002946
+same_close           0             5     0.002913
+same_close           1             1     0.000000
+same_close           1             2     0.000864
+same_close           1             3     0.002485
+same_close           1             4     0.002403
+same_close           1             5     0.001521
+same_close           2             1     0.000000
+same_close           2             2     0.001477
+same_close           2             3     0.001487
+same_close           2             4     0.000730
+same_close           2             5     0.000323
+
+[SHAPE] entry price comparison
+entry_mode  delay_days  spread_mean
+ next_open           0     0.002699
+same_close           0     0.001487
+next_close           0     0.001454
+ next_open           1     0.001591
+same_close           1     0.001454
+next_close           1     0.000803
+same_close           2     0.000803
+ next_open           2     0.000377
+next_close           2    -0.000694
+
+[ARTIFACT] saved=C:\Users\Dmytro Govor\Documents\Python-Edge\artifacts\residual_edge_analyzer\quantile_curve.csv
+[ARTIFACT] saved=C:\Users\Dmytro Govor\Documents\Python-Edge\artifacts\residual_edge_analyzer\horizon_decay.csv
+[ARTIFACT] saved=C:\Users\Dmytro Govor\Documents\Python-Edge\artifacts\residual_edge_analyzer\entry_price_comparison.csv
+[16:54:01] [DONE] Residual edge analyzer completed.
+
+[EXIT] code=0
+Press Enter to exit...
+
+
+
+
+
+--------------------------------
+
+
+
+
+
+
+entry_mode,delay_days,spread_mean
+next_open,0,0.0026991319838527567
+same_close,0,0.0014874244629973059
+next_close,0,0.0014543764326891725
+next_open,1,0.0015910529586179445
+same_close,1,0.0014543764326891725
+next_close,1,0.0008034504747714714
+same_close,2,0.0008034504747714714
+next_open,2,0.00037652156434163966
+next_close,2,-0.0006940641332225472
+
+
+
+
+
+----------------------------------
+
+
+
+
+
+
+entry_mode,delay_days,horizon_days,spread_mean
+next_close,0,1,0.0
+next_close,0,2,0.0008641494156542764
+next_close,0,3,0.0024846558398983346
+next_close,0,4,0.002402513113998899
+next_close,0,5,0.001520563793894352
+next_close,1,1,0.0
+next_close,1,2,0.001477342727477269
+next_close,1,3,0.0014872202919990062
+next_close,1,4,0.0007295015598195251
+next_close,1,5,0.00032318779456155675
+next_close,2,1,0.0
+next_close,2,2,0.0001579854540806527
+next_close,2,3,-0.0005383175183655151
+next_close,2,4,-0.0009089703316387372
+next_close,2,5,-0.0021810182701891365
+next_open,0,1,0.0011447652860974299
+next_open,0,2,0.0020830533943791865
+next_open,0,3,0.0038089597704006727
+next_open,0,4,0.0036965523129841634
+next_open,0,5,0.0027623291554023308
+next_open,1,1,0.000747818096043655
+next_open,1,2,0.0023087368939623456
+next_open,1,3,0.0022838414996029766
+next_open,1,4,0.0014870791941213905
+next_open,1,5,0.0011277891093593546
+next_open,2,1,0.00108518813798886
+next_open,2,2,0.0012077036245749955
+next_open,2,3,0.0005248072068939261
+next_open,2,4,0.00013229688934067116
+next_open,2,5,-0.0010673880370902545
+same_close,0,1,0.0
+same_close,0,2,0.00033226934198232077
+same_close,0,3,0.0012458142433146432
+same_close,0,4,0.0029458006257490625
+same_close,0,5,0.0029132381039405023
+same_close,1,1,0.0
+same_close,1,2,0.0008641494156542764
+same_close,1,3,0.0024846558398983346
+same_close,1,4,0.002402513113998899
+same_close,1,5,0.001520563793894352
+same_close,2,1,0.0
+same_close,2,2,0.001477342727477269
+same_close,2,3,0.0014872202919990062
+same_close,2,4,0.0007295015598195251
+same_close,2,5,0.00032318779456155675
+
+
+
+
+
+
+--------------------------------
+
+
+
+
+
+
+
+
+entry_mode,delay_days,quantile,horizon_days,long_mean,short_mean,spread_mean,long_n,short_n
+next_close,0,0.01,1,0.0,,,1462,0
+next_close,0,0.01,2,0.0009433545141318116,,,1460,0
+next_close,0,0.01,3,0.0025246099671034123,,,1458,0
+next_close,0,0.01,4,0.0028721626950611477,,,1456,0
+next_close,0,0.01,5,0.0026318005659746136,,,1454,0
+next_close,0,0.02,1,0.0,0.0,0.0,1586,1450
+next_close,0,0.02,2,0.0006289538013044935,0.0001752230539398465,0.000453730747364647,1584,1448
+next_close,0,0.02,3,0.0018825993856479335,-0.0005301083463938269,0.0024127077320417606,1582,1446
+next_close,0,0.02,4,0.002342521694388056,0.0002526197491218893,0.0020899019452661665,1580,1444
+next_close,0,0.02,5,0.002729761957065972,0.0017636914035678245,0.0009660705534981474,1578,1442
+next_close,0,0.05,1,0.0,0.0,0.0,3870,3110
+next_close,0,0.05,2,0.0010623512715394606,-0.0001647636424405451,0.0012271149139800057,3865,3106
+next_close,0,0.05,3,0.0020111241666596175,-0.0014557932143682102,0.0034669173810278277,3860,3102
+next_close,0,0.05,4,0.002378596315468873,-0.0015163051139044914,0.003894901429373364,3855,3098
+next_close,0,0.05,5,0.002483248508628125,-0.0002752099824365222,0.002758458491064647,3850,3094
+next_close,0,0.1,1,0.0,0.0,0.0,7740,6966
+next_close,0,0.1,2,0.0010116933467622907,-0.00013893497732009208,0.0011506283240823828,7730,6957
+next_close,0,0.1,3,0.0020711969339987676,-0.0006274504469906766,0.002698647380989444,7720,6948
+next_close,0,0.1,4,0.002540437316817502,-3.378699132517031e-05,0.0025742243081426724,7710,6939
+next_close,0,0.1,5,0.0027004108392474696,0.0008240147949535645,0.0018763960442939051,7700,6930
+next_close,0,0.2,1,0.0,0.0,0.0,15480,14706
+next_close,0,0.2,2,0.0009082969282005614,0.000283173251010491,0.0006251236771900704,15460,14687
+next_close,0,0.2,3,0.0018597326212201814,0.0004993817556858753,0.001360350865534306,15440,14668
+next_close,0,0.2,4,0.002411154256011639,0.001360129482798245,0.001051024773213394,15420,14649
+next_close,0,0.2,5,0.0027027588215928185,0.0022214287348721103,0.00048133008672070817,15400,14630
+next_close,1,0.01,1,0.0,,,1460,0
+next_close,1,0.01,2,0.0014191644000580489,,,1458,0
+next_close,1,0.01,3,0.0019709943330457574,,,1456,0
+next_close,1,0.01,4,0.0018326778078481857,,,1454,0
+next_close,1,0.01,5,0.0014043043888967142,,,1452,0
+next_close,1,0.02,1,0.0,0.0,0.0,1584,1448
+next_close,1,0.02,2,0.0011039594073940975,-0.000616840931425539,0.0017208003388196366,1582,1446
+next_close,1,0.02,3,0.001721895038538167,0.00021079735319883686,0.00151109768533933,1580,1444
+next_close,1,0.02,4,0.002197728176375891,0.001622850989130491,0.0005748771872453999,1578,1442
+next_close,1,0.02,5,0.0016228807963944057,0.0015770605990275727,4.5820197366832965e-05,1576,1440
+next_close,1,0.05,1,0.0,0.0,0.0,3865,3106
+next_close,1,0.05,2,0.0008855670008640746,-0.0011452979382689536,0.002030864939133028,3860,3102
+next_close,1,0.05,3,0.0013209506662985114,-0.0012662096791356194,0.0025871603454341308,3855,3098
+next_close,1,0.05,4,0.0015078851322871058,-0.0001226291905073574,0.0016305143227944633,3850,3094
+next_close,1,0.05,5,0.001465229073298687,0.00025264408954603747,0.0012125849837526495,3845,3090
+next_close,1,0.1,1,0.0,0.0,0.0,7730,6957
+next_close,1,0.1,2,0.0010354639125329526,-0.00042622660477938747,0.00146169051731234,7720,6948
+next_close,1,0.1,3,0.001533739692929437,0.00012604189132397553,0.0014076978016054616,7710,6939
+next_close,1,0.1,4,0.0017389431063408226,0.0009316814822872398,0.0008072616240535828,7700,6930
+next_close,1,0.1,5,0.002127379998705281,0.0016810915506290365,0.0004462884480762443,7690,6921
+next_close,1,0.2,1,0.0,0.0,0.0,15460,14687
+next_close,1,0.2,2,0.0009380913542110248,0.00024207623956695414,0.0006960151146440706,15440,14668
+next_close,1,0.2,3,0.0015051656687317383,0.0010622403331146354,0.00044292533561710295,15420,14649
+next_close,1,0.2,4,0.0018261521113207332,0.0019207990061360788,-9.464689481534561e-05,15400,14630
+next_close,1,0.2,5,0.0023314835400158945,0.0027434259909653942,-0.00041194245094949974,15380,14611
+next_close,2,0.01,1,0.0,,,1458,0
+next_close,2,0.01,2,0.0008514502784454507,,,1456,0
+next_close,2,0.01,3,0.0007713889467570682,,,1454,0
+next_close,2,0.01,4,0.0004057090191811524,,,1452,0
+next_close,2,0.01,5,0.0004205762774082637,,,1450,0
+next_close,2,0.02,1,0.0,0.0,0.0,1582,1446
+next_close,2,0.02,2,0.0009127988222422071,0.0008602916868521045,5.250713539010259e-05,1580,1444
+next_close,2,0.02,3,0.0014219958519664604,0.002205890166218025,-0.0007838943142515645,1578,1442
+next_close,2,0.02,4,0.0008927568417140737,0.00217032938252693,-0.0012775725408128566,1576,1440
+next_close,2,0.02,5,0.0005572554807302687,0.005118099034464521,-0.004560843553734252,1574,1438
+next_close,2,0.05,1,0.0,0.0,0.0,3860,3102
+next_close,2,0.05,2,0.0006172910610682987,-8.530415845845615e-05,0.0007025952195267548,3855,3098
+next_close,2,0.05,3,0.0007891571331572633,0.0009406563530637563,-0.000151499219906493,3850,3094
+next_close,2,0.05,4,0.0007815423807324796,0.0012738390897713394,-0.0004922967090388598,3845,3090
+next_close,2,0.05,5,0.0008728341955868096,0.002478617995694174,-0.0016057838001073644,3840,3086
+next_close,2,0.1,1,0.0,0.0,0.0,7720,6948
+next_close,2,0.1,2,0.0006024240913820339,0.000558475534646576,4.39485567354579e-05,7710,6939
+next_close,2,0.1,3,0.0007976168339879115,0.001311906647454443,-0.0005142898134665315,7700,6930
+next_close,2,0.1,4,0.0011919073773760491,0.0020473579756511073,-0.0008554505982750582,7690,6921
+next_close,2,0.1,5,0.0017352506324567322,0.0030570967380824416,-0.0013218461056257094,7680,6912
+next_close,2,0.2,1,0.0,0.0,0.0,15440,14668
+next_close,2,0.2,2,0.0006184221700242597,0.0007855312653539643,-0.00016710909532970455,15420,14649
+next_close,2,0.2,3,0.000926418313597487,0.0016300050394349585,-0.0007035867258374715,15400,14630
+next_close,2,0.2,4,0.0014525829824132118,0.0024631444608413863,-0.0010105614784281746,15380,14611
+next_close,2,0.2,5,0.0020103723260580116,0.003245971947347231,-0.0012355996212892193,15360,14592
+next_open,0,0.01,1,0.001640505596259875,,,1462,0
+next_open,0,0.01,2,0.0025695092708376503,,,1460,0
+next_open,0,0.01,3,0.004243349368064065,,,1458,0
+next_open,0,0.01,4,0.00449210521274188,,,1456,0
+next_open,0,0.01,5,0.004165550190300999,,,1454,0
+next_open,0,0.02,1,0.0010602534451895063,-0.000282335119661142,0.0013425885648506483,1586,1450
+next_open,0,0.02,2,0.0016959896166085517,-0.00014204690333789117,0.0018380365199464428,1584,1448
+next_open,0,0.02,3,0.0030490721334229796,-0.0009972747001697271,0.004046346833592706,1582,1446
+next_open,0,0.02,4,0.0034588019840661316,-0.0002017494870174226,0.0036605514710835543,1580,1444
+next_open,0,0.02,5,0.003734078853658948,0.0013138302289152767,0.002420248624743671,1578,1442
+next_open,0,0.05,1,0.0010028297047848616,-0.0005613398103121587,0.0015641695150970204,3870,3110
+next_open,0,0.05,2,0.002075321345466484,-0.0008875378622771815,0.0029628592077436656,3865,3106
+next_open,0,0.05,3,0.0030685429887520846,-0.002227597438012083,0.005296140426764168,3860,3102
+next_open,0,0.05,4,0.003420709354486398,-0.0022769682341732293,0.005697677588659628,3855,3098
+next_open,0,0.05,5,0.0034330284190556676,-0.0010887572676885181,0.004521785686744186,3850,3094
+next_open,0,0.1,1,0.0008066993135702243,-0.0002940063908728148,0.001100705704443039,7740,6966
+next_open,0,0.1,2,0.0018074037288050432,-0.0005024774932212221,0.002309881222026265,7730,6957
+next_open,0,0.1,3,0.002895505916488727,-0.0010165044642216727,0.0039120103807103995,7720,6948
+next_open,0,0.1,4,0.003345570670059993,-0.0004251575221722674,0.0037707281922322606,7710,6939
+next_open,0,0.1,5,0.0034513590733372197,0.00041025264126942824,0.0030411064320677913,7700,6930
+next_open,0,0.2,1,0.0005946701478563439,2.3072787857332544e-05,0.0005715973599990114,15480,14706
+next_open,0,0.2,2,0.0014893439750658362,0.0002679073472654633,0.001221436627800373,15460,14687
+next_open,0,0.2,3,0.0024601506346396793,0.00047880919410426143,0.001981341440535418,15440,14668
+next_open,0,0.2,4,0.00299561642463458,0.001338364424673369,0.001657251999961211,15420,14649
+next_open,0,0.2,5,0.0032549177627121334,0.002188741884658459,0.0010661758780536744,15400,14630
+next_open,1,0.01,1,0.0005730794379451594,,,1460,0
+next_open,1,0.01,2,0.0020858861331828197,,,1458,0
+next_open,1,0.01,3,0.0025186867627679825,,,1456,0
+next_open,1,0.01,4,0.00235690306691527,,,1454,0
+next_open,1,0.01,5,0.0018871625787187235,,,1452,0
+next_open,1,0.02,1,0.0003337067144902983,-0.00021739995208603903,0.0005511066665763373,1584,1448
+next_open,1,0.02,2,0.0015197591723626648,-0.000850291759722003,0.0023700509320846675,1582,1446
+next_open,1,0.02,3,0.0020593532587511658,-0.00010798712821328239,0.002167340386964448,1580,1444
+next_open,1,0.02,4,0.0025123604807823093,0.0013157512055901495,0.0011966092751921598,1578,1442
+next_open,1,0.02,5,0.0018771121451982668,0.001151416243436975,0.0007256959017612919,1576,1440
+next_open,1,0.05,1,0.0005859963496433827,-0.0005431792187020462,0.001129175568345429,3865,3106
+next_open,1,0.05,2,0.0014870860793025156,-0.0018257908924170765,0.003312876971719592,3860,3102
+next_open,1,0.05,3,0.001875446838439738,-0.0019176678528338303,0.003793114691273568,3855,3098
+next_open,1,0.05,4,0.0020318337855828295,-0.0007295564456086302,0.00276139023119146,3850,3094
+next_open,1,0.05,5,0.0019515757504317635,-0.0004713992311564216,0.002422974981588185,3845,3090
+next_open,1,0.1,1,0.0005581144586365326,-0.00029643410109358325,0.0008545485597301159,7730,6957
+next_open,1,0.1,2,0.0015823768127617738,-0.0007935334226942645,0.0023759102354560385,7720,6948
+next_open,1,0.1,3,0.002065155992757372,-0.00022211153442683464,0.0022872675271842064,7710,6939
+next_open,1,0.1,4,0.002254368541613198,0.0006073403457405584,0.0016470281958726395,7700,6930
+next_open,1,0.1,5,0.0026181868969179503,0.0012964753805612592,0.001321711516356691,7690,6921
+next_open,1,0.2,1,0.0004253461651599336,-3.1095424362804357e-05,0.00045644158952273795,15460,14687
+next_open,1,0.2,2,0.0013536099648836912,0.0001775005282946072,0.001176109436589084,15440,14668
+next_open,1,0.2,3,0.0019128250420894267,0.0010251816490997431,0.0008876433929896836,15420,14649
+next_open,1,0.2,4,0.002221266991152892,0.0018779779169235894,0.0003432890742293025,15400,14630
+next_open,1,0.2,5,0.0027092916947913377,0.002668517657060087,4.077403773125078e-05,15380,14611
+next_open,2,0.01,1,0.0006932788819734942,,,1458,0
+next_open,2,0.01,2,0.0013954441676116327,,,1456,0
+next_open,2,0.01,3,0.0013191079816336848,,,1454,0
+next_open,2,0.01,4,0.0009366040341177802,,,1452,0
+next_open,2,0.01,5,0.0009902279963316851,,,1450,0
+next_open,2,0.02,1,0.00039937608828393946,-0.0009770779210027559,0.0013764540092866954,1582,1446
+next_open,2,0.02,2,0.001162161463812391,-0.0001450695907571966,0.0013072310545695876,1580,1444
+next_open,2,0.02,3,0.001677189754924899,0.0011646574925191432,0.0005125322624057558,1578,1442
+next_open,2,0.02,4,0.0011543668069052152,0.001141853659059131,1.2513147846084137e-05,1576,1440
+next_open,2,0.02,5,0.0008772042190279253,0.004054319867479107,-0.003177115648451181,1574,1438
+next_open,2,0.05,1,0.00035364207268531863,-0.0010641692657816736,0.0014178113384669922,3860,3102
+next_open,2,0.05,2,0.0008818828526069235,-0.0012784407582098812,0.0021603236108168047,3855,3098
+next_open,2,0.05,3,0.001092392094504735,-0.0002104595618778805,0.0013028516563826154,3850,3094
+next_open,2,0.05,4,0.0010747537587925042,0.0001634778635602558,0.0009112758952322484,3845,3090
+next_open,2,0.05,5,0.001183704087373782,0.0012638282423141245,-8.012415494034245e-05,3840,3086
+next_open,2,0.1,1,0.0005338108528616717,-0.00048765984229906967,0.0010214706951607415,7720,6948
+next_open,2,0.1,2,0.0010594933746613689,1.7350066427434684e-05,0.0010421433082339342,7710,6939
+next_open,2,0.1,3,0.001274348105581041,0.0007888802670690979,0.0004854678385119432,7700,6930
+next_open,2,0.1,4,0.001668754765310299,0.0015432406741841436,0.00012551409112615541,7690,6921
+next_open,2,0.1,5,0.0022045140985591607,0.0024931172036960015,-0.00028860310513684076,7680,6912
+next_open,2,0.2,1,0.0004836770488103626,-4.133946023064834e-05,0.000525016509041011,15440,14668
+next_open,2,0.2,2,0.0010569799446528503,0.0007358634199731947,0.0003211165246796556,15420,14649
+next_open,2,0.2,3,0.0013808304839569557,0.0015824534136815657,-0.00020162292972461006,15400,14630
+next_open,2,0.2,4,0.001894071959920043,0.0024141875367618463,-0.0005201155768418033,15380,14611
+next_open,2,0.2,5,0.0024406135141032516,0.0031643227539359053,-0.0007237092398326536,15360,14592
+same_close,0,0.01,1,0.0,,,1464,0
+same_close,0,0.01,2,0.0012562183293781876,,,1462,0
+same_close,0,0.01,3,0.0021990680024661182,,,1460,0
+same_close,0,0.01,4,0.0038444321937388397,,,1458,0
+same_close,0,0.01,5,0.004140015336019853,,,1456,0
+same_close,0,0.02,1,0.0,0.0,0.0,1588,1452
+same_close,0,0.02,2,0.00024136923654545484,0.000375585441369574,-0.00013421620482411914,1586,1450
+same_close,0,0.02,3,0.0009061301286489517,0.0006106190999084431,0.0002955110287405086,1584,1448
+same_close,0,0.02,4,0.002240429020924263,-0.00021205935788218643,0.0024524883788064494,1582,1446
+same_close,0,0.02,5,0.0027052130356023563,0.0005276127583922968,0.0021776002772100596,1580,1444
+same_close,0,0.05,1,0.0,0.0,0.0,3875,3114
+same_close,0,0.05,2,0.0008756430712984988,0.00023720333937945348,0.0006384397319190453,3870,3110
+same_close,0,0.05,3,0.0019906561116266176,-2.5070323987866126e-05,0.0020157264356144835,3865,3106
+same_close,0,0.05,4,0.002976947005138708,-0.001341312084332439,0.004318259089471147,3860,3102
+same_close,0,0.05,5,0.0033763983394459723,-0.0014637581599563237,0.0048401564994022955,3855,3098
+same_close,0,0.1,1,0.0,0.0,0.0,7750,6975
+same_close,0,0.1,2,0.0008724823145389405,0.00020643593239983473,0.0006660463821391057,7740,6966
+same_close,0,0.1,3,0.0019036592411815997,4.041667121796091e-05,0.0018632425699636388,7730,6957
+same_close,0,0.1,4,0.0029888554488970783,-0.00046563756735446693,0.003454493016251545,7720,6948
+same_close,0,0.1,5,0.0034550293090918976,9.396583100014334e-05,0.003361063478091754,7710,6939
+same_close,0,0.2,1,0.0,0.0,0.0,15500,14725
+same_close,0,0.2,2,0.0008302105814660233,0.0006714031227707722,0.00015880745869525112,15480,14706
+same_close,0,0.2,3,0.0017428134766730014,0.0009340365377330599,0.0008087769389399415,15460,14687
+same_close,0,0.2,4,0.0027150942458233863,0.0011571322273562772,0.0015579620184671091,15440,14668
+same_close,0,0.2,5,0.003263957999439648,0.001989825838381748,0.0012741321610579,15420,14649
+same_close,1,0.01,1,0.0,,,1462,0
+same_close,1,0.01,2,0.0009433545141318116,,,1460,0
+same_close,1,0.01,3,0.0025246099671034123,,,1458,0
+same_close,1,0.01,4,0.0028721626950611477,,,1456,0
+same_close,1,0.01,5,0.0026318005659746136,,,1454,0
+same_close,1,0.02,1,0.0,0.0,0.0,1586,1450
+same_close,1,0.02,2,0.0006289538013044935,0.0001752230539398465,0.000453730747364647,1584,1448
+same_close,1,0.02,3,0.0018825993856479335,-0.0005301083463938269,0.0024127077320417606,1582,1446
+same_close,1,0.02,4,0.002342521694388056,0.0002526197491218893,0.0020899019452661665,1580,1444
+same_close,1,0.02,5,0.002729761957065972,0.0017636914035678245,0.0009660705534981474,1578,1442
+same_close,1,0.05,1,0.0,0.0,0.0,3870,3110
+same_close,1,0.05,2,0.0010623512715394606,-0.0001647636424405451,0.0012271149139800057,3865,3106
+same_close,1,0.05,3,0.0020111241666596175,-0.0014557932143682102,0.0034669173810278277,3860,3102
+same_close,1,0.05,4,0.002378596315468873,-0.0015163051139044914,0.003894901429373364,3855,3098
+same_close,1,0.05,5,0.002483248508628125,-0.0002752099824365222,0.002758458491064647,3850,3094
+same_close,1,0.1,1,0.0,0.0,0.0,7740,6966
+same_close,1,0.1,2,0.0010116933467622907,-0.00013893497732009208,0.0011506283240823828,7730,6957
+same_close,1,0.1,3,0.0020711969339987676,-0.0006274504469906766,0.002698647380989444,7720,6948
+same_close,1,0.1,4,0.002540437316817502,-3.378699132517031e-05,0.0025742243081426724,7710,6939
+same_close,1,0.1,5,0.0027004108392474696,0.0008240147949535645,0.0018763960442939051,7700,6930
+same_close,1,0.2,1,0.0,0.0,0.0,15480,14706
+same_close,1,0.2,2,0.0009082969282005614,0.000283173251010491,0.0006251236771900704,15460,14687
+same_close,1,0.2,3,0.0018597326212201814,0.0004993817556858753,0.001360350865534306,15440,14668
+same_close,1,0.2,4,0.002411154256011639,0.001360129482798245,0.001051024773213394,15420,14649
+same_close,1,0.2,5,0.0027027588215928185,0.0022214287348721103,0.00048133008672070817,15400,14630
+same_close,2,0.01,1,0.0,,,1460,0
+same_close,2,0.01,2,0.0014191644000580489,,,1458,0
+same_close,2,0.01,3,0.0019709943330457574,,,1456,0
+same_close,2,0.01,4,0.0018326778078481857,,,1454,0
+same_close,2,0.01,5,0.0014043043888967142,,,1452,0
+same_close,2,0.02,1,0.0,0.0,0.0,1584,1448
+same_close,2,0.02,2,0.0011039594073940975,-0.000616840931425539,0.0017208003388196366,1582,1446
+same_close,2,0.02,3,0.001721895038538167,0.00021079735319883686,0.00151109768533933,1580,1444
+same_close,2,0.02,4,0.002197728176375891,0.001622850989130491,0.0005748771872453999,1578,1442
+same_close,2,0.02,5,0.0016228807963944057,0.0015770605990275727,4.5820197366832965e-05,1576,1440
+same_close,2,0.05,1,0.0,0.0,0.0,3865,3106
+same_close,2,0.05,2,0.0008855670008640746,-0.0011452979382689536,0.002030864939133028,3860,3102
+same_close,2,0.05,3,0.0013209506662985114,-0.0012662096791356194,0.0025871603454341308,3855,3098
+same_close,2,0.05,4,0.0015078851322871058,-0.0001226291905073574,0.0016305143227944633,3850,3094
+same_close,2,0.05,5,0.001465229073298687,0.00025264408954603747,0.0012125849837526495,3845,3090
+same_close,2,0.1,1,0.0,0.0,0.0,7730,6957
+same_close,2,0.1,2,0.0010354639125329526,-0.00042622660477938747,0.00146169051731234,7720,6948
+same_close,2,0.1,3,0.001533739692929437,0.00012604189132397553,0.0014076978016054616,7710,6939
+same_close,2,0.1,4,0.0017389431063408226,0.0009316814822872398,0.0008072616240535828,7700,6930
+same_close,2,0.1,5,0.002127379998705281,0.0016810915506290365,0.0004462884480762443,7690,6921
+same_close,2,0.2,1,0.0,0.0,0.0,15460,14687
+same_close,2,0.2,2,0.0009380913542110248,0.00024207623956695414,0.0006960151146440706,15440,14668
+same_close,2,0.2,3,0.0015051656687317383,0.0010622403331146354,0.00044292533561710295,15420,14649
+same_close,2,0.2,4,0.0018261521113207332,0.0019207990061360788,-9.464689481534561e-05,15400,14630
+same_close,2,0.2,5,0.0023314835400158945,0.0027434259909653942,-0.00041194245094949974,15380,14611
