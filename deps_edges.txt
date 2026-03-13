@@ -78,9 +78,12 @@ scripts/run_ranker_wf.py -> pandas
 scripts/run_ranker_wf.py -> pathlib
 scripts/run_ranker_wf.py -> python_edge.execution.cost_model
 scripts/run_ranker_wf.py -> python_edge.model.conditional_factors
+scripts/run_ranker_wf.py -> python_edge.model.cross_sectional_signal
 scripts/run_ranker_wf.py -> python_edge.model.cs_normalize
 scripts/run_ranker_wf.py -> python_edge.model.neutralize
 scripts/run_ranker_wf.py -> python_edge.model.ranker_linear
+scripts/run_ranker_wf.py -> python_edge.model.risk_model
+scripts/run_ranker_wf.py -> python_edge.portfolio.budget_allocation
 scripts/run_ranker_wf.py -> python_edge.portfolio.construct
 scripts/run_ranker_wf.py -> python_edge.portfolio.exit_rules
 scripts/run_ranker_wf.py -> python_edge.portfolio.holding_inertia
@@ -90,6 +93,7 @@ scripts/run_ranker_wf.py -> python_edge.portfolio.signal_sizing
 scripts/run_ranker_wf.py -> python_edge.portfolio.turnover_control
 scripts/run_ranker_wf.py -> python_edge.wf.evaluate_ranker
 scripts/run_ranker_wf.py -> python_edge.wf.splits
+scripts/run_ranker_wf.py -> sys
 scripts/run_ranker_wf.py -> traceback
 scripts/run_rule_lab_event_mining.py -> __future__
 scripts/run_rule_lab_event_mining.py -> os
@@ -101,6 +105,17 @@ scripts/run_rule_lab_event_mining.py -> python_edge.rules.event_mining
 scripts/run_rule_lab_event_mining.py -> sys
 scripts/run_rule_lab_event_mining.py -> traceback
 scripts/run_rule_lab_event_mining.py -> typing
+scripts/run_wf_diagnostics.py -> __future__
+scripts/run_wf_diagnostics.py -> dataclasses
+scripts/run_wf_diagnostics.py -> json
+scripts/run_wf_diagnostics.py -> math
+scripts/run_wf_diagnostics.py -> os
+scripts/run_wf_diagnostics.py -> pandas
+scripts/run_wf_diagnostics.py -> pathlib
+scripts/run_wf_diagnostics.py -> pyarrow.parquet
+scripts/run_wf_diagnostics.py -> sys
+scripts/run_wf_diagnostics.py -> traceback
+scripts/run_wf_diagnostics.py -> typing
 src/python_edge/analysis/alpha_decay.py -> __future__
 src/python_edge/analysis/alpha_decay.py -> dataclasses
 src/python_edge/analysis/alpha_decay.py -> pandas
@@ -114,12 +129,6 @@ src/python_edge/backtest/walkforward_rules.py -> typing
 src/python_edge/config.py -> __future__
 src/python_edge/config.py -> dataclasses
 src/python_edge/config.py -> pathlib
-src/python_edge/data/ingest_aggs.py -> __future__
-src/python_edge/data/ingest_aggs.py -> dataclasses
-src/python_edge/data/ingest_aggs.py -> json
-src/python_edge/data/ingest_aggs.py -> pandas
-src/python_edge/data/ingest_aggs.py -> pathlib
-src/python_edge/data/ingest_aggs.py -> typing
 src/python_edge/execution/cost_model.py -> __future__
 src/python_edge/execution/cost_model.py -> pandas
 src/python_edge/features/add_interactions.py -> __future__
@@ -159,6 +168,9 @@ src/python_edge/features/diagnostics.py -> pandas
 src/python_edge/model/__init__.py -> __future__
 src/python_edge/model/conditional_factors.py -> __future__
 src/python_edge/model/conditional_factors.py -> pandas
+src/python_edge/model/cross_sectional_signal.py -> __future__
+src/python_edge/model/cross_sectional_signal.py -> math
+src/python_edge/model/cross_sectional_signal.py -> pandas
 src/python_edge/model/cs_normalize.py -> __future__
 src/python_edge/model/cs_normalize.py -> pandas
 src/python_edge/model/neutralize.py -> __future__
@@ -167,6 +179,8 @@ src/python_edge/model/neutralize.py -> pandas
 src/python_edge/model/ranker_linear.py -> __future__
 src/python_edge/model/ranker_linear.py -> dataclasses
 src/python_edge/model/ranker_linear.py -> pandas
+src/python_edge/model/risk_model.py -> __future__
+src/python_edge/model/risk_model.py -> pandas
 src/python_edge/model/targets.py -> __future__
 src/python_edge/model/targets.py -> pandas
 src/python_edge/portfolio/budget_allocation.py -> __future__
@@ -174,6 +188,7 @@ src/python_edge/portfolio/budget_allocation.py -> pandas
 src/python_edge/portfolio/construct.py -> __future__
 src/python_edge/portfolio/construct.py -> pandas
 src/python_edge/portfolio/exit_rules.py -> __future__
+src/python_edge/portfolio/exit_rules.py -> math
 src/python_edge/portfolio/exit_rules.py -> pandas
 src/python_edge/portfolio/holding_inertia.py -> __future__
 src/python_edge/portfolio/holding_inertia.py -> pandas
@@ -190,6 +205,7 @@ src/python_edge/portfolio/regime_allocation.py -> pandas
 src/python_edge/portfolio/signal_sizing.py -> __future__
 src/python_edge/portfolio/signal_sizing.py -> pandas
 src/python_edge/portfolio/turnover_control.py -> __future__
+src/python_edge/portfolio/turnover_control.py -> math
 src/python_edge/portfolio/turnover_control.py -> pandas
 src/python_edge/reports/report_text.py -> __future__
 src/python_edge/reports/report_text.py -> dataclasses

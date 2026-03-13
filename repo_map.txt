@@ -7,8 +7,11 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/.gitattributes
 .gitignore
 https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/.gitignore
 
-console28.txt
-https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console28.txt
+console37.txt
+https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console37.txt
+
+console38.txt
+https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console38.txt
 
 deps_edges.txt
 https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/deps_edges.txt
@@ -43,6 +46,9 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/repo_map.txt
   scripts/run_mvp.py
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_mvp.py
 
+  scripts/run_ranker_exit_grid.ps1
+  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_ranker_exit_grid.ps1
+
   scripts/run_ranker_hold_sim.py
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_ranker_hold_sim.py
 
@@ -54,6 +60,9 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/repo_map.txt
 
   scripts/run_rule_lab_event_mining.py
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_rule_lab_event_mining.py
+
+  scripts/run_wf_diagnostics.py
+  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_wf_diagnostics.py
 
     src/python_edge/__init__.py
     https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/__init__.py
@@ -127,6 +136,9 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/repo_map.txt
       src/python_edge/model/conditional_factors.py
       https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/model/conditional_factors.py
 
+      src/python_edge/model/cross_sectional_signal.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/model/cross_sectional_signal.py
+
       src/python_edge/model/cs_normalize.py
       https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/model/cs_normalize.py
 
@@ -135,6 +147,9 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/repo_map.txt
 
       src/python_edge/model/ranker_linear.py
       https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/model/ranker_linear.py
+
+      src/python_edge/model/risk_model.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/model/risk_model.py
 
       src/python_edge/model/targets.py
       https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/model/targets.py

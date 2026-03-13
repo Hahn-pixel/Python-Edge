@@ -1,0 +1,77 @@
+
+[FACTORS]
+
+[FACTOR IC]
+    factor horizon        ic
+      mom3  fwd_1d -0.006969
+      mom3  fwd_2d -0.009087
+      mom3  fwd_3d -0.007162
+      mom3  fwd_5d -0.007415
+      mom5  fwd_1d -0.007539
+      mom5  fwd_2d -0.003930
+      mom5  fwd_3d -0.006632
+      mom5  fwd_5d -0.008987
+      rev1  fwd_1d  0.012609
+      rev1  fwd_2d  0.007799
+      rev1  fwd_3d  0.006425
+      rev1  fwd_5d  0.007641
+  vol_comp  fwd_1d -0.006657
+  vol_comp  fwd_2d -0.000114
+  vol_comp  fwd_3d -0.001987
+  vol_comp  fwd_5d  0.001571
+rel_volume  fwd_1d -0.009038
+rel_volume  fwd_2d -0.004104
+rel_volume  fwd_3d -0.004450
+rel_volume  fwd_5d -0.006259
+liq_factor  fwd_1d -0.008589
+liq_factor  fwd_2d -0.004060
+liq_factor  fwd_3d -0.004985
+liq_factor  fwd_5d -0.006898
+     range  fwd_1d -0.005963
+     range  fwd_2d  0.002178
+     range  fwd_3d  0.003323
+     range  fwd_5d  0.006329
+     
+     
+     
+     
+
+
+
+------------------------------------
+
+
+
+
+
+
+factor,horizon,ic
+mom3,fwd_1d,-0.006969169719067656
+mom3,fwd_2d,-0.009086878787628296
+mom3,fwd_3d,-0.0071618461808514115
+mom3,fwd_5d,-0.007415122399760251
+mom5,fwd_1d,-0.007539261326579151
+mom5,fwd_2d,-0.00392979917192617
+mom5,fwd_3d,-0.006632157534668196
+mom5,fwd_5d,-0.008987417867009321
+rev1,fwd_1d,0.012608536211113963
+rev1,fwd_2d,0.0077991105495489686
+rev1,fwd_3d,0.006425090550446446
+rev1,fwd_5d,0.007641382140634276
+vol_comp,fwd_1d,-0.006656542570459428
+vol_comp,fwd_2d,-0.00011360941236965287
+vol_comp,fwd_3d,-0.0019872742525029502
+vol_comp,fwd_5d,0.0015711658100347886
+rel_volume,fwd_1d,-0.00903754037127349
+rel_volume,fwd_2d,-0.004104238251893952
+rel_volume,fwd_3d,-0.004450427223027292
+rel_volume,fwd_5d,-0.0062585152380759245
+liq_factor,fwd_1d,-0.008588931177410046
+liq_factor,fwd_2d,-0.004060261471667649
+liq_factor,fwd_3d,-0.0049848329663798015
+liq_factor,fwd_5d,-0.006897804612260176
+range,fwd_1d,-0.005963089146859859
+range,fwd_2d,0.002177673805400834
+range,fwd_3d,0.00332286785320792
+range,fwd_5d,0.00632937055503043
+
