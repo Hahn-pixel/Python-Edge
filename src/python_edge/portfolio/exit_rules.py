@@ -1,205 +1,46 @@
 from __future__ import annotations
 
-import math
-
 import pandas as pd
 
 
-
-def add_rank_pct(
+def apply_time_exit(
     df: pd.DataFrame,
-    score_col: str = "score",
-    date_col: str = "date",
+    age_col: str = "hold_age_days",
+    side_col: str = "side",
+    max_hold_days: int = 2,
+    out_col: str = "exit_flag",
 ) -> pd.DataFrame:
     out = df.copy()
-    required = [score_col, date_col]
-    missing = [c for c in required if c not in out.columns]
-    if missing:
-        raise RuntimeError(f"add_rank_pct: missing columns: {missing}")
-    out["rank_pct"] = out.groupby(date_col)[score_col].rank(method="average", pct=True)
+    age = pd.to_numeric(out.get(age_col, 0), errors="coerce").fillna(0).astype(int)
+    side = pd.to_numeric(out.get(side_col, 0), errors="coerce").fillna(0.0)
+    out[out_col] = ((side != 0.0) & (age >= int(max_hold_days))).astype(int)
     return out
 
 
-
-def _side_strength(side: float, rank_pct: float) -> float:
-    if side > 0.0:
-        return float(rank_pct)
-    if side < 0.0:
-        return float(1.0 - rank_pct)
-    return 0.0
-
-
-
-def apply_adaptive_exit_rules(
+def apply_score_reversion_exit(
     df: pd.DataFrame,
-    side_col: str = "side",
     score_col: str = "score",
-    long_max_days_strong: int = 20,
-    long_max_days_regular: int = 12,
-    short_max_days: int = 5,
-    long_strong_rank: float = 0.98,
-    long_keep_rank: float = 0.82,
-    long_exit_rank: float = 0.70,
-    short_keep_rank: float = 0.12,
-    short_exit_rank: float = 0.25,
-    peak_trail_drop_long: float = 0.10,
-    peak_trail_drop_short: float = 0.10,
-    peak_trail_min_age_long: int = 2,
-    peak_trail_min_age_short: int = 1,
+    side_col: str = "side",
+    abs_exit_threshold: float = 0.35,
+    out_col: str = "exit_score_reversion_flag",
 ) -> pd.DataFrame:
     out = df.copy()
-    required = ["symbol", "date", side_col, score_col]
-    missing = [c for c in required if c not in out.columns]
-    if missing:
-        raise RuntimeError(f"apply_adaptive_exit_rules: missing columns: {missing}")
+    score = pd.to_numeric(out.get(score_col, 0.0), errors="coerce").fillna(0.0)
+    side = pd.to_numeric(out.get(side_col, 0.0), errors="coerce").fillna(0.0)
+    out[out_col] = ((side != 0.0) & (score.abs() <= float(abs_exit_threshold))).astype(int)
+    return out
 
-    out = add_rank_pct(out, score_col=score_col, date_col="date")
-    out = out.sort_values(["symbol", "date"]).reset_index(drop=True)
 
-    final_side: list[float] = []
-    position_age: list[int] = []
-    peak_strength_seen: list[float] = []
-    trail_distance_seen: list[float] = []
-    exit_time_stop_long: list[int] = []
-    exit_time_stop_short: list[int] = []
-    exit_rank_decay_long: list[int] = []
-    exit_rank_decay_short: list[int] = []
-    exit_score_peak_long: list[int] = []
-    exit_score_peak_short: list[int] = []
-    exit_signal_flip: list[int] = []
-    exit_signal_flat: list[int] = []
-    exit_any: list[int] = []
-
-    for _, sdf in out.groupby("symbol", sort=False):
-        live_side = 0.0
-        live_age = 0
-        live_peak_strength = 0.0
-
-        for row in sdf.itertuples(index=False):
-            signal_side = float(getattr(row, side_col))
-            rank_pct = float(getattr(row, "rank_pct"))
-
-            flag_time_long = 0
-            flag_time_short = 0
-            flag_rank_long = 0
-            flag_rank_short = 0
-            flag_peak_long = 0
-            flag_peak_short = 0
-            flag_flip = 0
-            flag_flat = 0
-
-            if signal_side == 0.0:
-                if live_side != 0.0:
-                    flag_flat = 1
-                live_side = 0.0
-                live_age = 0
-                live_peak_strength = 0.0
-                final_side.append(0.0)
-                position_age.append(0)
-                peak_strength_seen.append(0.0)
-                trail_distance_seen.append(0.0)
-                exit_time_stop_long.append(flag_time_long)
-                exit_time_stop_short.append(flag_time_short)
-                exit_rank_decay_long.append(flag_rank_long)
-                exit_rank_decay_short.append(flag_rank_short)
-                exit_score_peak_long.append(flag_peak_long)
-                exit_score_peak_short.append(flag_peak_short)
-                exit_signal_flip.append(flag_flip)
-                exit_signal_flat.append(flag_flat)
-                exit_any.append(int(flag_flat == 1))
-                continue
-
-            if live_side != 0.0 and math.copysign(1.0, live_side) != math.copysign(1.0, signal_side):
-                flag_flip = 1
-                live_side = 0.0
-                live_age = 0
-                live_peak_strength = 0.0
-
-            entering_new = live_side == 0.0
-            trial_age = 1 if entering_new else live_age + 1
-            curr_strength = _side_strength(signal_side, rank_pct)
-            trial_peak_strength = curr_strength if entering_new else max(live_peak_strength, curr_strength)
-            trail_distance = max(0.0, trial_peak_strength - curr_strength)
-
-            long_time_stop = False
-            short_time_stop = False
-            long_rank_decay = False
-            short_rank_decay = False
-            long_peak_exit = False
-            short_peak_exit = False
-
-            if signal_side > 0.0:
-                is_strong_long = rank_pct >= long_strong_rank
-                max_days = long_max_days_strong if is_strong_long else long_max_days_regular
-                long_time_stop = trial_age > max_days
-                long_rank_decay = rank_pct < long_exit_rank or (rank_pct < long_keep_rank and trial_age >= 2)
-                long_peak_exit = trial_age >= peak_trail_min_age_long and trail_distance >= peak_trail_drop_long and rank_pct < long_keep_rank
-            else:
-                short_time_stop = trial_age > short_max_days
-                short_rank_decay = rank_pct > short_exit_rank or (rank_pct > short_keep_rank and trial_age >= 1)
-                short_peak_exit = trial_age >= peak_trail_min_age_short and trail_distance >= peak_trail_drop_short and rank_pct > short_keep_rank
-
-            should_exit = long_time_stop or short_time_stop or long_rank_decay or short_rank_decay or long_peak_exit or short_peak_exit
-
-            if should_exit:
-                if long_time_stop:
-                    flag_time_long = 1
-                if short_time_stop:
-                    flag_time_short = 1
-                if long_rank_decay:
-                    flag_rank_long = 1
-                if short_rank_decay:
-                    flag_rank_short = 1
-                if long_peak_exit:
-                    flag_peak_long = 1
-                if short_peak_exit:
-                    flag_peak_short = 1
-                live_side = 0.0
-                live_age = 0
-                live_peak_strength = 0.0
-                final_side.append(0.0)
-                position_age.append(0)
-                peak_strength_seen.append(trial_peak_strength)
-                trail_distance_seen.append(trail_distance)
-                exit_time_stop_long.append(flag_time_long)
-                exit_time_stop_short.append(flag_time_short)
-                exit_rank_decay_long.append(flag_rank_long)
-                exit_rank_decay_short.append(flag_rank_short)
-                exit_score_peak_long.append(flag_peak_long)
-                exit_score_peak_short.append(flag_peak_short)
-                exit_signal_flip.append(flag_flip)
-                exit_signal_flat.append(flag_flat)
-                exit_any.append(1)
-                continue
-
-            live_side = signal_side
-            live_age = trial_age
-            live_peak_strength = trial_peak_strength
-            final_side.append(live_side)
-            position_age.append(live_age)
-            peak_strength_seen.append(live_peak_strength)
-            trail_distance_seen.append(trail_distance)
-            exit_time_stop_long.append(flag_time_long)
-            exit_time_stop_short.append(flag_time_short)
-            exit_rank_decay_long.append(flag_rank_long)
-            exit_rank_decay_short.append(flag_rank_short)
-            exit_score_peak_long.append(flag_peak_long)
-            exit_score_peak_short.append(flag_peak_short)
-            exit_signal_flip.append(flag_flip)
-            exit_signal_flat.append(flag_flat)
-            exit_any.append(int(flag_flip == 1))
-
-    out[side_col] = final_side
-    out["position_age"] = position_age
-    out["peak_strength_seen"] = peak_strength_seen
-    out["trail_distance_seen"] = trail_distance_seen
-    out["exit_time_stop_long"] = exit_time_stop_long
-    out["exit_time_stop_short"] = exit_time_stop_short
-    out["exit_rank_decay_long"] = exit_rank_decay_long
-    out["exit_rank_decay_short"] = exit_rank_decay_short
-    out["exit_score_peak_long"] = exit_score_peak_long
-    out["exit_score_peak_short"] = exit_score_peak_short
-    out["exit_signal_flip"] = exit_signal_flip
-    out["exit_signal_flat"] = exit_signal_flat
-    out["exit_any"] = exit_any
+def apply_residual_exit_stack(
+    df: pd.DataFrame,
+    age_col: str = "hold_age_days",
+    side_col: str = "side",
+    score_col: str = "score",
+    max_hold_days: int = 2,
+    abs_exit_threshold: float = 0.35,
+    out_col: str = "exit_flag",
+) -> pd.DataFrame:
+    out = apply_time_exit(df, age_col=age_col, side_col=side_col, max_hold_days=max_hold_days, out_col="_exit_time_flag")
+    out = apply_score_reversion_exit(out, score_col=score_col, side_col=side_col, abs_exit_threshold=abs_exit_threshold, out_col="_exit_revert_flag")
+    out[out_col] = ((pd.to_numeric(out["_exit_time_flag"], errors="coerce").fillna(0) == 1) | (pd.to_numeric(out["_exit_revert_flag"], errors="coerce").fillna(0) == 1)).astype(int)
     return out

@@ -1,0 +1,368 @@
+
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:PYTHONUNBUFFERED = "1"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:DATASET_ROOT = "D:\massive_dataset"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:START = "2023-01-01"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:END = "2026-02-28"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:ENTRY_MODE = "next_open"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:SIGNAL_DELAY_DAYS = "0"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:HOLD_DAYS = "2"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:ALPHA_HORIZONS = "1,2,3"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:ALPHA_QUANTILES = "0.02,0.05,0.10"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:TOP_PCT = "0.10"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:BOTTOM_PCT = "0.10"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:MIN_ABS_RANK_PCT = "0.80"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:REQUIRE_FRESH_DISLOCATION = "0"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:SIZING_PRESET = "residual_stat_arb"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:MAX_NAMES_PER_SIDE = "10"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:DEBUG_RESIDUAL = "1"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:SEED = "7"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_ranker_hold_sim.py
+[CFG] dataset_root=D:\massive_dataset
+[CFG] start=2023-01-01 end=2026-02-28
+[CFG] entry_mode=next_open signal_delay_days=0 hold_days=2
+[CFG] top_pct=0.1 bottom_pct=0.1 min_abs_rank_pct=0.8 require_fresh_dislocation=False
+[CFG] alpha_horizons=(1, 2, 3) alpha_quantiles=(0.02, 0.05, 0.1) sizing_preset=residual_stat_arb
+[DATA] rows=75175 dates=775 symbols=97
+[DATA] cs_quality_flag_rate=0.0000
+[DATA] fresh_dislocation_rate=0.1032
+[ALPHA] entry-mode / delay / horizon surface
+entry_mode  delay_days       bucket       side  horizon_days  mean_ret  win_rate  n_obs
+ next_open           0     top_2pct       long             1 -0.000776  0.464484   1619
+ next_open           0  bottom_2pct      short             1  0.001695  0.485359   1366
+ next_open           0  spread_2pct long_short             1 -0.002472       NaN   1366
+ next_open           0     top_2pct       long             2 -0.001593  0.478664   1617
+ next_open           0  bottom_2pct      short             2  0.002912  0.489736   1364
+ next_open           0  spread_2pct long_short             2 -0.004505       NaN   1364
+ next_open           0     top_2pct       long             3 -0.003837  0.482353   1615
+ next_open           0  bottom_2pct      short             3  0.004821  0.505140   1362
+ next_open           0  spread_2pct long_short             3 -0.008659       NaN   1362
+ next_open           0     top_5pct       long             1 -0.000621  0.483655   3885
+ next_open           0  bottom_5pct      short             1  0.001034  0.483736   3105
+ next_open           0  spread_5pct long_short             1 -0.001655       NaN   3105
+ next_open           0     top_5pct       long             2 -0.000965  0.504897   3880
+ next_open           0  bottom_5pct      short             2  0.002030  0.485650   3101
+ next_open           0  spread_5pct long_short             2 -0.002995       NaN   3101
+ next_open           0     top_5pct       long             3 -0.002045  0.492387   3875
+ next_open           0  bottom_5pct      short             3  0.003120  0.498547   3097
+ next_open           0  spread_5pct long_short             3 -0.005164       NaN   3097
+ next_open           0    top_10pct       long             1 -0.000264  0.493023   7740
+ next_open           0 bottom_10pct      short             1  0.000839  0.481481   6966
+ next_open           0 spread_10pct long_short             1 -0.001103       NaN   6966
+ next_open           0    top_10pct       long             2 -0.000388  0.509056   7730
+ next_open           0 bottom_10pct      short             2  0.001943  0.470174   6957
+ next_open           0 spread_10pct long_short             2 -0.002331       NaN   6957
+ next_open           0    top_10pct       long             3 -0.000785  0.505959   7720
+ next_open           0 bottom_10pct      short             3  0.003075  0.472078   6948
+ next_open           0 spread_10pct long_short             3 -0.003859       NaN   6948
+[BOOK] rows=97 longs=10 shorts=8 fresh_dislocations=10 quality_flag_rows=0
+[BOOK] latest date selection
+      date symbol    score  side  side_sized conviction_bucket  fresh_dislocation_flag  score_abs_rank_pct  ret_realized  anchor_ret  residual_raw
+2026-02-27      C 3.248851     1        2.10          long_max                       1            0.994845     -0.051640   -0.000454     -0.034113
+2026-02-27    NKE 3.248851     1        2.10          long_max                       1            0.994845     -0.027678    0.023117     -0.035613
+2026-02-27   NVDA 3.226187     1        1.20         long_high                       1            0.979381     -0.041646    0.023385     -0.031576
+2026-02-27     MS 2.952452     1        1.20         long_high                       1            0.938144     -0.061863   -0.007392     -0.029125
+2026-02-27    CRM 2.853780     1        1.20         long_high                       1            0.927835     -0.023462   -0.000735     -0.028242
+2026-02-27    URA 2.809302     1        1.20         long_high                       1            0.917526     -0.009659    0.019951     -0.027843
+2026-02-27    UPS 2.782076     1        0.45          long_mid                       1            0.907216     -0.005745    0.018991     -0.027600
+2026-02-27    VEA 2.654360     1        0.00              flat                       0            0.896907     -0.000996    0.019750     -0.026456
+2026-02-27     GS 2.590389     1        0.00              flat                       0            0.886598     -0.074736   -0.010191     -0.025883
+2026-02-27    UNH 2.270364     1        0.00              flat                       0            0.855670      0.023059    0.019135     -0.023018
+2026-02-27    VWO 2.119704     0        0.00              flat                       0            0.845361     -0.002917    0.019768     -0.021669
+2026-02-27    XLF 2.042400     0        0.00              flat                       0            0.824742     -0.020381    0.005897     -0.020977
+2026-02-27   SCHW 1.703922     0        0.00              flat                       0            0.793814     -0.023790   -0.002465     -0.017946
+2026-02-27   ARKK 1.650416     0        0.00              flat                       0            0.783505     -0.022785   -0.002386     -0.017467
+2026-02-27    RTX 1.609344     0        0.00              flat                       0            0.773196      0.025249    0.025228     -0.017099
+2026-02-27    JPM 1.459165     0        0.00              flat                       0            0.762887     -0.019044    0.001145     -0.015754
+2026-02-27    PEP 1.388310     0        0.00              flat                       0            0.721649      0.012889    0.017044     -0.015120
+2026-02-27    XLK 1.265421     0        0.00              flat                       0            0.680412     -0.015956    0.006153     -0.014020
+2026-02-27   AAPL 1.220654     0        0.00              flat                       0            0.659794     -0.032130   -0.003062     -0.013619
+2026-02-27     PG 1.197346     0        0.00              flat                       0            0.649485      0.021069    0.016809     -0.013410
+[14:33:32] [DONE] Residual Stat-Arb runner completed.
+
+[EXIT] code=0
+Press Enter to exit...
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> if ($LASTEXITCODE -ne 0) {
+>>     throw "run_ranker_hold_sim.py failed"
+>> }
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> Set-StrictMode -Version Latest
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $ErrorActionPreference = "Stop"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> Set-Location "C:\Users\Dmytro Govor\Documents\Python-Edge"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python -c "import ast; ast.parse(open(r'.\scripts\run_ranker_hold_sim.py','rb').read())"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> if ($LASTEXITCODE -ne 0) {
+>>     throw "AST parse failed: run_ranker_hold_sim.py"
+>> }
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python -c "import ast; ast.parse(open(r'.\src\python_edge\model\cross_sectional_signal.py','rb').read())"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> if ($LASTEXITCODE -ne 0) {
+>>     throw "AST parse failed: cross_sectional_signal.py"
+>> }
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python -c "import ast; ast.parse(open(r'.\src\python_edge\portfolio\signal_sizing.py','rb').read())"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> if ($LASTEXITCODE -ne 0) {
+>>     throw "AST parse failed: signal_sizing.py"
+>> }
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python -c "import ast; ast.parse(open(r'.\src\python_edge\portfolio\construct.py','rb').read())"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> if ($LASTEXITCODE -ne 0) {
+>>     throw "AST parse failed: construct.py"
+>> }
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python -c "import ast; ast.parse(open(r'.\src\python_edge\portfolio\exit_rules.py','rb').read())"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> if ($LASTEXITCODE -ne 0) {
+>>     throw "AST parse failed: exit_rules.py"
+>> }
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:PYTHONUNBUFFERED = "1"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:DATASET_ROOT = "D:\massive_dataset"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:START = "2023-01-01"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:END = "2026-02-28"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:ENTRY_MODE = "next_open"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:HOLD_DAYS = "2"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:ALPHA_HORIZONS = "1,2,3"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:ALPHA_QUANTILES = "0.02,0.05,0.10"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:TOP_PCT = "0.10"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:BOTTOM_PCT = "0.10"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:MIN_ABS_RANK_PCT = "0.80"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:REQUIRE_FRESH_DISLOCATION = "0"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:SIZING_PRESET = "residual_stat_arb"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:MAX_NAMES_PER_SIDE = "10"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:DEBUG_RESIDUAL = "1"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:SEED = "7"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $delays = @("0", "1", "2")
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> foreach ($delay in $delays) {
+>>     $env:SIGNAL_DELAY_DAYS = $delay
+>>
+>>     Write-Host ""
+>>     Write-Host "============================================================"
+>>     Write-Host "[RUN] ENTRY_MODE=$env:ENTRY_MODE SIGNAL_DELAY_DAYS=$delay HOLD_DAYS=$env:HOLD_DAYS"
+>>     Write-Host "============================================================"
+>>     Write-Host ""
+>>
+>>     python .\scripts\run_ranker_hold_sim.py
+>>
+>>     if ($LASTEXITCODE -ne 0) {
+>>         throw "run_ranker_hold_sim.py failed for SIGNAL_DELAY_DAYS=$delay"
+>>     }
+>> }
+
+============================================================
+[RUN] ENTRY_MODE=next_open SIGNAL_DELAY_DAYS=0 HOLD_DAYS=2
+============================================================
+
+[CFG] dataset_root=D:\massive_dataset
+[CFG] start=2023-01-01 end=2026-02-28
+[CFG] entry_mode=next_open signal_delay_days=0 hold_days=2
+[CFG] top_pct=0.1 bottom_pct=0.1 min_abs_rank_pct=0.8 require_fresh_dislocation=False
+[CFG] alpha_horizons=(1, 2, 3) alpha_quantiles=(0.02, 0.05, 0.1) sizing_preset=residual_stat_arb
+[DATA] rows=75175 dates=775 symbols=97
+[DATA] cs_quality_flag_rate=0.0000
+[DATA] fresh_dislocation_rate=0.1032
+[ALPHA] entry-mode / delay / horizon surface
+entry_mode  delay_days       bucket       side  horizon_days  mean_ret  win_rate  n_obs
+ next_open           0     top_2pct       long             1 -0.000776  0.464484   1619
+ next_open           0  bottom_2pct      short             1  0.001695  0.485359   1366
+ next_open           0  spread_2pct long_short             1 -0.002472       NaN   1366
+ next_open           0     top_2pct       long             2 -0.001593  0.478664   1617
+ next_open           0  bottom_2pct      short             2  0.002912  0.489736   1364
+ next_open           0  spread_2pct long_short             2 -0.004505       NaN   1364
+ next_open           0     top_2pct       long             3 -0.003837  0.482353   1615
+ next_open           0  bottom_2pct      short             3  0.004821  0.505140   1362
+ next_open           0  spread_2pct long_short             3 -0.008659       NaN   1362
+ next_open           0     top_5pct       long             1 -0.000621  0.483655   3885
+ next_open           0  bottom_5pct      short             1  0.001034  0.483736   3105
+ next_open           0  spread_5pct long_short             1 -0.001655       NaN   3105
+ next_open           0     top_5pct       long             2 -0.000965  0.504897   3880
+ next_open           0  bottom_5pct      short             2  0.002030  0.485650   3101
+ next_open           0  spread_5pct long_short             2 -0.002995       NaN   3101
+ next_open           0     top_5pct       long             3 -0.002045  0.492387   3875
+ next_open           0  bottom_5pct      short             3  0.003120  0.498547   3097
+ next_open           0  spread_5pct long_short             3 -0.005164       NaN   3097
+ next_open           0    top_10pct       long             1 -0.000264  0.493023   7740
+ next_open           0 bottom_10pct      short             1  0.000839  0.481481   6966
+ next_open           0 spread_10pct long_short             1 -0.001103       NaN   6966
+ next_open           0    top_10pct       long             2 -0.000388  0.509056   7730
+ next_open           0 bottom_10pct      short             2  0.001943  0.470174   6957
+ next_open           0 spread_10pct long_short             2 -0.002331       NaN   6957
+ next_open           0    top_10pct       long             3 -0.000785  0.505959   7720
+ next_open           0 bottom_10pct      short             3  0.003075  0.472078   6948
+ next_open           0 spread_10pct long_short             3 -0.003859       NaN   6948
+[BOOK] rows=97 longs=10 shorts=8 fresh_dislocations=10 quality_flag_rows=0
+[BOOK] latest date selection
+      date symbol    score  side  side_sized conviction_bucket  fresh_dislocation_flag  score_abs_rank_pct  ret_realized  anchor_ret  residual_raw
+2026-02-27      C 3.248851     1        2.10          long_max                       1            0.994845     -0.051640   -0.000454     -0.034113
+2026-02-27    NKE 3.248851     1        2.10          long_max                       1            0.994845     -0.027678    0.023117     -0.035613
+2026-02-27   NVDA 3.226187     1        1.20         long_high                       1            0.979381     -0.041646    0.023385     -0.031576
+2026-02-27     MS 2.952452     1        1.20         long_high                       1            0.938144     -0.061863   -0.007392     -0.029125
+2026-02-27    CRM 2.853780     1        1.20         long_high                       1            0.927835     -0.023462   -0.000735     -0.028242
+2026-02-27    URA 2.809302     1        1.20         long_high                       1            0.917526     -0.009659    0.019951     -0.027843
+2026-02-27    UPS 2.782076     1        0.45          long_mid                       1            0.907216     -0.005745    0.018991     -0.027600
+2026-02-27    VEA 2.654360     1        0.00              flat                       0            0.896907     -0.000996    0.019750     -0.026456
+2026-02-27     GS 2.590389     1        0.00              flat                       0            0.886598     -0.074736   -0.010191     -0.025883
+2026-02-27    UNH 2.270364     1        0.00              flat                       0            0.855670      0.023059    0.019135     -0.023018
+2026-02-27    VWO 2.119704     0        0.00              flat                       0            0.845361     -0.002917    0.019768     -0.021669
+2026-02-27    XLF 2.042400     0        0.00              flat                       0            0.824742     -0.020381    0.005897     -0.020977
+2026-02-27   SCHW 1.703922     0        0.00              flat                       0            0.793814     -0.023790   -0.002465     -0.017946
+2026-02-27   ARKK 1.650416     0        0.00              flat                       0            0.783505     -0.022785   -0.002386     -0.017467
+2026-02-27    RTX 1.609344     0        0.00              flat                       0            0.773196      0.025249    0.025228     -0.017099
+2026-02-27    JPM 1.459165     0        0.00              flat                       0            0.762887     -0.019044    0.001145     -0.015754
+2026-02-27    PEP 1.388310     0        0.00              flat                       0            0.721649      0.012889    0.017044     -0.015120
+2026-02-27    XLK 1.265421     0        0.00              flat                       0            0.680412     -0.015956    0.006153     -0.014020
+2026-02-27   AAPL 1.220654     0        0.00              flat                       0            0.659794     -0.032130   -0.003062     -0.013619
+2026-02-27     PG 1.197346     0        0.00              flat                       0            0.649485      0.021069    0.016809     -0.013410
+[14:34:50] [DONE] Residual Stat-Arb runner completed.
+
+[EXIT] code=0
+Press Enter to exit...
+
+============================================================
+[RUN] ENTRY_MODE=next_open SIGNAL_DELAY_DAYS=1 HOLD_DAYS=2
+============================================================
+
+[CFG] dataset_root=D:\massive_dataset
+[CFG] start=2023-01-01 end=2026-02-28
+[CFG] entry_mode=next_open signal_delay_days=1 hold_days=2
+[CFG] top_pct=0.1 bottom_pct=0.1 min_abs_rank_pct=0.8 require_fresh_dislocation=False
+[CFG] alpha_horizons=(1, 2, 3) alpha_quantiles=(0.02, 0.05, 0.1) sizing_preset=residual_stat_arb
+[DATA] rows=75175 dates=775 symbols=97
+[DATA] cs_quality_flag_rate=0.0000
+[DATA] fresh_dislocation_rate=0.1032
+[ALPHA] entry-mode / delay / horizon surface
+entry_mode  delay_days       bucket       side  horizon_days  mean_ret  win_rate  n_obs
+ next_open           1     top_2pct       long             1 -0.001147  0.465677   1617
+ next_open           1  bottom_2pct      short             1  0.000647  0.505132   1364
+ next_open           1  spread_2pct long_short             1 -0.001794       NaN   1364
+ next_open           1     top_2pct       long             2 -0.003235  0.473684   1615
+ next_open           1  bottom_2pct      short             2  0.002349  0.500000   1362
+ next_open           1  spread_2pct long_short             2 -0.005585       NaN   1362
+ next_open           1     top_2pct       long             3 -0.003532  0.464352   1613
+ next_open           1  bottom_2pct      short             3  0.002912  0.486765   1360
+ next_open           1  spread_2pct long_short             3 -0.006444       NaN   1360
+ next_open           1     top_5pct       long             1 -0.000516  0.484794   3880
+ next_open           1  bottom_5pct      short             1  0.000572  0.494679   3101
+ next_open           1  spread_5pct long_short             1 -0.001089       NaN   3101
+ next_open           1     top_5pct       long             2 -0.001544  0.492645   3875
+ next_open           1  bottom_5pct      short             2  0.001552  0.492089   3097
+ next_open           1  spread_5pct long_short             2 -0.003095       NaN   3097
+ next_open           1     top_5pct       long             3 -0.001196  0.488889   3870
+ next_open           1  bottom_5pct      short             3  0.002056  0.495312   3093
+ next_open           1  spread_5pct long_short             3 -0.003251       NaN   3093
+ next_open           1    top_10pct       long             1 -0.000258  0.490944   7730
+ next_open           1 bottom_10pct      short             1  0.000615  0.485698   6957
+ next_open           1 spread_10pct long_short             1 -0.000873       NaN   6957
+ next_open           1    top_10pct       long             2 -0.000642  0.502720   7720
+ next_open           1 bottom_10pct      short             2  0.001677  0.472942   6948
+ next_open           1 spread_10pct long_short             2 -0.002319       NaN   6948
+ next_open           1    top_10pct       long             3 -0.000012  0.503243   7710
+ next_open           1 bottom_10pct      short             3  0.002242  0.476293   6939
+ next_open           1 spread_10pct long_short             3 -0.002255       NaN   6939
+[BOOK] rows=97 longs=10 shorts=8 fresh_dislocations=10 quality_flag_rows=0
+[BOOK] latest date selection
+      date symbol    score  side  side_sized conviction_bucket  fresh_dislocation_flag  score_abs_rank_pct  ret_realized  anchor_ret  residual_raw
+2026-02-27      C 3.248851     1        2.10          long_max                       1            0.994845     -0.051640   -0.000454     -0.034113
+2026-02-27    NKE 3.248851     1        2.10          long_max                       1            0.994845     -0.027678    0.023117     -0.035613
+2026-02-27   NVDA 3.226187     1        1.20         long_high                       1            0.979381     -0.041646    0.023385     -0.031576
+2026-02-27     MS 2.952452     1        1.20         long_high                       1            0.938144     -0.061863   -0.007392     -0.029125
+2026-02-27    CRM 2.853780     1        1.20         long_high                       1            0.927835     -0.023462   -0.000735     -0.028242
+2026-02-27    URA 2.809302     1        1.20         long_high                       1            0.917526     -0.009659    0.019951     -0.027843
+2026-02-27    UPS 2.782076     1        0.45          long_mid                       1            0.907216     -0.005745    0.018991     -0.027600
+2026-02-27    VEA 2.654360     1        0.00              flat                       0            0.896907     -0.000996    0.019750     -0.026456
+2026-02-27     GS 2.590389     1        0.00              flat                       0            0.886598     -0.074736   -0.010191     -0.025883
+2026-02-27    UNH 2.270364     1        0.00              flat                       0            0.855670      0.023059    0.019135     -0.023018
+2026-02-27    VWO 2.119704     0        0.00              flat                       0            0.845361     -0.002917    0.019768     -0.021669
+2026-02-27    XLF 2.042400     0        0.00              flat                       0            0.824742     -0.020381    0.005897     -0.020977
+2026-02-27   SCHW 1.703922     0        0.00              flat                       0            0.793814     -0.023790   -0.002465     -0.017946
+2026-02-27   ARKK 1.650416     0        0.00              flat                       0            0.783505     -0.022785   -0.002386     -0.017467
+2026-02-27    RTX 1.609344     0        0.00              flat                       0            0.773196      0.025249    0.025228     -0.017099
+2026-02-27    JPM 1.459165     0        0.00              flat                       0            0.762887     -0.019044    0.001145     -0.015754
+2026-02-27    PEP 1.388310     0        0.00              flat                       0            0.721649      0.012889    0.017044     -0.015120
+2026-02-27    XLK 1.265421     0        0.00              flat                       0            0.680412     -0.015956    0.006153     -0.014020
+2026-02-27   AAPL 1.220654     0        0.00              flat                       0            0.659794     -0.032130   -0.003062     -0.013619
+2026-02-27     PG 1.197346     0        0.00              flat                       0            0.649485      0.021069    0.016809     -0.013410
+[14:45:23] [DONE] Residual Stat-Arb runner completed.
+
+[EXIT] code=0
+Press Enter to exit...
+
+============================================================
+[RUN] ENTRY_MODE=next_open SIGNAL_DELAY_DAYS=2 HOLD_DAYS=2
+============================================================
+
+[CFG] dataset_root=D:\massive_dataset
+[CFG] start=2023-01-01 end=2026-02-28
+[CFG] entry_mode=next_open signal_delay_days=2 hold_days=2
+[CFG] top_pct=0.1 bottom_pct=0.1 min_abs_rank_pct=0.8 require_fresh_dislocation=False
+[CFG] alpha_horizons=(1, 2, 3) alpha_quantiles=(0.02, 0.05, 0.1) sizing_preset=residual_stat_arb
+[DATA] rows=75175 dates=775 symbols=97
+[DATA] cs_quality_flag_rate=0.0000
+[DATA] fresh_dislocation_rate=0.1032
+[ALPHA] entry-mode / delay / horizon surface
+entry_mode  delay_days       bucket       side  horizon_days  mean_ret  win_rate  n_obs
+ next_open           2     top_2pct       long             1 -0.001714  0.464396   1615
+ next_open           2  bottom_2pct      short             1  0.000535  0.502937   1362
+ next_open           2  spread_2pct long_short             1 -0.002249       NaN   1362
+ next_open           2     top_2pct       long             2 -0.002162  0.481091   1613
+ next_open           2  bottom_2pct      short             2  0.001370  0.495588   1360
+ next_open           2  spread_2pct long_short             2 -0.003532       NaN   1360
+ next_open           2     top_2pct       long             3 -0.001624  0.477343   1611
+ next_open           2  bottom_2pct      short             3  0.001160  0.490427   1358
+ next_open           2  spread_2pct long_short             3 -0.002784       NaN   1358
+ next_open           2     top_5pct       long             1 -0.000904  0.472000   3875
+ next_open           2  bottom_5pct      short             1  0.000331  0.509202   3097
+ next_open           2  spread_5pct long_short             1 -0.001235       NaN   3097
+ next_open           2     top_5pct       long             2 -0.000654  0.496899   3870
+ next_open           2  bottom_5pct      short             2  0.001014  0.496282   3093
+ next_open           2  spread_5pct long_short             2 -0.001668       NaN   3093
+ next_open           2     top_5pct       long             3  0.000168  0.493920   3865
+ next_open           2  bottom_5pct      short             3  0.001022  0.496601   3089
+ next_open           2  spread_5pct long_short             3 -0.000854       NaN   3089
+ next_open           2    top_10pct       long             1 -0.000405  0.488860   7720
+ next_open           2 bottom_10pct      short             1  0.000529  0.488774   6948
+ next_open           2 spread_10pct long_short             1 -0.000934       NaN   6948
+ next_open           2    top_10pct       long             2  0.000165  0.508301   7710
+ next_open           2 bottom_10pct      short             2  0.001145  0.483499   6939
+ next_open           2 spread_10pct long_short             2 -0.000980       NaN   6939
+ next_open           2    top_10pct       long             3  0.001014  0.508442   7700
+ next_open           2 bottom_10pct      short             3  0.001380  0.482540   6930
+ next_open           2 spread_10pct long_short             3 -0.000366       NaN   6930
+[BOOK] rows=97 longs=10 shorts=8 fresh_dislocations=10 quality_flag_rows=0
+[BOOK] latest date selection
+      date symbol    score  side  side_sized conviction_bucket  fresh_dislocation_flag  score_abs_rank_pct  ret_realized  anchor_ret  residual_raw
+2026-02-27      C 3.248851     1        2.10          long_max                       1            0.994845     -0.051640   -0.000454     -0.034113
+2026-02-27    NKE 3.248851     1        2.10          long_max                       1            0.994845     -0.027678    0.023117     -0.035613
+2026-02-27   NVDA 3.226187     1        1.20         long_high                       1            0.979381     -0.041646    0.023385     -0.031576
+2026-02-27     MS 2.952452     1        1.20         long_high                       1            0.938144     -0.061863   -0.007392     -0.029125
+2026-02-27    CRM 2.853780     1        1.20         long_high                       1            0.927835     -0.023462   -0.000735     -0.028242
+2026-02-27    URA 2.809302     1        1.20         long_high                       1            0.917526     -0.009659    0.019951     -0.027843
+2026-02-27    UPS 2.782076     1        0.45          long_mid                       1            0.907216     -0.005745    0.018991     -0.027600
+2026-02-27    VEA 2.654360     1        0.00              flat                       0            0.896907     -0.000996    0.019750     -0.026456
+2026-02-27     GS 2.590389     1        0.00              flat                       0            0.886598     -0.074736   -0.010191     -0.025883
+2026-02-27    UNH 2.270364     1        0.00              flat                       0            0.855670      0.023059    0.019135     -0.023018
+2026-02-27    VWO 2.119704     0        0.00              flat                       0            0.845361     -0.002917    0.019768     -0.021669
+2026-02-27    XLF 2.042400     0        0.00              flat                       0            0.824742     -0.020381    0.005897     -0.020977
+2026-02-27   SCHW 1.703922     0        0.00              flat                       0            0.793814     -0.023790   -0.002465     -0.017946
+2026-02-27   ARKK 1.650416     0        0.00              flat                       0            0.783505     -0.022785   -0.002386     -0.017467
+2026-02-27    RTX 1.609344     0        0.00              flat                       0            0.773196      0.025249    0.025228     -0.017099
+2026-02-27    JPM 1.459165     0        0.00              flat                       0            0.762887     -0.019044    0.001145     -0.015754
+2026-02-27    PEP 1.388310     0        0.00              flat                       0            0.721649      0.012889    0.017044     -0.015120
+2026-02-27    XLK 1.265421     0        0.00              flat                       0            0.680412     -0.015956    0.006153     -0.014020
+2026-02-27   AAPL 1.220654     0        0.00              flat                       0            0.659794     -0.032130   -0.003062     -0.013619
+2026-02-27     PG 1.197346     0        0.00              flat                       0            0.649485      0.021069    0.016809     -0.013410
+[14:56:17] [DONE] Residual Stat-Arb runner completed.
+
+[EXIT] code=0
+Press Enter to exit...
