@@ -1,6 +1,12 @@
 # scripts/run_residual_portfolio_sim.py
 # Production-style residual portfolio simulator
 # Double-click runnable. Never auto-closes (always waits for Enter).
+#
+# Key production changes in this version:
+# - staggered / overlapping book
+# - sleeve-based holding for HOLD_DAYS
+# - per-day turnover from sleeve replacement
+# - normalized gross exposure across active sleeves
 
 from __future__ import annotations
 
@@ -12,7 +18,7 @@ import traceback
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -237,10 +243,7 @@ def build_residual_score(df: pd.DataFrame, cfg: Config) -> pd.DataFrame:
     )
     anchor_ret = beta * market + sector
     residual_raw = ret_realized - anchor_ret - factor_blend
-    if str(cfg.residual_direction).strip().lower() == "long_high_short_low":
-        residual_signal_raw = residual_raw.copy()
-    else:
-        residual_signal_raw = (-residual_raw).copy()
+    residual_signal_raw = residual_raw.copy() if str(cfg.residual_direction).strip().lower() == "long_high_short_low" else (-residual_raw).copy()
 
     out["ret_realized"] = ret_realized
     out["anchor_ret"] = anchor_ret
@@ -261,25 +264,13 @@ def build_residual_score(df: pd.DataFrame, cfg: Config) -> pd.DataFrame:
     return out
 
 
-def _entry_return_frame(df: pd.DataFrame, entry_mode: str, delay_days: int, hold_days: int) -> pd.DataFrame:
-    out = df.copy()
+def _activation_offset(entry_mode: str, delay_days: int) -> int:
     mode = str(entry_mode).strip().lower()
     if mode == "same_close":
-        entry_shift = delay_days
-        out["entry_px"] = out.groupby("symbol")["c"].shift(-entry_shift)
-        entry_day_idx = entry_shift
-    elif mode == "next_close":
-        entry_shift = delay_days + 1
-        out["entry_px"] = out.groupby("symbol")["c"].shift(-entry_shift)
-        entry_day_idx = entry_shift
-    else:
-        entry_shift = delay_days + 1
-        out["entry_px"] = out.groupby("symbol")["o"].shift(-entry_shift)
-        entry_day_idx = entry_shift
-    exit_shift = entry_day_idx + (hold_days - 1)
-    out["exit_px"] = out.groupby("symbol")["c"].shift(-exit_shift)
-    out["trade_ret"] = (out["exit_px"] / out["entry_px"]) - 1.0
-    return out
+        return delay_days
+    if mode in {"next_open", "next_close"}:
+        return delay_days + 1
+    raise RuntimeError(f"Unsupported ENTRY_MODE={entry_mode!r}")
 
 
 def build_daily_targets(scored: pd.DataFrame, cfg: Config) -> pd.DataFrame:
@@ -296,45 +287,136 @@ def build_daily_targets(scored: pd.DataFrame, cfg: Config) -> pd.DataFrame:
         max_names_per_side=cfg.max_names_per_side,
     )
     port = apply_signal_strength_sizing(port, side_col="side", score_col="score", out_col="side_sized", preset_name=cfg.sizing_preset)
+    # Each sleeve gets 1 / HOLD_DAYS of portfolio risk budget.
     port = normalize_side_weights(
         port,
         sized_col="side_sized",
         out_col="target_weight",
-        gross_target=cfg.gross_target,
-        side_target=cfg.side_target,
-        max_weight_per_name=cfg.max_weight_per_name,
+        gross_target=cfg.gross_target / max(1, cfg.hold_days),
+        side_target=cfg.side_target / max(1, cfg.hold_days),
+        max_weight_per_name=cfg.max_weight_per_name / max(1, cfg.hold_days),
     )
     return port
 
 
+def _schedule_targets(targets: pd.DataFrame, dates: List[str], cfg: Config) -> Dict[str, pd.DataFrame]:
+    offset = _activation_offset(cfg.entry_mode, cfg.delay_days)
+    date_to_idx = {d: i for i, d in enumerate(dates)}
+    scheduled: Dict[str, List[pd.DataFrame]] = {}
+    for d, g in targets.groupby("date", sort=False):
+        d_str = str(d)
+        if d_str not in date_to_idx:
+            continue
+        act_idx = date_to_idx[d_str] + offset
+        if act_idx >= len(dates):
+            continue
+        act_date = dates[act_idx]
+        gg = g.copy()
+        gg["signal_date"] = d_str
+        gg["activation_date"] = act_date
+        scheduled.setdefault(act_date, []).append(gg)
+    merged: Dict[str, pd.DataFrame] = {}
+    for d, parts in scheduled.items():
+        merged[d] = pd.concat(parts, ignore_index=False)
+    return merged
+
+
+def _frame_to_weights(g: pd.DataFrame) -> Dict[str, float]:
+    x = g[["symbol", "target_weight"]].copy()
+    x["target_weight"] = pd.to_numeric(x["target_weight"], errors="coerce").fillna(0.0)
+    x = x.groupby("symbol", as_index=False)["target_weight"].sum()
+    x = x[x["target_weight"].abs() > 0.0]
+    return {str(r.symbol): float(r.target_weight) for r in x.itertuples(index=False)}
+
+
+def _gross(weights: Dict[str, float]) -> float:
+    return float(sum(abs(v) for v in weights.values()))
+
+
+def _net(weights: Dict[str, float]) -> float:
+    return float(sum(weights.values()))
+
+
+def _merge_sleeves(sleeves: List[Dict[str, float]]) -> Dict[str, float]:
+    out: Dict[str, float] = {}
+    for sl in sleeves:
+        for sym, w in sl.items():
+            out[sym] = out.get(sym, 0.0) + float(w)
+    out = {k: v for k, v in out.items() if abs(v) > 1e-12}
+    return out
+
+
+def _turnover_abs(old: Dict[str, float], new: Dict[str, float]) -> float:
+    syms = set(old.keys()) | set(new.keys())
+    return float(sum(abs(new.get(s, 0.0) - old.get(s, 0.0)) for s in syms))
+
+
 def simulate_portfolio(df: pd.DataFrame, cfg: Config) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    scored = build_residual_score(add_features(df), cfg)
-    scored = scored.dropna(subset=["ret_1d", "score", "o", "c"]).copy()
-    frame = _entry_return_frame(scored, cfg.entry_mode, cfg.delay_days, cfg.hold_days)
-    frame = frame.dropna(subset=["trade_ret"]).copy()
-    targets = build_daily_targets(frame, cfg)
-    active = targets[pd.to_numeric(targets["target_weight"], errors="coerce").fillna(0.0) != 0.0].copy()
-    if active.empty:
-        raise RuntimeError("No active positions after target construction")
+    feat = add_features(df)
+    scored = build_residual_score(feat, cfg)
+    scored = scored.dropna(subset=["ret_1d", "score", "c"]).copy()
+    dates = sorted(pd.Series(scored["date"]).astype(str).unique().tolist())
+    if len(dates) < cfg.hold_days + 5:
+        raise RuntimeError("Not enough dates for staggered simulation")
 
-    daily = (
-        active.groupby("date", as_index=False)
-        .apply(lambda g: pd.Series({
-            "gross_exposure": float(pd.to_numeric(g["target_weight"], errors="coerce").abs().sum()),
-            "net_exposure": float(pd.to_numeric(g["target_weight"], errors="coerce").sum()),
-            "n_positions": int((pd.to_numeric(g["target_weight"], errors="coerce").abs() > 0).sum()),
-            "day_ret_gross": float((pd.to_numeric(g["target_weight"], errors="coerce") * pd.to_numeric(g["trade_ret"], errors="coerce")).sum()),
-        }))
-        .reset_index(drop=True)
-    )
+    targets = build_daily_targets(scored, cfg)
+    scheduled = _schedule_targets(targets, dates, cfg)
+    ret_map_by_date: Dict[str, Dict[str, float]] = {}
+    for d, g in scored.groupby("date", sort=False):
+        g2 = g[["symbol", "ret_1d"]].copy()
+        g2["ret_1d"] = pd.to_numeric(g2["ret_1d"], errors="coerce").fillna(0.0)
+        ret_map_by_date[str(d)] = {str(r.symbol): float(r.ret_1d) for r in g2.itertuples(index=False)}
 
-    daily = daily.sort_values("date").reset_index(drop=True)
-    turnover = daily["gross_exposure"].diff().abs().fillna(daily["gross_exposure"])
-    tc = turnover * (cfg.tc_bps_one_way / 10000.0)
-    daily["turnover"] = turnover
-    daily["tc_cost"] = tc
-    daily["day_ret_net"] = daily["day_ret_gross"] - daily["tc_cost"]
-    daily["equity"] = (1.0 + daily["day_ret_net"]).cumprod()
+    sleeves: List[Dict[str, float]] = [dict() for _ in range(max(1, cfg.hold_days))]
+    daily_rows: List[Dict[str, float]] = []
+    active_rows: List[pd.DataFrame] = []
+
+    for di, d in enumerate(dates):
+        # 1) PnL from currently active sleeves using today's close-to-close returns.
+        combined_before = _merge_sleeves(sleeves)
+        ret_map = ret_map_by_date.get(d, {})
+        day_ret_gross = float(sum(w * ret_map.get(sym, 0.0) for sym, w in combined_before.items()))
+        gross_before = _gross(combined_before)
+        net_before = _net(combined_before)
+        npos_before = int(sum(1 for _, w in combined_before.items() if abs(w) > 0.0))
+
+        # 2) Replace one sleeve with newly activated targets for this date.
+        sleeve_idx = di % max(1, cfg.hold_days)
+        old_sleeve = sleeves[sleeve_idx]
+        new_sleeve_df = scheduled.get(d)
+        new_sleeve = _frame_to_weights(new_sleeve_df) if new_sleeve_df is not None else {}
+        turnover = _turnover_abs(old_sleeve, new_sleeve)
+        tc_cost = turnover * (cfg.tc_bps_one_way / 10000.0)
+        sleeves[sleeve_idx] = new_sleeve
+
+        combined_after = _merge_sleeves(sleeves)
+        gross_after = _gross(combined_after)
+        net_after = _net(combined_after)
+        npos_after = int(sum(1 for _, w in combined_after.items() if abs(w) > 0.0))
+
+        daily_rows.append({
+            "date": d,
+            "gross_exposure_before": gross_before,
+            "net_exposure_before": net_before,
+            "n_positions_before": npos_before,
+            "day_ret_gross": day_ret_gross,
+            "turnover": turnover,
+            "tc_cost": tc_cost,
+            "day_ret_net": day_ret_gross - tc_cost,
+            "gross_exposure_after": gross_after,
+            "net_exposure_after": net_after,
+            "n_positions_after": npos_after,
+        })
+
+        if new_sleeve_df is not None and not new_sleeve_df.empty:
+            act = new_sleeve_df.copy()
+            act["sleeve_idx"] = sleeve_idx
+            act["sim_date"] = d
+            active_rows.append(act)
+
+    daily = pd.DataFrame(daily_rows)
+    daily["equity"] = (1.0 + pd.to_numeric(daily["day_ret_net"], errors="coerce").fillna(0.0)).cumprod()
+    active = pd.concat(active_rows, ignore_index=True) if active_rows else pd.DataFrame()
     return daily, active
 
 
@@ -353,21 +435,22 @@ def main() -> int:
     raw = load_dataset(cfg)
     daily, active = simulate_portfolio(raw, cfg)
 
-    ann_ret_like = float(daily["day_ret_net"].mean() * 252.0)
-    ann_vol_like = float(daily["day_ret_net"].std(ddof=1) * np.sqrt(252.0)) if len(daily) > 1 else float("nan")
+    ann_ret_like = float(pd.to_numeric(daily["day_ret_net"], errors="coerce").fillna(0.0).mean() * 252.0)
+    ann_vol_like = float(pd.to_numeric(daily["day_ret_net"], errors="coerce").fillna(0.0).std(ddof=1) * np.sqrt(252.0)) if len(daily) > 1 else float("nan")
     sharpe_like = float(ann_ret_like / ann_vol_like) if ann_vol_like and ann_vol_like > 0 else float("nan")
 
     print(f"[SIM] days={len(daily)} active_rows={len(active)}")
     print(f"[SIM] equity_end={daily['equity'].iloc[-1]:.4f} ann_ret~={ann_ret_like:+0.4f} ann_vol~={ann_vol_like:+0.4f} sharpe~={sharpe_like:+0.4f}")
-    print(f"[SIM] avg_gross={daily['gross_exposure'].mean():0.4f} avg_net={daily['net_exposure'].mean():+0.4f} avg_turnover={daily['turnover'].mean():0.4f}")
-    print(f"[SIM] avg_positions={daily['n_positions'].mean():0.2f} avg_tc_cost={daily['tc_cost'].mean():0.6f}")
+    print(f"[SIM] avg_gross_before={daily['gross_exposure_before'].mean():0.4f} avg_net_before={daily['net_exposure_before'].mean():+0.4f} avg_turnover={daily['turnover'].mean():0.4f}")
+    print(f"[SIM] avg_positions_before={daily['n_positions_before'].mean():0.2f} avg_tc_cost={daily['tc_cost'].mean():0.6f}")
 
     print("\n[SIM] daily head")
     print(daily.head(20).to_string(index=False))
 
-    print("\n[SIM] active positions head")
-    show_cols = [c for c in ["date", "symbol", "score", "side", "side_sized", "target_weight", "trade_ret", "ret_realized", "anchor_ret", "residual_raw"] if c in active.columns]
-    print(active[show_cols].head(30).to_string(index=False))
+    if not active.empty:
+        print("\n[SIM] activated sleeve positions head")
+        show_cols = [c for c in ["sim_date", "signal_date", "activation_date", "sleeve_idx", "date", "symbol", "score", "side", "side_sized", "target_weight", "ret_realized", "anchor_ret", "residual_raw"] if c in active.columns]
+        print(active[show_cols].head(30).to_string(index=False))
 
     _log("[DONE] Residual production portfolio simulator completed.")
     return 0
