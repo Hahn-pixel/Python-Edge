@@ -1,5 +1,7 @@
 {
-  "dataset_root": "D:\\massive_dataset",
+  "generated_at": "2026-03-14T21:55:11",
+  "feature_file": "data\\features\\feature_matrix_v1.parquet",
+  "out_dir": "artifacts\\regime_interaction_scan",
   "start": "2023-01-01",
   "end": "2026-02-28",
   "horizons": [
@@ -50,11 +52,60 @@
       "regime": "rel_volume_20"
     }
   ],
+  "resolved_pairs": [
+    {
+      "factor": "rev1",
+      "factor_col": "ret_1d_simple",
+      "regime": "cs_liq_z",
+      "regime_col": "z_liq"
+    },
+    {
+      "factor": "rev1",
+      "factor_col": "ret_1d_simple",
+      "regime": "rel_volume_20",
+      "regime_col": "rel_volume_20"
+    },
+    {
+      "factor": "mom3",
+      "factor_col": "mom_3d",
+      "regime": "vol_spike_5_20",
+      "regime_col": "vol_spike_5_20"
+    },
+    {
+      "factor": "gap_ret",
+      "factor_col": "gap_ret",
+      "regime": "rel_volume_20",
+      "regime_col": "rel_volume_20"
+    },
+    {
+      "factor": "pressure",
+      "factor_col": "oc_body_pct",
+      "regime": "liq",
+      "regime_col": "liq"
+    },
+    {
+      "factor": "wick_imbalance",
+      "factor_col": "wick_imbalance",
+      "regime": "range_comp_5_20",
+      "regime_col": "range_comp_5_20"
+    },
+    {
+      "factor": "dist_high_20",
+      "factor_col": "dist_high_20",
+      "regime": "rel_volume_20",
+      "regime_col": "rel_volume_20"
+    },
+    {
+      "factor": "dist_low_20",
+      "factor_col": "dist_low_20",
+      "regime": "rel_volume_20",
+      "regime_col": "rel_volume_20"
+    }
+  ],
   "rows": 76727,
   "symbols": 97,
   "dates": 791,
   "variants_rows": 160,
   "summary_rows": 32,
-  "kept_rows": 15,
-  "generated_at": "2026-03-14T15:17:25"
+  "kept_rows": 14
 }
