@@ -7,11 +7,11 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/.gitattributes
 .gitignore
 https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/.gitignore
 
-console37.txt
-https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console37.txt
+console50.log
+https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console50.log
 
-console38.txt
-https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console38.txt
+console51.log
+https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console51.log
 
 deps_edges.txt
 https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/deps_edges.txt
@@ -40,6 +40,9 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/repo_map.txt
   scripts/run_alpha_decay_surface.py
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_alpha_decay_surface.py
 
+  scripts/run_factor_interaction_scan.py
+  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_factor_interaction_scan.py
+
   scripts/run_mvp_daily_rules.py
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_mvp_daily_rules.py
 
@@ -58,8 +61,20 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/repo_map.txt
   scripts/run_ranker_wf.py
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_ranker_wf.py
 
+  scripts/run_residual_alpha_diagnostics.py
+  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_residual_alpha_diagnostics.py
+
+  scripts/run_residual_edge_analyzer.py
+  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_residual_edge_analyzer.py
+
+  scripts/run_residual_portfolio_sim.py
+  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_residual_portfolio_sim.py
+
   scripts/run_rule_lab_event_mining.py
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_rule_lab_event_mining.py
+
+  scripts/run_wf_diag_suite.py
+  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_wf_diag_suite.py
 
   scripts/run_wf_diagnostics.py
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_wf_diagnostics.py

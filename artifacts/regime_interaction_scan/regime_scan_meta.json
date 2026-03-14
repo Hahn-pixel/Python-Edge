@@ -1,0 +1,60 @@
+{
+  "dataset_root": "D:\\massive_dataset",
+  "start": "2023-01-01",
+  "end": "2026-02-28",
+  "horizons": [
+    1,
+    2,
+    3,
+    5
+  ],
+  "high_q": 0.7,
+  "low_q": 0.3,
+  "min_cross_section": 20,
+  "min_ic_days": 30,
+  "min_abs_uplift": 0.002,
+  "min_rel_uplift": 0.15,
+  "winsor_lower_q": 0.02,
+  "winsor_upper_q": 0.98,
+  "scan_specs": [
+    {
+      "factor": "rev1",
+      "regime": "cs_liq_z"
+    },
+    {
+      "factor": "rev1",
+      "regime": "rel_volume_20"
+    },
+    {
+      "factor": "mom3",
+      "regime": "vol_spike_5_20"
+    },
+    {
+      "factor": "gap_ret",
+      "regime": "rel_volume_20"
+    },
+    {
+      "factor": "pressure",
+      "regime": "liq"
+    },
+    {
+      "factor": "wick_imbalance",
+      "regime": "range_comp_5_20"
+    },
+    {
+      "factor": "dist_high_20",
+      "regime": "rel_volume_20"
+    },
+    {
+      "factor": "dist_low_20",
+      "regime": "rel_volume_20"
+    }
+  ],
+  "rows": 76727,
+  "symbols": 97,
+  "dates": 791,
+  "variants_rows": 160,
+  "summary_rows": 32,
+  "kept_rows": 15,
+  "generated_at": "2026-03-14T15:17:25"
+}
