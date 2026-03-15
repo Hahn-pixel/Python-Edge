@@ -21,6 +21,56 @@ for _p in [ROOT, SRC_DIR]:
 from python_edge.portfolio.holding_inertia import apply_holding_inertia
 from python_edge.portfolio.turnover_control import cap_daily_turnover
 
+try:
+    from python_edge.portfolio.position_limits import apply_position_filters, cap_final_weight, renormalize_after_caps, normalize_gross_exposure
+    _HAS_POSITION_LIMITS = True
+except Exception:
+    _HAS_POSITION_LIMITS = False
+
+    def apply_position_filters(df: pd.DataFrame, **kwargs) -> pd.DataFrame:
+        out = df.copy()
+        out["dbg_position_limits_fallback"] = 1
+        return out
+
+    def cap_final_weight(df: pd.DataFrame, weight_col: str = "weight", **kwargs) -> pd.DataFrame:
+        out = df.copy()
+        out["dbg_position_limits_fallback"] = 1
+        return out
+
+    def renormalize_after_caps(df: pd.DataFrame, weight_col: str = "weight", gross_target: float = 1.0, **kwargs) -> pd.DataFrame:
+        out = df.copy()
+        gross = out.groupby("date", sort=False)[weight_col].transform(lambda s: float(np.sum(np.abs(pd.to_numeric(s, errors="coerce")))))
+        scale = np.where(gross > EPS, gross_target / gross, 1.0)
+        out[weight_col] = pd.to_numeric(out[weight_col], errors="coerce") * scale
+        out["dbg_position_limits_fallback"] = 1
+        return out
+
+    def normalize_gross_exposure(df: pd.DataFrame, side_col: str = "side", gross_target: float = 1.0, out_col: str = "weight", **kwargs) -> pd.DataFrame:
+        out = df.copy()
+        out[out_col] = pd.to_numeric(out[side_col], errors="coerce").fillna(0.0)
+        gross = out.groupby("date", sort=False)[out_col].transform(lambda s: float(np.sum(np.abs(pd.to_numeric(s, errors="coerce")))))
+        scale = np.where(gross > EPS, gross_target / gross, 0.0)
+        out[out_col] = pd.to_numeric(out[out_col], errors="coerce") * scale
+        out["dbg_position_limits_fallback"] = 1
+        return out
+
+try:
+    from python_edge.execution.cost_model import attach_execution_costs
+    _HAS_COST_MODEL = True
+except Exception:
+    _HAS_COST_MODEL = False
+
+    def attach_execution_costs(df: pd.DataFrame, weight_col: str = "weight", **kwargs) -> pd.DataFrame:
+        out = df.copy()
+        if "turnover" not in out.columns:
+            out = out.sort_values(["symbol", "date"]).reset_index(drop=True)
+            out["prev_weight"] = out.groupby("symbol", sort=False)[weight_col].shift(1).fillna(0.0)
+            out["turnover"] = (pd.to_numeric(out[weight_col], errors="coerce") - pd.to_numeric(out["prev_weight"], errors="coerce")).abs()
+        cost_bps = float(kwargs.get("fee_bps", 0.0)) + float(kwargs.get("slippage_bps", 0.0)) + float(kwargs.get("spread_bps", 0.0)) + float(kwargs.get("impact_bps", 0.0))
+        out["exec_cost_ret"] = pd.to_numeric(out["turnover"], errors="coerce") * (cost_bps / 10000.0)
+        out["dbg_cost_model_fallback"] = 1
+        return out
+
 ALPHA_LIB_FILE = Path(os.getenv("ALPHA_LIB_FILE", r"data\alpha_library\alpha_library_v1.parquet"))
 OUT_DIR = Path(os.getenv("MULTI_ALPHA_WF_OUT_DIR", r"artifacts\multi_alpha_wf"))
 PAUSE_ON_EXIT_ENV = str(os.getenv("PAUSE_ON_EXIT", "auto")).strip().lower()
@@ -44,6 +94,16 @@ WEIGHT_CAP = float(os.getenv("WEIGHT_CAP", "0.06"))
 MAX_DAILY_TURNOVER = float(os.getenv("MAX_DAILY_TURNOVER", "0.35"))
 COST_BPS = float(os.getenv("COST_BPS", "8.0"))
 BORROW_BPS_DAILY = float(os.getenv("BORROW_BPS_DAILY", "1.0"))
+LOW_PRICE_MIN = float(os.getenv("LOW_PRICE_MIN", "5.0"))
+LOW_DV_MIN = float(os.getenv("LOW_DV_MIN", "1000000"))
+MAX_ADV_PARTICIPATION = float(os.getenv("MAX_ADV_PARTICIPATION", "0.05"))
+PORTFOLIO_NOTIONAL = float(os.getenv("PORTFOLIO_NOTIONAL", "1.0"))
+FEE_BPS = float(os.getenv("FEE_BPS", "1.0"))
+SLIPPAGE_BPS = float(os.getenv("SLIPPAGE_BPS", "2.0"))
+SPREAD_BPS = float(os.getenv("SPREAD_BPS", "3.0"))
+IMPACT_BPS = float(os.getenv("IMPACT_BPS", "8.0"))
+LOW_PRICE_PENALTY_BPS = float(os.getenv("LOW_PRICE_PENALTY_BPS", "4.0"))
+HTB_BORROW_BPS_DAILY = float(os.getenv("HTB_BORROW_BPS_DAILY", "8.0"))
 SIDE = str(os.getenv("SIDE", "long_short")).strip().lower()
 TOPK_DEBUG = int(os.getenv("TOPK_DEBUG", "10"))
 CORR_PRUNE = float(os.getenv("CORR_PRUNE", "0.85"))
@@ -358,6 +418,13 @@ def apply_weights(test_df: pd.DataFrame, weights_df: pd.DataFrame) -> pd.DataFra
 
 def attach_market_state(df: pd.DataFrame) -> pd.DataFrame:
     out = df.copy()
+    if "meta_price" not in out.columns and "close" in out.columns:
+        out["meta_price"] = _safe_numeric(out["close"])
+    if "meta_dollar_volume" not in out.columns:
+        if "dollar_vol" in out.columns:
+            out["meta_dollar_volume"] = _safe_numeric(out["dollar_vol"])
+        elif all(c in out.columns for c in ["close", "volume"]):
+            out["meta_dollar_volume"] = _safe_numeric(out["close"]) * _safe_numeric(out["volume"])
     if "market_breadth" not in out.columns:
         out["market_breadth"] = out.groupby("date", sort=False)[TARGET_COL].transform(lambda s: _safe_numeric(s).gt(0).mean())
     if "intraday_rs" in out.columns:
@@ -439,6 +506,17 @@ def build_portfolio(scored_df: pd.DataFrame) -> pd.DataFrame:
     out = pd.concat(pieces, ignore_index=True)
     out = out.sort_values(["date", "symbol"]).reset_index(drop=True)
 
+    out["dbg_position_limits_fallback"] = 0
+    out = apply_position_filters(out, side_col="side", min_price=LOW_PRICE_MIN, min_dollar_volume=LOW_DV_MIN)
+    out = cap_final_weight(
+        out,
+        weight_col="weight",
+        cap_abs_weight=WEIGHT_CAP,
+        max_adv_participation=MAX_ADV_PARTICIPATION,
+        portfolio_notional=PORTFOLIO_NOTIONAL,
+    )
+    out = renormalize_after_caps(out, weight_col="weight", gross_target=GROSS_TARGET)
+
     out["trade_strength"] = out["raw_strength"].fillna(0.0)
     out["mandatory_exit"] = 0
     out["risk_trim"] = 0
@@ -449,14 +527,32 @@ def build_portfolio(scored_df: pd.DataFrame) -> pd.DataFrame:
         out = out.sort_values(["symbol", "date"]).reset_index(drop=True)
         out["prev_weight"] = out.groupby("symbol", sort=False)["weight"].shift(1).fillna(0.0)
         out["turnover"] = (out["weight"] - out["prev_weight"]).abs()
+
+    out["dbg_cost_model_fallback"] = 0
+    out = attach_execution_costs(
+        out,
+        weight_col="weight",
+        fee_bps=FEE_BPS,
+        slippage_bps=SLIPPAGE_BPS,
+        borrow_bps_daily=BORROW_BPS_DAILY,
+        spread_bps=SPREAD_BPS,
+        impact_bps=IMPACT_BPS,
+        low_price_penalty_bps=LOW_PRICE_PENALTY_BPS,
+        htb_borrow_bps_daily=HTB_BORROW_BPS_DAILY,
+        max_participation=MAX_ADV_PARTICIPATION,
+        portfolio_notional=PORTFOLIO_NOTIONAL,
+    )
     return out
 
 
 def evaluate_portfolio(port_df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, float]]:
     df = port_df.copy()
     df["gross_pnl"] = _safe_numeric(df["weight"]) * _safe_numeric(df[TARGET_COL])
-    df["cost"] = _safe_numeric(df["turnover"]) * (COST_BPS / 10000.0)
-    df.loc[df["weight"] < 0, "cost"] += _safe_numeric(df.loc[df["weight"] < 0, "weight"]).abs() * (BORROW_BPS_DAILY / 10000.0)
+    if "exec_cost_ret" in df.columns:
+        df["cost"] = _safe_numeric(df["exec_cost_ret"]).fillna(0.0)
+    else:
+        df["cost"] = _safe_numeric(df["turnover"]) * (COST_BPS / 10000.0)
+        df.loc[df["weight"] < 0, "cost"] += _safe_numeric(df.loc[df["weight"] < 0, "weight"]).abs() * (BORROW_BPS_DAILY / 10000.0)
     daily = df.groupby("date", sort=False).agg(
         gross_ret=("gross_pnl", "sum"),
         cost_ret=("cost", "sum"),
@@ -489,6 +585,8 @@ def evaluate_portfolio(port_df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, f
         "avg_turnover": float(daily["turnover"].mean()) if len(daily) else float("nan"),
         "avg_gross": float(daily["gross"].mean()) if len(daily) else float("nan"),
         "avg_top_pct": float(daily["top_pct"].mean()) if len(daily) else float("nan"),
+        "position_limits_fallback_days": float(daily["date"].map(df.groupby("date", sort=False)["dbg_position_limits_fallback"].max()).fillna(0.0).sum()) if len(daily) else float("nan"),
+        "cost_model_fallback_days": float(daily["date"].map(df.groupby("date", sort=False)["dbg_cost_model_fallback"].max()).fillna(0.0).sum()) if len(daily) else float("nan"),
     }
     return daily, summary
 
@@ -538,6 +636,8 @@ def main() -> int:
     print(f"[CFG] train_days={TRAIN_DAYS} test_days={TEST_DAYS} step_days={STEP_DAYS} purge_days={PURGE_DAYS} embargo_days={EMBARGO_DAYS}")
     print(f"[CFG] ridge_l2={RIDGE_L2} max_alphas={MAX_ALPHAS} min_alpha_days={MIN_ALPHA_DAYS} min_alpha_abs_ic={MIN_ALPHA_ABS_IC} corr_prune={CORR_PRUNE}")
     print(f"[CFG] enter_pct={ENTER_PCT} exit_pct={EXIT_PCT} weight_cap={WEIGHT_CAP} max_daily_turnover={MAX_DAILY_TURNOVER}")
+    print(f"[CFG] position_limits_module={_HAS_POSITION_LIMITS} cost_model_module={_HAS_COST_MODEL}")
+    print(f"[CFG] low_price_min={LOW_PRICE_MIN} low_dv_min={LOW_DV_MIN} max_adv_participation={MAX_ADV_PARTICIPATION}")
     print(f"[CFG] top_pct strong/neutral/weak={TOP_PCT_STRONG}/{TOP_PCT_NEUTRAL}/{TOP_PCT_WEAK} budgets={BUDGET_MODE} regime={REGIME_MODE}")
 
     df = load_alpha_library()

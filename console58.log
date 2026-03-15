@@ -26,15 +26,17 @@
   "fold_summaries": [
     {
       "days": 63.0,
-      "mean_daily": -0.0012169821707050511,
-      "std_daily": 0.006224837315006957,
-      "sharpe": -3.10353380520204,
-      "hit_rate": 0.4126984126984127,
-      "cum_ret": -0.07500018846564926,
-      "max_drawdown": -0.07207221945939424,
+      "mean_daily": -0.0010210489298563363,
+      "std_daily": 0.004621584336699206,
+      "sharpe": -3.507162930416251,
+      "hit_rate": 0.4444444444444444,
+      "cum_ret": -0.06296956477166205,
+      "max_drawdown": -0.06355368333902589,
       "avg_turnover": 0.3500000000000002,
-      "avg_gross": 0.3119756941748054,
+      "avg_gross": 0.297252835227986,
       "avg_top_pct": 0.060000000000000005,
+      "position_limits_fallback_days": 0.0,
+      "cost_model_fallback_days": 0.0,
       "selected_alpha_count": 5.0,
       "selected_alpha_list": "alpha_cond_breadth_trend_mom_compression,alpha_cond_ivol_lowliq_penalty,alpha_rev1__hi_liq,alpha_cond_vol_compression_liq_breakout,alpha_wick_imbalance__z_range_comp",
       "usable_train_rows": 24444.0,
@@ -44,15 +46,17 @@
     },
     {
       "days": 63.0,
-      "mean_daily": -0.00032607478225332324,
-      "std_daily": 0.002930053795907021,
-      "sharpe": -1.766614900168416,
-      "hit_rate": 0.4126984126984127,
-      "cum_ret": -0.020601516901004313,
-      "max_drawdown": -0.03353058530684416,
+      "mean_daily": -0.00020663375713201196,
+      "std_daily": 0.0026598454758629923,
+      "sharpe": -1.2332329947685527,
+      "hit_rate": 0.3968253968253968,
+      "cum_ret": -0.013155041186582062,
+      "max_drawdown": -0.02769258920506168,
       "avg_turnover": 0.3500000000000002,
-      "avg_gross": 0.2543144461961243,
+      "avg_gross": 0.25945673948578546,
       "avg_top_pct": 0.060000000000000005,
+      "position_limits_fallback_days": 0.0,
+      "cost_model_fallback_days": 0.0,
       "selected_alpha_count": 10.0,
       "selected_alpha_list": "alpha_cond_ivol_lowliq_penalty,alpha_cond_breadth_trend_mom_compression,alpha_pressure__hi_liq,alpha_rev1__hi_rvol,alpha_rev1__hi_liq,alpha_rev1__rank_rvol,alpha_mom3__hi_liq,alpha_cond_vol_compression_liq_breakout,alpha_cond_breadth_weak_overnight,alpha_cond_breadth_trend_intraday_rs",
       "usable_train_rows": 24444.0,
@@ -62,15 +66,17 @@
     },
     {
       "days": 63.0,
-      "mean_daily": 0.00023684866393112767,
-      "std_daily": 0.005163129593416149,
-      "sharpe": 0.7282125908255908,
-      "hit_rate": 0.5396825396825397,
-      "cum_ret": 0.014185551431102228,
-      "max_drawdown": -0.040295770839628875,
+      "mean_daily": 0.00013318057079893077,
+      "std_daily": 0.004705983082318384,
+      "sharpe": 0.4492527876464053,
+      "hit_rate": 0.5555555555555556,
+      "cum_ret": 0.007720966852457378,
+      "max_drawdown": -0.03972333924390181,
       "avg_turnover": 0.3500000000000002,
-      "avg_gross": 0.22088198996433606,
+      "avg_gross": 0.22945165268488799,
       "avg_top_pct": 0.060000000000000005,
+      "position_limits_fallback_days": 0.0,
+      "cost_model_fallback_days": 0.0,
       "selected_alpha_count": 8.0,
       "selected_alpha_list": "alpha_cond_breadth_trend_mom_compression,alpha_cond_ivol_lowliq_penalty,alpha_rev1__rank_rvol,alpha_cond_momentum_liq_trend,alpha_rev1__hi_rvol,alpha_cond_vol_compression_liq_breakout,alpha_rev1__hi_liq,alpha_cond_breadth_trend_intraday_rs",
       "usable_train_rows": 24444.0,
@@ -80,15 +86,17 @@
     },
     {
       "days": 63.0,
-      "mean_daily": -3.442425993599256e-05,
-      "std_daily": 0.006474615997233675,
-      "sharpe": -0.08440163637466132,
-      "hit_rate": 0.31746031746031744,
-      "cum_ret": -0.003462934412323704,
-      "max_drawdown": -0.04653697914024324,
+      "mean_daily": 0.00022406126124208556,
+      "std_daily": 0.0062669908099018375,
+      "sharpe": 0.5675550453900153,
+      "hit_rate": 0.47619047619047616,
+      "cum_ret": 0.01297689697552884,
+      "max_drawdown": -0.032262102851512764,
       "avg_turnover": 0.3500000000000002,
-      "avg_gross": 0.2721376336317335,
+      "avg_gross": 0.28716350484254477,
       "avg_top_pct": 0.060000000000000005,
+      "position_limits_fallback_days": 0.0,
+      "cost_model_fallback_days": 0.0,
       "selected_alpha_count": 11.0,
       "selected_alpha_list": "alpha_cond_breadth_trend_mom_compression,alpha_cond_ivol_lowliq_penalty,alpha_rev1__rank_rvol,alpha_rev1__hi_rvol,alpha_mom3__z_rvol,alpha_wick_imbalance__z_range_comp,alpha_cond_momentum_liq_trend,alpha_cond_str_weak_breadth,alpha_cond_breadth_trend_intraday_rs,alpha_rev1__hi_liq,alpha_cond_vol_compression_liq_breakout",
       "usable_train_rows": 24444.0,
@@ -98,15 +106,17 @@
     },
     {
       "days": 63.0,
-      "mean_daily": 0.0009263178908460588,
-      "std_daily": 0.0064346557655251425,
-      "sharpe": 2.285256768747432,
-      "hit_rate": 0.5238095238095238,
-      "cum_ret": 0.058696294748964206,
-      "max_drawdown": -0.035000251062375365,
+      "mean_daily": 0.0005669848391427947,
+      "std_daily": 0.0054013858943834335,
+      "sharpe": 1.6663510927422518,
+      "hit_rate": 0.5714285714285714,
+      "cum_ret": 0.03540283426867763,
+      "max_drawdown": -0.03861288105911986,
       "avg_turnover": 0.3500000000000002,
-      "avg_gross": 0.26747828128435347,
+      "avg_gross": 0.2836577477927968,
       "avg_top_pct": 0.060000000000000005,
+      "position_limits_fallback_days": 0.0,
+      "cost_model_fallback_days": 0.0,
       "selected_alpha_count": 6.0,
       "selected_alpha_list": "alpha_cond_breadth_range_str,alpha_rev1__z_rvol,alpha_wick_imbalance__z_range_comp,alpha_mom3__z_rvol,alpha_cond_str_weak_breadth,alpha_cond_breadth_trend_mom_compression",
       "usable_train_rows": 24444.0,
@@ -116,15 +126,17 @@
     },
     {
       "days": 63.0,
-      "mean_daily": -0.0003436111133199379,
-      "std_daily": 0.0024988120078306983,
-      "sharpe": -2.182900235031288,
-      "hit_rate": 0.38095238095238093,
-      "cum_ret": -0.021610948360639037,
-      "max_drawdown": -0.019529170900809634,
+      "mean_daily": -0.0002887161797694743,
+      "std_daily": 0.0020302491565507455,
+      "sharpe": -2.2574703453801703,
+      "hit_rate": 0.42857142857142855,
+      "cum_ret": -0.01815484464938022,
+      "max_drawdown": -0.01295048494867812,
       "avg_turnover": 0.3500000000000002,
-      "avg_gross": 0.2472492029676647,
+      "avg_gross": 0.2530941506454977,
       "avg_top_pct": 0.060000000000000005,
+      "position_limits_fallback_days": 0.0,
+      "cost_model_fallback_days": 0.0,
       "selected_alpha_count": 4.0,
       "selected_alpha_list": "alpha_wick_imbalance__z_range_comp,alpha_mom3__z_rvol,alpha_gap__z_rvol,alpha_cond_breadth_weak_overnight",
       "usable_train_rows": 24444.0,
@@ -134,15 +146,17 @@
     },
     {
       "days": 63.0,
-      "mean_daily": 0.0007222325006239616,
-      "std_daily": 0.004471947397159428,
-      "sharpe": 2.5637791529557443,
-      "hit_rate": 0.5238095238095238,
-      "cum_ret": 0.04587975339408601,
-      "max_drawdown": -0.022353111134748804,
+      "mean_daily": 0.00034996658910072177,
+      "std_daily": 0.0027557121674063687,
+      "sharpe": 2.0160114816581167,
+      "hit_rate": 0.5873015873015873,
+      "cum_ret": 0.02204438853493018,
+      "max_drawdown": -0.011563684746143998,
       "avg_turnover": 0.3500000000000002,
-      "avg_gross": 0.30337054681157954,
+      "avg_gross": 0.3097650654428718,
       "avg_top_pct": 0.060000000000000005,
+      "position_limits_fallback_days": 0.0,
+      "cost_model_fallback_days": 0.0,
       "selected_alpha_count": 3.0,
       "selected_alpha_list": "alpha_cond_breadth_trend_mom_compression,alpha_cond_vol_compression_liq_breakout,alpha_mom3__z_rvol",
       "usable_train_rows": 24444.0,
@@ -152,15 +166,17 @@
     },
     {
       "days": 63.0,
-      "mean_daily": -0.0010832511886456496,
-      "std_daily": 0.003934812667413316,
-      "sharpe": -4.370240965591689,
-      "hit_rate": 0.3968253968253968,
-      "cum_ret": -0.06645907974905696,
-      "max_drawdown": -0.07927115477521329,
-      "avg_turnover": 0.3452060372372555,
-      "avg_gross": 0.44449835800879384,
+      "mean_daily": -0.0010632957268438225,
+      "std_daily": 0.0039002009777123984,
+      "sharpe": -4.32780168822249,
+      "hit_rate": 0.42857142857142855,
+      "cum_ret": -0.06527579037814113,
+      "max_drawdown": -0.07399175737112751,
+      "avg_turnover": 0.3370367755921767,
+      "avg_gross": 0.44973559222156745,
       "avg_top_pct": 0.060000000000000005,
+      "position_limits_fallback_days": 0.0,
+      "cost_model_fallback_days": 0.0,
       "selected_alpha_count": 3.0,
       "selected_alpha_list": "alpha_rev1__hi_rvol,alpha_cond_breadth_range_str,alpha_cond_breadth_trend_mom_compression",
       "usable_train_rows": 24444.0,
@@ -171,13 +187,13 @@
   ],
   "overall_summary": {
     "days": 504.0,
-    "mean_daily": -0.00013986805743235076,
-    "std_daily": 0.0050398614729312095,
-    "sharpe": -0.4405550806209525,
-    "hit_rate": 0.4384920634920635,
-    "cum_ret": -0.07400201958164065,
-    "max_drawdown": -0.12130319169070791,
-    "avg_turnover": 0.34940075465465686,
+    "mean_daily": -0.000163187666664639,
+    "std_daily": 0.004309230053516895,
+    "sharpe": -0.6011570200226086,
+    "hit_rate": 0.4861111111111111,
+    "cum_ret": -0.08325603505282464,
+    "max_drawdown": -0.09869329094163604,
+    "avg_turnover": 0.348379596949022,
     "folds": 8
   },
   "top_weights_preview": [
@@ -478,216 +494,3 @@
   ],
   "alpha_count": 29
 }
-
-
-
-
-https://github.com/Hahn-pixel/Python-Edge/blob/main/src/python_edge/portfolio/position_limits.py
-
-from __future__ import annotations
-
-import pandas as pd
-
-
-
-def apply_position_filters(
-    df: pd.DataFrame,
-    side_col: str = "side",
-    min_price: float = 5.0,
-    min_dollar_volume: float = 1_000_000.0,
-) -> pd.DataFrame:
-    out = df.copy()
-    required = ["meta_price", "meta_dollar_volume", side_col]
-    missing = [c for c in required if c not in out.columns]
-    if missing:
-        raise RuntimeError(f"apply_position_filters: missing columns: {missing}")
-    bad_price = pd.to_numeric(out["meta_price"], errors="coerce") < min_price
-    bad_dv = pd.to_numeric(out["meta_dollar_volume"], errors="coerce") < min_dollar_volume
-    drop_mask = bad_price | bad_dv
-    out.loc[drop_mask, side_col] = 0.0
-    out["blocked_low_price"] = bad_price.astype("int64")
-    out["blocked_low_dv"] = bad_dv.astype("int64")
-    return out
-
-
-
-def normalize_gross_exposure(
-    df: pd.DataFrame,
-    side_col: str = "side",
-    gross_target: float = 1.0,
-    out_col: str = "weight",
-) -> pd.DataFrame:
-    out = df.copy()
-    if "date" not in out.columns or side_col not in out.columns:
-        raise RuntimeError("normalize_gross_exposure: missing date/side")
-    out[out_col] = 0.0
-    raw_side = pd.to_numeric(out[side_col], errors="coerce").fillna(0.0)
-    for _, idx in out.groupby("date").groups.items():
-        gross = float(raw_side.loc[idx].abs().sum())
-        if gross <= 0.0:
-            continue
-        out.loc[idx, out_col] = raw_side.loc[idx] * (gross_target / gross)
-    return out
-
-
-
-def cap_final_weight(
-    df: pd.DataFrame,
-    weight_col: str = "weight",
-    cap_abs_weight: float = 0.08,
-    max_adv_participation: float = 0.05,
-    portfolio_notional: float = 1.0,
-) -> pd.DataFrame:
-    out = df.copy()
-    if weight_col not in out.columns:
-        raise RuntimeError(f"cap_final_weight: missing weight_col={weight_col}")
-
-    w = pd.to_numeric(out[weight_col], errors="coerce").fillna(0.0)
-    capped = w.clip(lower=-cap_abs_weight, upper=cap_abs_weight)
-    out["weight_cap_rule"] = (w != capped).astype("int64")
-
-    if "meta_dollar_volume" in out.columns and portfolio_notional > 0.0 and max_adv_participation > 0.0:
-        dv = pd.to_numeric(out["meta_dollar_volume"], errors="coerce").fillna(0.0)
-        adv_cap_weight = (dv * max_adv_participation) / portfolio_notional
-        adv_cap_weight = adv_cap_weight.clip(lower=0.0)
-        capped2 = capped.clip(lower=-adv_cap_weight, upper=adv_cap_weight)
-        out["weight_cap_adv_rule"] = (capped != capped2).astype("int64")
-        capped = capped2
-    else:
-        out["weight_cap_adv_rule"] = 0
-
-    out[weight_col] = capped
-    out["weight_capped_flag"] = ((out["weight_cap_rule"] + out["weight_cap_adv_rule"]) > 0).astype("int64")
-    return out
-
-
-
-def renormalize_after_caps(
-    df: pd.DataFrame,
-    weight_col: str = "weight",
-    gross_target: float = 1.0,
-    capital_policy: str = "stay_in_cash",
-) -> pd.DataFrame:
-    out = df.copy()
-    if "date" not in out.columns or weight_col not in out.columns:
-        raise RuntimeError("renormalize_after_caps: missing date/weight")
-    if capital_policy not in {"stay_in_cash", "scale_up_to_target"}:
-        raise ValueError("capital_policy must be one of {'stay_in_cash', 'scale_up_to_target'}")
-
-    out[weight_col] = pd.to_numeric(out[weight_col], errors="coerce").fillna(0.0)
-    out["cash_weight"] = 0.0
-    out["deployed_gross"] = 0.0
-    out["gross_target"] = float(gross_target)
-    out["capital_policy_cash"] = 0
-    out["capital_policy_scaled"] = 0
-
-    for _, idx in out.groupby("date").groups.items():
-        gross = float(out.loc[idx, weight_col].abs().sum())
-        out.loc[idx, "deployed_gross"] = gross
-        if gross <= 0.0:
-            out.loc[idx, "cash_weight"] = gross_target
-            out.loc[idx, "capital_policy_cash"] = 1
-            continue
-        if gross > gross_target:
-            out.loc[idx, weight_col] = out.loc[idx, weight_col] * (gross_target / gross)
-            out.loc[idx, "deployed_gross"] = gross_target
-            out.loc[idx, "cash_weight"] = 0.0
-            out.loc[idx, "capital_policy_scaled"] = 1
-            continue
-        if gross < gross_target:
-            if capital_policy == "scale_up_to_target":
-                out.loc[idx, weight_col] = out.loc[idx, weight_col] * (gross_target / gross)
-                out.loc[idx, "deployed_gross"] = gross_target
-                out.loc[idx, "cash_weight"] = 0.0
-                out.loc[idx, "capital_policy_scaled"] = 1
-            else:
-                out.loc[idx, "deployed_gross"] = gross
-                out.loc[idx, "cash_weight"] = gross_target - gross
-                out.loc[idx, "capital_policy_cash"] = 1
-        else:
-            out.loc[idx, "cash_weight"] = 0.0
-
-    return out
-    
-    
-    
-https://github.com/Hahn-pixel/Python-Edge/blob/main/src/python_edge/execution/cost_model.py
-
-
-from __future__ import annotations
-
-import pandas as pd
-
-
-
-def attach_execution_costs(
-    df: pd.DataFrame,
-    weight_col: str = "weight",
-    fee_bps: float = 1.0,
-    slippage_bps: float = 2.0,
-    borrow_bps_daily: float = 1.0,
-    spread_bps: float = 3.0,
-    impact_bps: float = 8.0,
-    low_price_penalty_bps: float = 4.0,
-    htb_borrow_bps_daily: float = 8.0,
-    max_participation: float = 0.05,
-    portfolio_notional: float = 1.0,
-) -> pd.DataFrame:
-    out = df.copy()
-    required = [weight_col, "meta_dollar_volume", "meta_price", "trade_abs_after"]
-    missing = [c for c in required if c not in out.columns]
-    if missing:
-        raise RuntimeError(f"attach_execution_costs: missing columns: {missing}")
-
-    weight = pd.to_numeric(out[weight_col], errors="coerce").fillna(0.0)
-    trade_abs = pd.to_numeric(out["trade_abs_after"], errors="coerce").fillna(0.0)
-    px = pd.to_numeric(out["meta_price"], errors="coerce").fillna(0.0)
-    dv = pd.to_numeric(out["meta_dollar_volume"], errors="coerce").fillna(0.0)
-
-    fee_cost = trade_abs * (fee_bps / 10000.0)
-
-    spread_rate = pd.Series(spread_bps / 10000.0, index=out.index, dtype="float64")
-    spread_rate.loc[dv < 20_000_000.0] += 1.0 / 10000.0
-    spread_rate.loc[dv < 10_000_000.0] += 2.0 / 10000.0
-    spread_rate.loc[dv < 5_000_000.0] += 4.0 / 10000.0
-    spread_rate.loc[dv < 2_000_000.0] += 8.0 / 10000.0
-    spread_rate.loc[px < 20.0] += low_price_penalty_bps / 10000.0
-    spread_rate.loc[px < 10.0] += low_price_penalty_bps / 10000.0
-
-    participation = pd.Series(0.0, index=out.index, dtype="float64")
-    if portfolio_notional > 0.0:
-        participation = (trade_abs * portfolio_notional) / dv.replace(0.0, pd.NA)
-        participation = pd.to_numeric(participation, errors="coerce").fillna(max_participation * 4.0)
-    participation_clipped = participation.clip(lower=0.0)
-    impact_rate = (impact_bps / 10000.0) * (participation_clipped / max(max_participation, 1e-9)) ** 0.5
-    impact_rate = impact_rate.clip(lower=0.0)
-
-    slippage_rate = (slippage_bps / 10000.0) + spread_rate + impact_rate
-    slippage_cost = trade_abs * slippage_rate
-
-    borrow_rate = pd.Series(0.0, index=out.index, dtype="float64")
-    short_mask = weight < 0.0
-    borrow_rate.loc[short_mask] = borrow_bps_daily / 10000.0
-    borrow_rate.loc[short_mask & (dv < 5_000_000.0)] += 2.0 / 10000.0
-    borrow_rate.loc[short_mask & (dv < 2_000_000.0)] += 4.0 / 10000.0
-    borrow_rate.loc[short_mask & (px < 10.0)] += htb_borrow_bps_daily / 10000.0
-
-    if "borrow_bucket" in out.columns:
-        bucket = out["borrow_bucket"].astype(str).str.upper()
-        borrow_rate.loc[short_mask & (bucket == "HTB")] += htb_borrow_bps_daily / 10000.0
-        borrow_rate.loc[short_mask & (bucket == "VHTB")] += (htb_borrow_bps_daily * 2.0) / 10000.0
-
-    borrow_cost = weight.abs() * borrow_rate
-
-    out["cost_fee"] = fee_cost
-    out["cost_slippage"] = slippage_cost
-    out["cost_borrow"] = borrow_cost
-    out["cost_trading"] = out["cost_fee"] + out["cost_slippage"]
-    out["cost_total"] = out["cost_trading"] + out["cost_borrow"]
-    out["execution_spread_rate"] = spread_rate
-    out["execution_impact_rate"] = impact_rate
-    out["execution_slippage_rate"] = slippage_rate
-    out["execution_participation"] = participation_clipped
-    out["execution_borrow_rate"] = borrow_rate
-    out["execution_participation_flag"] = (participation_clipped > max_participation).astype("int64")
-    return out
