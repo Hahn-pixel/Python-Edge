@@ -85,6 +85,9 @@ MIN_TRAIN_ROWS = int(os.getenv("MIN_TRAIN_ROWS", "3000"))
 MIN_TEST_ROWS = int(os.getenv("MIN_TEST_ROWS", "300"))
 MIN_ALPHA_DAYS = int(os.getenv("MIN_ALPHA_DAYS", "50"))
 MIN_ALPHA_ABS_IC = float(os.getenv("MIN_ALPHA_ABS_IC", "0.004"))
+MIN_STABILITY_BLOCKS = int(os.getenv("MIN_STABILITY_BLOCKS", "3"))
+MIN_SIGN_CONSISTENCY = float(os.getenv("MIN_SIGN_CONSISTENCY", "0.67"))
+MIN_BLOCK_IC_ABS = float(os.getenv("MIN_BLOCK_IC_ABS", "0.0015"))
 MAX_ALPHAS = int(os.getenv("MAX_ALPHAS", "12"))
 RIDGE_L2 = float(os.getenv("RIDGE_L2", "20.0"))
 ENTER_PCT = float(os.getenv("ENTER_PCT", "0.08"))
@@ -289,26 +292,80 @@ def _daily_ic(train_df: pd.DataFrame, factor_col: str, target_col: str, min_cs: 
     return float(np.nanmean(vals)), int(len(vals)), float(pos_days / max(1, used_days))
 
 
+def _block_dates(date_index: pd.Index, n_blocks: int = 4) -> List[pd.Index]:
+    uniq = pd.Index(sorted(pd.to_datetime(pd.Series(date_index)).dt.normalize().unique()))
+    if len(uniq) == 0:
+        return []
+    parts = np.array_split(np.arange(len(uniq)), n_blocks)
+    out: List[pd.Index] = []
+    for p in parts:
+        if len(p) == 0:
+            continue
+        out.append(pd.Index(uniq[p]))
+    return out
+
+
+def _alpha_stability_stats(train_df: pd.DataFrame, factor_col: str, target_col: str) -> Dict[str, float]:
+    blocks = _block_dates(train_df["date"], 4)
+    block_ics: List[float] = []
+    for block_dates in blocks:
+        block_df = train_df.loc[train_df["date"].isin(block_dates)].copy()
+        ic, n_days, _ = _daily_ic(block_df, factor_col, target_col)
+        if n_days > 0 and pd.notna(ic):
+            block_ics.append(float(ic))
+    if not block_ics:
+        return {
+            "block_count": 0.0,
+            "block_hit_count": 0.0,
+            "sign_consistency": float("nan"),
+            "block_ic_mean": float("nan"),
+            "block_ic_median": float("nan"),
+            "block_ic_worst": float("nan"),
+        }
+    signs = [np.sign(x) for x in block_ics if abs(x) >= MIN_BLOCK_IC_ABS]
+    pos = sum(1 for s in signs if s > 0)
+    neg = sum(1 for s in signs if s < 0)
+    sign_consistency = max(pos, neg) / max(1, len(signs)) if signs else 0.0
+    return {
+        "block_count": float(len(block_ics)),
+        "block_hit_count": float(sum(1 for x in block_ics if abs(x) >= MIN_BLOCK_IC_ABS)),
+        "sign_consistency": float(sign_consistency),
+        "block_ic_mean": float(np.mean(block_ics)),
+        "block_ic_median": float(np.median(block_ics)),
+        "block_ic_worst": float(min(block_ics, key=lambda x: abs(x))),
+    }
+
+
 def select_alphas(train_df: pd.DataFrame, alpha_cols: Sequence[str]) -> pd.DataFrame:
     rows: List[Dict[str, object]] = []
     for col in alpha_cols:
         ic, n_days, pos_rate = _daily_ic(train_df, col, TARGET_COL)
-        rows.append({
+        stab = _alpha_stability_stats(train_df, col, TARGET_COL)
+        row = {
             "alpha": col,
             "ic": ic,
             "abs_ic": abs(ic) if pd.notna(ic) else np.nan,
             "n_days": n_days,
             "pos_rate": pos_rate,
-        })
+            **stab,
+        }
+        row["stability_score"] = (
+            (0.55 * (row["abs_ic"] if pd.notna(row["abs_ic"]) else 0.0))
+            + (0.20 * (row["block_ic_mean"] if pd.notna(row["block_ic_mean"]) else 0.0))
+            + (0.15 * (row["sign_consistency"] if pd.notna(row["sign_consistency"]) else 0.0))
+            + (0.10 * (row["block_hit_count"] / 4.0 if pd.notna(row["block_hit_count"]) else 0.0))
+        )
+        rows.append(row)
     sel = pd.DataFrame(rows)
     if sel.empty:
         raise RuntimeError("select_alphas: no alpha diagnostics produced")
     sel = sel.loc[(sel["n_days"] >= MIN_ALPHA_DAYS) & (sel["abs_ic"] >= MIN_ALPHA_ABS_IC)].copy()
     if len(sel):
         sel = sel.loc[(sel["pos_rate"] <= 0.45) | (sel["pos_rate"] >= 0.55)].copy()
+        sel = sel.loc[(sel["block_hit_count"] >= MIN_STABILITY_BLOCKS) & (sel["sign_consistency"] >= MIN_SIGN_CONSISTENCY)].copy()
     if sel.empty:
         raise RuntimeError("select_alphas: no alpha passed min alpha thresholds")
-    sel = sel.sort_values(["abs_ic", "n_days", "alpha"], ascending=[False, False, True]).reset_index(drop=True)
+    sel = sel.sort_values(["stability_score", "abs_ic", "n_days", "alpha"], ascending=[False, False, False, True]).reset_index(drop=True)
 
     picked: List[str] = []
     corr_source = train_df[[c for c in sel["alpha"].tolist() if c in train_df.columns]].copy().fillna(0.0)
@@ -325,7 +382,7 @@ def select_alphas(train_df: pd.DataFrame, alpha_cols: Sequence[str]) -> pd.DataF
         if ok:
             picked.append(alpha)
     sel["selected"] = sel["alpha"].isin(picked).astype(int)
-    sel = sel.sort_values(["selected", "abs_ic", "n_days", "alpha"], ascending=[False, False, False, True]).reset_index(drop=True)
+    sel = sel.sort_values(["selected", "stability_score", "abs_ic", "n_days", "alpha"], ascending=[False, False, False, False, True]).reset_index(drop=True)
     return sel
 
 
@@ -635,6 +692,7 @@ def main() -> int:
     print(f"[CFG] target_col={TARGET_COL}")
     print(f"[CFG] train_days={TRAIN_DAYS} test_days={TEST_DAYS} step_days={STEP_DAYS} purge_days={PURGE_DAYS} embargo_days={EMBARGO_DAYS}")
     print(f"[CFG] ridge_l2={RIDGE_L2} max_alphas={MAX_ALPHAS} min_alpha_days={MIN_ALPHA_DAYS} min_alpha_abs_ic={MIN_ALPHA_ABS_IC} corr_prune={CORR_PRUNE}")
+    print(f"[CFG] stability min_blocks={MIN_STABILITY_BLOCKS} min_sign_consistency={MIN_SIGN_CONSISTENCY} min_block_ic_abs={MIN_BLOCK_IC_ABS}")
     print(f"[CFG] enter_pct={ENTER_PCT} exit_pct={EXIT_PCT} weight_cap={WEIGHT_CAP} max_daily_turnover={MAX_DAILY_TURNOVER}")
     print(f"[CFG] position_limits_module={_HAS_POSITION_LIMITS} cost_model_module={_HAS_COST_MODEL}")
     print(f"[CFG] low_price_min={LOW_PRICE_MIN} low_dv_min={LOW_DV_MIN} max_adv_participation={MAX_ADV_PARTICIPATION}")
