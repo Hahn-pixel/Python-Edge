@@ -12,6 +12,15 @@ import numpy as np
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
+SRC_DIR = ROOT / "src"
+for _p in [ROOT, SRC_DIR]:
+    _ps = str(_p)
+    if _ps not in sys.path:
+        sys.path.insert(0, _ps)
+
+from python_edge.portfolio.holding_inertia import apply_holding_inertia
+from python_edge.portfolio.turnover_control import cap_daily_turnover
+
 ALPHA_LIB_FILE = Path(os.getenv("ALPHA_LIB_FILE", r"data\alpha_library\alpha_library_v1.parquet"))
 OUT_DIR = Path(os.getenv("MULTI_ALPHA_WF_OUT_DIR", r"artifacts\multi_alpha_wf"))
 PAUSE_ON_EXIT_ENV = str(os.getenv("PAUSE_ON_EXIT", "auto")).strip().lower()
@@ -29,6 +38,7 @@ MIN_ALPHA_ABS_IC = float(os.getenv("MIN_ALPHA_ABS_IC", "0.004"))
 MAX_ALPHAS = int(os.getenv("MAX_ALPHAS", "12"))
 RIDGE_L2 = float(os.getenv("RIDGE_L2", "20.0"))
 ENTER_PCT = float(os.getenv("ENTER_PCT", "0.08"))
+EXIT_PCT = float(os.getenv("EXIT_PCT", "0.16"))
 GROSS_TARGET = float(os.getenv("GROSS_TARGET", "1.0"))
 WEIGHT_CAP = float(os.getenv("WEIGHT_CAP", "0.06"))
 MAX_DAILY_TURNOVER = float(os.getenv("MAX_DAILY_TURNOVER", "0.35"))
@@ -141,12 +151,6 @@ def _rank_abs_pct_by_date(df: pd.DataFrame, col: str) -> pd.Series:
     return df.groupby("date", sort=False)[col].transform(lambda s: _safe_numeric(s).abs().rank(method="average", pct=True))
 
 
-def _sign_match(a: float, b: float) -> bool:
-    if not np.isfinite(a) or not np.isfinite(b):
-        return False
-    return (a > 0 and b > 0) or (a < 0 and b < 0)
-
-
 # ------------------------------------------------------------
 # LOAD / SPLITS
 # ------------------------------------------------------------
@@ -240,7 +244,8 @@ def select_alphas(train_df: pd.DataFrame, alpha_cols: Sequence[str]) -> pd.DataF
     if sel.empty:
         raise RuntimeError("select_alphas: no alpha diagnostics produced")
     sel = sel.loc[(sel["n_days"] >= MIN_ALPHA_DAYS) & (sel["abs_ic"] >= MIN_ALPHA_ABS_IC)].copy()
-    sel = sel.loc[(sel["pos_rate"] >= 0.45) & (sel["pos_rate"] <= 0.55) == False].copy() if len(sel) else sel
+    if len(sel):
+        sel = sel.loc[(sel["pos_rate"] <= 0.45) | (sel["pos_rate"] >= 0.55)].copy()
     if sel.empty:
         raise RuntimeError("select_alphas: no alpha passed min alpha thresholds")
     sel = sel.sort_values(["abs_ic", "n_days", "alpha"], ascending=[False, False, True]).reset_index(drop=True)
@@ -287,13 +292,10 @@ def fit_ridge_weights(train_df: pd.DataFrame, selected_alphas: Sequence[str]) ->
             usable_rows = rows
             break
     if usable_mask is None:
-        # Final fallback: require only valid target and treat sparse alpha entries as inactive 0.0.
         mask = valid_target
         rows = int(mask.sum())
         if rows <= 0:
-            raise RuntimeError(
-                f"fit_ridge_weights: zero usable train rows; selected_alphas={len(selected_alphas)}"
-            )
+            raise RuntimeError(f"fit_ridge_weights: zero usable train rows; selected_alphas={len(selected_alphas)}")
         chosen_min_active = 0
         usable_mask = mask
         usable_rows = rows
@@ -382,14 +384,8 @@ def attach_dynamic_allocations(df: pd.DataFrame) -> pd.DataFrame:
     out["short_mult"] = 1.0
     out["alloc_regime"] = "neutral"
 
-    strong_long = (
-        (_safe_numeric(out["market_breadth"]) >= BREADTH_STRONG)
-        & (_safe_numeric(out["market_intraday_pressure"]) >= PRESSURE_STRONG)
-    )
-    strong_short = (
-        (_safe_numeric(out["market_breadth"]) <= BREADTH_WEAK)
-        & (_safe_numeric(out["market_intraday_pressure"]) <= PRESSURE_WEAK)
-    )
+    strong_long = ((_safe_numeric(out["market_breadth"]) >= BREADTH_STRONG) & (_safe_numeric(out["market_intraday_pressure"]) >= PRESSURE_STRONG))
+    strong_short = ((_safe_numeric(out["market_breadth"]) <= BREADTH_WEAK) & (_safe_numeric(out["market_intraday_pressure"]) <= PRESSURE_WEAK))
     panic = _safe_numeric(out["market_volume_shock"]) >= VOLSHOCK_STRONG
 
     if REGIME_MODE == "dynamic":
@@ -407,31 +403,12 @@ def attach_dynamic_allocations(df: pd.DataFrame) -> pd.DataFrame:
 
 def build_portfolio(scored_df: pd.DataFrame) -> pd.DataFrame:
     out = attach_dynamic_allocations(scored_df.copy())
-    out["signal_side"] = 0
-    if SIDE == "long_only":
-        out.loc[out["score_model_z"] > 0, "signal_side"] = 1
-    elif SIDE == "short_only":
-        out.loc[out["score_model_z"] < 0, "signal_side"] = -1
-    else:
-        out.loc[out["score_model_z"] > 0, "signal_side"] = 1
-        out.loc[out["score_model_z"] < 0, "signal_side"] = -1
+    out["score"] = _safe_numeric(out["score_model_z"])
+    out = apply_holding_inertia(out, enter_pct=ENTER_PCT, exit_pct=EXIT_PCT)
+    if "side" not in out.columns:
+        raise RuntimeError("apply_holding_inertia did not return side column")
 
-    if SIDE != "short_only":
-        out["long_rank_pct"] = out.groupby("date", sort=False)["score_model_z"].transform(lambda s: _safe_numeric(s).rank(method="average", pct=True))
-    else:
-        out["long_rank_pct"] = np.nan
-    if SIDE != "long_only":
-        out["short_rank_pct"] = out.groupby("date", sort=False)["score_model_z"].transform(lambda s: _safe_numeric(-s).rank(method="average", pct=True))
-    else:
-        out["short_rank_pct"] = np.nan
-
-    out["side"] = 0
-    if SIDE != "short_only":
-        out.loc[(out["signal_side"] > 0) & (out["long_rank_pct"] >= 1.0 - out["top_pct"]), "side"] = 1
-    if SIDE != "long_only":
-        out.loc[(out["signal_side"] < 0) & (out["short_rank_pct"] >= 1.0 - out["top_pct"]), "side"] = -1
-
-    out["raw_strength"] = out["score_model_z"].abs().fillna(0.0)
+    out["raw_strength"] = out["score"].abs().fillna(0.0)
     out.loc[out["side"] == 0, "raw_strength"] = 0.0
     out.loc[out["side"] > 0, "raw_strength"] *= _safe_numeric(out["long_mult"])
     out.loc[out["side"] < 0, "raw_strength"] *= _safe_numeric(out["short_mult"])
@@ -460,16 +437,18 @@ def build_portfolio(scored_df: pd.DataFrame) -> pd.DataFrame:
             gg["weight"] = gg["weight"] * (GROSS_TARGET / gross)
         pieces.append(gg)
     out = pd.concat(pieces, ignore_index=True)
-    out = out.sort_values(["symbol", "date"]).reset_index(drop=True)
-    out["prev_weight"] = out.groupby("symbol", sort=False)["weight"].shift(1).fillna(0.0)
-    out["turnover_pre"] = (out["weight"] - out["prev_weight"]).abs()
+    out = out.sort_values(["date", "symbol"]).reset_index(drop=True)
 
-    daily_turn = out.groupby("date", sort=False)["turnover_pre"].transform("sum")
-    out["daily_turnover_pre_cap"] = daily_turn
-    scale = np.minimum(1.0, MAX_DAILY_TURNOVER / (daily_turn + EPS))
-    out["turnover_scale"] = scale
-    out["weight"] = out["prev_weight"] + (out["weight"] - out["prev_weight"]) * out["turnover_scale"]
-    out["turnover"] = (out["weight"] - out["prev_weight"]).abs()
+    out["trade_strength"] = out["raw_strength"].fillna(0.0)
+    out["mandatory_exit"] = 0
+    out["risk_trim"] = 0
+    out["keep_add"] = ((out["side"] != 0) & (out["weight"].abs() > 0)).astype(int)
+    out["new_entry"] = ((out["side"] != 0) & (out["weight"].abs() > 0)).astype(int)
+    out = cap_daily_turnover(out, weight_col="weight", max_daily_turnover=MAX_DAILY_TURNOVER)
+    if "turnover" not in out.columns:
+        out = out.sort_values(["symbol", "date"]).reset_index(drop=True)
+        out["prev_weight"] = out.groupby("symbol", sort=False)["weight"].shift(1).fillna(0.0)
+        out["turnover"] = (out["weight"] - out["prev_weight"]).abs()
     return out
 
 
@@ -558,8 +537,8 @@ def main() -> int:
     print(f"[CFG] target_col={TARGET_COL}")
     print(f"[CFG] train_days={TRAIN_DAYS} test_days={TEST_DAYS} step_days={STEP_DAYS} purge_days={PURGE_DAYS} embargo_days={EMBARGO_DAYS}")
     print(f"[CFG] ridge_l2={RIDGE_L2} max_alphas={MAX_ALPHAS} min_alpha_days={MIN_ALPHA_DAYS} min_alpha_abs_ic={MIN_ALPHA_ABS_IC} corr_prune={CORR_PRUNE}")
+    print(f"[CFG] enter_pct={ENTER_PCT} exit_pct={EXIT_PCT} weight_cap={WEIGHT_CAP} max_daily_turnover={MAX_DAILY_TURNOVER}")
     print(f"[CFG] top_pct strong/neutral/weak={TOP_PCT_STRONG}/{TOP_PCT_NEUTRAL}/{TOP_PCT_WEAK} budgets={BUDGET_MODE} regime={REGIME_MODE}")
-    print(f"[CFG] weight_cap={WEIGHT_CAP} max_daily_turnover={MAX_DAILY_TURNOVER} cost_bps={COST_BPS}")
 
     df = load_alpha_library()
     alpha_cols = _alpha_cols(df)
@@ -632,6 +611,7 @@ def main() -> int:
         "ridge_l2": RIDGE_L2,
         "corr_prune": CORR_PRUNE,
         "enter_pct": ENTER_PCT,
+        "exit_pct": EXIT_PCT,
         "gross_target": GROSS_TARGET,
         "weight_cap": WEIGHT_CAP,
         "max_daily_turnover": MAX_DAILY_TURNOVER,

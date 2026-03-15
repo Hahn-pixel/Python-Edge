@@ -5,10 +5,11 @@ __pycache__/
 data/raw/
 data/interim/
 data/processed/
+data/diagnostics/
+data/logs/
 outputs/logs/
 outputs/reports/
 *.zip
-data/
 models/
 cache/
 *.jsonl

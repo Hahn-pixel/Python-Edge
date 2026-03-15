@@ -1,0 +1,212 @@
+{
+  "generated_at": "2026-03-14T21:30:48",
+  "dataset_root": "D:\\massive_dataset",
+  "start": "2023-01-01",
+  "end": "2026-02-28",
+  "out_parquet": "data\\features\\feature_matrix_v1.parquet",
+  "out_csv": "data\\features\\feature_matrix_v1.csv",
+  "out_meta": "data\\features\\feature_matrix_v1.meta.json",
+  "csv_max_rows": 250000,
+  "min_rows_per_symbol": 40,
+  "target_horizons": [
+    1,
+    2,
+    3,
+    5
+  ],
+  "feature_config": {
+    "mom_lookbacks": [
+      1,
+      3,
+      5
+    ],
+    "rv_lookback": 10,
+    "atr_lookback": 14,
+    "ema_fast": 10,
+    "ema_slow": 30
+  },
+  "load_debug": {
+    "symbols_seen": 97,
+    "symbols_loaded": 97,
+    "symbols_empty": 0,
+    "symbols_too_short": 0
+  },
+  "debug_summary": {
+    "rows": 76727,
+    "symbols": 97,
+    "dates": 791,
+    "feature_cols": 35,
+    "target_cols": 4,
+    "rows_per_symbol_min": 791,
+    "rows_per_symbol_median": 791.0,
+    "rows_per_symbol_max": 791,
+    "rows_per_date_min": 97,
+    "rows_per_date_median": 97.0,
+    "rows_per_date_max": 97,
+    "top_nan_ratio_features": [
+      [
+        "atr_pct",
+        0.017699
+      ],
+      [
+        "atr_pct__pct",
+        0.017699
+      ],
+      [
+        "compression",
+        0.017699
+      ],
+      [
+        "compression__pct",
+        0.017699
+      ],
+      [
+        "rel_rv_to_atr",
+        0.017699
+      ],
+      [
+        "rel_rv_to_atr__pct",
+        0.017699
+      ],
+      [
+        "rv_10",
+        0.012642
+      ],
+      [
+        "rv_10__pct",
+        0.012642
+      ],
+      [
+        "mom_5d",
+        0.006321
+      ],
+      [
+        "mom_5d__pct",
+        0.006321
+      ],
+      [
+        "mom_5d_minus_mom_1d",
+        0.006321
+      ],
+      [
+        "mom_5d_minus_mom_1d__pct",
+        0.006321
+      ],
+      [
+        "mom_3d",
+        0.003793
+      ],
+      [
+        "mom_3d__pct",
+        0.003793
+      ],
+      [
+        "ema_slow_slope",
+        0.001264
+      ],
+      [
+        "ema_slow_slope__pct",
+        0.001264
+      ],
+      [
+        "gap_ret",
+        0.001264
+      ],
+      [
+        "mom_1d",
+        0.001264
+      ],
+      [
+        "mom_1d__pct",
+        0.001264
+      ],
+      [
+        "ret_1d",
+        0.001264
+      ],
+      [
+        "ret_1d_simple",
+        0.001264
+      ],
+      [
+        "close",
+        0.0
+      ],
+      [
+        "dollar_vol",
+        0.0
+      ],
+      [
+        "ema_slow",
+        0.0
+      ],
+      [
+        "high",
+        0.0
+      ],
+      [
+        "hl_range_pct",
+        0.0
+      ],
+      [
+        "is_high_mom_5d",
+        0.0
+      ],
+      [
+        "is_high_rv10",
+        0.0
+      ],
+      [
+        "liq",
+        0.0
+      ],
+      [
+        "low",
+        0.0
+      ]
+    ]
+  },
+  "columns": [
+    "date",
+    "symbol",
+    "open",
+    "high",
+    "low",
+    "close",
+    "volume",
+    "vwap",
+    "n_trades",
+    "ret_1d",
+    "mom_1d",
+    "mom_3d",
+    "mom_5d",
+    "rv_10",
+    "atr_pct",
+    "ema_slow",
+    "ema_slow_slope",
+    "compression",
+    "mom_1d__pct",
+    "mom_3d__pct",
+    "mom_5d__pct",
+    "rv_10__pct",
+    "atr_pct__pct",
+    "ema_slow_slope__pct",
+    "compression__pct",
+    "is_high_mom_5d",
+    "is_high_rv10",
+    "mom_5d_minus_mom_1d",
+    "mom_5d_minus_mom_1d__pct",
+    "rel_rv_to_atr",
+    "rel_rv_to_atr__pct",
+    "ret_1d_simple",
+    "gap_ret",
+    "hl_range_pct",
+    "oc_body_pct",
+    "dollar_vol",
+    "liq",
+    "target_fwd_ret_1d",
+    "target_fwd_ret_2d",
+    "target_fwd_ret_3d",
+    "target_fwd_ret_5d"
+  ]
+}
