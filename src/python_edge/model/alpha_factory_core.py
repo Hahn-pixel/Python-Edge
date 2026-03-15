@@ -90,10 +90,10 @@ def generate_factory_alphas(df: pd.DataFrame) -> pd.DataFrame:
     for r in ALL_RECIPES:
         if r.left not in base_lookup:
             raise RuntimeError(f"Unknown base signal: {r.left}")
-        if base_lookup[r.left] not in out.columns:
-            raise RuntimeError(f"Missing base column: {base_lookup[r.left]}")
-
-        base = _safe(out[base_lookup[r.left]])
+        base_col = base_lookup[r.left]
+        if base_col not in out.columns:
+            raise RuntimeError(f"Missing base column: {base_col}")
+        base = _safe(out[base_col])
 
         if r.transform == "z":
             base = _cs_z_from_series(out, base)
@@ -119,9 +119,10 @@ def generate_factory_alphas(df: pd.DataFrame) -> pd.DataFrame:
         if r.modulator is not None:
             if r.modulator not in mod_lookup:
                 raise RuntimeError(f"Unknown modulator: {r.modulator}")
-            if mod_lookup[r.modulator] not in out.columns:
-                raise RuntimeError(f"Missing modulator column: {mod_lookup[r.modulator]}")
-            mod = _safe(out[mod_lookup[r.modulator]])
+            mod_col = mod_lookup[r.modulator]
+            if mod_col not in out.columns:
+                raise RuntimeError(f"Missing modulator column: {mod_col}")
+            mod = _safe(out[mod_col])
             mod_rank = mod.groupby(out["date"], sort=False).rank(method="average", pct=True)
             if r.regime == "hi":
                 base = base * (mod_rank >= 0.70).astype("float64")
