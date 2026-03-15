@@ -1,0 +1,26 @@
+{
+  "rows": 76727,
+  "alpha_count": 20,
+  "alpha_cols": [
+    "alpha_rev1_hi_rvol",
+    "alpha_rev1_lo_rvol",
+    "alpha_rev1_z_rvol",
+    "alpha_rev1_rank_rvol",
+    "alpha_gap_hi_rvol",
+    "alpha_gap_z_rvol",
+    "alpha_pressure_hi_liq",
+    "alpha_pressure_z_liq",
+    "alpha_mom3_hi_rvol",
+    "alpha_rev1_tanh_rvol",
+    "alpha_rev1_clip_breadth",
+    "alpha_gap_tanh_breadth",
+    "alpha_mom3_square_rvol",
+    "alpha_volcomp_liq",
+    "alpha_intraday_rs_breadth",
+    "alpha_rev1_hi_rvol_lag1",
+    "alpha_rev1_hi_rvol_lag2",
+    "alpha_rev1_rvol_ema3",
+    "alpha_gap_rvol_lag1",
+    "alpha_pressure_liq_lag1"
+  ]
+}

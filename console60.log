@@ -1,0 +1,76 @@
+>> '@ | python - $logPath
+[ALPHA_FACTORY] rows=76727
+[ALPHA_FACTORY] alpha_count=20
+[ARTIFACT] C:\Users\Dmytro Govor\Documents\Python-Edge\data\alpha_library_v2\alpha_library_v2.parquet
+[ARTIFACT] C:\Users\Dmytro Govor\Documents\Python-Edge\data\alpha_library_v2\alpha_library_v2.meta.json
+[PY_EXITCODE] 0
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> if ($LASTEXITCODE -ne 0) {
+>>     throw "generate_alpha_library_v2.py failed with exit code $LASTEXITCODE"
+>> }
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python -c "import ast; ast.parse(open(r'.\scripts\generate_alpha_library_v2.py','rb').read())"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> if ($LASTEXITCODE -ne 0) {
+>>     throw "AST parse failed: generate_alpha_library_v2.py"
+>> }
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python -c "import ast; ast.parse(open(r'.\src\python_edge\model\alpha_factory_specs.py','rb').read())"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> if ($LASTEXITCODE -ne 0) {
+>>     throw "AST parse failed: alpha_factory_specs.py"
+>> }
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python -c "import ast; ast.parse(open(r'.\src\python_edge\model\alpha_factory_core.py','rb').read())"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> if ($LASTEXITCODE -ne 0) {
+>>     throw "AST parse failed: alpha_factory_core.py"
+>> }
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> Write-Host ""
+
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> Write-Host "[TAIL]"
+[TAIL]
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> Get-Content $logPath -Tail 120 | ForEach-Object { Write-Host $_ }
+[ALPHA_FACTORY] rows=76727
+[ALPHA_FACTORY] alpha_count=20
+[ARTIFACT] C:\Users\Dmytro Govor\Documents\Python-Edge\data\alpha_library_v2\alpha_library_v2.parquet
+[ARTIFACT] C:\Users\Dmytro Govor\Documents\Python-Edge\data\alpha_library_v2\alpha_library_v2.meta.json
+[PY_EXITCODE] 0
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> Write-Host ""
+
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> Write-Host "[OK] generate_alpha_library_v2.py finished successfully"
+[OK] generate_alpha_library_v2.py finished successfully
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> Write-Host "[LOG] $logPath"
+[LOG] .\artifacts\logs\generate_alpha_library_v2__20260315_191650.log
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+
+
+-----------
+
+alpha_library_v2.meta.json
+
+{
+  "rows": 76727,
+  "alpha_count": 20,
+  "alpha_cols": [
+    "alpha_rev1_hi_rvol",
+    "alpha_rev1_lo_rvol",
+    "alpha_rev1_z_rvol",
+    "alpha_rev1_rank_rvol",
+    "alpha_gap_hi_rvol",
+    "alpha_gap_z_rvol",
+    "alpha_pressure_hi_liq",
+    "alpha_pressure_z_liq",
+    "alpha_mom3_hi_rvol",
+    "alpha_rev1_tanh_rvol",
+    "alpha_rev1_clip_breadth",
+    "alpha_gap_tanh_breadth",
+    "alpha_mom3_square_rvol",
+    "alpha_volcomp_liq",
+    "alpha_intraday_rs_breadth",
+    "alpha_rev1_hi_rvol_lag1",
+    "alpha_rev1_hi_rvol_lag2",
+    "alpha_rev1_rvol_ema3",
+    "alpha_gap_rvol_lag1",
+    "alpha_pressure_liq_lag1"
+  ]
+}
