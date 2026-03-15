@@ -11,7 +11,6 @@ outputs/reports/
 data/
 models/
 cache/
-*.parquet
 *.jsonl
 *.csv
 *.log
