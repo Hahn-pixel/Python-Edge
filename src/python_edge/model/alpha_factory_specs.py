@@ -28,6 +28,7 @@ class AlphaRecipe:
     regime: RegimeMode = "none"
     lag: int = 0
     family: str = "generic"
+    wave: str = "wave0"
 
 
 BASE_SIGNALS = (
@@ -113,20 +114,21 @@ def _build_wave1() -> tuple[AlphaRecipe, ...]:
     for left, modulators in WAVE1_PAIRS.items():
         for mod in modulators:
             for regime in ("hi", "lo", "z", "rank"):
-                out.append(AlphaRecipe(f"{left}_{regime}_{mod}", left, mod, "raw", regime, 0, "wave1"))
+                name = f"{left}_{regime}_{mod}"
+                out.append(AlphaRecipe(name, left, mod, "raw", regime, 0, left, "wave1"))
     return tuple(out)
 
 
 def _build_wave2() -> tuple[AlphaRecipe, ...]:
     return tuple(
-        AlphaRecipe(f"{left}_{transform}_{regime}_{mod}", left, mod, transform, regime, 0, "wave2")
+        AlphaRecipe(f"{left}_{transform}_{regime}_{mod}", left, mod, transform, regime, 0, left, "wave2")
         for left, mod, transform, regime in WAVE2_SPECS
     )
 
 
 def _build_wave3() -> tuple[AlphaRecipe, ...]:
     return tuple(
-        AlphaRecipe(f"{left}_{transform}_{regime}_{mod}", left, mod, transform, regime, lag, "wave3")
+        AlphaRecipe(f"{left}_{transform}_{regime}_{mod}", left, mod, transform, regime, lag, left, "wave3")
         for left, mod, transform, regime, lag in WAVE3_SPECS
     )
 

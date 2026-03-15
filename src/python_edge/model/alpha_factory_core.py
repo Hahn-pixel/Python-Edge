@@ -1,12 +1,33 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+from typing import Dict, Iterable, List, Sequence, Tuple
+
 import numpy as np
 import pandas as pd
 
-from python_edge.model.alpha_factory_specs import ALL_RECIPES, BASE_SIGNALS, MODULATORS
+from python_edge.model.alpha_factory_specs import ALL_RECIPES, BASE_SIGNALS, MODULATORS, AlphaRecipe
 
 EPS = 1e-12
 
+
+@dataclass(frozen=True)
+class ValidationConfig:
+    max_nan_ratio: float = 0.995
+    min_non_na: int = 200
+    min_unique: int = 5
+
+
+@dataclass(frozen=True)
+class FactoryBuildResult:
+    frame: pd.DataFrame
+    manifest: pd.DataFrame
+    dropped: pd.DataFrame
+
+
+# ----------------------------
+# generic helpers
+# ----------------------------
 
 def _safe(s: pd.Series) -> pd.Series:
     return pd.to_numeric(s, errors="coerce").astype("float64")
@@ -32,6 +53,10 @@ def _lag(df: pd.DataFrame, s: pd.Series, k: int) -> pd.Series:
 def _ema(df: pd.DataFrame, s: pd.Series) -> pd.Series:
     return _safe(s).groupby(df["symbol"], sort=False).transform(lambda x: x.ewm(span=3, adjust=False).mean())
 
+
+# ----------------------------
+# base features
+# ----------------------------
 
 def derive_base_factory_inputs(df: pd.DataFrame) -> pd.DataFrame:
     out = df.copy()
@@ -82,59 +107,128 @@ def derive_base_factory_inputs(df: pd.DataFrame) -> pd.DataFrame:
     return out.sort_values(["date", "symbol"]).reset_index(drop=True)
 
 
-def generate_factory_alphas(df: pd.DataFrame) -> pd.DataFrame:
-    out = df.copy()
+# ----------------------------
+# alpha generation
+# ----------------------------
+
+def _transform_base(df: pd.DataFrame, base: pd.Series, transform: str) -> pd.Series:
+    if transform == "raw":
+        return _safe(base)
+    if transform == "z":
+        return _cs_z_from_series(df, base)
+    if transform == "rank":
+        return _rank_from_series(df, base)
+    if transform == "tanh":
+        return np.tanh(_safe(base))
+    if transform == "clip3":
+        return _safe(base).clip(-3.0, 3.0)
+    if transform == "sign":
+        return np.sign(_safe(base))
+    if transform == "signed_square":
+        x = _safe(base)
+        return np.sign(x) * (x.abs() ** 2.0)
+    if transform == "lag1":
+        return _lag(df, base, 1)
+    if transform == "lag2":
+        return _lag(df, base, 2)
+    if transform == "ema3":
+        return _ema(df, base)
+    raise RuntimeError(f"Unsupported transform: {transform}")
+
+
+def _apply_regime(df: pd.DataFrame, base: pd.Series, mod: pd.Series, regime: str) -> pd.Series:
+    mod_rank = _safe(mod).groupby(df["date"], sort=False).rank(method="average", pct=True)
+    if regime == "none":
+        return _safe(base)
+    if regime == "hi":
+        return _safe(base) * (mod_rank >= 0.70).astype("float64")
+    if regime == "lo":
+        return _safe(base) * (mod_rank <= 0.30).astype("float64")
+    if regime == "z":
+        return _safe(base) * _cs_z_from_series(df, mod)
+    if regime == "rank":
+        return _safe(base) * (_safe(mod_rank) - 0.5)
+    raise RuntimeError(f"Unsupported regime mode: {regime}")
+
+
+def build_alpha_matrix(df: pd.DataFrame, recipes: Sequence[AlphaRecipe] = ALL_RECIPES) -> pd.DataFrame:
     base_lookup = {b.name: b.source_col for b in BASE_SIGNALS}
     mod_lookup = {m.name: m.source_col for m in MODULATORS}
+    series_map: Dict[str, pd.Series] = {}
 
-    for r in ALL_RECIPES:
-        if r.left not in base_lookup:
-            raise RuntimeError(f"Unknown base signal: {r.left}")
-        base_col = base_lookup[r.left]
-        if base_col not in out.columns:
+    for recipe in recipes:
+        if recipe.left not in base_lookup:
+            raise RuntimeError(f"Unknown base signal: {recipe.left}")
+        base_col = base_lookup[recipe.left]
+        if base_col not in df.columns:
             raise RuntimeError(f"Missing base column: {base_col}")
-        base = _safe(out[base_col])
+        base = _transform_base(df, df[base_col], recipe.transform)
 
-        if r.transform == "z":
-            base = _cs_z_from_series(out, base)
-        elif r.transform == "rank":
-            base = _rank_from_series(out, base)
-        elif r.transform == "tanh":
-            base = np.tanh(base)
-        elif r.transform == "clip3":
-            base = base.clip(-3.0, 3.0)
-        elif r.transform == "sign":
-            base = np.sign(base)
-        elif r.transform == "signed_square":
-            base = np.sign(base) * (base.abs() ** 2.0)
-        elif r.transform == "lag1":
-            base = _lag(out, base, 1)
-        elif r.transform == "lag2":
-            base = _lag(out, base, 2)
-        elif r.transform == "ema3":
-            base = _ema(out, base)
-        elif r.transform != "raw":
-            raise RuntimeError(f"Unsupported transform: {r.transform}")
-
-        if r.modulator is not None:
-            if r.modulator not in mod_lookup:
-                raise RuntimeError(f"Unknown modulator: {r.modulator}")
-            mod_col = mod_lookup[r.modulator]
-            if mod_col not in out.columns:
+        if recipe.modulator is not None:
+            if recipe.modulator not in mod_lookup:
+                raise RuntimeError(f"Unknown modulator: {recipe.modulator}")
+            mod_col = mod_lookup[recipe.modulator]
+            if mod_col not in df.columns:
                 raise RuntimeError(f"Missing modulator column: {mod_col}")
-            mod = _safe(out[mod_col])
-            mod_rank = mod.groupby(out["date"], sort=False).rank(method="average", pct=True)
-            if r.regime == "hi":
-                base = base * (mod_rank >= 0.70).astype("float64")
-            elif r.regime == "lo":
-                base = base * (mod_rank <= 0.30).astype("float64")
-            elif r.regime == "z":
-                base = base * _cs_z_from_series(out, mod)
-            elif r.regime == "rank":
-                base = base * (_safe(mod_rank) - 0.5)
-            elif r.regime != "none":
-                raise RuntimeError(f"Unsupported regime mode: {r.regime}")
+            base = _apply_regime(df, base, df[mod_col], recipe.regime)
 
-        out[f"alpha_{r.name}"] = _safe(base)
+        series_map[f"alpha_{recipe.name}"] = _safe(base)
 
-    return out
+    return pd.DataFrame(series_map, index=df.index)
+
+
+# ----------------------------
+# validation / manifest
+# ----------------------------
+
+def validate_alpha_matrix(alpha_df: pd.DataFrame, recipes: Sequence[AlphaRecipe], cfg: ValidationConfig | None = None) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    cfg = cfg or ValidationConfig()
+    recipe_map = {f"alpha_{r.name}": r for r in recipes}
+    keep_cols: List[str] = []
+    keep_rows: List[dict] = []
+    drop_rows: List[dict] = []
+
+    for col in alpha_df.columns:
+        s = _safe(alpha_df[col])
+        non_na = int(s.notna().sum())
+        nan_ratio = float(s.isna().mean())
+        unique = int(s.dropna().nunique())
+        recipe = recipe_map[col]
+        row = {
+            "alpha": col,
+            "family": recipe.family,
+            "wave": recipe.wave,
+            "left": recipe.left,
+            "modulator": recipe.modulator,
+            "transform": recipe.transform,
+            "regime": recipe.regime,
+            "lag": recipe.lag,
+            "non_na": non_na,
+            "nan_ratio": nan_ratio,
+            "unique": unique,
+        }
+        reason = None
+        if non_na < cfg.min_non_na:
+            reason = "too_few_non_na"
+        elif nan_ratio > cfg.max_nan_ratio:
+            reason = "too_sparse"
+        elif unique < cfg.min_unique:
+            reason = "too_few_unique"
+
+        if reason is None:
+            keep_cols.append(col)
+            keep_rows.append(row)
+        else:
+            row["drop_reason"] = reason
+            drop_rows.append(row)
+
+    manifest_df = pd.DataFrame(keep_rows).sort_values(["wave", "family", "alpha"]).reset_index(drop=True)
+    dropped_df = pd.DataFrame(drop_rows).sort_values(["drop_reason", "alpha"]).reset_index(drop=True) if drop_rows else pd.DataFrame(columns=["alpha", "drop_reason"])
+    return alpha_df[keep_cols].copy(), manifest_df, dropped_df
+
+
+def generate_factory_alphas(df: pd.DataFrame, recipes: Sequence[AlphaRecipe] = ALL_RECIPES, cfg: ValidationConfig | None = None) -> FactoryBuildResult:
+    alpha_df = build_alpha_matrix(df, recipes=recipes)
+    alpha_df, manifest_df, dropped_df = validate_alpha_matrix(alpha_df, recipes=recipes, cfg=cfg)
+    out = pd.concat([df.reset_index(drop=True), alpha_df.reset_index(drop=True)], axis=1)
+    return FactoryBuildResult(frame=out, manifest=manifest_df, dropped=dropped_df)

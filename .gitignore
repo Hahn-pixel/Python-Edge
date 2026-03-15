@@ -2,11 +2,8 @@ __pycache__/
 *.pyc
 .venv/
 .env
-data/raw/
-data/interim/
-data/processed/
-data/diagnostics/
-data/logs/
+data/
+artifacts/
 outputs/logs/
 outputs/reports/
 *.zip
