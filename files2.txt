@@ -1,0 +1,1841 @@
+https://github.com/Hahn-pixel/Python-Edge/blob/main/src/python_edge/model/alpha_factory_core.py
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Dict, Iterable, List, Sequence, Tuple
+
+import numpy as np
+import pandas as pd
+
+from python_edge.model.alpha_factory_specs import ALL_RECIPES, BASE_SIGNALS, MODULATORS, AlphaRecipe
+
+EPS = 1e-12
+
+
+@dataclass(frozen=True)
+class ValidationConfig:
+    max_nan_ratio: float = 0.995
+    min_non_na: int = 200
+    min_unique: int = 5
+
+
+@dataclass(frozen=True)
+class FactoryBuildResult:
+    frame: pd.DataFrame
+    manifest: pd.DataFrame
+    dropped: pd.DataFrame
+
+
+# ----------------------------
+# generic helpers
+# ----------------------------
+
+def _safe(s: pd.Series) -> pd.Series:
+    return pd.to_numeric(s, errors="coerce").astype("float64")
+
+
+def _cs_z_from_series(df: pd.DataFrame, s: pd.Series) -> pd.Series:
+    x = _safe(s)
+    grp = x.groupby(df["date"], sort=False)
+    mean = grp.transform("mean")
+    std = grp.transform("std").replace(0.0, np.nan)
+    out = (x - mean) / (std + EPS)
+    return out.replace([np.inf, -np.inf], np.nan)
+
+
+def _rank_from_series(df: pd.DataFrame, s: pd.Series) -> pd.Series:
+    return _safe(s).groupby(df["date"], sort=False).rank(method="average", pct=True) - 0.5
+
+
+def _lag(df: pd.DataFrame, s: pd.Series, k: int) -> pd.Series:
+    return _safe(s).groupby(df["symbol"], sort=False).shift(k)
+
+
+def _ema(df: pd.DataFrame, s: pd.Series) -> pd.Series:
+    return _safe(s).groupby(df["symbol"], sort=False).transform(lambda x: x.ewm(span=3, adjust=False).mean())
+
+
+# ----------------------------
+# base features
+# ----------------------------
+
+def derive_base_factory_inputs(df: pd.DataFrame) -> pd.DataFrame:
+    out = df.copy()
+    required = ["date", "symbol", "open", "high", "low", "close", "volume"]
+    missing = [c for c in required if c not in out.columns]
+    if missing:
+        raise RuntimeError(f"derive_base_factory_inputs: missing columns: {missing}")
+
+    out["date"] = pd.to_datetime(out["date"]).dt.normalize()
+    out = out.sort_values(["symbol", "date"]).reset_index(drop=True)
+
+    prev_close = _safe(out.groupby("symbol", sort=False)["close"].shift(1))
+    out["ret1"] = _safe(out.groupby("symbol", sort=False)["close"].pct_change())
+    out["mom3_raw"] = _safe(out.groupby("symbol", sort=False)["close"].pct_change(3))
+    out["momentum_20d"] = _safe(out.groupby("symbol", sort=False)["close"].pct_change(20))
+    out["str_3d"] = -_safe(out.groupby("symbol", sort=False)["close"].pct_change(3))
+    out["gap_ret"] = (_safe(out["open"]) / (prev_close + EPS)) - 1.0
+    out["oc_body_pct"] = (_safe(out["close"]) - _safe(out["open"])) / (_safe(out["open"]) + EPS)
+    out["dollar_vol"] = _safe(out["close"]) * _safe(out["volume"])
+    out["liq"] = np.log1p(_safe(out["dollar_vol"]).clip(lower=0.0))
+
+    vol_mean_20 = out.groupby("symbol", sort=False)["volume"].rolling(20, min_periods=10).mean().reset_index(level=0, drop=True)
+    out["rel_volume_20"] = _safe(out["volume"]) / (_safe(vol_mean_20) + EPS)
+    out["volume_shock"] = _safe(out["rel_volume_20"])
+
+    hl_range_pct = (_safe(out["high"]) - _safe(out["low"])) / (_safe(out["close"]) + EPS)
+    range5 = hl_range_pct.groupby(out["symbol"], sort=False).rolling(5, min_periods=3).mean().reset_index(level=0, drop=True)
+    range20 = hl_range_pct.groupby(out["symbol"], sort=False).rolling(20, min_periods=10).mean().reset_index(level=0, drop=True)
+    out["range_comp_5_20"] = _safe(range5) / (_safe(range20) + EPS)
+
+    out["market_breadth"] = out.groupby("date", sort=False)["ret1"].transform(lambda s: pd.to_numeric(s, errors="coerce").gt(0).mean())
+    out["overnight_drift_20d"] = _safe(out["gap_ret"]).groupby(out["symbol"], sort=False).rolling(20, min_periods=10).mean().reset_index(level=0, drop=True)
+    out["ivol_20d"] = _safe(out["ret1"]).groupby(out["symbol"], sort=False).rolling(20, min_periods=10).std().reset_index(level=0, drop=True)
+    rv10 = _safe(out["ret1"]).groupby(out["symbol"], sort=False).rolling(10, min_periods=5).std().reset_index(level=0, drop=True)
+    atr14 = _safe(out["ret1"]).abs().groupby(out["symbol"], sort=False).rolling(14, min_periods=7).mean().reset_index(level=0, drop=True)
+    out["vol_compression"] = rv10 / (atr14 + EPS)
+
+    out["intraday_rs"] = -_cs_z_from_series(out, out["ret1"])
+    out["intraday_pressure"] = _cs_z_from_series(out, out["oc_body_pct"])
+
+    out["rev1_base"] = -_cs_z_from_series(out, out["ret1"])
+    out["gap_base"] = _cs_z_from_series(out, out["gap_ret"])
+    out["pressure_base"] = _cs_z_from_series(out, out["oc_body_pct"])
+    out["mom3_base"] = _cs_z_from_series(out, out["mom3_raw"])
+
+    out["meta_price"] = _safe(out["close"])
+    out["meta_dollar_volume"] = _safe(out["dollar_vol"])
+    return out.sort_values(["date", "symbol"]).reset_index(drop=True)
+
+
+# ----------------------------
+# alpha generation
+# ----------------------------
+
+def _transform_base(df: pd.DataFrame, base: pd.Series, transform: str) -> pd.Series:
+    if transform == "raw":
+        return _safe(base)
+    if transform == "z":
+        return _cs_z_from_series(df, base)
+    if transform == "rank":
+        return _rank_from_series(df, base)
+    if transform == "tanh":
+        return np.tanh(_safe(base))
+    if transform == "clip3":
+        return _safe(base).clip(-3.0, 3.0)
+    if transform == "sign":
+        return np.sign(_safe(base))
+    if transform == "signed_square":
+        x = _safe(base)
+        return np.sign(x) * (x.abs() ** 2.0)
+    if transform == "lag1":
+        return _lag(df, base, 1)
+    if transform == "lag2":
+        return _lag(df, base, 2)
+    if transform == "ema3":
+        return _ema(df, base)
+    raise RuntimeError(f"Unsupported transform: {transform}")
+
+
+def _apply_regime(df: pd.DataFrame, base: pd.Series, mod: pd.Series, regime: str) -> pd.Series:
+    mod_rank = _safe(mod).groupby(df["date"], sort=False).rank(method="average", pct=True)
+    if regime == "none":
+        return _safe(base)
+    if regime == "hi":
+        return _safe(base) * (mod_rank >= 0.70).astype("float64")
+    if regime == "lo":
+        return _safe(base) * (mod_rank <= 0.30).astype("float64")
+    if regime == "z":
+        return _safe(base) * _cs_z_from_series(df, mod)
+    if regime == "rank":
+        return _safe(base) * (_safe(mod_rank) - 0.5)
+    raise RuntimeError(f"Unsupported regime mode: {regime}")
+
+
+def build_alpha_matrix(df: pd.DataFrame, recipes: Sequence[AlphaRecipe] = ALL_RECIPES) -> pd.DataFrame:
+    base_lookup = {b.name: b.source_col for b in BASE_SIGNALS}
+    mod_lookup = {m.name: m.source_col for m in MODULATORS}
+    series_map: Dict[str, pd.Series] = {}
+
+    for recipe in recipes:
+        if recipe.left not in base_lookup:
+            raise RuntimeError(f"Unknown base signal: {recipe.left}")
+        base_col = base_lookup[recipe.left]
+        if base_col not in df.columns:
+            raise RuntimeError(f"Missing base column: {base_col}")
+        base = _transform_base(df, df[base_col], recipe.transform)
+
+        if recipe.modulator is not None:
+            if recipe.modulator not in mod_lookup:
+                raise RuntimeError(f"Unknown modulator: {recipe.modulator}")
+            mod_col = mod_lookup[recipe.modulator]
+            if mod_col not in df.columns:
+                raise RuntimeError(f"Missing modulator column: {mod_col}")
+            base = _apply_regime(df, base, df[mod_col], recipe.regime)
+
+        series_map[f"alpha_{recipe.name}"] = _safe(base)
+
+    return pd.DataFrame(series_map, index=df.index)
+
+
+# ----------------------------
+# validation / manifest
+# ----------------------------
+
+def validate_alpha_matrix(alpha_df: pd.DataFrame, recipes: Sequence[AlphaRecipe], cfg: ValidationConfig | None = None) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    cfg = cfg or ValidationConfig()
+    recipe_map = {f"alpha_{r.name}": r for r in recipes}
+    keep_cols: List[str] = []
+    keep_rows: List[dict] = []
+    drop_rows: List[dict] = []
+
+    for col in alpha_df.columns:
+        s = _safe(alpha_df[col])
+        non_na = int(s.notna().sum())
+        nan_ratio = float(s.isna().mean())
+        unique = int(s.dropna().nunique())
+        recipe = recipe_map[col]
+        row = {
+            "alpha": col,
+            "family": recipe.family,
+            "wave": recipe.wave,
+            "left": recipe.left,
+            "modulator": recipe.modulator,
+            "transform": recipe.transform,
+            "regime": recipe.regime,
+            "lag": recipe.lag,
+            "non_na": non_na,
+            "nan_ratio": nan_ratio,
+            "unique": unique,
+        }
+        reason = None
+        if non_na < cfg.min_non_na:
+            reason = "too_few_non_na"
+        elif nan_ratio > cfg.max_nan_ratio:
+            reason = "too_sparse"
+        elif unique < cfg.min_unique:
+            reason = "too_few_unique"
+
+        if reason is None:
+            keep_cols.append(col)
+            keep_rows.append(row)
+        else:
+            row["drop_reason"] = reason
+            drop_rows.append(row)
+
+    manifest_df = pd.DataFrame(keep_rows).sort_values(["wave", "family", "alpha"]).reset_index(drop=True)
+    dropped_df = pd.DataFrame(drop_rows).sort_values(["drop_reason", "alpha"]).reset_index(drop=True) if drop_rows else pd.DataFrame(columns=["alpha", "drop_reason"])
+    return alpha_df[keep_cols].copy(), manifest_df, dropped_df
+
+
+def generate_factory_alphas(df: pd.DataFrame, recipes: Sequence[AlphaRecipe] = ALL_RECIPES, cfg: ValidationConfig | None = None) -> FactoryBuildResult:
+    alpha_df = build_alpha_matrix(df, recipes=recipes)
+    alpha_df, manifest_df, dropped_df = validate_alpha_matrix(alpha_df, recipes=recipes, cfg=cfg)
+    out = pd.concat([df.reset_index(drop=True), alpha_df.reset_index(drop=True)], axis=1)
+    return FactoryBuildResult(frame=out, manifest=manifest_df, dropped=dropped_df)
+    
+    
+    
+https://github.com/Hahn-pixel/Python-Edge/blob/main/src/python_edge/model/alpha_factory_specs.py
+    
+    
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Literal
+
+TransformName = Literal["raw", "z", "rank", "tanh", "clip3", "sign", "signed_square", "lag1", "lag2", "ema3"]
+RegimeMode = Literal["none", "hi", "lo", "z", "rank"]
+
+
+@dataclass(frozen=True)
+class BaseSignalSpec:
+    name: str
+    source_col: str
+
+
+@dataclass(frozen=True)
+class ModulatorSpec:
+    name: str
+    source_col: str
+
+
+@dataclass(frozen=True)
+class AlphaRecipe:
+    name: str
+    left: str
+    modulator: str | None
+    transform: TransformName
+    regime: RegimeMode = "none"
+    lag: int = 0
+    family: str = "generic"
+    wave: str = "wave0"
+
+
+BASE_SIGNALS = (
+    BaseSignalSpec("rev1", "rev1_base"),
+    BaseSignalSpec("gap", "gap_base"),
+    BaseSignalSpec("pressure", "pressure_base"),
+    BaseSignalSpec("mom3", "mom3_base"),
+    BaseSignalSpec("momentum_20d", "momentum_20d"),
+    BaseSignalSpec("str_3d", "str_3d"),
+    BaseSignalSpec("overnight_drift_20d", "overnight_drift_20d"),
+    BaseSignalSpec("ivol_20d", "ivol_20d"),
+    BaseSignalSpec("vol_compression", "vol_compression"),
+    BaseSignalSpec("intraday_rs", "intraday_rs"),
+    BaseSignalSpec("intraday_pressure", "intraday_pressure"),
+)
+
+
+MODULATORS = (
+    ModulatorSpec("rvol", "rel_volume_20"),
+    ModulatorSpec("liq", "liq"),
+    ModulatorSpec("breadth", "market_breadth"),
+    ModulatorSpec("range_comp", "range_comp_5_20"),
+    ModulatorSpec("volshock", "volume_shock"),
+)
+
+
+WAVE1_PAIRS = {
+    "rev1": ("rvol", "liq", "breadth"),
+    "gap": ("rvol", "liq", "breadth"),
+    "pressure": ("liq", "rvol", "breadth"),
+    "mom3": ("rvol", "breadth"),
+    "momentum_20d": ("breadth", "liq"),
+    "str_3d": ("breadth", "rvol"),
+    "overnight_drift_20d": ("breadth", "volshock"),
+    "ivol_20d": ("liq", "volshock"),
+    "vol_compression": ("liq", "range_comp"),
+    "intraday_rs": ("breadth", "rvol"),
+    "intraday_pressure": ("liq", "breadth"),
+}
+
+
+WAVE2_SPECS = (
+    ("rev1", "rvol", "tanh", "z"),
+    ("rev1", "breadth", "clip3", "hi"),
+    ("rev1", "liq", "sign", "rank"),
+    ("gap", "breadth", "tanh", "z"),
+    ("gap", "liq", "clip3", "hi"),
+    ("pressure", "rvol", "tanh", "z"),
+    ("pressure", "liq", "sign", "hi"),
+    ("mom3", "rvol", "signed_square", "z"),
+    ("momentum_20d", "breadth", "tanh", "hi"),
+    ("str_3d", "breadth", "clip3", "lo"),
+    ("overnight_drift_20d", "breadth", "tanh", "hi"),
+    ("ivol_20d", "liq", "clip3", "lo"),
+    ("vol_compression", "liq", "tanh", "hi"),
+    ("intraday_rs", "breadth", "tanh", "z"),
+    ("intraday_pressure", "liq", "signed_square", "z"),
+)
+
+
+WAVE3_SPECS = (
+    ("rev1", "rvol", "lag1", "hi", 1),
+    ("rev1", "rvol", "lag2", "hi", 2),
+    ("rev1", "rvol", "ema3", "z", 0),
+    ("gap", "rvol", "lag1", "z", 1),
+    ("gap", "breadth", "ema3", "z", 0),
+    ("pressure", "liq", "lag1", "hi", 1),
+    ("pressure", "liq", "ema3", "hi", 0),
+    ("mom3", "rvol", "lag1", "hi", 1),
+    ("mom3", "breadth", "ema3", "z", 0),
+    ("momentum_20d", "breadth", "lag1", "hi", 1),
+    ("str_3d", "breadth", "lag1", "lo", 1),
+    ("overnight_drift_20d", "breadth", "lag1", "hi", 1),
+    ("ivol_20d", "liq", "lag1", "lo", 1),
+    ("vol_compression", "liq", "lag1", "hi", 1),
+    ("intraday_rs", "breadth", "ema3", "hi", 0),
+    ("intraday_pressure", "liq", "lag1", "z", 1),
+)
+
+
+def _build_wave1() -> tuple[AlphaRecipe, ...]:
+    out: list[AlphaRecipe] = []
+    for left, modulators in WAVE1_PAIRS.items():
+        for mod in modulators:
+            for regime in ("hi", "lo", "z", "rank"):
+                name = f"{left}_{regime}_{mod}"
+                out.append(AlphaRecipe(name, left, mod, "raw", regime, 0, left, "wave1"))
+    return tuple(out)
+
+
+def _build_wave2() -> tuple[AlphaRecipe, ...]:
+    return tuple(
+        AlphaRecipe(f"{left}_{transform}_{regime}_{mod}", left, mod, transform, regime, 0, left, "wave2")
+        for left, mod, transform, regime in WAVE2_SPECS
+    )
+
+
+def _build_wave3() -> tuple[AlphaRecipe, ...]:
+    return tuple(
+        AlphaRecipe(f"{left}_{transform}_{regime}_{mod}", left, mod, transform, regime, lag, left, "wave3")
+        for left, mod, transform, regime, lag in WAVE3_SPECS
+    )
+
+
+WAVE1_RECIPES = _build_wave1()
+WAVE2_RECIPES = _build_wave2()
+WAVE3_RECIPES = _build_wave3()
+ALL_RECIPES = WAVE1_RECIPES + WAVE2_RECIPES + WAVE3_RECIPES
+
+
+
+https://github.com/Hahn-pixel/Python-Edge/blob/main/scripts/generate_alpha_library_v2.py
+
+
+from __future__ import annotations
+
+import json
+import sys
+import traceback
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+SRC = ROOT / "src"
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
+
+import pandas as pd
+
+from python_edge.model.alpha_factory_core import ValidationConfig, derive_base_factory_inputs, generate_factory_alphas
+from python_edge.model.alpha_factory_specs import ALL_RECIPES
+
+FEATURE_FILE = ROOT / "data" / "features" / "feature_matrix_v1.parquet"
+OUT_DIR = ROOT / "data" / "alpha_library_v2"
+OUT_PARQUET = OUT_DIR / "alpha_library_v2.parquet"
+OUT_META = OUT_DIR / "alpha_library_v2.meta.json"
+OUT_MANIFEST = OUT_DIR / "alpha_library_v2.manifest.csv"
+OUT_DROPPED = OUT_DIR / "alpha_library_v2.dropped.csv"
+
+
+def main() -> None:
+    if not FEATURE_FILE.exists():
+        raise FileNotFoundError(f"Feature file not found: {FEATURE_FILE}")
+
+    df = pd.read_parquet(FEATURE_FILE)
+    if df.empty:
+        raise RuntimeError("feature_matrix_v1.parquet is empty")
+
+    base_df = derive_base_factory_inputs(df)
+    result = generate_factory_alphas(base_df, recipes=ALL_RECIPES, cfg=ValidationConfig())
+    final_df = result.frame
+    alpha_cols = [c for c in final_df.columns if c.startswith("alpha_")]
+    if not alpha_cols:
+        raise RuntimeError("No alpha columns generated")
+
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    final_df.to_parquet(OUT_PARQUET, index=False)
+    result.manifest.to_csv(OUT_MANIFEST, index=False)
+    result.dropped.to_csv(OUT_DROPPED, index=False)
+
+    meta = {
+        "rows": int(len(final_df)),
+        "alpha_count": int(len(alpha_cols)),
+        "recipe_count": int(len(ALL_RECIPES)),
+        "kept_count": int(len(result.manifest)),
+        "dropped_count": int(len(result.dropped)),
+        "alpha_cols": alpha_cols,
+        "waves": result.manifest["wave"].value_counts().to_dict() if len(result.manifest) else {},
+        "families": result.manifest["family"].value_counts().to_dict() if len(result.manifest) else {},
+    }
+    OUT_META.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    print(f"[ALPHA_FACTORY] rows={len(final_df)}")
+    print(f"[ALPHA_FACTORY] recipe_count={len(ALL_RECIPES)} kept={len(result.manifest)} dropped={len(result.dropped)}")
+    print(f"[ALPHA_FACTORY] alpha_count={len(alpha_cols)}")
+    print(f"[ARTIFACT] {OUT_PARQUET}")
+    print(f"[ARTIFACT] {OUT_META}")
+    print(f"[ARTIFACT] {OUT_MANIFEST}")
+    print(f"[ARTIFACT] {OUT_DROPPED}")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception:
+        traceback.print_exc()
+        sys.exit(1)
+        
+        
+        
+https://github.com/Hahn-pixel/Python-Edge/blob/main/scripts/run_ranker_multi_alpha_wf.py
+
+
+from __future__ import annotations
+
+import json
+import os
+import sys
+import traceback
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Dict, List, Sequence, Tuple
+
+import numpy as np
+import pandas as pd
+
+ROOT = Path(__file__).resolve().parents[1]
+SRC_DIR = ROOT / "src"
+for _p in [ROOT, SRC_DIR]:
+    _ps = str(_p)
+    if _ps not in sys.path:
+        sys.path.insert(0, _ps)
+
+from python_edge.portfolio.holding_inertia import apply_holding_inertia
+from python_edge.portfolio.turnover_control import cap_daily_turnover
+
+try:
+    from python_edge.portfolio.position_limits import apply_position_filters, cap_final_weight, renormalize_after_caps, normalize_gross_exposure
+    _HAS_POSITION_LIMITS = True
+except Exception:
+    _HAS_POSITION_LIMITS = False
+
+    def apply_position_filters(df: pd.DataFrame, **kwargs) -> pd.DataFrame:
+        out = df.copy()
+        out["dbg_position_limits_fallback"] = 1
+        return out
+
+    def cap_final_weight(df: pd.DataFrame, weight_col: str = "weight", **kwargs) -> pd.DataFrame:
+        out = df.copy()
+        out["dbg_position_limits_fallback"] = 1
+        return out
+
+    def renormalize_after_caps(df: pd.DataFrame, weight_col: str = "weight", gross_target: float = 1.0, **kwargs) -> pd.DataFrame:
+        out = df.copy()
+        gross = out.groupby("date", sort=False)[weight_col].transform(lambda s: float(np.sum(np.abs(pd.to_numeric(s, errors="coerce")))))
+        scale = np.where(gross > EPS, gross_target / gross, 1.0)
+        out[weight_col] = pd.to_numeric(out[weight_col], errors="coerce") * scale
+        out["dbg_position_limits_fallback"] = 1
+        return out
+
+    def normalize_gross_exposure(df: pd.DataFrame, side_col: str = "side", gross_target: float = 1.0, out_col: str = "weight", **kwargs) -> pd.DataFrame:
+        out = df.copy()
+        out[out_col] = pd.to_numeric(out[side_col], errors="coerce").fillna(0.0)
+        gross = out.groupby("date", sort=False)[out_col].transform(lambda s: float(np.sum(np.abs(pd.to_numeric(s, errors="coerce")))))
+        scale = np.where(gross > EPS, gross_target / gross, 0.0)
+        out[out_col] = pd.to_numeric(out[out_col], errors="coerce") * scale
+        out["dbg_position_limits_fallback"] = 1
+        return out
+
+try:
+    from python_edge.execution.cost_model import attach_execution_costs
+    _HAS_COST_MODEL = True
+except Exception:
+    _HAS_COST_MODEL = False
+
+    def attach_execution_costs(df: pd.DataFrame, weight_col: str = "weight", **kwargs) -> pd.DataFrame:
+        out = df.copy()
+        if "turnover" not in out.columns:
+            out = out.sort_values(["symbol", "date"]).reset_index(drop=True)
+            out["prev_weight"] = out.groupby("symbol", sort=False)[weight_col].shift(1).fillna(0.0)
+            out["turnover"] = (pd.to_numeric(out[weight_col], errors="coerce") - pd.to_numeric(out["prev_weight"], errors="coerce")).abs()
+        cost_bps = float(kwargs.get("fee_bps", 0.0)) + float(kwargs.get("slippage_bps", 0.0)) + float(kwargs.get("spread_bps", 0.0)) + float(kwargs.get("impact_bps", 0.0))
+        out["exec_cost_ret"] = pd.to_numeric(out["turnover"], errors="coerce") * (cost_bps / 10000.0)
+        out["dbg_cost_model_fallback"] = 1
+        return out
+
+ALPHA_LIB_FILE = Path(os.getenv("ALPHA_LIB_FILE", r"data\alpha_library\alpha_library_v1.parquet"))
+OUT_DIR = Path(os.getenv("MULTI_ALPHA_WF_OUT_DIR", r"artifacts\multi_alpha_wf"))
+PAUSE_ON_EXIT_ENV = str(os.getenv("PAUSE_ON_EXIT", "auto")).strip().lower()
+
+TARGET_COL = str(os.getenv("TARGET_COL", "target_fwd_ret_1d")).strip()
+TRAIN_DAYS = int(os.getenv("WF_TRAIN_DAYS", "252"))
+TEST_DAYS = int(os.getenv("WF_TEST_DAYS", "63"))
+STEP_DAYS = int(os.getenv("WF_STEP_DAYS", "63"))
+PURGE_DAYS = int(os.getenv("WF_PURGE_DAYS", "5"))
+EMBARGO_DAYS = int(os.getenv("WF_EMBARGO_DAYS", "5"))
+MIN_TRAIN_ROWS = int(os.getenv("MIN_TRAIN_ROWS", "3000"))
+MIN_TEST_ROWS = int(os.getenv("MIN_TEST_ROWS", "300"))
+MIN_ALPHA_DAYS = int(os.getenv("MIN_ALPHA_DAYS", "50"))
+MIN_ALPHA_ABS_IC = float(os.getenv("MIN_ALPHA_ABS_IC", "0.004"))
+MIN_STABILITY_BLOCKS = int(os.getenv("MIN_STABILITY_BLOCKS", "3"))
+MIN_SIGN_CONSISTENCY = float(os.getenv("MIN_SIGN_CONSISTENCY", "0.67"))
+MIN_BLOCK_IC_ABS = float(os.getenv("MIN_BLOCK_IC_ABS", "0.0015"))
+MAX_ALPHAS = int(os.getenv("MAX_ALPHAS", "12"))
+RIDGE_L2 = float(os.getenv("RIDGE_L2", "20.0"))
+ENTER_PCT = float(os.getenv("ENTER_PCT", "0.08"))
+EXIT_PCT = float(os.getenv("EXIT_PCT", "0.16"))
+GROSS_TARGET = float(os.getenv("GROSS_TARGET", "1.0"))
+WEIGHT_CAP = float(os.getenv("WEIGHT_CAP", "0.06"))
+MAX_DAILY_TURNOVER = float(os.getenv("MAX_DAILY_TURNOVER", "0.35"))
+COST_BPS = float(os.getenv("COST_BPS", "8.0"))
+BORROW_BPS_DAILY = float(os.getenv("BORROW_BPS_DAILY", "1.0"))
+LOW_PRICE_MIN = float(os.getenv("LOW_PRICE_MIN", "5.0"))
+LOW_DV_MIN = float(os.getenv("LOW_DV_MIN", "1000000"))
+MAX_ADV_PARTICIPATION = float(os.getenv("MAX_ADV_PARTICIPATION", "0.05"))
+PORTFOLIO_NOTIONAL = float(os.getenv("PORTFOLIO_NOTIONAL", "1.0"))
+FEE_BPS = float(os.getenv("FEE_BPS", "1.0"))
+SLIPPAGE_BPS = float(os.getenv("SLIPPAGE_BPS", "2.0"))
+SPREAD_BPS = float(os.getenv("SPREAD_BPS", "3.0"))
+IMPACT_BPS = float(os.getenv("IMPACT_BPS", "8.0"))
+LOW_PRICE_PENALTY_BPS = float(os.getenv("LOW_PRICE_PENALTY_BPS", "4.0"))
+HTB_BORROW_BPS_DAILY = float(os.getenv("HTB_BORROW_BPS_DAILY", "8.0"))
+SIDE = str(os.getenv("SIDE", "long_short")).strip().lower()
+TOPK_DEBUG = int(os.getenv("TOPK_DEBUG", "10"))
+CORR_PRUNE = float(os.getenv("CORR_PRUNE", "0.85"))
+BUDGET_MODE = str(os.getenv("BUDGET_MODE", "dynamic")).strip().lower()
+REGIME_MODE = str(os.getenv("REGIME_MODE", "dynamic")).strip().lower()
+BREADTH_STRONG = float(os.getenv("BREADTH_STRONG", "0.58"))
+BREADTH_WEAK = float(os.getenv("BREADTH_WEAK", "0.42"))
+PRESSURE_STRONG = float(os.getenv("PRESSURE_STRONG", "0.15"))
+PRESSURE_WEAK = float(os.getenv("PRESSURE_WEAK", "-0.15"))
+VOLSHOCK_STRONG = float(os.getenv("VOLSHOCK_STRONG", "0.25"))
+TOP_PCT_STRONG = float(os.getenv("TOP_PCT_STRONG", "0.06"))
+TOP_PCT_NEUTRAL = float(os.getenv("TOP_PCT_NEUTRAL", "0.08"))
+TOP_PCT_WEAK = float(os.getenv("TOP_PCT_WEAK", "0.10"))
+LONG_MULT_STRONG = float(os.getenv("LONG_MULT_STRONG", "1.20"))
+LONG_MULT_WEAK = float(os.getenv("LONG_MULT_WEAK", "0.85"))
+SHORT_MULT_STRONG = float(os.getenv("SHORT_MULT_STRONG", "1.20"))
+SHORT_MULT_WEAK = float(os.getenv("SHORT_MULT_WEAK", "0.85"))
+EPS = 1e-12
+
+
+@dataclass(frozen=True)
+class WFSplit:
+    fold_id: int
+    train_start: pd.Timestamp
+    train_end: pd.Timestamp
+    test_start: pd.Timestamp
+    test_end: pd.Timestamp
+
+
+# ------------------------------------------------------------
+# RUNTIME
+# ------------------------------------------------------------
+
+def _enable_line_buffering() -> None:
+    for stream_name in ["stdout", "stderr"]:
+        stream = getattr(sys, stream_name, None)
+        if stream is None:
+            continue
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            try:
+                reconfigure(line_buffering=True)
+            except Exception:
+                pass
+
+
+def _should_pause_on_exit() -> bool:
+    if PAUSE_ON_EXIT_ENV in {"0", "false", "no", "off"}:
+        return False
+    if PAUSE_ON_EXIT_ENV in {"1", "true", "yes", "on"}:
+        return True
+    stdin_obj = getattr(sys, "stdin", None)
+    stdout_obj = getattr(sys, "stdout", None)
+    stdin_is_tty = bool(stdin_obj is not None and hasattr(stdin_obj, "isatty") and stdin_obj.isatty())
+    stdout_is_tty = bool(stdout_obj is not None and hasattr(stdout_obj, "isatty") and stdout_obj.isatty())
+    return stdin_is_tty and stdout_is_tty
+
+
+def _press_enter_exit(code: int) -> None:
+    if _should_pause_on_exit():
+        try:
+            print(f"\n[EXIT] code={code}")
+            input("Press Enter to exit...")
+        except Exception:
+            pass
+    raise SystemExit(code)
+
+
+# ------------------------------------------------------------
+# HELPERS
+# ------------------------------------------------------------
+
+def _safe_numeric(s: pd.Series) -> pd.Series:
+    return pd.to_numeric(s, errors="coerce").astype("float64")
+
+
+def _alpha_cols(df: pd.DataFrame) -> List[str]:
+    return sorted([c for c in df.columns if c.startswith("alpha_")])
+
+
+def _robust_zscore_series(s: pd.Series) -> pd.Series:
+    x = _safe_numeric(s)
+    valid = x.dropna()
+    if valid.empty:
+        return pd.Series(np.nan, index=x.index, dtype="float64")
+    med = float(valid.median())
+    mad = float((valid - med).abs().median())
+    if mad > EPS:
+        out = (x - med) / (1.4826 * mad)
+    else:
+        mean = float(valid.mean())
+        std = float(valid.std(ddof=0))
+        out = (x - mean) / (std + EPS)
+    return out.replace([np.inf, -np.inf], np.nan)
+
+
+def _cs_zscore_df(df: pd.DataFrame, cols: Sequence[str]) -> pd.DataFrame:
+    out = df.copy()
+    for col in cols:
+        out[col] = out.groupby("date", sort=False)[col].transform(_robust_zscore_series)
+    return out
+
+
+def _rank_abs_pct_by_date(df: pd.DataFrame, col: str) -> pd.Series:
+    return df.groupby("date", sort=False)[col].transform(lambda s: _safe_numeric(s).abs().rank(method="average", pct=True))
+
+
+# ------------------------------------------------------------
+# LOAD / SPLITS
+# ------------------------------------------------------------
+
+def load_alpha_library() -> pd.DataFrame:
+    if not ALPHA_LIB_FILE.exists():
+        raise FileNotFoundError(f"Alpha library not found: {ALPHA_LIB_FILE}")
+    df = pd.read_parquet(ALPHA_LIB_FILE)
+    if df.empty:
+        raise RuntimeError("Alpha library is empty")
+    required = ["date", "symbol", TARGET_COL]
+    missing = [c for c in required if c not in df.columns]
+    if missing:
+        raise RuntimeError(f"Alpha library missing required columns: {missing}")
+    alpha_cols = _alpha_cols(df)
+    if not alpha_cols:
+        raise RuntimeError("No alpha_ columns found in alpha library")
+    df["date"] = pd.to_datetime(df["date"]).dt.normalize()
+    df = df.sort_values(["date", "symbol"]).reset_index(drop=True)
+    return df
+
+
+def build_walkforward_splits(dates: Sequence[pd.Timestamp]) -> List[WFSplit]:
+    uniq = pd.Index(sorted(pd.to_datetime(pd.Series(dates)).dt.normalize().unique()))
+    if len(uniq) < (TRAIN_DAYS + TEST_DAYS + PURGE_DAYS + EMBARGO_DAYS + 5):
+        raise RuntimeError("Not enough dates for requested walk-forward configuration")
+    splits: List[WFSplit] = []
+    fold_id = 1
+    train_end_idx = TRAIN_DAYS - 1
+    while True:
+        test_start_idx = train_end_idx + 1 + PURGE_DAYS + EMBARGO_DAYS
+        test_end_idx = test_start_idx + TEST_DAYS - 1
+        if test_end_idx >= len(uniq):
+            break
+        train_start_idx = train_end_idx - TRAIN_DAYS + 1
+        splits.append(
+            WFSplit(
+                fold_id=fold_id,
+                train_start=uniq[train_start_idx],
+                train_end=uniq[train_end_idx],
+                test_start=uniq[test_start_idx],
+                test_end=uniq[test_end_idx],
+            )
+        )
+        fold_id += 1
+        train_end_idx += STEP_DAYS
+    if not splits:
+        raise RuntimeError("No walk-forward splits generated")
+    return splits
+
+
+# ------------------------------------------------------------
+# ALPHA SELECTION / WEIGHTS
+# ------------------------------------------------------------
+
+def _daily_ic(train_df: pd.DataFrame, factor_col: str, target_col: str, min_cs: int = 20) -> Tuple[float, int, float]:
+    vals: List[float] = []
+    pos_days = 0
+    used_days = 0
+    for _, g in train_df.groupby("date", sort=False):
+        x = g[[factor_col, target_col]].dropna()
+        if len(x) < min_cs:
+            continue
+        if x[factor_col].nunique(dropna=True) <= 1:
+            continue
+        if x[target_col].nunique(dropna=True) <= 1:
+            continue
+        ic = x[factor_col].corr(x[target_col], method="spearman")
+        if pd.notna(ic):
+            vals.append(float(ic))
+            used_days += 1
+            if float(ic) > 0:
+                pos_days += 1
+    if not vals:
+        return float("nan"), 0, float("nan")
+    return float(np.nanmean(vals)), int(len(vals)), float(pos_days / max(1, used_days))
+
+
+def _block_dates(date_index: pd.Index, n_blocks: int = 4) -> List[pd.Index]:
+    uniq = pd.Index(sorted(pd.to_datetime(pd.Series(date_index)).dt.normalize().unique()))
+    if len(uniq) == 0:
+        return []
+    parts = np.array_split(np.arange(len(uniq)), n_blocks)
+    out: List[pd.Index] = []
+    for p in parts:
+        if len(p) == 0:
+            continue
+        out.append(pd.Index(uniq[p]))
+    return out
+
+
+def _alpha_stability_stats(train_df: pd.DataFrame, factor_col: str, target_col: str) -> Dict[str, float]:
+    blocks = _block_dates(train_df["date"], 4)
+    block_ics: List[float] = []
+    for block_dates in blocks:
+        block_df = train_df.loc[train_df["date"].isin(block_dates)].copy()
+        ic, n_days, _ = _daily_ic(block_df, factor_col, target_col)
+        if n_days > 0 and pd.notna(ic):
+            block_ics.append(float(ic))
+    if not block_ics:
+        return {
+            "block_count": 0.0,
+            "block_hit_count": 0.0,
+            "sign_consistency": float("nan"),
+            "block_ic_mean": float("nan"),
+            "block_ic_median": float("nan"),
+            "block_ic_worst": float("nan"),
+        }
+    signs = [np.sign(x) for x in block_ics if abs(x) >= MIN_BLOCK_IC_ABS]
+    pos = sum(1 for s in signs if s > 0)
+    neg = sum(1 for s in signs if s < 0)
+    sign_consistency = max(pos, neg) / max(1, len(signs)) if signs else 0.0
+    return {
+        "block_count": float(len(block_ics)),
+        "block_hit_count": float(sum(1 for x in block_ics if abs(x) >= MIN_BLOCK_IC_ABS)),
+        "sign_consistency": float(sign_consistency),
+        "block_ic_mean": float(np.mean(block_ics)),
+        "block_ic_median": float(np.median(block_ics)),
+        "block_ic_worst": float(min(block_ics, key=lambda x: abs(x))),
+    }
+
+
+def select_alphas(train_df: pd.DataFrame, alpha_cols: Sequence[str]) -> pd.DataFrame:
+    rows: List[Dict[str, object]] = []
+    for col in alpha_cols:
+        ic, n_days, pos_rate = _daily_ic(train_df, col, TARGET_COL)
+        stab = _alpha_stability_stats(train_df, col, TARGET_COL)
+        row = {
+            "alpha": col,
+            "ic": ic,
+            "abs_ic": abs(ic) if pd.notna(ic) else np.nan,
+            "n_days": n_days,
+            "pos_rate": pos_rate,
+            **stab,
+        }
+        row["stability_score"] = (
+            (0.55 * (row["abs_ic"] if pd.notna(row["abs_ic"]) else 0.0))
+            + (0.20 * (row["block_ic_mean"] if pd.notna(row["block_ic_mean"]) else 0.0))
+            + (0.15 * (row["sign_consistency"] if pd.notna(row["sign_consistency"]) else 0.0))
+            + (0.10 * (row["block_hit_count"] / 4.0 if pd.notna(row["block_hit_count"]) else 0.0))
+        )
+        rows.append(row)
+    sel = pd.DataFrame(rows)
+    if sel.empty:
+        raise RuntimeError("select_alphas: no alpha diagnostics produced")
+    sel = sel.loc[(sel["n_days"] >= MIN_ALPHA_DAYS) & (sel["abs_ic"] >= MIN_ALPHA_ABS_IC)].copy()
+    if len(sel):
+        sel = sel.loc[(sel["pos_rate"] <= 0.45) | (sel["pos_rate"] >= 0.55)].copy()
+        sel = sel.loc[(sel["block_hit_count"] >= MIN_STABILITY_BLOCKS) & (sel["sign_consistency"] >= MIN_SIGN_CONSISTENCY)].copy()
+    if sel.empty:
+        raise RuntimeError("select_alphas: no alpha passed min alpha thresholds")
+    sel = sel.sort_values(["stability_score", "abs_ic", "n_days", "alpha"], ascending=[False, False, False, True]).reset_index(drop=True)
+
+    picked: List[str] = []
+    corr_source = train_df[[c for c in sel["alpha"].tolist() if c in train_df.columns]].copy().fillna(0.0)
+    corr = corr_source.corr(method="spearman", min_periods=200)
+    for alpha in sel["alpha"].tolist():
+        if len(picked) >= MAX_ALPHAS:
+            break
+        ok = True
+        for prev in picked:
+            c = corr.loc[alpha, prev] if alpha in corr.index and prev in corr.columns else np.nan
+            if pd.notna(c) and abs(float(c)) >= CORR_PRUNE:
+                ok = False
+                break
+        if ok:
+            picked.append(alpha)
+    sel["selected"] = sel["alpha"].isin(picked).astype(int)
+    sel = sel.sort_values(["selected", "stability_score", "abs_ic", "n_days", "alpha"], ascending=[False, False, False, False, True]).reset_index(drop=True)
+    return sel
+
+
+def fit_ridge_weights(train_df: pd.DataFrame, selected_alphas: Sequence[str]) -> pd.DataFrame:
+    if not selected_alphas:
+        raise RuntimeError("fit_ridge_weights: selected_alphas empty")
+
+    xdf = train_df[list(selected_alphas)].copy().apply(_safe_numeric)
+    y = _safe_numeric(train_df[TARGET_COL]).to_numpy(dtype="float64")
+
+    valid_target = np.isfinite(y)
+    active_counts = np.isfinite(xdf.to_numpy(dtype="float64")).sum(axis=1)
+
+    candidate_min_active = [max(1, min(3, len(selected_alphas))), 2, 1]
+    chosen_min_active = None
+    usable_mask = None
+    usable_rows = 0
+    for min_active in candidate_min_active:
+        mask = valid_target & (active_counts >= min_active)
+        rows = int(mask.sum())
+        if rows >= MIN_TRAIN_ROWS:
+            chosen_min_active = min_active
+            usable_mask = mask
+            usable_rows = rows
+            break
+    if usable_mask is None:
+        mask = valid_target
+        rows = int(mask.sum())
+        if rows <= 0:
+            raise RuntimeError(f"fit_ridge_weights: zero usable train rows; selected_alphas={len(selected_alphas)}")
+        chosen_min_active = 0
+        usable_mask = mask
+        usable_rows = rows
+
+    x = xdf.loc[usable_mask, list(selected_alphas)].fillna(0.0).to_numpy(dtype="float64")
+    y = y[usable_mask]
+    if len(y) < MIN_TRAIN_ROWS:
+        raise RuntimeError(
+            f"fit_ridge_weights: too few usable train rows ({len(y)}) < {MIN_TRAIN_ROWS}; "
+            f"selected_alphas={len(selected_alphas)} chosen_min_active={chosen_min_active} usable_rows={usable_rows}"
+        )
+
+    x_mean = x.mean(axis=0)
+    x_std = x.std(axis=0)
+    x_std = np.where(x_std <= EPS, 1.0, x_std)
+    xz = (x - x_mean) / x_std
+    y_mean = float(np.mean(y))
+    y_std = float(np.std(y))
+    yz = (y - y_mean) / (y_std + EPS)
+
+    xtx = xz.T @ xz
+    reg = RIDGE_L2 * np.eye(xtx.shape[0], dtype="float64")
+    xty = xz.T @ yz
+    w_std = np.linalg.solve(xtx + reg, xty)
+    w_raw = w_std / x_std
+
+    out = pd.DataFrame({
+        "alpha": list(selected_alphas),
+        "coef_std": w_std,
+        "coef_raw": w_raw,
+        "x_mean": x_mean,
+        "x_std": x_std,
+    })
+    out["chosen_min_active"] = float(chosen_min_active)
+    out["usable_rows"] = float(usable_rows)
+    out["abs_coef_std"] = out["coef_std"].abs()
+    scale = out["abs_coef_std"].sum()
+    out["blend_weight"] = out["coef_std"] / (scale + EPS)
+    out = out.sort_values(["abs_coef_std", "alpha"], ascending=[False, True]).reset_index(drop=True)
+    return out
+
+
+# ------------------------------------------------------------
+# SCORING / PORTFOLIO
+# ------------------------------------------------------------
+
+def apply_weights(test_df: pd.DataFrame, weights_df: pd.DataFrame) -> pd.DataFrame:
+    out = test_df.copy()
+    selected = weights_df["alpha"].tolist()
+    for alpha in selected:
+        out[alpha] = _safe_numeric(out[alpha])
+    score = np.zeros(len(out), dtype="float64")
+    for _, row in weights_df.iterrows():
+        score += row["blend_weight"] * out[row["alpha"]].fillna(0.0).to_numpy(dtype="float64")
+    out["score_model"] = score
+    out["score_model_z"] = out.groupby("date", sort=False)["score_model"].transform(_robust_zscore_series)
+    out["score_abs_rank_pct"] = _rank_abs_pct_by_date(out, "score_model_z")
+    return out
+
+
+def attach_market_state(df: pd.DataFrame) -> pd.DataFrame:
+    out = df.copy()
+    if "meta_price" not in out.columns and "close" in out.columns:
+        out["meta_price"] = _safe_numeric(out["close"])
+    if "meta_dollar_volume" not in out.columns:
+        if "dollar_vol" in out.columns:
+            out["meta_dollar_volume"] = _safe_numeric(out["dollar_vol"])
+        elif all(c in out.columns for c in ["close", "volume"]):
+            out["meta_dollar_volume"] = _safe_numeric(out["close"]) * _safe_numeric(out["volume"])
+    if "market_breadth" not in out.columns:
+        out["market_breadth"] = out.groupby("date", sort=False)[TARGET_COL].transform(lambda s: _safe_numeric(s).gt(0).mean())
+    if "intraday_rs" in out.columns:
+        out["market_intraday_rs"] = out.groupby("date", sort=False)["intraday_rs"].transform("mean")
+    else:
+        out["market_intraday_rs"] = 0.0
+    if "intraday_pressure" in out.columns:
+        out["market_intraday_pressure"] = out.groupby("date", sort=False)["intraday_pressure"].transform("mean")
+    else:
+        out["market_intraday_pressure"] = 0.0
+    if "rel_volume_20" in out.columns:
+        out["market_volume_shock"] = out.groupby("date", sort=False)["rel_volume_20"].transform("mean")
+    else:
+        out["market_volume_shock"] = 0.0
+    return out
+
+
+def attach_dynamic_allocations(df: pd.DataFrame) -> pd.DataFrame:
+    out = attach_market_state(df)
+    out["top_pct"] = TOP_PCT_NEUTRAL
+    out["long_budget"] = 0.50
+    out["short_budget"] = 0.50
+    out["long_mult"] = 1.0
+    out["short_mult"] = 1.0
+    out["alloc_regime"] = "neutral"
+
+    strong_long = ((_safe_numeric(out["market_breadth"]) >= BREADTH_STRONG) & (_safe_numeric(out["market_intraday_pressure"]) >= PRESSURE_STRONG))
+    strong_short = ((_safe_numeric(out["market_breadth"]) <= BREADTH_WEAK) & (_safe_numeric(out["market_intraday_pressure"]) <= PRESSURE_WEAK))
+    panic = _safe_numeric(out["market_volume_shock"]) >= VOLSHOCK_STRONG
+
+    if REGIME_MODE == "dynamic":
+        out.loc[panic, "top_pct"] = TOP_PCT_STRONG
+        out.loc[~panic, "top_pct"] = TOP_PCT_NEUTRAL
+        out.loc[strong_long | strong_short, "top_pct"] = TOP_PCT_WEAK
+
+    if BUDGET_MODE == "dynamic":
+        out.loc[strong_long, ["long_budget", "short_budget", "long_mult", "short_mult", "alloc_regime"]] = [0.60, 0.40, LONG_MULT_STRONG, SHORT_MULT_WEAK, "strong_long"]
+        out.loc[strong_short, ["long_budget", "short_budget", "long_mult", "short_mult", "alloc_regime"]] = [0.40, 0.60, LONG_MULT_WEAK, SHORT_MULT_STRONG, "strong_short"]
+        out.loc[panic & ~strong_long & ~strong_short, ["long_budget", "short_budget", "alloc_regime"]] = [0.50, 0.50, "panic"]
+
+    return out
+
+
+def build_portfolio(scored_df: pd.DataFrame) -> pd.DataFrame:
+    out = attach_dynamic_allocations(scored_df.copy())
+    out["score"] = _safe_numeric(out["score_model_z"])
+    out = apply_holding_inertia(out, enter_pct=ENTER_PCT, exit_pct=EXIT_PCT)
+    if "side" not in out.columns:
+        raise RuntimeError("apply_holding_inertia did not return side column")
+
+    out["raw_strength"] = out["score"].abs().fillna(0.0)
+    out.loc[out["side"] == 0, "raw_strength"] = 0.0
+    out.loc[out["side"] > 0, "raw_strength"] *= _safe_numeric(out["long_mult"])
+    out.loc[out["side"] < 0, "raw_strength"] *= _safe_numeric(out["short_mult"])
+
+    pieces: List[pd.DataFrame] = []
+    for _, g in out.groupby("date", sort=False):
+        gg = g.copy()
+        pos_long = gg.loc[gg["side"] > 0, "raw_strength"]
+        pos_short = gg.loc[gg["side"] < 0, "raw_strength"]
+        long_sum = float(pos_long.sum())
+        short_sum = float(pos_short.sum())
+        gg["weight"] = 0.0
+        long_budget = float(_safe_numeric(gg["long_budget"]).iloc[0]) if len(gg) else 0.5
+        short_budget = float(_safe_numeric(gg["short_budget"]).iloc[0]) if len(gg) else 0.5
+        if SIDE != "short_only" and long_sum > EPS:
+            gg.loc[gg["side"] > 0, "weight"] = long_budget * gg.loc[gg["side"] > 0, "raw_strength"] / long_sum
+        if SIDE != "long_only" and short_sum > EPS:
+            gg.loc[gg["side"] < 0, "weight"] = -short_budget * gg.loc[gg["side"] < 0, "raw_strength"] / short_sum
+        if SIDE == "long_only" and long_sum > EPS:
+            gg.loc[gg["side"] > 0, "weight"] = GROSS_TARGET * gg.loc[gg["side"] > 0, "raw_strength"] / long_sum
+        if SIDE == "short_only" and short_sum > EPS:
+            gg.loc[gg["side"] < 0, "weight"] = -GROSS_TARGET * gg.loc[gg["side"] < 0, "raw_strength"] / short_sum
+        gg["weight"] = gg["weight"].clip(lower=-WEIGHT_CAP, upper=WEIGHT_CAP)
+        gross = float(gg["weight"].abs().sum())
+        if gross > EPS:
+            gg["weight"] = gg["weight"] * (GROSS_TARGET / gross)
+        pieces.append(gg)
+    out = pd.concat(pieces, ignore_index=True)
+    out = out.sort_values(["date", "symbol"]).reset_index(drop=True)
+
+    out["dbg_position_limits_fallback"] = 0
+    out = apply_position_filters(out, side_col="side", min_price=LOW_PRICE_MIN, min_dollar_volume=LOW_DV_MIN)
+    out = cap_final_weight(
+        out,
+        weight_col="weight",
+        cap_abs_weight=WEIGHT_CAP,
+        max_adv_participation=MAX_ADV_PARTICIPATION,
+        portfolio_notional=PORTFOLIO_NOTIONAL,
+    )
+    out = renormalize_after_caps(out, weight_col="weight", gross_target=GROSS_TARGET)
+
+    out["trade_strength"] = out["raw_strength"].fillna(0.0)
+    out["mandatory_exit"] = 0
+    out["risk_trim"] = 0
+    out["keep_add"] = ((out["side"] != 0) & (out["weight"].abs() > 0)).astype(int)
+    out["new_entry"] = ((out["side"] != 0) & (out["weight"].abs() > 0)).astype(int)
+    out = cap_daily_turnover(out, weight_col="weight", max_daily_turnover=MAX_DAILY_TURNOVER)
+    if "turnover" not in out.columns:
+        out = out.sort_values(["symbol", "date"]).reset_index(drop=True)
+        out["prev_weight"] = out.groupby("symbol", sort=False)["weight"].shift(1).fillna(0.0)
+        out["turnover"] = (out["weight"] - out["prev_weight"]).abs()
+
+    out["dbg_cost_model_fallback"] = 0
+    out = attach_execution_costs(
+        out,
+        weight_col="weight",
+        fee_bps=FEE_BPS,
+        slippage_bps=SLIPPAGE_BPS,
+        borrow_bps_daily=BORROW_BPS_DAILY,
+        spread_bps=SPREAD_BPS,
+        impact_bps=IMPACT_BPS,
+        low_price_penalty_bps=LOW_PRICE_PENALTY_BPS,
+        htb_borrow_bps_daily=HTB_BORROW_BPS_DAILY,
+        max_participation=MAX_ADV_PARTICIPATION,
+        portfolio_notional=PORTFOLIO_NOTIONAL,
+    )
+    return out
+
+
+def evaluate_portfolio(port_df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, float]]:
+    df = port_df.copy()
+    df["gross_pnl"] = _safe_numeric(df["weight"]) * _safe_numeric(df[TARGET_COL])
+    if "exec_cost_ret" in df.columns:
+        df["cost"] = _safe_numeric(df["exec_cost_ret"]).fillna(0.0)
+    else:
+        df["cost"] = _safe_numeric(df["turnover"]) * (COST_BPS / 10000.0)
+        df.loc[df["weight"] < 0, "cost"] += _safe_numeric(df.loc[df["weight"] < 0, "weight"]).abs() * (BORROW_BPS_DAILY / 10000.0)
+    daily = df.groupby("date", sort=False).agg(
+        gross_ret=("gross_pnl", "sum"),
+        cost_ret=("cost", "sum"),
+        turnover=("turnover", "sum"),
+        gross=("weight", lambda s: float(np.sum(np.abs(pd.to_numeric(s, errors="coerce"))))),
+        longs=("weight", lambda s: int((pd.to_numeric(s, errors="coerce") > 0).sum())),
+        shorts=("weight", lambda s: int((pd.to_numeric(s, errors="coerce") < 0).sum())),
+        top_pct=("top_pct", "first"),
+        long_budget=("long_budget", "first"),
+        short_budget=("short_budget", "first"),
+        regime=("alloc_regime", "first"),
+    ).reset_index()
+    daily["net_ret"] = daily["gross_ret"] - daily["cost_ret"]
+    daily["equity"] = (1.0 + daily["net_ret"].fillna(0.0)).cumprod()
+    daily["cum_ret"] = daily["equity"] - 1.0
+
+    mean = float(daily["net_ret"].mean()) if len(daily) else float("nan")
+    std = float(daily["net_ret"].std(ddof=0)) if len(daily) else float("nan")
+    sharpe = (mean / (std + EPS)) * np.sqrt(252.0) if len(daily) else float("nan")
+    hit = float((daily["net_ret"] > 0).mean()) if len(daily) else float("nan")
+    maxdd = float((daily["equity"] / daily["equity"].cummax() - 1.0).min()) if len(daily) else float("nan")
+    summary = {
+        "days": float(len(daily)),
+        "mean_daily": mean,
+        "std_daily": std,
+        "sharpe": sharpe,
+        "hit_rate": hit,
+        "cum_ret": float(daily["cum_ret"].iloc[-1]) if len(daily) else float("nan"),
+        "max_drawdown": maxdd,
+        "avg_turnover": float(daily["turnover"].mean()) if len(daily) else float("nan"),
+        "avg_gross": float(daily["gross"].mean()) if len(daily) else float("nan"),
+        "avg_top_pct": float(daily["top_pct"].mean()) if len(daily) else float("nan"),
+        "position_limits_fallback_days": float(daily["date"].map(df.groupby("date", sort=False)["dbg_position_limits_fallback"].max()).fillna(0.0).sum()) if len(daily) else float("nan"),
+        "cost_model_fallback_days": float(daily["date"].map(df.groupby("date", sort=False)["dbg_cost_model_fallback"].max()).fillna(0.0).sum()) if len(daily) else float("nan"),
+    }
+    return daily, summary
+
+
+# ------------------------------------------------------------
+# MAIN WF
+# ------------------------------------------------------------
+
+def run_fold(df: pd.DataFrame, split: WFSplit, alpha_cols: Sequence[str]) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, Dict[str, float]]:
+    train_df = df.loc[(df["date"] >= split.train_start) & (df["date"] <= split.train_end)].copy()
+    test_df = df.loc[(df["date"] >= split.test_start) & (df["date"] <= split.test_end)].copy()
+    if len(train_df) < MIN_TRAIN_ROWS:
+        raise RuntimeError(f"fold {split.fold_id}: train rows too small: {len(train_df)}")
+    if len(test_df) < MIN_TEST_ROWS:
+        raise RuntimeError(f"fold {split.fold_id}: test rows too small: {len(test_df)}")
+
+    train_df = _cs_zscore_df(train_df, alpha_cols)
+    test_df = _cs_zscore_df(test_df, alpha_cols)
+
+    selected_df = select_alphas(train_df, alpha_cols)
+    selected = selected_df.loc[selected_df["selected"] == 1, "alpha"].tolist()
+    if not selected:
+        raise RuntimeError(f"fold {split.fold_id}: selected alpha list is empty")
+    weights_df = fit_ridge_weights(train_df, selected)
+    scored = apply_weights(test_df, weights_df)
+    port = build_portfolio(scored)
+    daily, summary = evaluate_portfolio(port)
+    daily["fold_id"] = split.fold_id
+    daily["train_start"] = split.train_start
+    daily["train_end"] = split.train_end
+    daily["test_start"] = split.test_start
+    daily["test_end"] = split.test_end
+    summary["selected_alpha_count"] = float(len(selected))
+    summary["selected_alpha_list"] = ",".join(selected)
+    summary["usable_train_rows"] = float(int(np.isfinite(_safe_numeric(train_df[TARGET_COL]).to_numpy(dtype="float64")).sum()))
+    summary["selected_alpha_nonzero_mean"] = float(train_df[selected].fillna(0.0).abs().sum(axis=1).gt(0.0).mean())
+    summary["ridge_chosen_min_active"] = float(weights_df["chosen_min_active"].iloc[0]) if "chosen_min_active" in weights_df.columns and len(weights_df) else float("nan")
+    summary["ridge_usable_rows"] = float(weights_df["usable_rows"].iloc[0]) if "usable_rows" in weights_df.columns and len(weights_df) else float("nan")
+    return selected_df, weights_df, daily, summary
+
+
+def main() -> int:
+    _enable_line_buffering()
+    print(f"[CFG] alpha_lib_file={ALPHA_LIB_FILE}")
+    print(f"[CFG] out_dir={OUT_DIR}")
+    print(f"[CFG] target_col={TARGET_COL}")
+    print(f"[CFG] train_days={TRAIN_DAYS} test_days={TEST_DAYS} step_days={STEP_DAYS} purge_days={PURGE_DAYS} embargo_days={EMBARGO_DAYS}")
+    print(f"[CFG] ridge_l2={RIDGE_L2} max_alphas={MAX_ALPHAS} min_alpha_days={MIN_ALPHA_DAYS} min_alpha_abs_ic={MIN_ALPHA_ABS_IC} corr_prune={CORR_PRUNE}")
+    print(f"[CFG] stability min_blocks={MIN_STABILITY_BLOCKS} min_sign_consistency={MIN_SIGN_CONSISTENCY} min_block_ic_abs={MIN_BLOCK_IC_ABS}")
+    print(f"[CFG] enter_pct={ENTER_PCT} exit_pct={EXIT_PCT} weight_cap={WEIGHT_CAP} max_daily_turnover={MAX_DAILY_TURNOVER}")
+    print(f"[CFG] position_limits_module={_HAS_POSITION_LIMITS} cost_model_module={_HAS_COST_MODEL}")
+    print(f"[CFG] low_price_min={LOW_PRICE_MIN} low_dv_min={LOW_DV_MIN} max_adv_participation={MAX_ADV_PARTICIPATION}")
+    print(f"[CFG] top_pct strong/neutral/weak={TOP_PCT_STRONG}/{TOP_PCT_NEUTRAL}/{TOP_PCT_WEAK} budgets={BUDGET_MODE} regime={REGIME_MODE}")
+
+    df = load_alpha_library()
+    alpha_cols = _alpha_cols(df)
+    print(f"[DATA] rows={len(df)} dates={df['date'].nunique()} symbols={df['symbol'].nunique()} alpha_cols={len(alpha_cols)}")
+
+    splits = build_walkforward_splits(df["date"])
+    print(f"[WF] folds={len(splits)}")
+    for sp in splits:
+        print(f"[WF][FOLD {sp.fold_id}] train={sp.train_start.date()}..{sp.train_end.date()} test={sp.test_start.date()}..{sp.test_end.date()}")
+
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    summaries: List[Dict[str, float]] = []
+    all_daily: List[pd.DataFrame] = []
+    top_weights_preview: List[Dict[str, object]] = []
+
+    for sp in splits:
+        print(f"[WF][FOLD {sp.fold_id}] start")
+        selected_df, weights_df, daily, summary = run_fold(df, sp, alpha_cols)
+        selected_path = OUT_DIR / f"wf_selected_alphas__fold{sp.fold_id}.csv"
+        weights_path = OUT_DIR / f"wf_alpha_weights__fold{sp.fold_id}.csv"
+        daily_path = OUT_DIR / f"wf_daily__fold{sp.fold_id}.csv"
+        selected_df.to_csv(selected_path, index=False)
+        weights_df.to_csv(weights_path, index=False)
+        daily.to_csv(daily_path, index=False)
+        print(f"[WF][FOLD {sp.fold_id}][SUMMARY] sharpe={summary['sharpe']:.4f} mean_daily={summary['mean_daily']:.6f} cum_ret={summary['cum_ret']:.4f} maxdd={summary['max_drawdown']:.4f} selected={int(summary['selected_alpha_count'])} avg_turn={summary['avg_turnover']:.4f}")
+        print(f"[WF][FOLD {sp.fold_id}][TOP_WEIGHTS]")
+        print(weights_df.head(TOPK_DEBUG).to_string(index=False))
+        for _, row in weights_df.head(TOPK_DEBUG).iterrows():
+            top_weights_preview.append({
+                "fold_id": sp.fold_id,
+                "alpha": row["alpha"],
+                "coef_std": float(row["coef_std"]),
+                "blend_weight": float(row["blend_weight"]),
+            })
+        summaries.append(summary)
+        all_daily.append(daily)
+
+    overall_daily = pd.concat(all_daily, ignore_index=True).sort_values(["date", "fold_id"]).reset_index(drop=True)
+    overall_path = OUT_DIR / "wf_multi_alpha_overall.csv"
+    overall_daily.to_csv(overall_path, index=False)
+    equity = (1.0 + overall_daily["net_ret"].fillna(0.0)).cumprod()
+    overall_summary = {
+        "days": float(len(overall_daily)),
+        "mean_daily": float(overall_daily["net_ret"].mean()),
+        "std_daily": float(overall_daily["net_ret"].std(ddof=0)),
+        "sharpe": float((overall_daily["net_ret"].mean() / (overall_daily["net_ret"].std(ddof=0) + EPS)) * np.sqrt(252.0)),
+        "hit_rate": float((overall_daily["net_ret"] > 0).mean()),
+        "cum_ret": float(equity.iloc[-1] - 1.0),
+        "max_drawdown": float((equity / equity.cummax() - 1.0).min()),
+        "avg_turnover": float(overall_daily["turnover"].mean()),
+        "folds": int(len(summaries)),
+    }
+    summary_df = pd.DataFrame(summaries)
+    summary_path = OUT_DIR / "wf_fold_summaries.csv"
+    summary_df.to_csv(summary_path, index=False)
+
+    meta = {
+        "alpha_lib_file": str(ALPHA_LIB_FILE),
+        "target_col": TARGET_COL,
+        "train_days": TRAIN_DAYS,
+        "test_days": TEST_DAYS,
+        "step_days": STEP_DAYS,
+        "purge_days": PURGE_DAYS,
+        "embargo_days": EMBARGO_DAYS,
+        "min_train_rows": MIN_TRAIN_ROWS,
+        "min_test_rows": MIN_TEST_ROWS,
+        "min_alpha_days": MIN_ALPHA_DAYS,
+        "min_alpha_abs_ic": MIN_ALPHA_ABS_IC,
+        "max_alphas": MAX_ALPHAS,
+        "ridge_l2": RIDGE_L2,
+        "corr_prune": CORR_PRUNE,
+        "enter_pct": ENTER_PCT,
+        "exit_pct": EXIT_PCT,
+        "gross_target": GROSS_TARGET,
+        "weight_cap": WEIGHT_CAP,
+        "max_daily_turnover": MAX_DAILY_TURNOVER,
+        "cost_bps": COST_BPS,
+        "borrow_bps_daily": BORROW_BPS_DAILY,
+        "side": SIDE,
+        "budget_mode": BUDGET_MODE,
+        "regime_mode": REGIME_MODE,
+        "fold_summaries": summaries,
+        "overall_summary": overall_summary,
+        "top_weights_preview": top_weights_preview,
+        "alpha_count": len(alpha_cols),
+    }
+    meta_path = OUT_DIR / "wf_multi_alpha_meta.json"
+    meta_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    print(f"[OVERALL] sharpe={overall_summary['sharpe']:.4f} mean_daily={overall_summary['mean_daily']:.6f} cum_ret={overall_summary['cum_ret']:.4f} maxdd={overall_summary['max_drawdown']:.4f} avg_turnover={overall_summary['avg_turnover']:.4f}")
+    print(f"[ARTIFACT] {overall_path}")
+    print(f"[ARTIFACT] {summary_path}")
+    print(f"[ARTIFACT] {meta_path}")
+    print("[FINAL] multi-alpha walk-forward complete")
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        rc = main()
+    except Exception:
+        traceback.print_exc()
+        rc = 1
+    _press_enter_exit(rc)
+    
+    
+    
+    
+https://github.com/Hahn-pixel/Python-Edge/blob/main/data/alpha_library_v2/alpha_library_v2.meta.json
+
+
+
+{
+  "rows": 76727,
+  "alpha_count": 91,
+  "recipe_count": 131,
+  "kept_count": 91,
+  "dropped_count": 40,
+  "alpha_cols": [
+    "alpha_rev1_hi_rvol",
+    "alpha_rev1_lo_rvol",
+    "alpha_rev1_z_rvol",
+    "alpha_rev1_rank_rvol",
+    "alpha_rev1_hi_liq",
+    "alpha_rev1_lo_liq",
+    "alpha_rev1_z_liq",
+    "alpha_rev1_rank_liq",
+    "alpha_rev1_rank_breadth",
+    "alpha_gap_hi_rvol",
+    "alpha_gap_lo_rvol",
+    "alpha_gap_z_rvol",
+    "alpha_gap_rank_rvol",
+    "alpha_gap_hi_liq",
+    "alpha_gap_lo_liq",
+    "alpha_gap_z_liq",
+    "alpha_gap_rank_liq",
+    "alpha_gap_rank_breadth",
+    "alpha_pressure_hi_liq",
+    "alpha_pressure_lo_liq",
+    "alpha_pressure_z_liq",
+    "alpha_pressure_rank_liq",
+    "alpha_pressure_hi_rvol",
+    "alpha_pressure_lo_rvol",
+    "alpha_pressure_z_rvol",
+    "alpha_pressure_rank_rvol",
+    "alpha_pressure_rank_breadth",
+    "alpha_mom3_hi_rvol",
+    "alpha_mom3_lo_rvol",
+    "alpha_mom3_z_rvol",
+    "alpha_mom3_rank_rvol",
+    "alpha_mom3_rank_breadth",
+    "alpha_momentum_20d_rank_breadth",
+    "alpha_momentum_20d_hi_liq",
+    "alpha_momentum_20d_lo_liq",
+    "alpha_momentum_20d_z_liq",
+    "alpha_momentum_20d_rank_liq",
+    "alpha_str_3d_rank_breadth",
+    "alpha_str_3d_hi_rvol",
+    "alpha_str_3d_lo_rvol",
+    "alpha_str_3d_z_rvol",
+    "alpha_str_3d_rank_rvol",
+    "alpha_overnight_drift_20d_rank_breadth",
+    "alpha_overnight_drift_20d_hi_volshock",
+    "alpha_overnight_drift_20d_lo_volshock",
+    "alpha_overnight_drift_20d_z_volshock",
+    "alpha_overnight_drift_20d_rank_volshock",
+    "alpha_ivol_20d_hi_liq",
+    "alpha_ivol_20d_lo_liq",
+    "alpha_ivol_20d_z_liq",
+    "alpha_ivol_20d_rank_liq",
+    "alpha_ivol_20d_hi_volshock",
+    "alpha_ivol_20d_lo_volshock",
+    "alpha_ivol_20d_z_volshock",
+    "alpha_ivol_20d_rank_volshock",
+    "alpha_vol_compression_hi_liq",
+    "alpha_vol_compression_lo_liq",
+    "alpha_vol_compression_z_liq",
+    "alpha_vol_compression_rank_liq",
+    "alpha_vol_compression_hi_range_comp",
+    "alpha_vol_compression_lo_range_comp",
+    "alpha_vol_compression_z_range_comp",
+    "alpha_vol_compression_rank_range_comp",
+    "alpha_intraday_rs_rank_breadth",
+    "alpha_intraday_rs_hi_rvol",
+    "alpha_intraday_rs_lo_rvol",
+    "alpha_intraday_rs_z_rvol",
+    "alpha_intraday_rs_rank_rvol",
+    "alpha_intraday_pressure_hi_liq",
+    "alpha_intraday_pressure_lo_liq",
+    "alpha_intraday_pressure_z_liq",
+    "alpha_intraday_pressure_rank_liq",
+    "alpha_intraday_pressure_rank_breadth",
+    "alpha_rev1_tanh_z_rvol",
+    "alpha_rev1_sign_rank_liq",
+    "alpha_gap_clip3_hi_liq",
+    "alpha_pressure_tanh_z_rvol",
+    "alpha_mom3_signed_square_z_rvol",
+    "alpha_ivol_20d_clip3_lo_liq",
+    "alpha_vol_compression_tanh_hi_liq",
+    "alpha_intraday_pressure_signed_square_z_liq",
+    "alpha_rev1_lag1_hi_rvol",
+    "alpha_rev1_lag2_hi_rvol",
+    "alpha_rev1_ema3_z_rvol",
+    "alpha_gap_lag1_z_rvol",
+    "alpha_pressure_lag1_hi_liq",
+    "alpha_pressure_ema3_hi_liq",
+    "alpha_mom3_lag1_hi_rvol",
+    "alpha_ivol_20d_lag1_lo_liq",
+    "alpha_vol_compression_lag1_hi_liq",
+    "alpha_intraday_pressure_lag1_z_liq"
+  ],
+  "waves": {
+    "wave1": 73,
+    "wave3": 10,
+    "wave2": 8
+  },
+  "families": {
+    "rev1": 14,
+    "pressure": 12,
+    "gap": 11,
+    "ivol_20d": 10,
+    "vol_compression": 10,
+    "intraday_pressure": 7,
+    "mom3": 7,
+    "intraday_rs": 5,
+    "momentum_20d": 5,
+    "overnight_drift_20d": 5,
+    "str_3d": 5
+  }
+}
+
+
+
+
+https://github.com/Hahn-pixel/Python-Edge/blob/main/console64.log
+
+
+
+
+{
+  "alpha_lib_file": "data\\alpha_library\\alpha_library_v1.parquet",
+  "target_col": "target_fwd_ret_1d",
+  "train_days": 252,
+  "test_days": 63,
+  "step_days": 63,
+  "purge_days": 5,
+  "embargo_days": 5,
+  "min_train_rows": 3000,
+  "min_test_rows": 300,
+  "min_alpha_days": 50,
+  "min_alpha_abs_ic": 0.004,
+  "max_alphas": 12,
+  "ridge_l2": 20.0,
+  "corr_prune": 0.85,
+  "enter_pct": 0.08,
+  "exit_pct": 0.16,
+  "gross_target": 1.0,
+  "weight_cap": 0.06,
+  "max_daily_turnover": 0.35,
+  "cost_bps": 8.0,
+  "borrow_bps_daily": 1.0,
+  "side": "long_short",
+  "budget_mode": "dynamic",
+  "regime_mode": "dynamic",
+  "fold_summaries": [
+    {
+      "days": 63.0,
+      "mean_daily": -0.000847414234600425,
+      "std_daily": 0.004558061784146431,
+      "sharpe": -2.9513167147252832,
+      "hit_rate": 0.4444444444444444,
+      "cum_ret": -0.05263567348942755,
+      "max_drawdown": -0.06069110593627958,
+      "avg_turnover": 0.3500000000000002,
+      "avg_gross": 0.2892169993657206,
+      "avg_top_pct": 0.060000000000000005,
+      "position_limits_fallback_days": 0.0,
+      "cost_model_fallback_days": 0.0,
+      "selected_alpha_count": 3.0,
+      "selected_alpha_list": "alpha_cond_ivol_lowliq_penalty,alpha_wick_imbalance__z_range_comp,alpha_rev1__hi_liq",
+      "usable_train_rows": 24444.0,
+      "selected_alpha_nonzero_mean": 0.996031746031746,
+      "ridge_chosen_min_active": 3.0,
+      "ridge_usable_rows": 23474.0
+    },
+    {
+      "days": 63.0,
+      "mean_daily": -0.00010101212728101554,
+      "std_daily": 0.0023808138972865006,
+      "sharpe": -0.673516653391973,
+      "hit_rate": 0.4444444444444444,
+      "cum_ret": -0.006521510649409867,
+      "max_drawdown": -0.027956631673892507,
+      "avg_turnover": 0.3500000000000002,
+      "avg_gross": 0.25499692435981314,
+      "avg_top_pct": 0.060000000000000005,
+      "position_limits_fallback_days": 0.0,
+      "cost_model_fallback_days": 0.0,
+      "selected_alpha_count": 8.0,
+      "selected_alpha_list": "alpha_cond_ivol_lowliq_penalty,alpha_rev1__hi_rvol,alpha_rev1__hi_liq,alpha_rev1__rank_rvol,alpha_cond_vol_compression_liq_breakout,alpha_cond_breadth_weak_overnight,alpha_pressure__hi_liq,alpha_mom3__hi_liq",
+      "usable_train_rows": 24444.0,
+      "selected_alpha_nonzero_mean": 1.0,
+      "ridge_chosen_min_active": 3.0,
+      "ridge_usable_rows": 24444.0
+    },
+    {
+      "days": 63.0,
+      "mean_daily": 0.00013693035176776515,
+      "std_daily": 0.004689505965076317,
+      "sharpe": 0.46352472136917344,
+      "hit_rate": 0.5555555555555556,
+      "cum_ret": 0.007964043461526682,
+      "max_drawdown": -0.03941437614524479,
+      "avg_turnover": 0.3500000000000002,
+      "avg_gross": 0.22933026373898519,
+      "avg_top_pct": 0.060000000000000005,
+      "position_limits_fallback_days": 0.0,
+      "cost_model_fallback_days": 0.0,
+      "selected_alpha_count": 7.0,
+      "selected_alpha_list": "alpha_cond_ivol_lowliq_penalty,alpha_rev1__rank_rvol,alpha_rev1__hi_rvol,alpha_cond_momentum_liq_trend,alpha_cond_breadth_trend_mom_compression,alpha_cond_vol_compression_liq_breakout,alpha_rev1__hi_liq",
+      "usable_train_rows": 24444.0,
+      "selected_alpha_nonzero_mean": 1.0,
+      "ridge_chosen_min_active": 3.0,
+      "ridge_usable_rows": 24444.0
+    },
+    {
+      "days": 63.0,
+      "mean_daily": 0.0003211218564204456,
+      "std_daily": 0.006137740737630782,
+      "sharpe": 0.8305419946676548,
+      "hit_rate": 0.5238095238095238,
+      "cum_ret": 0.019241242697181304,
+      "max_drawdown": -0.030310083046443004,
+      "avg_turnover": 0.3500000000000002,
+      "avg_gross": 0.28335547785276466,
+      "avg_top_pct": 0.060000000000000005,
+      "position_limits_fallback_days": 0.0,
+      "cost_model_fallback_days": 0.0,
+      "selected_alpha_count": 10.0,
+      "selected_alpha_list": "alpha_rev1__rank_rvol,alpha_rev1__hi_rvol,alpha_wick_imbalance__z_range_comp,alpha_mom3__z_rvol,alpha_cond_breadth_trend_mom_compression,alpha_cond_ivol_lowliq_penalty,alpha_cond_breadth_trend_intraday_rs,alpha_rev1__hi_liq,alpha_cond_vol_compression_liq_breakout,alpha_cond_str_weak_breadth",
+      "usable_train_rows": 24444.0,
+      "selected_alpha_nonzero_mean": 1.0,
+      "ridge_chosen_min_active": 3.0,
+      "ridge_usable_rows": 24444.0
+    },
+    {
+      "days": 63.0,
+      "mean_daily": 0.0004479403067113305,
+      "std_daily": 0.004891002744248869,
+      "sharpe": 1.4538597283488632,
+      "hit_rate": 0.5396825396825397,
+      "cum_ret": 0.027842290419899607,
+      "max_drawdown": -0.03782547346774079,
+      "avg_turnover": 0.3500000000000002,
+      "avg_gross": 0.2813286815366517,
+      "avg_top_pct": 0.060000000000000005,
+      "position_limits_fallback_days": 0.0,
+      "cost_model_fallback_days": 0.0,
+      "selected_alpha_count": 5.0,
+      "selected_alpha_list": "alpha_wick_imbalance__z_range_comp,alpha_mom3__z_rvol,alpha_rev1__z_rvol,alpha_cond_breadth_range_str,alpha_cond_str_weak_breadth",
+      "usable_train_rows": 24444.0,
+      "selected_alpha_nonzero_mean": 1.0,
+      "ridge_chosen_min_active": 3.0,
+      "ridge_usable_rows": 24444.0
+    },
+    {
+      "days": 63.0,
+      "mean_daily": -0.00022625088953805278,
+      "std_daily": 0.0019463836437111888,
+      "sharpe": -1.8452793392034155,
+      "hit_rate": 0.49206349206349204,
+      "cum_ret": -0.01427201014159818,
+      "max_drawdown": -0.011266739117779201,
+      "avg_turnover": 0.3500000000000002,
+      "avg_gross": 0.25312277388700255,
+      "avg_top_pct": 0.060000000000000005,
+      "position_limits_fallback_days": 0.0,
+      "cost_model_fallback_days": 0.0,
+      "selected_alpha_count": 3.0,
+      "selected_alpha_list": "alpha_wick_imbalance__z_range_comp,alpha_mom3__z_rvol,alpha_gap__z_rvol",
+      "usable_train_rows": 24444.0,
+      "selected_alpha_nonzero_mean": 1.0,
+      "ridge_chosen_min_active": 3.0,
+      "ridge_usable_rows": 24444.0
+    },
+    {
+      "days": 63.0,
+      "mean_daily": 0.0002452997326399708,
+      "std_daily": 0.0031802983990589684,
+      "sharpe": 1.2244173488071988,
+      "hit_rate": 0.5873015873015873,
+      "cum_ret": 0.015248314414663788,
+      "max_drawdown": -0.020277639567483408,
+      "avg_turnover": 0.3500000000000002,
+      "avg_gross": 0.30529976602117187,
+      "avg_top_pct": 0.060000000000000005,
+      "position_limits_fallback_days": 0.0,
+      "cost_model_fallback_days": 0.0,
+      "selected_alpha_count": 2.0,
+      "selected_alpha_list": "alpha_cond_vol_compression_liq_breakout,alpha_mom3__z_rvol",
+      "usable_train_rows": 24444.0,
+      "selected_alpha_nonzero_mean": 0.9994681721485845,
+      "ridge_chosen_min_active": 2.0,
+      "ridge_usable_rows": 23183.0
+    },
+    {
+      "days": 63.0,
+      "mean_daily": -4.1321204516572046e-05,
+      "std_daily": 0.002764757227801794,
+      "sharpe": -0.2372554737586173,
+      "hit_rate": 0.42857142857142855,
+      "cum_ret": -0.002839984452387423,
+      "max_drawdown": -0.026289626540203948,
+      "avg_turnover": 0.3500000000000002,
+      "avg_gross": 0.23504227401263003,
+      "avg_top_pct": 0.060000000000000005,
+      "position_limits_fallback_days": 0.0,
+      "cost_model_fallback_days": 0.0,
+      "selected_alpha_count": 1.0,
+      "selected_alpha_list": "alpha_rev1__hi_rvol",
+      "usable_train_rows": 24444.0,
+      "selected_alpha_nonzero_mean": 1.0,
+      "ridge_chosen_min_active": 1.0,
+      "ridge_usable_rows": 24444.0
+    }
+  ],
+  "overall_summary": {
+    "days": 504.0,
+    "mean_daily": -8.088276049569216e-06,
+    "std_daily": 0.0040733801488172005,
+    "sharpe": -0.0315210947792738,
+    "hit_rate": 0.501984126984127,
+    "cum_ret": -0.008213418391233573,
+    "max_drawdown": -0.08676849744613546,
+    "avg_turnover": 0.35,
+    "folds": 8
+  },
+  "top_weights_preview": [
+    {
+      "fold_id": 1,
+      "alpha": "alpha_wick_imbalance__z_range_comp",
+      "coef_std": -0.03525894817080736,
+      "blend_weight": -0.4319489968027925
+    },
+    {
+      "fold_id": 1,
+      "alpha": "alpha_cond_ivol_lowliq_penalty",
+      "coef_std": 0.03448524884452458,
+      "blend_weight": 0.4224705901811354
+    },
+    {
+      "fold_id": 1,
+      "alpha": "alpha_rev1__hi_liq",
+      "coef_std": 0.011883375756814068,
+      "blend_weight": 0.1455804130038212
+    },
+    {
+      "fold_id": 2,
+      "alpha": "alpha_rev1__rank_rvol",
+      "coef_std": 0.05569362891600477,
+      "blend_weight": 0.3111947141355375
+    },
+    {
+      "fold_id": 2,
+      "alpha": "alpha_rev1__hi_rvol",
+      "coef_std": -0.05070786516089486,
+      "blend_weight": -0.28333617166457126
+    },
+    {
+      "fold_id": 2,
+      "alpha": "alpha_pressure__hi_liq",
+      "coef_std": -0.030147493241825293,
+      "blend_weight": -0.16845267086908797
+    },
+    {
+      "fold_id": 2,
+      "alpha": "alpha_cond_ivol_lowliq_penalty",
+      "coef_std": 0.019795030095205432,
+      "blend_weight": 0.11060706317184471
+    },
+    {
+      "fold_id": 2,
+      "alpha": "alpha_mom3__hi_liq",
+      "coef_std": -0.010568934335566908,
+      "blend_weight": -0.059055165973012164
+    },
+    {
+      "fold_id": 2,
+      "alpha": "alpha_cond_breadth_weak_overnight",
+      "coef_std": 0.009790595318950629,
+      "blend_weight": 0.05470610500336806
+    },
+    {
+      "fold_id": 2,
+      "alpha": "alpha_rev1__hi_liq",
+      "coef_std": 0.0016813936967607999,
+      "blend_weight": 0.009394985404917781
+    },
+    {
+      "fold_id": 2,
+      "alpha": "alpha_cond_vol_compression_liq_breakout",
+      "coef_std": 0.0005822022674226915,
+      "blend_weight": 0.0032531237720729803
+    },
+    {
+      "fold_id": 3,
+      "alpha": "alpha_rev1__rank_rvol",
+      "coef_std": 0.06308102813091074,
+      "blend_weight": 0.3557957566912294
+    },
+    {
+      "fold_id": 3,
+      "alpha": "alpha_rev1__hi_rvol",
+      "coef_std": -0.059271931375458824,
+      "blend_weight": -0.3343113183018681
+    },
+    {
+      "fold_id": 3,
+      "alpha": "alpha_rev1__hi_liq",
+      "coef_std": 0.028347028842867782,
+      "blend_weight": 0.15988567206237503
+    },
+    {
+      "fold_id": 3,
+      "alpha": "alpha_cond_breadth_trend_mom_compression",
+      "coef_std": 0.013489450344807738,
+      "blend_weight": 0.07608451122292038
+    },
+    {
+      "fold_id": 3,
+      "alpha": "alpha_cond_ivol_lowliq_penalty",
+      "coef_std": 0.006469871041434569,
+      "blend_weight": 0.036491996581043205
+    },
+    {
+      "fold_id": 3,
+      "alpha": "alpha_cond_momentum_liq_trend",
+      "coef_std": 0.005434260244139299,
+      "blend_weight": 0.030650843730829536
+    },
+    {
+      "fold_id": 3,
+      "alpha": "alpha_cond_vol_compression_liq_breakout",
+      "coef_std": 0.0012020468011584866,
+      "blend_weight": 0.006779901404094011
+    },
+    {
+      "fold_id": 4,
+      "alpha": "alpha_rev1__rank_rvol",
+      "coef_std": 0.07254838026130404,
+      "blend_weight": 0.31653055455150425
+    },
+    {
+      "fold_id": 4,
+      "alpha": "alpha_rev1__hi_rvol",
+      "coef_std": -0.059489430586594,
+      "blend_weight": -0.2595540022493308
+    },
+    {
+      "fold_id": 4,
+      "alpha": "alpha_wick_imbalance__z_range_comp",
+      "coef_std": -0.027874136286889308,
+      "blend_weight": -0.12161561408751825
+    },
+    {
+      "fold_id": 4,
+      "alpha": "alpha_cond_breadth_trend_intraday_rs",
+      "coef_std": 0.021525438065700064,
+      "blend_weight": 0.09391607122529064
+    },
+    {
+      "fold_id": 4,
+      "alpha": "alpha_mom3__z_rvol",
+      "coef_std": -0.018262916386283787,
+      "blend_weight": -0.07968160048035582
+    },
+    {
+      "fold_id": 4,
+      "alpha": "alpha_cond_ivol_lowliq_penalty",
+      "coef_std": -0.01569246290499516,
+      "blend_weight": -0.06846664209051141
+    },
+    {
+      "fold_id": 4,
+      "alpha": "alpha_rev1__hi_liq",
+      "coef_std": 0.008036689129154404,
+      "blend_weight": 0.03506429306411594
+    },
+    {
+      "fold_id": 4,
+      "alpha": "alpha_cond_vol_compression_liq_breakout",
+      "coef_std": -0.0044191689868510005,
+      "blend_weight": -0.019280954378672065
+    },
+    {
+      "fold_id": 4,
+      "alpha": "alpha_cond_breadth_trend_mom_compression",
+      "coef_std": 0.0007881778558226461,
+      "blend_weight": 0.0034388414033528322
+    },
+    {
+      "fold_id": 4,
+      "alpha": "alpha_cond_str_weak_breadth",
+      "coef_std": -0.0005618636710012021,
+      "blend_weight": -0.0024514264649849768
+    },
+    {
+      "fold_id": 5,
+      "alpha": "alpha_mom3__z_rvol",
+      "coef_std": -0.05431911605167964,
+      "blend_weight": -0.4455103511319636
+    },
+    {
+      "fold_id": 5,
+      "alpha": "alpha_rev1__z_rvol",
+      "coef_std": -0.03392164623900898,
+      "blend_weight": -0.27821595094693813
+    },
+    {
+      "fold_id": 5,
+      "alpha": "alpha_wick_imbalance__z_range_comp",
+      "coef_std": -0.023797074355733545,
+      "blend_weight": -0.195177015436879
+    },
+    {
+      "fold_id": 5,
+      "alpha": "alpha_cond_breadth_range_str",
+      "coef_std": 0.007652907479367632,
+      "blend_weight": 0.0627670283711857
+    },
+    {
+      "fold_id": 5,
+      "alpha": "alpha_cond_str_weak_breadth",
+      "coef_std": -0.002234854040939195,
+      "blend_weight": -0.01832965410483187
+    },
+    {
+      "fold_id": 6,
+      "alpha": "alpha_mom3__z_rvol",
+      "coef_std": -0.06230221227054235,
+      "blend_weight": -0.4887597017685798
+    },
+    {
+      "fold_id": 6,
+      "alpha": "alpha_gap__z_rvol",
+      "coef_std": 0.04711919670116808,
+      "blend_weight": 0.3696492257326624
+    },
+    {
+      "fold_id": 6,
+      "alpha": "alpha_wick_imbalance__z_range_comp",
+      "coef_std": -0.018048617801390283,
+      "blend_weight": -0.14159107249091274
+    },
+    {
+      "fold_id": 7,
+      "alpha": "alpha_mom3__z_rvol",
+      "coef_std": -0.017176402460157916,
+      "blend_weight": -0.6563392885784298
+    },
+    {
+      "fold_id": 7,
+      "alpha": "alpha_cond_vol_compression_liq_breakout",
+      "coef_std": 0.008993602533302213,
+      "blend_weight": 0.3436607113833585
+    },
+    {
+      "fold_id": 8,
+      "alpha": "alpha_rev1__hi_rvol",
+      "coef_std": 0.027743852568378417,
+      "blend_weight": 0.999999999963956
+    }
+  ],
+  "alpha_count": 29
+}

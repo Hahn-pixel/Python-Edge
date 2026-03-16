@@ -7,17 +7,41 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/.gitattributes
 .gitignore
 https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/.gitignore
 
-console50.log
-https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console50.log
+    artifacts/multi_alpha_wf/wf_multi_alpha_meta.json
+    https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/artifacts/multi_alpha_wf/wf_multi_alpha_meta.json
 
-console51.log
-https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console51.log
+    artifacts/regime_interaction_scan/regime_scan_meta.json
+    https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/artifacts/regime_interaction_scan/regime_scan_meta.json
+
+console64.log
+https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console64.log
+
+    data/alpha_library_v2/alpha_library_v2.meta.json
+    https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/data/alpha_library_v2/alpha_library_v2.meta.json
+
+    data/alpha_library_v2/alpha_library_v2.parquet
+    https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/data/alpha_library_v2/alpha_library_v2.parquet
+
+    data/alpha_library/alpha_library_v1.meta.json
+    https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/data/alpha_library/alpha_library_v1.meta.json
+
+    data/alpha_library/alpha_library_v1.parquet
+    https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/data/alpha_library/alpha_library_v1.parquet
+
+    data/features/feature_matrix_v1.meta.json
+    https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/data/features/feature_matrix_v1.meta.json
+
+    data/features/feature_matrix_v1.parquet
+    https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/data/features/feature_matrix_v1.parquet
 
 deps_edges.txt
 https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/deps_edges.txt
 
   experiments/console_01_pre_interactions_best.log
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/experiments/console_01_pre_interactions_best.log
+
+files1.txt
+https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/files1.txt
 
 pyproject.toml
 https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/pyproject.toml
@@ -34,8 +58,14 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/repo_map.txt
   scripts/build_feature_matrix.py
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/build_feature_matrix.py
 
+  scripts/build_multi_alpha_library.py
+  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/build_multi_alpha_library.py
+
   scripts/download_massive_aggs.py
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/download_massive_aggs.py
+
+  scripts/generate_alpha_library_v2.py
+  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/generate_alpha_library_v2.py
 
   scripts/run_alpha_decay_surface.py
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_alpha_decay_surface.py
@@ -49,17 +79,29 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/repo_map.txt
   scripts/run_mvp.py
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_mvp.py
 
+  scripts/run_production_regime_alpha_pack.py
+  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_production_regime_alpha_pack.py
+
   scripts/run_ranker_exit_grid.ps1
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_ranker_exit_grid.ps1
 
   scripts/run_ranker_hold_sim.py
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_ranker_hold_sim.py
 
+  scripts/run_ranker_multi_alpha_wf.py
+  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_ranker_multi_alpha_wf.py
+
   scripts/run_ranker_mvp.py
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_ranker_mvp.py
 
+  scripts/run_ranker_regime_pack_wf.py
+  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_ranker_regime_pack_wf.py
+
   scripts/run_ranker_wf.py
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_ranker_wf.py
+
+  scripts/run_regime_interaction_scan.py
+  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_regime_interaction_scan.py
 
   scripts/run_residual_alpha_diagnostics.py
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_residual_alpha_diagnostics.py
@@ -147,6 +189,12 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/repo_map.txt
 
       src/python_edge/model/__init__.py
       https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/model/__init__.py
+
+      src/python_edge/model/alpha_factory_core.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/model/alpha_factory_core.py
+
+      src/python_edge/model/alpha_factory_specs.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/model/alpha_factory_specs.py
 
       src/python_edge/model/conditional_factors.py
       https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/model/conditional_factors.py
