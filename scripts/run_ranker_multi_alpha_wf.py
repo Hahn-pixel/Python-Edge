@@ -39,7 +39,7 @@ try:
 except Exception:
     HAS_TURNOVER_CONTROL = False
 
-    def cap_daily_turnover(df: pd.DataFrame, weight_col: str = "weight", max_daily_turnover: float = 0.35) -> pd.DataFrame:
+    def cap_daily_turnover(df: pd.DataFrame, weight_col: str = "weight", max_daily_turnover: float = 0.20) -> pd.DataFrame:
         out = df.copy()
         out = out.sort_values(["symbol", "date"]).reset_index(drop=True)
         out["prev_weight"] = out.groupby("symbol", sort=False)[weight_col].shift(1).fillna(0.0)
@@ -67,30 +67,32 @@ PURGE_DAYS = int(os.getenv("WF_PURGE_DAYS", "5"))
 EMBARGO_DAYS = int(os.getenv("WF_EMBARGO_DAYS", "5"))
 MIN_TRAIN_ROWS = int(os.getenv("MIN_TRAIN_ROWS", "3000"))
 MIN_TEST_ROWS = int(os.getenv("MIN_TEST_ROWS", "300"))
-MIN_ALPHA_DAYS = int(os.getenv("MIN_ALPHA_DAYS", "50"))
-MIN_ALPHA_ABS_IC = float(os.getenv("MIN_ALPHA_ABS_IC", "0.004"))
-MIN_BLOCK_IC_ABS = float(os.getenv("MIN_BLOCK_IC_ABS", "0.0015"))
+MIN_ALPHA_DAYS = int(os.getenv("MIN_ALPHA_DAYS", "60"))
+MIN_ALPHA_ABS_IC = float(os.getenv("MIN_ALPHA_ABS_IC", "0.0055"))
+MIN_BLOCK_IC_ABS = float(os.getenv("MIN_BLOCK_IC_ABS", "0.0020"))
 MIN_STABILITY_BLOCKS = int(os.getenv("MIN_STABILITY_BLOCKS", "3"))
-MIN_SIGN_CONSISTENCY = float(os.getenv("MIN_SIGN_CONSISTENCY", "0.67"))
-RIDGE_L2 = float(os.getenv("RIDGE_L2", "20.0"))
-MAX_ALPHAS = int(os.getenv("MAX_ALPHAS", "10"))
-ENTER_PCT = float(os.getenv("ENTER_PCT", "0.08"))
-EXIT_PCT = float(os.getenv("EXIT_PCT", "0.16"))
-WEIGHT_CAP = float(os.getenv("WEIGHT_CAP", "0.06"))
-GROSS_TARGET = float(os.getenv("GROSS_TARGET", "1.0"))
-MAX_DAILY_TURNOVER = float(os.getenv("MAX_DAILY_TURNOVER", "0.35"))
+MIN_SIGN_CONSISTENCY = float(os.getenv("MIN_SIGN_CONSISTENCY", "0.75"))
+RIDGE_L2 = float(os.getenv("RIDGE_L2", "25.0"))
+MAX_ALPHAS = int(os.getenv("MAX_ALPHAS", "6"))
+MIN_SELECTED_ALPHAS = int(os.getenv("MIN_SELECTED_ALPHAS", "3"))
+ENTER_PCT = float(os.getenv("ENTER_PCT", "0.06"))
+EXIT_PCT = float(os.getenv("EXIT_PCT", "0.14"))
+WEIGHT_CAP = float(os.getenv("WEIGHT_CAP", "0.05"))
+GROSS_TARGET = float(os.getenv("GROSS_TARGET", "0.85"))
+MAX_DAILY_TURNOVER = float(os.getenv("MAX_DAILY_TURNOVER", "0.20"))
 COST_BPS = float(os.getenv("COST_BPS", "8.0"))
 TOPK_DEBUG = int(os.getenv("TOPK_DEBUG", "10"))
-CORR_PRUNE = float(os.getenv("CORR_PRUNE", "0.85"))
+CORR_PRUNE = float(os.getenv("CORR_PRUNE", "0.80"))
+MIN_FINAL_SELECT_SCORE = float(os.getenv("MIN_FINAL_SELECT_SCORE", "0.160"))
 
 CONSENSUS_MODE = str(os.getenv("CONSENSUS_MODE", "recent_weighted")).strip().lower()
 CONSENSUS_REQUIRED_LAST_FOLD = str(os.getenv("CONSENSUS_REQUIRED_LAST_FOLD", "1")).strip().lower() not in {"0", "false", "no", "off"}
 CONSENSUS_MIN_FOLDS = int(os.getenv("CONSENSUS_MIN_FOLDS", "2"))
-CONSENSUS_MAX_SIGN_FLIP = float(os.getenv("CONSENSUS_MAX_SIGN_FLIP", "0.34"))
-CONSENSUS_MIN_MEAN_ABS_IC = float(os.getenv("CONSENSUS_MIN_MEAN_ABS_IC", "0.004"))
-CONSENSUS_HISTORY_BLEND = float(os.getenv("CONSENSUS_HISTORY_BLEND", "0.45"))
-CONSENSUS_FAMILY_CAP = int(os.getenv("CONSENSUS_FAMILY_CAP", "2"))
-CURRENT_FAMILY_CAP = int(os.getenv("CURRENT_FAMILY_CAP", "3"))
+CONSENSUS_MAX_SIGN_FLIP = float(os.getenv("CONSENSUS_MAX_SIGN_FLIP", "0.25"))
+CONSENSUS_MIN_MEAN_ABS_IC = float(os.getenv("CONSENSUS_MIN_MEAN_ABS_IC", "0.0050"))
+CONSENSUS_HISTORY_BLEND = float(os.getenv("CONSENSUS_HISTORY_BLEND", "0.55"))
+CONSENSUS_FAMILY_CAP = int(os.getenv("CONSENSUS_FAMILY_CAP", "1"))
+CURRENT_FAMILY_CAP = int(os.getenv("CURRENT_FAMILY_CAP", "2"))
 
 
 @dataclass(frozen=True)
@@ -237,7 +239,7 @@ def _alpha_stats(frame: pd.DataFrame, alpha_cols: Sequence[str], fold_id: int, f
             "sign_consistency": float(sign_consistency),
             "block_ic_mean": float(np.mean(block_ics)) if block_ics else float("nan"),
         }
-        row["current_score"] = 0.60 * (row["abs_ic"] if pd.notna(row["abs_ic"]) else 0.0) + 0.20 * (row["block_ic_mean"] if pd.notna(row["block_ic_mean"]) else 0.0) + 0.20 * row["sign_consistency"]
+        row["current_score"] = 0.65 * (row["abs_ic"] if pd.notna(row["abs_ic"]) else 0.0) + 0.20 * (row["block_ic_mean"] if pd.notna(row["block_ic_mean"]) else 0.0) + 0.15 * row["sign_consistency"]
         rows.append(row)
     out = pd.DataFrame(rows)
     if out.empty:
@@ -372,7 +374,19 @@ def build_consensus_from_history(history_stats: pd.DataFrame) -> pd.DataFrame:
 
 
 def select_current_fold_alphas(current_stats: pd.DataFrame, history_consensus: pd.DataFrame, is_last_fold: bool) -> Tuple[pd.DataFrame, Dict[str, object]]:
-    counters: Dict[str, object] = {"input_current": int(len(current_stats)), "after_current_thresholds": 0, "history_rows": int(len(history_consensus)), "dropped_by_fold_consensus": 0, "dropped_by_sign_flip": 0, "dropped_by_family_dominance": 0, "dropped_by_weight_instability": 0, "corr_pruned": 0, "selected": 0, "history_gate_active": 0}
+    counters: Dict[str, object] = {
+        "input_current": int(len(current_stats)),
+        "after_current_thresholds": 0,
+        "history_rows": int(len(history_consensus)),
+        "dropped_by_fold_consensus": 0,
+        "dropped_by_sign_flip": 0,
+        "dropped_by_family_dominance": 0,
+        "dropped_by_weight_instability": 0,
+        "dropped_by_low_final_score": 0,
+        "corr_pruned": 0,
+        "selected": 0,
+        "history_gate_active": 0,
+    }
     work = current_stats.copy()
     work = work.loc[(work["n_days"] >= MIN_ALPHA_DAYS) & (work["abs_ic"] >= MIN_ALPHA_ABS_IC)].copy()
     work = work.loc[(work["block_hit_count"] >= MIN_STABILITY_BLOCKS) & (work["sign_consistency"] >= MIN_SIGN_CONSISTENCY)].copy()
@@ -405,6 +419,11 @@ def select_current_fold_alphas(current_stats: pd.DataFrame, history_consensus: p
     history_blend = CONSENSUS_HISTORY_BLEND if (CONSENSUS_MODE != "off" and counters["history_gate_active"] == 1) else 0.0
     work["final_select_score"] = (1.0 - history_blend) * pd.to_numeric(work["current_score"], errors="coerce").fillna(0.0) + history_blend * pd.to_numeric(work["history_score"], errors="coerce").fillna(0.0)
     work["final_select_score"] += 0.02 * pd.to_numeric(work["consensus_admitted"], errors="coerce").fillna(0.0)
+    low_score_mask = pd.to_numeric(work["final_select_score"], errors="coerce").fillna(0.0) < MIN_FINAL_SELECT_SCORE
+    counters["dropped_by_low_final_score"] = int(low_score_mask.sum())
+    work = work.loc[~low_score_mask].copy()
+    if work.empty:
+        raise RuntimeError("No alpha remained after final score floor")
     work = work.sort_values(["final_select_score", "abs_ic", "alpha"], ascending=[False, False, True]).reset_index(drop=True)
     if CURRENT_FAMILY_CAP > 0:
         work["family_rank"] = work.groupby("family", sort=False).cumcount() + 1
@@ -523,7 +542,16 @@ def evaluate_portfolio(port_df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, f
     mean = float(daily["net_ret"].mean()) if len(daily) else float("nan")
     std = float(daily["net_ret"].std(ddof=0)) if len(daily) else float("nan")
     sharpe = float((mean / (std + EPS)) * np.sqrt(252.0)) if len(daily) else float("nan")
-    summary = {"days": float(len(daily)), "mean_daily": mean, "std_daily": std, "sharpe": sharpe, "cum_ret": float(daily["cum_ret"].iloc[-1]) if len(daily) else float("nan"), "max_drawdown": float((daily["equity"] / daily["equity"].cummax() - 1.0).min()) if len(daily) else float("nan"), "avg_turnover": float(daily["turnover"].mean()) if len(daily) else float("nan"), "avg_gross": float(daily["gross"].mean()) if len(daily) else float("nan")}
+    summary = {
+        "days": float(len(daily)),
+        "mean_daily": mean,
+        "std_daily": std,
+        "sharpe": sharpe,
+        "cum_ret": float(daily["cum_ret"].iloc[-1]) if len(daily) else float("nan"),
+        "max_drawdown": float((daily["equity"] / daily["equity"].cummax() - 1.0).min()) if len(daily) else float("nan"),
+        "avg_turnover": float(daily["turnover"].mean()) if len(daily) else float("nan"),
+        "avg_gross": float(daily["gross"].mean()) if len(daily) else float("nan"),
+    }
     return daily, summary
 
 
@@ -543,8 +571,8 @@ def run_fold(df: pd.DataFrame, split: WFSplit, alpha_cols: Sequence[str], family
     counters["corr_pruned"] = int(corr_removed)
     selected = candidate_df["alpha"].head(MAX_ALPHAS).tolist()
     counters["selected"] = int(len(selected))
-    if not selected:
-        raise RuntimeError(f"Fold {split.fold_id}: selected alpha list is empty")
+    if len(selected) < MIN_SELECTED_ALPHAS:
+        raise RuntimeError(f"Fold {split.fold_id}: selected alpha list too small after hardening: {len(selected)} < {MIN_SELECTED_ALPHAS}")
     weights_df = fit_ridge_weights(train_df, selected)
     scored = apply_weights(test_df, weights_df)
     port = build_portfolio(scored)
@@ -570,6 +598,8 @@ def main() -> int:
     print(f"[CFG] consensus_required_last_fold={int(CONSENSUS_REQUIRED_LAST_FOLD)}")
     print(f"[CFG] consensus_min_folds={CONSENSUS_MIN_FOLDS} consensus_max_sign_flip={CONSENSUS_MAX_SIGN_FLIP} consensus_min_mean_abs_ic={CONSENSUS_MIN_MEAN_ABS_IC}")
     print(f"[CFG] consensus_history_blend={CONSENSUS_HISTORY_BLEND} consensus_family_cap={CONSENSUS_FAMILY_CAP} current_family_cap={CURRENT_FAMILY_CAP}")
+    print(f"[CFG] hardening max_alphas={MAX_ALPHAS} min_selected_alphas={MIN_SELECTED_ALPHAS} min_final_select_score={MIN_FINAL_SELECT_SCORE} corr_prune={CORR_PRUNE}")
+    print(f"[CFG] trading gross_target={GROSS_TARGET} weight_cap={WEIGHT_CAP} max_daily_turnover={MAX_DAILY_TURNOVER} enter_pct={ENTER_PCT} exit_pct={EXIT_PCT}")
     df, alpha_cols, shortlist_counters, shortlist_df, family_map = load_alpha_library()
     print(f"[DATA] rows={len(df)} dates={df['date'].nunique()} symbols={df['symbol'].nunique()} alpha_cols={len(alpha_cols)}")
     print("[ALPHA_SHORTLIST]")
@@ -606,7 +636,7 @@ def main() -> int:
         port_df.to_csv(OUT_DIR / f"wf_portfolio__fold{split.fold_id}.csv", index=False)
         daily.to_csv(OUT_DIR / f"wf_daily__fold{split.fold_id}.csv", index=False)
         all_daily.append(daily)
-        print(f"[WF][FOLD {split.fold_id}][CONSENSUS] selected={counters['selected']} dropped_by_fold_consensus={counters['dropped_by_fold_consensus']} dropped_by_sign_flip={counters['dropped_by_sign_flip']} dropped_by_family_dominance={counters['dropped_by_family_dominance']} corr_pruned={counters['corr_pruned']}")
+        print(f"[WF][FOLD {split.fold_id}][CONSENSUS] selected={counters['selected']} dropped_by_fold_consensus={counters['dropped_by_fold_consensus']} dropped_by_sign_flip={counters['dropped_by_sign_flip']} dropped_by_family_dominance={counters['dropped_by_family_dominance']} dropped_by_low_final_score={counters['dropped_by_low_final_score']} corr_pruned={counters['corr_pruned']}")
         print(f"[WF][FOLD {split.fold_id}][SUMMARY] sharpe={summary['sharpe']:.4f} mean_daily={summary['mean_daily']:.6f} cum_ret={summary['cum_ret']:.4f} maxdd={summary['max_drawdown']:.4f} avg_turn={summary['avg_turnover']:.4f}")
         print(f"[WF][FOLD {split.fold_id}][TOP_WEIGHTS]")
         print(weights_df.head(TOPK_DEBUG).to_string(index=False))
@@ -615,8 +645,38 @@ def main() -> int:
     pd.DataFrame(fold_summaries).to_csv(OUT_DIR / "wf_fold_summaries.csv", index=False)
     pd.DataFrame(fold_debug_rows).to_csv(OUT_DIR / "wf_fold_consensus_debug.csv", index=False)
     equity = (1.0 + overall_daily["net_ret"].fillna(0.0)).cumprod()
-    overall_summary = {"days": float(len(overall_daily)), "mean_daily": float(overall_daily["net_ret"].mean()), "std_daily": float(overall_daily["net_ret"].std(ddof=0)), "sharpe": float((overall_daily["net_ret"].mean() / (overall_daily["net_ret"].std(ddof=0) + EPS)) * np.sqrt(252.0)), "cum_ret": float(equity.iloc[-1] - 1.0) if len(equity) else float("nan"), "max_drawdown": float((equity / equity.cummax() - 1.0).min()) if len(equity) else float("nan"), "avg_turnover": float(overall_daily["turnover"].mean()) if len(overall_daily) else float("nan"), "folds": int(len(splits))}
-    meta = {"alpha_lib_file": str(ALPHA_LIB_FILE), "alpha_shortlist_csv": str(ALPHA_SHORTLIST_CSV), "alpha_shortlist_required": int(ALPHA_SHORTLIST_REQUIRED), "consensus_mode": CONSENSUS_MODE, "consensus_required_last_fold": int(CONSENSUS_REQUIRED_LAST_FOLD), "consensus_min_folds": CONSENSUS_MIN_FOLDS, "consensus_max_sign_flip": CONSENSUS_MAX_SIGN_FLIP, "consensus_min_mean_abs_ic": CONSENSUS_MIN_MEAN_ABS_IC, "consensus_history_blend": CONSENSUS_HISTORY_BLEND, "consensus_family_cap": CONSENSUS_FAMILY_CAP, "current_family_cap": CURRENT_FAMILY_CAP, "alpha_shortlist_debug": shortlist_counters, "overall_summary": overall_summary, "fold_summaries": fold_summaries}
+    overall_summary = {
+        "days": float(len(overall_daily)),
+        "mean_daily": float(overall_daily["net_ret"].mean()),
+        "std_daily": float(overall_daily["net_ret"].std(ddof=0)),
+        "sharpe": float((overall_daily["net_ret"].mean() / (overall_daily["net_ret"].std(ddof=0) + EPS)) * np.sqrt(252.0)),
+        "cum_ret": float(equity.iloc[-1] - 1.0) if len(equity) else float("nan"),
+        "max_drawdown": float((equity / equity.cummax() - 1.0).min()) if len(equity) else float("nan"),
+        "avg_turnover": float(overall_daily["turnover"].mean()) if len(overall_daily) else float("nan"),
+        "folds": int(len(splits)),
+    }
+    meta = {
+        "alpha_lib_file": str(ALPHA_LIB_FILE),
+        "alpha_shortlist_csv": str(ALPHA_SHORTLIST_CSV),
+        "alpha_shortlist_required": int(ALPHA_SHORTLIST_REQUIRED),
+        "consensus_mode": CONSENSUS_MODE,
+        "consensus_required_last_fold": int(CONSENSUS_REQUIRED_LAST_FOLD),
+        "consensus_min_folds": CONSENSUS_MIN_FOLDS,
+        "consensus_max_sign_flip": CONSENSUS_MAX_SIGN_FLIP,
+        "consensus_min_mean_abs_ic": CONSENSUS_MIN_MEAN_ABS_IC,
+        "consensus_history_blend": CONSENSUS_HISTORY_BLEND,
+        "consensus_family_cap": CONSENSUS_FAMILY_CAP,
+        "current_family_cap": CURRENT_FAMILY_CAP,
+        "max_alphas": MAX_ALPHAS,
+        "min_selected_alphas": MIN_SELECTED_ALPHAS,
+        "min_final_select_score": MIN_FINAL_SELECT_SCORE,
+        "gross_target": GROSS_TARGET,
+        "weight_cap": WEIGHT_CAP,
+        "max_daily_turnover": MAX_DAILY_TURNOVER,
+        "alpha_shortlist_debug": shortlist_counters,
+        "overall_summary": overall_summary,
+        "fold_summaries": fold_summaries,
+    }
     meta_path = OUT_DIR / "wf_multi_alpha_meta.json"
     meta_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"[OVERALL] sharpe={overall_summary['sharpe']:.4f} mean_daily={overall_summary['mean_daily']:.6f} cum_ret={overall_summary['cum_ret']:.4f} maxdd={overall_summary['max_drawdown']:.4f} avg_turnover={overall_summary['avg_turnover']:.4f}")
@@ -625,7 +685,7 @@ def main() -> int:
     print(f"[ARTIFACT] {OUT_DIR / 'wf_fold_consensus_debug.csv'}")
     print(f"[ARTIFACT] {meta_path}")
     print(f"[ARTIFACT] {shortlist_debug_path}")
-    print("[FINAL] multi-alpha walkforward with fold consensus complete")
+    print("[FINAL] multi-alpha walkforward with hardening complete")
     return 0
 
 
