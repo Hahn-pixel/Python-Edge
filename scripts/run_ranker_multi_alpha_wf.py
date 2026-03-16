@@ -71,7 +71,10 @@ except Exception:
         out["dbg_cost_model_fallback"] = 1
         return out
 
-ALPHA_LIB_FILE = Path(os.getenv("ALPHA_LIB_FILE", r"data\alpha_library\alpha_library_v1.parquet"))
+
+ALPHA_LIB_FILE = Path(os.getenv("ALPHA_LIB_FILE", r"data\alpha_library_v2\alpha_library_v2.parquet"))
+ALPHA_SHORTLIST_CSV = Path(os.getenv("ALPHA_SHORTLIST_CSV", r"data\alpha_library_v2\diagnostics\alpha_candidate_shortlist.csv"))
+ALPHA_SHORTLIST_REQUIRED = str(os.getenv("ALPHA_SHORTLIST_REQUIRED", "1")).strip().lower() not in {"0", "false", "no", "off"}
 OUT_DIR = Path(os.getenv("MULTI_ALPHA_WF_OUT_DIR", r"artifacts\multi_alpha_wf"))
 PAUSE_ON_EXIT_ENV = str(os.getenv("PAUSE_ON_EXIT", "auto")).strip().lower()
 
@@ -214,26 +217,102 @@ def _rank_abs_pct_by_date(df: pd.DataFrame, col: str) -> pd.Series:
     return df.groupby("date", sort=False)[col].transform(lambda s: _safe_numeric(s).abs().rank(method="average", pct=True))
 
 
+def _must_exist(path: Path, label: str) -> Path:
+    if not path.exists():
+        raise FileNotFoundError(f"{label} not found: {path}")
+    return path
+
+
+def _load_shortlist_required() -> Tuple[List[str], Dict[str, object], pd.DataFrame]:
+    counters: Dict[str, object] = {
+        "shortlist_required": int(ALPHA_SHORTLIST_REQUIRED),
+        "shortlist_path": str(ALPHA_SHORTLIST_CSV),
+        "shortlist_csv_exists": int(ALPHA_SHORTLIST_CSV.exists()),
+        "shortlist_rows_raw": 0,
+        "shortlist_rows_unique": 0,
+        "shortlist_duplicates_removed": 0,
+        "shortlist_alpha_missing_name": 0,
+    }
+    if not ALPHA_SHORTLIST_CSV.exists():
+        if ALPHA_SHORTLIST_REQUIRED:
+            raise FileNotFoundError(f"ALPHA_SHORTLIST_REQUIRED=1 but shortlist csv not found: {ALPHA_SHORTLIST_CSV}")
+        return [], counters, pd.DataFrame(columns=["alpha"])
+
+    shortlist_df = pd.read_csv(ALPHA_SHORTLIST_CSV)
+    if "alpha" not in shortlist_df.columns:
+        raise RuntimeError(f"Shortlist csv missing 'alpha' column: {ALPHA_SHORTLIST_CSV}")
+
+    counters["shortlist_rows_raw"] = int(len(shortlist_df))
+    shortlist_df["alpha"] = shortlist_df["alpha"].astype(str).str.strip()
+    missing_name_mask = shortlist_df["alpha"].eq("") | shortlist_df["alpha"].eq("nan")
+    counters["shortlist_alpha_missing_name"] = int(missing_name_mask.sum())
+    shortlist_df = shortlist_df.loc[~missing_name_mask].copy()
+    shortlist_df = shortlist_df.drop_duplicates(subset=["alpha"]).reset_index(drop=True)
+    counters["shortlist_rows_unique"] = int(len(shortlist_df))
+    counters["shortlist_duplicates_removed"] = int(int(counters["shortlist_rows_raw"]) - int(counters["shortlist_alpha_missing_name"]) - int(counters["shortlist_rows_unique"]))
+
+    if ALPHA_SHORTLIST_REQUIRED and shortlist_df.empty:
+        raise RuntimeError(f"ALPHA_SHORTLIST_REQUIRED=1 but shortlist is empty after cleanup: {ALPHA_SHORTLIST_CSV}")
+    return shortlist_df["alpha"].tolist(), counters, shortlist_df
+
+
 # ------------------------------------------------------------
 # LOAD / SPLITS
 # ------------------------------------------------------------
 
-def load_alpha_library() -> pd.DataFrame:
-    if not ALPHA_LIB_FILE.exists():
-        raise FileNotFoundError(f"Alpha library not found: {ALPHA_LIB_FILE}")
+def load_alpha_library() -> Tuple[pd.DataFrame, List[str], Dict[str, object], pd.DataFrame]:
+    _must_exist(ALPHA_LIB_FILE, "Alpha library")
     df = pd.read_parquet(ALPHA_LIB_FILE)
     if df.empty:
         raise RuntimeError("Alpha library is empty")
+
     required = ["date", "symbol", TARGET_COL]
     missing = [c for c in required if c not in df.columns]
     if missing:
         raise RuntimeError(f"Alpha library missing required columns: {missing}")
-    alpha_cols = _alpha_cols(df)
-    if not alpha_cols:
-        raise RuntimeError("No alpha_ columns found in alpha library")
+
     df["date"] = pd.to_datetime(df["date"]).dt.normalize()
     df = df.sort_values(["date", "symbol"]).reset_index(drop=True)
-    return df
+
+    alpha_cols_before = _alpha_cols(df)
+    if not alpha_cols_before:
+        raise RuntimeError("No alpha_ columns found in alpha library")
+
+    shortlist_cols, shortlist_counters, shortlist_df = _load_shortlist_required()
+    shortlist_set = set(shortlist_cols)
+    found = [c for c in alpha_cols_before if c in shortlist_set]
+    missing_in_parquet = [c for c in shortlist_cols if c not in set(alpha_cols_before)]
+
+    shortlist_counters["alpha_cols_before_shortlist"] = int(len(alpha_cols_before))
+    shortlist_counters["shortlist_found_in_parquet"] = int(len(found))
+    shortlist_counters["shortlist_missing_in_parquet"] = int(len(missing_in_parquet))
+    shortlist_counters["shortlist_missing_in_parquet_list"] = missing_in_parquet
+
+    if ALPHA_SHORTLIST_REQUIRED and not found:
+        raise RuntimeError(
+            f"ALPHA_SHORTLIST_REQUIRED=1 but no shortlist alphas were found in parquet; "
+            f"shortlist_path={ALPHA_SHORTLIST_CSV} alpha_lib_file={ALPHA_LIB_FILE}"
+        )
+
+    if ALPHA_SHORTLIST_REQUIRED and missing_in_parquet:
+        raise RuntimeError(
+            f"ALPHA_SHORTLIST_REQUIRED=1 and shortlist has missing alpha columns in parquet: "
+            f"missing_count={len(missing_in_parquet)} first_missing={missing_in_parquet[:10]}"
+        )
+
+    if shortlist_cols:
+        alpha_cols = found
+    else:
+        alpha_cols = alpha_cols_before
+
+    if not alpha_cols:
+        raise RuntimeError("No alpha columns remain after shortlist filtering")
+
+    keep_cols = [c for c in df.columns if not c.startswith("alpha_")] + alpha_cols
+    df = df[keep_cols].copy()
+    shortlist_counters["alpha_cols_after_shortlist"] = int(len(alpha_cols))
+    shortlist_counters["shortlist_filter_applied"] = int(bool(shortlist_cols))
+    return df, alpha_cols, shortlist_counters, shortlist_df
 
 
 def build_walkforward_splits(dates: Sequence[pd.Timestamp]) -> List[WFSplit]:
@@ -682,12 +761,15 @@ def run_fold(df: pd.DataFrame, split: WFSplit, alpha_cols: Sequence[str]) -> Tup
     summary["selected_alpha_nonzero_mean"] = float(train_df[selected].fillna(0.0).abs().sum(axis=1).gt(0.0).mean())
     summary["ridge_chosen_min_active"] = float(weights_df["chosen_min_active"].iloc[0]) if "chosen_min_active" in weights_df.columns and len(weights_df) else float("nan")
     summary["ridge_usable_rows"] = float(weights_df["usable_rows"].iloc[0]) if "usable_rows" in weights_df.columns and len(weights_df) else float("nan")
+    summary["fold_alpha_input_count"] = float(len(alpha_cols))
     return selected_df, weights_df, daily, summary
 
 
 def main() -> int:
     _enable_line_buffering()
     print(f"[CFG] alpha_lib_file={ALPHA_LIB_FILE}")
+    print(f"[CFG] alpha_shortlist_csv={ALPHA_SHORTLIST_CSV}")
+    print(f"[CFG] alpha_shortlist_required={int(ALPHA_SHORTLIST_REQUIRED)}")
     print(f"[CFG] out_dir={OUT_DIR}")
     print(f"[CFG] target_col={TARGET_COL}")
     print(f"[CFG] train_days={TRAIN_DAYS} test_days={TEST_DAYS} step_days={STEP_DAYS} purge_days={PURGE_DAYS} embargo_days={EMBARGO_DAYS}")
@@ -698,9 +780,16 @@ def main() -> int:
     print(f"[CFG] low_price_min={LOW_PRICE_MIN} low_dv_min={LOW_DV_MIN} max_adv_participation={MAX_ADV_PARTICIPATION}")
     print(f"[CFG] top_pct strong/neutral/weak={TOP_PCT_STRONG}/{TOP_PCT_NEUTRAL}/{TOP_PCT_WEAK} budgets={BUDGET_MODE} regime={REGIME_MODE}")
 
-    df = load_alpha_library()
-    alpha_cols = _alpha_cols(df)
+    df, alpha_cols, shortlist_counters, shortlist_df = load_alpha_library()
     print(f"[DATA] rows={len(df)} dates={df['date'].nunique()} symbols={df['symbol'].nunique()} alpha_cols={len(alpha_cols)}")
+    print("[ALPHA_SHORTLIST]")
+    print(json.dumps(shortlist_counters, ensure_ascii=False, indent=2))
+    if len(shortlist_df):
+        print("[ALPHA_SHORTLIST][HEAD]")
+        preview_cols = [c for c in ["shortlist_rank", "alpha", "family", "wave", "transform", "interaction", "regime", "selector_score"] if c in shortlist_df.columns]
+        if not preview_cols:
+            preview_cols = ["alpha"]
+        print(shortlist_df[preview_cols].head(20).to_string(index=False))
 
     splits = build_walkforward_splits(df["date"])
     print(f"[WF] folds={len(splits)}")
@@ -712,6 +801,9 @@ def main() -> int:
     all_daily: List[pd.DataFrame] = []
     top_weights_preview: List[Dict[str, object]] = []
 
+    shortlist_meta_path = OUT_DIR / "wf_alpha_shortlist_debug.json"
+    shortlist_meta_path.write_text(json.dumps(shortlist_counters, ensure_ascii=False, indent=2), encoding="utf-8")
+
     for sp in splits:
         print(f"[WF][FOLD {sp.fold_id}] start")
         selected_df, weights_df, daily, summary = run_fold(df, sp, alpha_cols)
@@ -721,7 +813,11 @@ def main() -> int:
         selected_df.to_csv(selected_path, index=False)
         weights_df.to_csv(weights_path, index=False)
         daily.to_csv(daily_path, index=False)
-        print(f"[WF][FOLD {sp.fold_id}][SUMMARY] sharpe={summary['sharpe']:.4f} mean_daily={summary['mean_daily']:.6f} cum_ret={summary['cum_ret']:.4f} maxdd={summary['max_drawdown']:.4f} selected={int(summary['selected_alpha_count'])} avg_turn={summary['avg_turnover']:.4f}")
+        print(
+            f"[WF][FOLD {sp.fold_id}][SUMMARY] sharpe={summary['sharpe']:.4f} mean_daily={summary['mean_daily']:.6f} "
+            f"cum_ret={summary['cum_ret']:.4f} maxdd={summary['max_drawdown']:.4f} selected={int(summary['selected_alpha_count'])} "
+            f"avg_turn={summary['avg_turnover']:.4f} alpha_input={int(summary['fold_alpha_input_count'])}"
+        )
         print(f"[WF][FOLD {sp.fold_id}][TOP_WEIGHTS]")
         print(weights_df.head(TOPK_DEBUG).to_string(index=False))
         for _, row in weights_df.head(TOPK_DEBUG).iterrows():
@@ -755,6 +851,9 @@ def main() -> int:
 
     meta = {
         "alpha_lib_file": str(ALPHA_LIB_FILE),
+        "alpha_shortlist_csv": str(ALPHA_SHORTLIST_CSV),
+        "alpha_shortlist_required": int(ALPHA_SHORTLIST_REQUIRED),
+        "alpha_shortlist_debug": shortlist_counters,
         "target_col": TARGET_COL,
         "train_days": TRAIN_DAYS,
         "test_days": TEST_DAYS,
@@ -790,6 +889,7 @@ def main() -> int:
     print(f"[ARTIFACT] {overall_path}")
     print(f"[ARTIFACT] {summary_path}")
     print(f"[ARTIFACT] {meta_path}")
+    print(f"[ARTIFACT] {shortlist_meta_path}")
     print("[FINAL] multi-alpha walk-forward complete")
     return 0
 
