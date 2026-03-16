@@ -75,11 +75,11 @@ MIN_SIGN_CONSISTENCY = float(os.getenv("MIN_SIGN_CONSISTENCY", "0.75"))
 RIDGE_L2 = float(os.getenv("RIDGE_L2", "25.0"))
 MAX_ALPHAS = int(os.getenv("MAX_ALPHAS", "6"))
 MIN_SELECTED_ALPHAS = int(os.getenv("MIN_SELECTED_ALPHAS", "3"))
-ENTER_PCT = float(os.getenv("ENTER_PCT", "0.06"))
-EXIT_PCT = float(os.getenv("EXIT_PCT", "0.14"))
-WEIGHT_CAP = float(os.getenv("WEIGHT_CAP", "0.05"))
-GROSS_TARGET = float(os.getenv("GROSS_TARGET", "0.85"))
-MAX_DAILY_TURNOVER = float(os.getenv("MAX_DAILY_TURNOVER", "0.20"))
+BASE_ENTER_PCT = float(os.getenv("ENTER_PCT", "0.06"))
+BASE_EXIT_PCT = float(os.getenv("EXIT_PCT", "0.14"))
+BASE_WEIGHT_CAP = float(os.getenv("WEIGHT_CAP", "0.05"))
+BASE_GROSS_TARGET = float(os.getenv("GROSS_TARGET", "0.85"))
+BASE_MAX_DAILY_TURNOVER = float(os.getenv("MAX_DAILY_TURNOVER", "0.20"))
 COST_BPS = float(os.getenv("COST_BPS", "8.0"))
 TOPK_DEBUG = int(os.getenv("TOPK_DEBUG", "10"))
 CORR_PRUNE = float(os.getenv("CORR_PRUNE", "0.80"))
@@ -102,6 +102,16 @@ class WFSplit:
     train_end: pd.Timestamp
     test_start: pd.Timestamp
     test_end: pd.Timestamp
+
+
+@dataclass(frozen=True)
+class ShellVariant:
+    name: str
+    enter_pct: float
+    exit_pct: float
+    weight_cap: float
+    gross_target: float
+    max_daily_turnover: float
 
 
 def _enable_line_buffering() -> None:
@@ -497,10 +507,10 @@ def apply_weights(test_df: pd.DataFrame, weights_df: pd.DataFrame) -> pd.DataFra
     return out
 
 
-def build_portfolio(scored_df: pd.DataFrame) -> pd.DataFrame:
+def build_portfolio(scored_df: pd.DataFrame, shell: ShellVariant) -> pd.DataFrame:
     base = scored_df.copy()
     base["score"] = _safe_numeric(base["score_model_z"])
-    out = apply_holding_inertia(base, enter_pct=ENTER_PCT, exit_pct=EXIT_PCT)
+    out = apply_holding_inertia(base, enter_pct=shell.enter_pct, exit_pct=shell.exit_pct)
     if "side" not in out.columns:
         raise RuntimeError("Holding inertia did not return side column")
     out["raw_strength"] = _safe_numeric(out["score_model_z"]).abs().fillna(0.0)
@@ -515,22 +525,37 @@ def build_portfolio(scored_df: pd.DataFrame) -> pd.DataFrame:
             gg.loc[gg["side"] > 0, "weight"] = 0.5 * gg.loc[gg["side"] > 0, "raw_strength"] / long_strength
         if short_strength > EPS:
             gg.loc[gg["side"] < 0, "weight"] = -0.5 * gg.loc[gg["side"] < 0, "raw_strength"] / short_strength
-        gg["weight"] = gg["weight"].clip(lower=-WEIGHT_CAP, upper=WEIGHT_CAP)
+        gg["weight"] = gg["weight"].clip(lower=-shell.weight_cap, upper=shell.weight_cap)
         gross = float(gg["weight"].abs().sum())
         if gross > EPS:
-            gg["weight"] = gg["weight"] * (GROSS_TARGET / gross)
+            gg["weight"] = gg["weight"] * (shell.gross_target / gross)
         pieces.append(gg)
     out = pd.concat(pieces, ignore_index=True).sort_values(["date", "symbol"]).reset_index(drop=True)
-    out = cap_daily_turnover(out, weight_col="weight", max_daily_turnover=MAX_DAILY_TURNOVER)
+    out = cap_daily_turnover(out, weight_col="weight", max_daily_turnover=shell.max_daily_turnover)
     if "turnover" not in out.columns:
         out = out.sort_values(["symbol", "date"]).reset_index(drop=True)
         out["prev_weight"] = out.groupby("symbol", sort=False)["weight"].shift(1).fillna(0.0)
         out["turnover"] = (pd.to_numeric(out["weight"], errors="coerce") - pd.to_numeric(out["prev_weight"], errors="coerce")).abs()
+    out["shell_name"] = shell.name
+    out["shell_enter_pct"] = float(shell.enter_pct)
+    out["shell_exit_pct"] = float(shell.exit_pct)
+    out["shell_weight_cap"] = float(shell.weight_cap)
+    out["shell_gross_target"] = float(shell.gross_target)
+    out["shell_max_daily_turnover"] = float(shell.max_daily_turnover)
     return out
 
 
 def evaluate_portfolio(port_df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, float]]:
-    daily = port_df.groupby("date", sort=False).agg(turnover=("turnover", "sum"), gross=("weight", lambda s: float(np.sum(np.abs(pd.to_numeric(s, errors="coerce")))))).reset_index()
+    daily = port_df.groupby("date", sort=False).agg(
+        turnover=("turnover", "sum"),
+        gross=("weight", lambda s: float(np.sum(np.abs(pd.to_numeric(s, errors="coerce"))))),
+        shell_name=("shell_name", "first"),
+        shell_enter_pct=("shell_enter_pct", "first"),
+        shell_exit_pct=("shell_exit_pct", "first"),
+        shell_weight_cap=("shell_weight_cap", "first"),
+        shell_gross_target=("shell_gross_target", "first"),
+        shell_max_daily_turnover=("shell_max_daily_turnover", "first"),
+    ).reset_index()
     pnl = port_df.copy()
     pnl["gross_pnl"] = _safe_numeric(pnl["weight"]) * _safe_numeric(pnl[TARGET_COL])
     gross_by_day = pnl.groupby("date", sort=False)["gross_pnl"].sum().rename("gross_ret").reset_index()
@@ -555,7 +580,43 @@ def evaluate_portfolio(port_df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, f
     return daily, summary
 
 
-def run_fold(df: pd.DataFrame, split: WFSplit, alpha_cols: Sequence[str], family_map: Dict[str, str], history_stats: pd.DataFrame, is_last_fold: bool) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, Dict[str, object], Dict[str, float], pd.DataFrame]:
+def shell_variants() -> List[ShellVariant]:
+    return [
+        ShellVariant(
+            name="base_hardened",
+            enter_pct=BASE_ENTER_PCT,
+            exit_pct=BASE_EXIT_PCT,
+            weight_cap=BASE_WEIGHT_CAP,
+            gross_target=BASE_GROSS_TARGET,
+            max_daily_turnover=BASE_MAX_DAILY_TURNOVER,
+        ),
+        ShellVariant(
+            name="looser_turnover",
+            enter_pct=BASE_ENTER_PCT,
+            exit_pct=BASE_EXIT_PCT,
+            weight_cap=BASE_WEIGHT_CAP,
+            gross_target=BASE_GROSS_TARGET,
+            max_daily_turnover=max(BASE_MAX_DAILY_TURNOVER, 0.35),
+        ),
+        ShellVariant(
+            name="looser_inertia",
+            enter_pct=max(BASE_ENTER_PCT, 0.10),
+            exit_pct=max(BASE_EXIT_PCT, 0.22),
+            weight_cap=BASE_WEIGHT_CAP,
+            gross_target=BASE_GROSS_TARGET,
+            max_daily_turnover=BASE_MAX_DAILY_TURNOVER,
+        ),
+    ]
+
+
+def run_fold(
+    df: pd.DataFrame,
+    split: WFSplit,
+    alpha_cols: Sequence[str],
+    family_map: Dict[str, str],
+    history_stats: pd.DataFrame,
+    is_last_fold: bool,
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, Dict[str, object], Dict[str, float], Dict[str, pd.DataFrame], Dict[str, Dict[str, float]]]:
     train_df = df.loc[(df["date"] >= split.train_start) & (df["date"] <= split.train_end)].copy()
     test_df = df.loc[(df["date"] >= split.test_start) & (df["date"] <= split.test_end)].copy()
     if len(train_df) < MIN_TRAIN_ROWS:
@@ -575,18 +636,31 @@ def run_fold(df: pd.DataFrame, split: WFSplit, alpha_cols: Sequence[str], family
         raise RuntimeError(f"Fold {split.fold_id}: selected alpha list too small after hardening: {len(selected)} < {MIN_SELECTED_ALPHAS}")
     weights_df = fit_ridge_weights(train_df, selected)
     scored = apply_weights(test_df, weights_df)
-    port = build_portfolio(scored)
-    daily, summary = evaluate_portfolio(port)
-    summary["selected_alpha_count"] = float(len(selected))
-    summary["selected_alpha_list"] = ",".join(selected)
-    summary["fold_alpha_input_count"] = float(len(alpha_cols))
-    summary["fold_id"] = float(split.fold_id)
-    daily["fold_id"] = split.fold_id
-    daily["train_start"] = split.train_start
-    daily["train_end"] = split.train_end
-    daily["test_start"] = split.test_start
-    daily["test_end"] = split.test_end
-    return current_stats, history_consensus, candidate_df, weights_df, port, counters, summary, daily
+
+    shell_daily_map: Dict[str, pd.DataFrame] = {}
+    shell_summary_map: Dict[str, Dict[str, float]] = {}
+    for shell in shell_variants():
+        port = build_portfolio(scored, shell)
+        daily, summary = evaluate_portfolio(port)
+        daily["fold_id"] = split.fold_id
+        daily["train_start"] = split.train_start
+        daily["train_end"] = split.train_end
+        daily["test_start"] = split.test_start
+        daily["test_end"] = split.test_end
+        summary = dict(summary)
+        summary["selected_alpha_count"] = float(len(selected))
+        summary["selected_alpha_list"] = ",".join(selected)
+        summary["fold_alpha_input_count"] = float(len(alpha_cols))
+        summary["fold_id"] = float(split.fold_id)
+        summary["shell_name"] = shell.name
+        summary["shell_enter_pct"] = float(shell.enter_pct)
+        summary["shell_exit_pct"] = float(shell.exit_pct)
+        summary["shell_weight_cap"] = float(shell.weight_cap)
+        summary["shell_gross_target"] = float(shell.gross_target)
+        summary["shell_max_daily_turnover"] = float(shell.max_daily_turnover)
+        shell_daily_map[shell.name] = daily
+        shell_summary_map[shell.name] = summary
+    return current_stats, history_consensus, candidate_df, weights_df, counters, shell_summary_map["base_hardened"], shell_daily_map, shell_summary_map
 
 
 def main() -> int:
@@ -599,7 +673,8 @@ def main() -> int:
     print(f"[CFG] consensus_min_folds={CONSENSUS_MIN_FOLDS} consensus_max_sign_flip={CONSENSUS_MAX_SIGN_FLIP} consensus_min_mean_abs_ic={CONSENSUS_MIN_MEAN_ABS_IC}")
     print(f"[CFG] consensus_history_blend={CONSENSUS_HISTORY_BLEND} consensus_family_cap={CONSENSUS_FAMILY_CAP} current_family_cap={CURRENT_FAMILY_CAP}")
     print(f"[CFG] hardening max_alphas={MAX_ALPHAS} min_selected_alphas={MIN_SELECTED_ALPHAS} min_final_select_score={MIN_FINAL_SELECT_SCORE} corr_prune={CORR_PRUNE}")
-    print(f"[CFG] trading gross_target={GROSS_TARGET} weight_cap={WEIGHT_CAP} max_daily_turnover={MAX_DAILY_TURNOVER} enter_pct={ENTER_PCT} exit_pct={EXIT_PCT}")
+    print(f"[CFG] base_shell gross_target={BASE_GROSS_TARGET} weight_cap={BASE_WEIGHT_CAP} max_daily_turnover={BASE_MAX_DAILY_TURNOVER} enter_pct={BASE_ENTER_PCT} exit_pct={BASE_EXIT_PCT}")
+
     df, alpha_cols, shortlist_counters, shortlist_df, family_map = load_alpha_library()
     print(f"[DATA] rows={len(df)} dates={df['date'].nunique()} symbols={df['symbol'].nunique()} alpha_cols={len(alpha_cols)}")
     print("[ALPHA_SHORTLIST]")
@@ -610,51 +685,78 @@ def main() -> int:
         if not preview_cols:
             preview_cols = ["alpha"]
         print(shortlist_df[preview_cols].head(20).to_string(index=False))
+
     splits = build_walkforward_splits(df["date"])
     print(f"[WF] folds={len(splits)}")
     for sp in splits:
         print(f"[WF][FOLD {sp.fold_id}] train={sp.train_start.date()}..{sp.train_end.date()} test={sp.test_start.date()}..{sp.test_end.date()}")
+
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     all_history_stats: List[pd.DataFrame] = []
     fold_summaries: List[Dict[str, float]] = []
     fold_debug_rows: List[Dict[str, object]] = []
-    all_daily: List[pd.DataFrame] = []
+    shell_summary_rows: List[Dict[str, float]] = []
+    shell_daily_map_all: Dict[str, List[pd.DataFrame]] = {shell.name: [] for shell in shell_variants()}
+
     shortlist_debug_path = OUT_DIR / "wf_alpha_shortlist_debug.json"
     shortlist_debug_path.write_text(json.dumps(shortlist_counters, ensure_ascii=False, indent=2), encoding="utf-8")
+
     for idx, split in enumerate(splits, start=1):
         is_last_fold = idx == len(splits)
         history_df = pd.concat(all_history_stats, ignore_index=True) if all_history_stats else pd.DataFrame()
         print(f"[WF][FOLD {split.fold_id}] start history_rows={len(history_df)} is_last_fold={int(is_last_fold)}")
-        current_stats, history_consensus, candidate_df, weights_df, port_df, counters, summary, daily = run_fold(df, split, alpha_cols, family_map, history_df, is_last_fold=is_last_fold)
+        current_stats, history_consensus, candidate_df, weights_df, counters, base_summary, fold_shell_daily, fold_shell_summary = run_fold(df, split, alpha_cols, family_map, history_df, is_last_fold=is_last_fold)
         all_history_stats.append(current_stats)
-        fold_summaries.append(summary)
+        fold_summaries.append(base_summary)
         fold_debug_rows.append({"fold_id": split.fold_id, **counters})
+
         current_stats.to_csv(OUT_DIR / f"wf_alpha_stats__fold{split.fold_id}.csv", index=False)
         history_consensus.to_csv(OUT_DIR / f"wf_consensus__fold{split.fold_id}.csv", index=False)
         candidate_df.to_csv(OUT_DIR / f"wf_selected_alphas__fold{split.fold_id}.csv", index=False)
         weights_df.to_csv(OUT_DIR / f"wf_alpha_weights__fold{split.fold_id}.csv", index=False)
-        port_df.to_csv(OUT_DIR / f"wf_portfolio__fold{split.fold_id}.csv", index=False)
-        daily.to_csv(OUT_DIR / f"wf_daily__fold{split.fold_id}.csv", index=False)
-        all_daily.append(daily)
+
+        for shell_name, daily in fold_shell_daily.items():
+            shell_daily_map_all[shell_name].append(daily)
+            daily.to_csv(OUT_DIR / f"wf_daily__fold{split.fold_id}__{shell_name}.csv", index=False)
+            shell_summary_rows.append(fold_shell_summary[shell_name])
+            print(f"[WF][FOLD {split.fold_id}][{shell_name}] sharpe={fold_shell_summary[shell_name]['sharpe']:.4f} mean_daily={fold_shell_summary[shell_name]['mean_daily']:.6f} cum_ret={fold_shell_summary[shell_name]['cum_ret']:.4f} maxdd={fold_shell_summary[shell_name]['max_drawdown']:.4f} avg_turn={fold_shell_summary[shell_name]['avg_turnover']:.4f}")
+
         print(f"[WF][FOLD {split.fold_id}][CONSENSUS] selected={counters['selected']} dropped_by_fold_consensus={counters['dropped_by_fold_consensus']} dropped_by_sign_flip={counters['dropped_by_sign_flip']} dropped_by_family_dominance={counters['dropped_by_family_dominance']} dropped_by_low_final_score={counters['dropped_by_low_final_score']} corr_pruned={counters['corr_pruned']}")
-        print(f"[WF][FOLD {split.fold_id}][SUMMARY] sharpe={summary['sharpe']:.4f} mean_daily={summary['mean_daily']:.6f} cum_ret={summary['cum_ret']:.4f} maxdd={summary['max_drawdown']:.4f} avg_turn={summary['avg_turnover']:.4f}")
         print(f"[WF][FOLD {split.fold_id}][TOP_WEIGHTS]")
         print(weights_df.head(TOPK_DEBUG).to_string(index=False))
-    overall_daily = pd.concat(all_daily, ignore_index=True).sort_values(["date", "fold_id"]).reset_index(drop=True)
-    overall_daily.to_csv(OUT_DIR / "wf_multi_alpha_overall.csv", index=False)
+
     pd.DataFrame(fold_summaries).to_csv(OUT_DIR / "wf_fold_summaries.csv", index=False)
     pd.DataFrame(fold_debug_rows).to_csv(OUT_DIR / "wf_fold_consensus_debug.csv", index=False)
-    equity = (1.0 + overall_daily["net_ret"].fillna(0.0)).cumprod()
-    overall_summary = {
-        "days": float(len(overall_daily)),
-        "mean_daily": float(overall_daily["net_ret"].mean()),
-        "std_daily": float(overall_daily["net_ret"].std(ddof=0)),
-        "sharpe": float((overall_daily["net_ret"].mean() / (overall_daily["net_ret"].std(ddof=0) + EPS)) * np.sqrt(252.0)),
-        "cum_ret": float(equity.iloc[-1] - 1.0) if len(equity) else float("nan"),
-        "max_drawdown": float((equity / equity.cummax() - 1.0).min()) if len(equity) else float("nan"),
-        "avg_turnover": float(overall_daily["turnover"].mean()) if len(overall_daily) else float("nan"),
-        "folds": int(len(splits)),
-    }
+    shell_summary_df = pd.DataFrame(shell_summary_rows)
+    shell_summary_df.to_csv(OUT_DIR / "wf_shell_fold_summaries.csv", index=False)
+
+    shell_overall_rows: List[Dict[str, float]] = []
+    for shell in shell_variants():
+        shell_daily = pd.concat(shell_daily_map_all[shell.name], ignore_index=True).sort_values(["date", "fold_id"]).reset_index(drop=True)
+        shell_daily.to_csv(OUT_DIR / f"wf_multi_alpha_overall__{shell.name}.csv", index=False)
+        equity = (1.0 + shell_daily["net_ret"].fillna(0.0)).cumprod()
+        row = {
+            "shell_name": shell.name,
+            "days": float(len(shell_daily)),
+            "mean_daily": float(shell_daily["net_ret"].mean()),
+            "std_daily": float(shell_daily["net_ret"].std(ddof=0)),
+            "sharpe": float((shell_daily["net_ret"].mean() / (shell_daily["net_ret"].std(ddof=0) + EPS)) * np.sqrt(252.0)),
+            "cum_ret": float(equity.iloc[-1] - 1.0) if len(equity) else float("nan"),
+            "max_drawdown": float((equity / equity.cummax() - 1.0).min()) if len(equity) else float("nan"),
+            "avg_turnover": float(shell_daily["turnover"].mean()) if len(shell_daily) else float("nan"),
+            "folds": int(len(splits)),
+            "enter_pct": float(shell.enter_pct),
+            "exit_pct": float(shell.exit_pct),
+            "weight_cap": float(shell.weight_cap),
+            "gross_target": float(shell.gross_target),
+            "max_daily_turnover": float(shell.max_daily_turnover),
+        }
+        shell_overall_rows.append(row)
+
+    shell_overall_df = pd.DataFrame(shell_overall_rows).sort_values(["sharpe", "cum_ret", "shell_name"], ascending=[False, False, True]).reset_index(drop=True)
+    shell_overall_df.to_csv(OUT_DIR / "wf_shell_comparison.csv", index=False)
+    best_shell = shell_overall_df.iloc[0].to_dict() if len(shell_overall_df) else {}
+
     meta = {
         "alpha_lib_file": str(ALPHA_LIB_FILE),
         "alpha_shortlist_csv": str(ALPHA_SHORTLIST_CSV),
@@ -670,22 +772,24 @@ def main() -> int:
         "max_alphas": MAX_ALPHAS,
         "min_selected_alphas": MIN_SELECTED_ALPHAS,
         "min_final_select_score": MIN_FINAL_SELECT_SCORE,
-        "gross_target": GROSS_TARGET,
-        "weight_cap": WEIGHT_CAP,
-        "max_daily_turnover": MAX_DAILY_TURNOVER,
+        "shell_variants": [shell.__dict__ for shell in shell_variants()],
+        "best_shell": best_shell,
         "alpha_shortlist_debug": shortlist_counters,
-        "overall_summary": overall_summary,
-        "fold_summaries": fold_summaries,
     }
     meta_path = OUT_DIR / "wf_multi_alpha_meta.json"
     meta_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"[OVERALL] sharpe={overall_summary['sharpe']:.4f} mean_daily={overall_summary['mean_daily']:.6f} cum_ret={overall_summary['cum_ret']:.4f} maxdd={overall_summary['max_drawdown']:.4f} avg_turnover={overall_summary['avg_turnover']:.4f}")
-    print(f"[ARTIFACT] {OUT_DIR / 'wf_multi_alpha_overall.csv'}")
+
+    if len(shell_overall_df):
+        print("[SHELL_COMPARISON]")
+        print(shell_overall_df.to_string(index=False))
+        print(f"[BEST_SHELL] name={best_shell.get('shell_name', '')} sharpe={best_shell.get('sharpe', float('nan')):.4f} cum_ret={best_shell.get('cum_ret', float('nan')):.4f} avg_turnover={best_shell.get('avg_turnover', float('nan')):.4f}")
     print(f"[ARTIFACT] {OUT_DIR / 'wf_fold_summaries.csv'}")
     print(f"[ARTIFACT] {OUT_DIR / 'wf_fold_consensus_debug.csv'}")
+    print(f"[ARTIFACT] {OUT_DIR / 'wf_shell_fold_summaries.csv'}")
+    print(f"[ARTIFACT] {OUT_DIR / 'wf_shell_comparison.csv'}")
     print(f"[ARTIFACT] {meta_path}")
     print(f"[ARTIFACT] {shortlist_debug_path}")
-    print("[FINAL] multi-alpha walkforward with hardening complete")
+    print("[FINAL] multi-alpha walkforward shell comparison complete")
     return 0
 
 

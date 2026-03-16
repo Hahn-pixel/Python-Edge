@@ -1,0 +1,316 @@
+
+[CFG] alpha_lib_file=data\alpha_library_v2\alpha_library_v2.parquet
+[CFG] alpha_shortlist_csv=data\alpha_library_v2\diagnostics\alpha_candidate_shortlist.csv
+[CFG] alpha_shortlist_required=1
+[CFG] consensus_mode=recent_weighted
+[CFG] consensus_required_last_fold=1
+[CFG] consensus_min_folds=2 consensus_max_sign_flip=0.25 consensus_min_mean_abs_ic=0.005
+[CFG] consensus_history_blend=0.55 consensus_family_cap=1 current_family_cap=2
+[CFG] hardening max_alphas=6 min_selected_alphas=3 min_final_select_score=0.16 corr_prune=0.8
+[CFG] base_shell gross_target=0.85 weight_cap=0.05 max_daily_turnover=0.2 enter_pct=0.06 exit_pct=0.14
+[DATA] rows=76727 dates=791 symbols=97 alpha_cols=58
+[ALPHA_SHORTLIST]
+{
+  "shortlist_required": 1,
+  "shortlist_path": "data\\alpha_library_v2\\diagnostics\\alpha_candidate_shortlist.csv",
+  "shortlist_csv_exists": 1,
+  "shortlist_rows_raw": 58,
+  "shortlist_rows_unique": 58,
+  "shortlist_duplicates_removed": 0,
+  "shortlist_alpha_missing_name": 0,
+  "alpha_cols_before_shortlist": 958,
+  "shortlist_found_in_parquet": 58,
+  "shortlist_missing_in_parquet": 0,
+  "shortlist_missing_in_parquet_list": [],
+  "alpha_cols_after_shortlist": 58,
+  "shortlist_filter_applied": 1
+}
+[ALPHA_SHORTLIST][HEAD]
+ shortlist_rank                                            alpha              family  wave  transform interaction regime  selector_score
+              1        alpha_intraday_pressure_ema3_regime_liq_z   intraday_pressure wave3       ema3      regime      z       12.848269
+              2                     alpha_pressure_z_z_mul_liq_z            pressure wave5          z       z_mul      z       12.834244
+              3                  alpha_mom3_z_rank_mul_breadth_z                mom3 wave5          z    rank_mul      z       12.831842
+              4                        alpha_mom3_z_z_mul_rvol_z                mom3 wave5          z       z_mul      z       12.828941
+              5                          alpha_gap_z_z_mul_liq_z                 gap wave5          z       z_mul      z       12.827754
+              6                         alpha_rev1_z_z_mul_liq_z                rev1 wave5          z       z_mul      z       12.827754
+              7                   alpha_mom3_z_raw_mul_breadth_z                mom3 wave5          z     raw_mul      z       12.813842
+              8              alpha_vol_compression_z_z_mul_liq_z     vol_compression wave5          z       z_mul      z       12.801554
+              9              alpha_pressure_z_rank_mul_breadth_z            pressure wave5          z    rank_mul      z       12.798052
+             10                     alpha_mom3_z_rank_mul_rvol_z                mom3 wave5          z    rank_mul      z       12.792941
+             11                   alpha_gap_z_rank_mul_breadth_z                 gap wave5          z    rank_mul      z       12.791742
+             12                  alpha_rev1_z_rank_mul_breadth_z                rev1 wave5          z    rank_mul      z       12.791625
+             13             alpha_intraday_rs_ema3_regime_rvol_z         intraday_rs wave3       ema3      regime      z       12.789853
+             14                  alpha_str_3d_ema3_regime_rvol_z              str_3d wave3       ema3      regime      z       12.789853
+             15     alpha_vol_compression_signed_log_z_mul_liq_z     vol_compression wave6 signed_log       z_mul      z       12.789767
+             16       alpha_vol_compression_z_z_mul_range_comp_z     vol_compression wave5          z       z_mul      z       12.788571
+             17 alpha_overnight_drift_20d_ema3_regime_volshock_z overnight_drift_20d wave3       ema3      regime      z       12.783361
+             18                     alpha_ivol_20d_z_z_mul_liq_z            ivol_20d wave5          z       z_mul      z       12.782079
+             19                alpha_ivol_20d_z_z_mul_volshock_z            ivol_20d wave5          z       z_mul      z       12.782079
+             20               alpha_pressure_z_raw_mul_breadth_z            pressure wave5          z     raw_mul      z       12.779885
+[WF] folds=8
+[WF][FOLD 1] train=2023-01-03..2024-01-03 test=2024-01-19..2024-04-18
+[WF][FOLD 2] train=2023-04-04..2024-04-04 test=2024-04-19..2024-07-19
+[WF][FOLD 3] train=2023-07-06..2024-07-05 test=2024-07-22..2024-10-17
+[WF][FOLD 4] train=2023-10-04..2024-10-03 test=2024-10-18..2025-01-21
+[WF][FOLD 5] train=2024-01-04..2025-01-03 test=2025-01-22..2025-04-22
+[WF][FOLD 6] train=2024-04-05..2025-04-07 test=2025-04-23..2025-07-23
+[WF][FOLD 7] train=2024-07-08..2025-07-09 test=2025-07-24..2025-10-21
+[WF][FOLD 8] train=2024-10-04..2025-10-07 test=2025-10-22..2026-01-22
+[WF][FOLD 1] start history_rows=0 is_last_fold=0
+[WF][FOLD 1][base_hardened] sharpe=-3.1399 mean_daily=-0.001269 cum_ret=-0.0781 maxdd=-0.0948 avg_turn=0.1998
+[WF][FOLD 1][looser_turnover] sharpe=-2.8183 mean_daily=-0.001184 cum_ret=-0.0732 maxdd=-0.0777 avg_turn=0.3316
+[WF][FOLD 1][looser_inertia] sharpe=-3.4265 mean_daily=-0.001083 cum_ret=-0.0667 maxdd=-0.0693 avg_turn=0.2000
+[WF][FOLD 1][CONSENSUS] selected=5 dropped_by_fold_consensus=0 dropped_by_sign_flip=0 dropped_by_family_dominance=0 dropped_by_low_final_score=13 corr_pruned=1
+[WF][FOLD 1][TOP_WEIGHTS]
+                                alpha  coef_std        x_mean     x_std  abs_coef_std  blend_weight
+alpha_ivol_20d_signed_log_z_mul_liq_z  0.026891  1.069440e-01  2.730326      0.026891      0.308159
+         alpha_ivol_20d_z_z_mul_liq_z  0.019614  2.006360e-01  5.045715      0.019614      0.224764
+alpha_intraday_rs_ema3_regime_rvol_hi  0.018325 -6.226667e-19  0.981981      0.018325      0.210000
+              alpha_gap_z_z_mul_liq_z -0.017646  1.609028e-01  7.086932      0.017646     -0.202212
+            alpha_rev1_z_z_mul_rvol_z -0.004788 -1.352951e-01 11.592033      0.004788     -0.054865
+[WF][FOLD 2] start history_rows=58 is_last_fold=0
+[WF][FOLD 2][base_hardened] sharpe=1.9715 mean_daily=0.000352 cum_ret=0.0222 maxdd=-0.0182 avg_turn=0.2000
+[WF][FOLD 2][looser_turnover] sharpe=-0.9167 mean_daily=-0.000202 cum_ret=-0.0130 maxdd=-0.0390 avg_turn=0.3500
+[WF][FOLD 2][looser_inertia] sharpe=0.4889 mean_daily=0.000075 cum_ret=0.0046 maxdd=-0.0198 avg_turn=0.2000
+[WF][FOLD 2][CONSENSUS] selected=6 dropped_by_fold_consensus=0 dropped_by_sign_flip=0 dropped_by_family_dominance=11 dropped_by_low_final_score=0 corr_pruned=1
+[WF][FOLD 2][TOP_WEIGHTS]
+                                alpha  coef_std        x_mean     x_std  abs_coef_std  blend_weight
+             alpha_rev1_z_z_mul_liq_z  0.026811 -2.467758e-01  6.099110      0.026811      0.376637
+alpha_ivol_20d_signed_log_z_mul_liq_z  0.012834  1.086139e-01  2.824254      0.012834      0.180288
+            alpha_rev1_z_z_mul_rvol_z  0.012624 -1.561797e-01 12.515628      0.012624      0.177334
+         alpha_ivol_20d_z_z_mul_liq_z  0.011605  1.640424e-01  5.173883      0.011605      0.163024
+alpha_intraday_rs_ema3_regime_rvol_hi  0.006392 -4.298912e-18  1.000000      0.006392      0.089791
+              alpha_gap_z_z_mul_liq_z  0.000920  2.240580e-01  7.142910      0.000920      0.012925
+[WF][FOLD 3] start history_rows=116 is_last_fold=0
+[WF][FOLD 3][base_hardened] sharpe=-0.5866 mean_daily=-0.000201 cum_ret=-0.0135 maxdd=-0.0399 avg_turn=0.2000
+[WF][FOLD 3][looser_turnover] sharpe=-1.7871 mean_daily=-0.001459 cum_ret=-0.0927 maxdd=-0.1077 avg_turn=0.3500
+[WF][FOLD 3][looser_inertia] sharpe=-1.1875 mean_daily=-0.000355 cum_ret=-0.0228 maxdd=-0.0348 avg_turn=0.2000
+[WF][FOLD 3][CONSENSUS] selected=6 dropped_by_fold_consensus=0 dropped_by_sign_flip=0 dropped_by_family_dominance=8 dropped_by_low_final_score=0 corr_pruned=1
+[WF][FOLD 3][TOP_WEIGHTS]
+                                alpha  coef_std        x_mean     x_std  abs_coef_std  blend_weight
+            alpha_rev1_z_z_mul_rvol_z  0.038604 -1.491961e-01 15.011692      0.038604      0.324813
+     alpha_str_3d_ema3_regime_rvol_hi  0.033383  3.837909e-19  1.000000      0.033383      0.280890
+alpha_intraday_rs_ema3_regime_rvol_hi -0.028694 -2.359519e-18  1.000000      0.028694     -0.241429
+         alpha_ivol_20d_z_z_mul_liq_z  0.008639  1.826622e-01  5.018689      0.008639      0.072691
+alpha_ivol_20d_signed_log_z_mul_liq_z  0.006305  1.281648e-01  2.830060      0.006305      0.053053
+      alpha_str_3d_ema3_regime_rvol_z -0.003224 -1.453391e-01  6.897485      0.003224     -0.027124
+[WF][FOLD 4] start history_rows=174 is_last_fold=0
+[WF][FOLD 4][base_hardened] sharpe=-0.6449 mean_daily=-0.000122 cum_ret=-0.0079 maxdd=-0.0454 avg_turn=0.2000
+[WF][FOLD 4][looser_turnover] sharpe=-0.3571 mean_daily=-0.000245 cum_ret=-0.0190 maxdd=-0.1058 avg_turn=0.3500
+[WF][FOLD 4][looser_inertia] sharpe=0.3049 mean_daily=0.000054 cum_ret=0.0032 maxdd=-0.0326 avg_turn=0.2000
+[WF][FOLD 4][CONSENSUS] selected=6 dropped_by_fold_consensus=0 dropped_by_sign_flip=1 dropped_by_family_dominance=16 dropped_by_low_final_score=0 corr_pruned=1
+[WF][FOLD 4][TOP_WEIGHTS]
+                                                    alpha  coef_std        x_mean     x_std  abs_coef_std  blend_weight
+                          alpha_str_3d_ema3_regime_rvol_z  0.038652 -2.163153e-01  7.425708      0.038652      0.305960
+                                alpha_rev1_z_z_mul_rvol_z  0.036278 -2.070361e-01 15.181793      0.036278      0.287171
+                     alpha_intraday_rs_ema3_regime_rvol_z -0.023485 -2.291346e-01 12.923652      0.023485     -0.185905
+alpha_overnight_drift_20d_signed_square_regime_volshock_z  0.015929  2.399738e-01 49.737173      0.015929      0.126091
+                    alpha_ivol_20d_signed_log_z_mul_liq_z -0.010246  8.955767e-02  3.000589      0.010246     -0.081106
+                    alpha_intraday_rs_ema3_regime_rvol_hi  0.001739 -3.061243e-18  1.000000      0.001739      0.013766
+[WF][FOLD 5] start history_rows=232 is_last_fold=0
+[WF][FOLD 5][base_hardened] sharpe=1.3156 mean_daily=0.000344 cum_ret=0.0214 maxdd=-0.0169 avg_turn=0.2000
+[WF][FOLD 5][looser_turnover] sharpe=1.1153 mean_daily=0.000287 cum_ret=0.0177 maxdd=-0.0279 avg_turn=0.3500
+[WF][FOLD 5][looser_inertia] sharpe=1.4796 mean_daily=0.000276 cum_ret=0.0173 maxdd=-0.0167 avg_turn=0.2000
+[WF][FOLD 5][CONSENSUS] selected=6 dropped_by_fold_consensus=0 dropped_by_sign_flip=5 dropped_by_family_dominance=11 dropped_by_low_final_score=0 corr_pruned=0
+[WF][FOLD 5][TOP_WEIGHTS]
+                                                    alpha  coef_std        x_mean     x_std  abs_coef_std  blend_weight
+                                alpha_mom3_z_z_mul_rvol_z -0.073371  3.259961e-01 11.174307      0.073371     -0.472563
+                                alpha_rev1_z_z_mul_rvol_z -0.042300 -2.833934e-01 15.780617      0.042300     -0.272440
+                         alpha_str_3d_ema3_regime_rvol_hi -0.014434 -5.439782e-18  1.000000      0.014434     -0.092964
+alpha_overnight_drift_20d_signed_square_regime_volshock_z  0.013090  2.413448e-01 51.799128      0.013090      0.084307
+                    alpha_intraday_rs_ema3_regime_rvol_hi  0.010459 -3.321835e-18  1.000000      0.010459      0.067365
+           alpha_intraday_pressure_lag1_regime_liq_z_lag1  0.001609  1.009489e-01  5.513746      0.001609      0.010361
+[WF][FOLD 6] start history_rows=290 is_last_fold=0
+[WF][FOLD 6][base_hardened] sharpe=-0.3088 mean_daily=-0.000035 cum_ret=-0.0023 maxdd=-0.0131 avg_turn=0.2000
+[WF][FOLD 6][looser_turnover] sharpe=-1.1957 mean_daily=-0.000188 cum_ret=-0.0120 maxdd=-0.0219 avg_turn=0.3500
+[WF][FOLD 6][looser_inertia] sharpe=0.7688 mean_daily=0.000107 cum_ret=0.0066 maxdd=-0.0173 avg_turn=0.2000
+[WF][FOLD 6][CONSENSUS] selected=6 dropped_by_fold_consensus=0 dropped_by_sign_flip=1 dropped_by_family_dominance=11 dropped_by_low_final_score=0 corr_pruned=1
+[WF][FOLD 6][TOP_WEIGHTS]
+                                                    alpha  coef_std        x_mean      x_std  abs_coef_std  blend_weight
+                                alpha_rev1_z_z_mul_rvol_z -0.034275 -2.206286e-01  15.322929      0.034275     -0.299906
+                     alpha_intraday_rs_ema3_regime_rvol_z  0.027949 -2.234990e-01  12.949971      0.027949      0.244553
+                 alpha_str_3d_signed_square_regime_rvol_z  0.021938 -2.889946e+00 160.087121      0.021938      0.191958
+                    alpha_intraday_rs_ema3_regime_rvol_hi  0.014331 -7.823430e-19   1.000000      0.014331      0.125400
+alpha_overnight_drift_20d_signed_square_regime_volshock_z  0.009940 -1.048432e-01  48.325965      0.009940      0.086972
+           alpha_intraday_pressure_lag1_regime_liq_z_lag1  0.005853  8.320457e-02   5.473920      0.005853      0.051212
+[WF][FOLD 7] start history_rows=348 is_last_fold=0
+[WF][FOLD 7][base_hardened] sharpe=-4.7692 mean_daily=-0.000636 cum_ret=-0.0394 maxdd=-0.0444 avg_turn=0.2000
+[WF][FOLD 7][looser_turnover] sharpe=-2.1480 mean_daily=-0.000449 cum_ret=-0.0283 maxdd=-0.0487 avg_turn=0.3500
+[WF][FOLD 7][looser_inertia] sharpe=-3.4844 mean_daily=-0.000421 cum_ret=-0.0263 maxdd=-0.0320 avg_turn=0.2000
+[WF][FOLD 7][CONSENSUS] selected=6 dropped_by_fold_consensus=0 dropped_by_sign_flip=2 dropped_by_family_dominance=7 dropped_by_low_final_score=0 corr_pruned=0
+[WF][FOLD 7][TOP_WEIGHTS]
+                                          alpha  coef_std        x_mean     x_std  abs_coef_std  blend_weight
+                      alpha_mom3_z_z_mul_rvol_z -0.078930  2.622585e-01 10.044327      0.078930     -0.381814
+                       alpha_gap_z_z_mul_rvol_z  0.045706  2.012826e-01 21.618263      0.045706      0.221096
+alpha_intraday_pressure_lag1_regime_liq_lo_lag1  0.038116 -7.095590e-18  1.000000      0.038116      0.184380
+                      alpha_rev1_z_z_mul_rvol_z -0.023077 -2.334391e-01 14.308966      0.023077     -0.111634
+ alpha_intraday_pressure_lag1_regime_liq_z_lag1  0.014553  4.012820e-02  5.448791      0.014553      0.070399
+           alpha_intraday_rs_ema3_regime_rvol_z -0.006342 -2.247294e-01 12.109288      0.006342     -0.030677
+[WF][FOLD 8] start history_rows=406 is_last_fold=1
+[WF][FOLD 8][base_hardened] sharpe=-0.2063 mean_daily=-0.000063 cum_ret=-0.0047 maxdd=-0.0363 avg_turn=0.2000
+[WF][FOLD 8][looser_turnover] sharpe=0.0524 mean_daily=0.000023 cum_ret=-0.0000 maxdd=-0.0430 avg_turn=0.3500
+[WF][FOLD 8][looser_inertia] sharpe=0.8421 mean_daily=0.000255 cum_ret=0.0155 maxdd=-0.0159 avg_turn=0.2000
+[WF][FOLD 8][CONSENSUS] selected=3 dropped_by_fold_consensus=20 dropped_by_sign_flip=2 dropped_by_family_dominance=0 dropped_by_low_final_score=0 corr_pruned=1
+[WF][FOLD 8][TOP_WEIGHTS]
+                                          alpha  coef_std        x_mean     x_std  abs_coef_std  blend_weight
+alpha_intraday_pressure_lag1_regime_liq_lo_lag1  0.035679 -6.615283e-18  1.000000      0.035679      0.756788
+          alpha_ivol_20d_signed_log_z_mul_liq_z -0.009358  7.301925e-02  2.911873      0.009358     -0.198493
+           alpha_intraday_rs_ema3_regime_rvol_z  0.002108 -1.913192e-01 13.076999      0.002108      0.044719
+[SHELL_COMPARISON]
+     shell_name  days  mean_daily  std_daily    sharpe   cum_ret  max_drawdown  avg_turnover  folds  enter_pct  exit_pct  weight_cap  gross_target  max_daily_turnover
+ looser_inertia 504.0   -0.000136   0.003598 -0.601827 -0.069476     -0.110636      0.200000      8       0.10      0.22        0.05          0.85                0.20
+  base_hardened 504.0   -0.000204   0.004154 -0.777757 -0.101428     -0.118351      0.199970      8       0.06      0.14        0.05          0.85                0.20
+looser_turnover 504.0   -0.000427   0.007301 -0.929002 -0.204543     -0.254042      0.347703      8       0.06      0.14        0.05          0.85                0.35
+[BEST_SHELL] name=looser_inertia sharpe=-0.6018 cum_ret=-0.0695 avg_turnover=0.2000
+[ARTIFACT] artifacts\multi_alpha_wf\wf_fold_summaries.csv
+[ARTIFACT] artifacts\multi_alpha_wf\wf_fold_consensus_debug.csv
+[ARTIFACT] artifacts\multi_alpha_wf\wf_shell_fold_summaries.csv
+[ARTIFACT] artifacts\multi_alpha_wf\wf_shell_comparison.csv
+[ARTIFACT] artifacts\multi_alpha_wf\wf_multi_alpha_meta.json
+[ARTIFACT] artifacts\multi_alpha_wf\wf_alpha_shortlist_debug.json
+[FINAL] multi-alpha walkforward shell comparison complete
+
+
+
+
+
+
+
+------------------------
+
+
+
+wf_shell_comparison.csv
+
+
+shell_name,days,mean_daily,std_daily,sharpe,cum_ret,max_drawdown,avg_turnover,folds,enter_pct,exit_pct,weight_cap,gross_target,max_daily_turnover
+looser_inertia,504.0,-0.00013638722250168162,0.0035975118751405298,-0.6018270713258705,-0.0694764214173289,-0.11063560087063784,0.20000000000000004,8,0.1,0.22,0.05,0.85,0.2
+base_hardened,504.0,-0.00020353507610603746,0.004154278400298778,-0.7777570144843796,-0.1014282759425823,-0.11835080304442858,0.19997025096359133,8,0.06,0.14,0.05,0.85,0.2
+looser_turnover,504.0,-0.0004272563635837927,0.007300832252409913,-0.9290015534197816,-0.204542595346912,-0.2540422561932325,0.34770266637950126,8,0.06,0.14,0.05,0.85,0.35
+
+
+
+
+
+----------------------
+
+
+
+wf_shell_fold_summaries.csv
+
+
+
+days,mean_daily,std_daily,sharpe,cum_ret,max_drawdown,avg_turnover,avg_gross,selected_alpha_count,selected_alpha_list,fold_alpha_input_count,fold_id,shell_name,shell_enter_pct,shell_exit_pct,shell_weight_cap,shell_gross_target,shell_max_daily_turnover
+63.0,-0.0012687645860183518,0.006414634663757911,-3.1398535464532777,-0.07807364354089397,-0.09482226424089302,0.1997620077087302,0.5646588331955036,5.0,"alpha_ivol_20d_signed_log_z_mul_liq_z,alpha_ivol_20d_z_z_mul_liq_z,alpha_rev1_z_z_mul_rvol_z,alpha_intraday_rs_ema3_regime_rvol_hi,alpha_gap_z_z_mul_liq_z",58.0,1.0,base_hardened,0.06,0.14,0.05,0.85,0.2
+63.0,-0.0011839711860859392,0.006668859076203214,-2.818317149832421,-0.07322448353067801,-0.0776541784460445,0.33162133103601116,0.7280931954701725,5.0,"alpha_ivol_20d_signed_log_z_mul_liq_z,alpha_ivol_20d_z_z_mul_liq_z,alpha_rev1_z_z_mul_rvol_z,alpha_intraday_rs_ema3_regime_rvol_hi,alpha_gap_z_z_mul_liq_z",58.0,1.0,looser_turnover,0.06,0.14,0.05,0.85,0.35
+63.0,-0.0010830690977814222,0.005017683542195117,-3.4265191825198915,-0.06673721303597391,-0.06926725627754582,0.1999999999999999,0.4922814154470604,5.0,"alpha_ivol_20d_signed_log_z_mul_liq_z,alpha_ivol_20d_z_z_mul_liq_z,alpha_rev1_z_z_mul_rvol_z,alpha_intraday_rs_ema3_regime_rvol_hi,alpha_gap_z_z_mul_liq_z",58.0,1.0,looser_inertia,0.1,0.22,0.05,0.85,0.2
+63.0,0.00035236861829464306,0.002837282723093643,1.9714913693605545,0.02218420878773908,-0.01821121411426796,0.1999999999999999,0.21153012562025708,6.0,"alpha_ivol_20d_signed_log_z_mul_liq_z,alpha_ivol_20d_z_z_mul_liq_z,alpha_rev1_z_z_mul_rvol_z,alpha_gap_z_z_mul_liq_z,alpha_intraday_rs_ema3_regime_rvol_hi,alpha_rev1_z_z_mul_liq_z",58.0,2.0,base_hardened,0.06,0.14,0.05,0.85,0.2
+63.0,-0.0002018003819842232,0.0034944701766787714,-0.9167288854576804,-0.013014454229752781,-0.03902159868302957,0.3500000000000002,0.32380480166600967,6.0,"alpha_ivol_20d_signed_log_z_mul_liq_z,alpha_ivol_20d_z_z_mul_liq_z,alpha_rev1_z_z_mul_rvol_z,alpha_gap_z_z_mul_liq_z,alpha_intraday_rs_ema3_regime_rvol_hi,alpha_rev1_z_z_mul_liq_z",58.0,2.0,looser_turnover,0.06,0.14,0.05,0.85,0.35
+63.0,7.504516741046118e-05,0.0024369011241348573,0.4888606632843217,0.0045508059927727995,-0.019849297423322976,0.1999999999999999,0.1937521177207291,6.0,"alpha_ivol_20d_signed_log_z_mul_liq_z,alpha_ivol_20d_z_z_mul_liq_z,alpha_rev1_z_z_mul_rvol_z,alpha_gap_z_z_mul_liq_z,alpha_intraday_rs_ema3_regime_rvol_hi,alpha_rev1_z_z_mul_liq_z",58.0,2.0,looser_inertia,0.1,0.22,0.05,0.85,0.2
+63.0,-0.00020110105446347344,0.005442137289210065,-0.5866041411270633,-0.01351439905257723,-0.03985381337329985,0.1999999999999999,0.21324241377356976,6.0,"alpha_ivol_20d_signed_log_z_mul_liq_z,alpha_rev1_z_z_mul_rvol_z,alpha_intraday_rs_ema3_regime_rvol_hi,alpha_str_3d_ema3_regime_rvol_hi,alpha_ivol_20d_z_z_mul_liq_z,alpha_str_3d_ema3_regime_rvol_z",58.0,3.0,base_hardened,0.06,0.14,0.05,0.85,0.2
+63.0,-0.0014587224923713745,0.01295737810566811,-1.787128652833636,-0.09273634436802014,-0.10771396380954745,0.3500000000000002,0.3536647020599176,6.0,"alpha_ivol_20d_signed_log_z_mul_liq_z,alpha_rev1_z_z_mul_rvol_z,alpha_intraday_rs_ema3_regime_rvol_hi,alpha_str_3d_ema3_regime_rvol_hi,alpha_ivol_20d_z_z_mul_liq_z,alpha_str_3d_ema3_regime_rvol_z",58.0,3.0,looser_turnover,0.06,0.14,0.05,0.85,0.35
+63.0,-0.00035497466128369374,0.004745181295567885,-1.1875306127907046,-0.022814773966179036,-0.03477499054636557,0.1999999999999999,0.194663476747346,6.0,"alpha_ivol_20d_signed_log_z_mul_liq_z,alpha_rev1_z_z_mul_rvol_z,alpha_intraday_rs_ema3_regime_rvol_hi,alpha_str_3d_ema3_regime_rvol_hi,alpha_ivol_20d_z_z_mul_liq_z,alpha_str_3d_ema3_regime_rvol_z",58.0,3.0,looser_inertia,0.1,0.22,0.05,0.85,0.2
+63.0,-0.00012191704499991244,0.0030010006405913874,-0.6449092556246618,-0.007933060841162298,-0.04539636495145416,0.1999999999999999,0.2369358245040755,6.0,"alpha_rev1_z_z_mul_rvol_z,alpha_intraday_rs_ema3_regime_rvol_hi,alpha_ivol_20d_signed_log_z_mul_liq_z,alpha_overnight_drift_20d_signed_square_regime_volshock_z,alpha_str_3d_ema3_regime_rvol_z,alpha_intraday_rs_ema3_regime_rvol_z",58.0,4.0,base_hardened,0.06,0.14,0.05,0.85,0.2
+63.0,-0.0002451357889366194,0.010896669779278206,-0.3571192013958716,-0.018958342313886267,-0.10575083161159227,0.3500000000000002,0.3812352003492232,6.0,"alpha_rev1_z_z_mul_rvol_z,alpha_intraday_rs_ema3_regime_rvol_hi,alpha_ivol_20d_signed_log_z_mul_liq_z,alpha_overnight_drift_20d_signed_square_regime_volshock_z,alpha_str_3d_ema3_regime_rvol_z,alpha_intraday_rs_ema3_regime_rvol_z",58.0,4.0,looser_turnover,0.06,0.14,0.05,0.85,0.35
+63.0,5.4008247683193605e-05,0.002811521788605015,0.3049431648961582,0.0031586777751198003,-0.032561978998807306,0.1999999999999999,0.23177782565918748,6.0,"alpha_rev1_z_z_mul_rvol_z,alpha_intraday_rs_ema3_regime_rvol_hi,alpha_ivol_20d_signed_log_z_mul_liq_z,alpha_overnight_drift_20d_signed_square_regime_volshock_z,alpha_str_3d_ema3_regime_rvol_z,alpha_intraday_rs_ema3_regime_rvol_z",58.0,4.0,looser_inertia,0.1,0.22,0.05,0.85,0.2
+63.0,0.00034418719155887654,0.004152949060929474,1.3156439432398723,0.021365760046924143,-0.016899899363787996,0.1999999999999999,0.1995705009654877,6.0,"alpha_rev1_z_z_mul_rvol_z,alpha_overnight_drift_20d_signed_square_regime_volshock_z,alpha_intraday_pressure_lag1_regime_liq_z_lag1,alpha_mom3_z_z_mul_rvol_z,alpha_intraday_rs_ema3_regime_rvol_hi,alpha_str_3d_ema3_regime_rvol_hi",58.0,5.0,base_hardened,0.06,0.14,0.05,0.85,0.2
+63.0,0.0002867103207903726,0.004080740996476996,1.115333035244152,0.0176910525341607,-0.027926895304545618,0.3500000000000002,0.3269947316759409,6.0,"alpha_rev1_z_z_mul_rvol_z,alpha_overnight_drift_20d_signed_square_regime_volshock_z,alpha_intraday_pressure_lag1_regime_liq_z_lag1,alpha_mom3_z_z_mul_rvol_z,alpha_intraday_rs_ema3_regime_rvol_hi,alpha_str_3d_ema3_regime_rvol_hi",58.0,5.0,looser_turnover,0.06,0.14,0.05,0.85,0.35
+63.0,0.0002762706305409538,0.0029641320552808875,1.4795765554645801,0.017274086806804423,-0.016703028108359996,0.1999999999999999,0.20175321646522265,6.0,"alpha_rev1_z_z_mul_rvol_z,alpha_overnight_drift_20d_signed_square_regime_volshock_z,alpha_intraday_pressure_lag1_regime_liq_z_lag1,alpha_mom3_z_z_mul_rvol_z,alpha_intraday_rs_ema3_regime_rvol_hi,alpha_str_3d_ema3_regime_rvol_hi",58.0,5.0,looser_inertia,0.1,0.22,0.05,0.85,0.2
+63.0,-3.458739144577846e-05,0.001777903404650159,-0.30882319919008827,-0.002275880768916494,-0.013114461392110033,0.1999999999999999,0.1886233833955068,6.0,"alpha_rev1_z_z_mul_rvol_z,alpha_str_3d_signed_square_regime_rvol_z,alpha_intraday_rs_ema3_regime_rvol_hi,alpha_overnight_drift_20d_signed_square_regime_volshock_z,alpha_intraday_rs_ema3_regime_rvol_z,alpha_intraday_pressure_lag1_regime_liq_z_lag1",58.0,6.0,base_hardened,0.06,0.14,0.05,0.85,0.2
+63.0,-0.00018827047160915658,0.002499638842314746,-1.1956531602800518,-0.011986531501077091,-0.021872021078218506,0.3500000000000002,0.3228712405730236,6.0,"alpha_rev1_z_z_mul_rvol_z,alpha_str_3d_signed_square_regime_rvol_z,alpha_intraday_rs_ema3_regime_rvol_hi,alpha_overnight_drift_20d_signed_square_regime_volshock_z,alpha_intraday_rs_ema3_regime_rvol_z,alpha_intraday_pressure_lag1_regime_liq_z_lag1",58.0,6.0,looser_turnover,0.06,0.14,0.05,0.85,0.35
+63.0,0.00010721205063419003,0.0022136877886382565,0.7688250118785299,0.006621368501718683,-0.017279709208915528,0.1999999999999999,0.199602014308767,6.0,"alpha_rev1_z_z_mul_rvol_z,alpha_str_3d_signed_square_regime_rvol_z,alpha_intraday_rs_ema3_regime_rvol_hi,alpha_overnight_drift_20d_signed_square_regime_volshock_z,alpha_intraday_rs_ema3_regime_rvol_z,alpha_intraday_pressure_lag1_regime_liq_z_lag1",58.0,6.0,looser_inertia,0.1,0.22,0.05,0.85,0.2
+63.0,-0.0006356237709499739,0.0021157249038867357,-4.76915242085712,-0.03940086345153049,-0.04438087623979825,0.1999999999999999,0.13772567505992273,6.0,"alpha_rev1_z_z_mul_rvol_z,alpha_intraday_rs_ema3_regime_rvol_z,alpha_intraday_pressure_lag1_regime_liq_lo_lag1,alpha_gap_z_z_mul_rvol_z,alpha_intraday_pressure_lag1_regime_liq_z_lag1,alpha_mom3_z_z_mul_rvol_z",58.0,7.0,base_hardened,0.06,0.14,0.05,0.85,0.2
+63.0,-0.00044942468070324076,0.003321384105479908,-2.148018838066137,-0.028261099363624642,-0.048726239185571285,0.3500000000000002,0.24104685965556313,6.0,"alpha_rev1_z_z_mul_rvol_z,alpha_intraday_rs_ema3_regime_rvol_z,alpha_intraday_pressure_lag1_regime_liq_lo_lag1,alpha_gap_z_z_mul_rvol_z,alpha_intraday_pressure_lag1_regime_liq_z_lag1,alpha_mom3_z_z_mul_rvol_z",58.0,7.0,looser_turnover,0.06,0.14,0.05,0.85,0.35
+63.0,-0.00042082116284223567,0.0019172233787466918,-3.484376901748426,-0.026281616066916702,-0.032046583489266145,0.1999999999999999,0.13897965964906486,6.0,"alpha_rev1_z_z_mul_rvol_z,alpha_intraday_rs_ema3_regime_rvol_z,alpha_intraday_pressure_lag1_regime_liq_lo_lag1,alpha_gap_z_z_mul_rvol_z,alpha_intraday_pressure_lag1_regime_liq_z_lag1,alpha_mom3_z_z_mul_rvol_z",58.0,7.0,looser_inertia,0.1,0.22,0.05,0.85,0.2
+63.0,-6.284257082432937e-05,0.004834665594676737,-0.20634206547540826,-0.0046824434407301,-0.03630000045038739,0.1999999999999999,0.26578601100616195,3.0,"alpha_intraday_rs_ema3_regime_rvol_z,alpha_ivol_20d_signed_log_z_mul_liq_z,alpha_intraday_pressure_lag1_regime_liq_lo_lag1",58.0,8.0,base_hardened,0.06,0.14,0.05,0.85,0.2
+63.0,2.2563772229839547e-05,0.00683218015758629,0.05242671759874683,-4.09584604420532e-05,-0.04304920342395546,0.3500000000000002,0.41852622323965344,3.0,"alpha_intraday_rs_ema3_regime_rvol_z,alpha_ivol_20d_signed_log_z_mul_liq_z,alpha_intraday_pressure_lag1_regime_liq_lo_lag1",58.0,8.0,looser_turnover,0.06,0.14,0.05,0.85,0.35
+63.0,0.00025523104562509926,0.004811301725480864,0.842114561059855,0.015470948708984578,-0.015889365937302946,0.1999999999999999,0.2895890476025728,3.0,"alpha_intraday_rs_ema3_regime_rvol_z,alpha_ivol_20d_signed_log_z_mul_liq_z,alpha_intraday_pressure_lag1_regime_liq_lo_lag1",58.0,8.0,looser_inertia,0.1,0.22,0.05,0.85,0.2
+
+
+
+
+
+
+----------------------
+
+
+
+wf_multi_alpha_meta.json
+
+
+
+
+
+{
+  "alpha_lib_file": "data\\alpha_library_v2\\alpha_library_v2.parquet",
+  "alpha_shortlist_csv": "data\\alpha_library_v2\\diagnostics\\alpha_candidate_shortlist.csv",
+  "alpha_shortlist_required": 1,
+  "consensus_mode": "recent_weighted",
+  "consensus_required_last_fold": 1,
+  "consensus_min_folds": 2,
+  "consensus_max_sign_flip": 0.25,
+  "consensus_min_mean_abs_ic": 0.005,
+  "consensus_history_blend": 0.55,
+  "consensus_family_cap": 1,
+  "current_family_cap": 2,
+  "max_alphas": 6,
+  "min_selected_alphas": 3,
+  "min_final_select_score": 0.16,
+  "shell_variants": [
+    {
+      "name": "base_hardened",
+      "enter_pct": 0.06,
+      "exit_pct": 0.14,
+      "weight_cap": 0.05,
+      "gross_target": 0.85,
+      "max_daily_turnover": 0.2
+    },
+    {
+      "name": "looser_turnover",
+      "enter_pct": 0.06,
+      "exit_pct": 0.14,
+      "weight_cap": 0.05,
+      "gross_target": 0.85,
+      "max_daily_turnover": 0.35
+    },
+    {
+      "name": "looser_inertia",
+      "enter_pct": 0.1,
+      "exit_pct": 0.22,
+      "weight_cap": 0.05,
+      "gross_target": 0.85,
+      "max_daily_turnover": 0.2
+    }
+  ],
+  "best_shell": {
+    "shell_name": "looser_inertia",
+    "days": 504.0,
+    "mean_daily": -0.00013638722250168162,
+    "std_daily": 0.0035975118751405298,
+    "sharpe": -0.6018270713258705,
+    "cum_ret": -0.0694764214173289,
+    "max_drawdown": -0.11063560087063784,
+    "avg_turnover": 0.20000000000000004,
+    "folds": 8,
+    "enter_pct": 0.1,
+    "exit_pct": 0.22,
+    "weight_cap": 0.05,
+    "gross_target": 0.85,
+    "max_daily_turnover": 0.2
+  },
+  "alpha_shortlist_debug": {
+    "shortlist_required": 1,
+    "shortlist_path": "data\\alpha_library_v2\\diagnostics\\alpha_candidate_shortlist.csv",
+    "shortlist_csv_exists": 1,
+    "shortlist_rows_raw": 58,
+    "shortlist_rows_unique": 58,
+    "shortlist_duplicates_removed": 0,
+    "shortlist_alpha_missing_name": 0,
+    "alpha_cols_before_shortlist": 958,
+    "shortlist_found_in_parquet": 58,
+    "shortlist_missing_in_parquet": 0,
+    "shortlist_missing_in_parquet_list": [],
+    "alpha_cols_after_shortlist": 58,
+    "shortlist_filter_applied": 1
+  }
+}
