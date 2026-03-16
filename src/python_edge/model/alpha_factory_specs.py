@@ -3,20 +3,38 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-TransformName = Literal["raw", "z", "rank", "tanh", "clip3", "sign", "signed_square", "lag1", "lag2", "ema3"]
+TransformName = Literal[
+    "raw",
+    "z",
+    "rank",
+    "tanh",
+    "clip3",
+    "sign",
+    "signed_square",
+    "signed_log",
+    "sqrt_signed",
+    "cube",
+    "tanh_z",
+    "lag1",
+    "lag2",
+    "ema3",
+]
 RegimeMode = Literal["none", "hi", "lo", "z", "rank"]
+InteractionMode = Literal["regime", "raw_mul", "z_mul", "rank_mul"]
 
 
 @dataclass(frozen=True)
 class BaseSignalSpec:
     name: str
     source_col: str
+    family: str
 
 
 @dataclass(frozen=True)
 class ModulatorSpec:
     name: str
     source_col: str
+    family: str
 
 
 @dataclass(frozen=True)
@@ -26,114 +44,308 @@ class AlphaRecipe:
     modulator: str | None
     transform: TransformName
     regime: RegimeMode = "none"
+    interaction: InteractionMode = "regime"
     lag: int = 0
     family: str = "generic"
     wave: str = "wave0"
+    parents: tuple[str, ...] = ()
+    source: str = "registry"
 
 
-BASE_SIGNALS = (
-    BaseSignalSpec("rev1", "rev1_base"),
-    BaseSignalSpec("gap", "gap_base"),
-    BaseSignalSpec("pressure", "pressure_base"),
-    BaseSignalSpec("mom3", "mom3_base"),
-    BaseSignalSpec("momentum_20d", "momentum_20d"),
-    BaseSignalSpec("str_3d", "str_3d"),
-    BaseSignalSpec("overnight_drift_20d", "overnight_drift_20d"),
-    BaseSignalSpec("ivol_20d", "ivol_20d"),
-    BaseSignalSpec("vol_compression", "vol_compression"),
-    BaseSignalSpec("intraday_rs", "intraday_rs"),
-    BaseSignalSpec("intraday_pressure", "intraday_pressure"),
+@dataclass(frozen=True)
+class FamilySeed:
+    family: str
+    base_signal: str
+    modulators: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class WaveTransformSeed:
+    transform: TransformName
+    regimes: tuple[RegimeMode, ...]
+    interaction: InteractionMode = "regime"
+
+
+@dataclass(frozen=True)
+class WaveTemporalSeed:
+    transform: TransformName
+    regimes: tuple[RegimeMode, ...]
+    interaction: InteractionMode = "regime"
+    lag: int = 0
+
+
+@dataclass(frozen=True)
+class SurvivorExpansionPlan:
+    wave: str
+    transforms: tuple[TransformName, ...]
+    regimes: tuple[RegimeMode, ...]
+    interactions: tuple[InteractionMode, ...]
+    modulators: tuple[str, ...] = ()
+    inherit_modulators: bool = True
+    inherit_regimes: bool = True
+    max_modulators_per_family: int = 3
+
+
+BASE_SIGNAL_REGISTRY: tuple[BaseSignalSpec, ...] = (
+    BaseSignalSpec("rev1", "rev1_base", "rev1"),
+    BaseSignalSpec("gap", "gap_base", "gap"),
+    BaseSignalSpec("pressure", "pressure_base", "pressure"),
+    BaseSignalSpec("mom3", "mom3_base", "mom3"),
+    BaseSignalSpec("momentum_20d", "momentum_20d", "momentum_20d"),
+    BaseSignalSpec("str_3d", "str_3d", "str_3d"),
+    BaseSignalSpec("overnight_drift_20d", "overnight_drift_20d", "overnight_drift_20d"),
+    BaseSignalSpec("ivol_20d", "ivol_20d", "ivol_20d"),
+    BaseSignalSpec("vol_compression", "vol_compression", "vol_compression"),
+    BaseSignalSpec("intraday_rs", "intraday_rs", "intraday_rs"),
+    BaseSignalSpec("intraday_pressure", "intraday_pressure", "intraday_pressure"),
 )
 
 
-MODULATORS = (
-    ModulatorSpec("rvol", "rel_volume_20"),
-    ModulatorSpec("liq", "liq"),
-    ModulatorSpec("breadth", "market_breadth"),
-    ModulatorSpec("range_comp", "range_comp_5_20"),
-    ModulatorSpec("volshock", "volume_shock"),
+MODULATOR_REGISTRY: tuple[ModulatorSpec, ...] = (
+    ModulatorSpec("rvol", "rel_volume_20", "liquidity"),
+    ModulatorSpec("liq", "liq", "liquidity"),
+    ModulatorSpec("breadth", "market_breadth", "breadth"),
+    ModulatorSpec("range_comp", "range_comp_5_20", "volatility"),
+    ModulatorSpec("volshock", "volume_shock", "liquidity"),
 )
 
 
-WAVE1_PAIRS = {
-    "rev1": ("rvol", "liq", "breadth"),
-    "gap": ("rvol", "liq", "breadth"),
-    "pressure": ("liq", "rvol", "breadth"),
-    "mom3": ("rvol", "breadth"),
-    "momentum_20d": ("breadth", "liq"),
-    "str_3d": ("breadth", "rvol"),
-    "overnight_drift_20d": ("breadth", "volshock"),
-    "ivol_20d": ("liq", "volshock"),
-    "vol_compression": ("liq", "range_comp"),
-    "intraday_rs": ("breadth", "rvol"),
-    "intraday_pressure": ("liq", "breadth"),
-}
-
-
-WAVE2_SPECS = (
-    ("rev1", "rvol", "tanh", "z"),
-    ("rev1", "breadth", "clip3", "hi"),
-    ("rev1", "liq", "sign", "rank"),
-    ("gap", "breadth", "tanh", "z"),
-    ("gap", "liq", "clip3", "hi"),
-    ("pressure", "rvol", "tanh", "z"),
-    ("pressure", "liq", "sign", "hi"),
-    ("mom3", "rvol", "signed_square", "z"),
-    ("momentum_20d", "breadth", "tanh", "hi"),
-    ("str_3d", "breadth", "clip3", "lo"),
-    ("overnight_drift_20d", "breadth", "tanh", "hi"),
-    ("ivol_20d", "liq", "clip3", "lo"),
-    ("vol_compression", "liq", "tanh", "hi"),
-    ("intraday_rs", "breadth", "tanh", "z"),
-    ("intraday_pressure", "liq", "signed_square", "z"),
+WAVE1_REGISTRY: tuple[FamilySeed, ...] = (
+    FamilySeed("rev1", "rev1", ("rvol", "liq", "breadth")),
+    FamilySeed("gap", "gap", ("rvol", "liq", "breadth")),
+    FamilySeed("pressure", "pressure", ("liq", "rvol", "breadth")),
+    FamilySeed("mom3", "mom3", ("rvol", "breadth")),
+    FamilySeed("momentum_20d", "momentum_20d", ("breadth", "liq")),
+    FamilySeed("str_3d", "str_3d", ("breadth", "rvol")),
+    FamilySeed("overnight_drift_20d", "overnight_drift_20d", ("breadth", "volshock")),
+    FamilySeed("ivol_20d", "ivol_20d", ("liq", "volshock")),
+    FamilySeed("vol_compression", "vol_compression", ("liq", "range_comp")),
+    FamilySeed("intraday_rs", "intraday_rs", ("breadth", "rvol")),
+    FamilySeed("intraday_pressure", "intraday_pressure", ("liq", "breadth")),
 )
 
 
-WAVE3_SPECS = (
-    ("rev1", "rvol", "lag1", "hi", 1),
-    ("rev1", "rvol", "lag2", "hi", 2),
-    ("rev1", "rvol", "ema3", "z", 0),
-    ("gap", "rvol", "lag1", "z", 1),
-    ("gap", "breadth", "ema3", "z", 0),
-    ("pressure", "liq", "lag1", "hi", 1),
-    ("pressure", "liq", "ema3", "hi", 0),
-    ("mom3", "rvol", "lag1", "hi", 1),
-    ("mom3", "breadth", "ema3", "z", 0),
-    ("momentum_20d", "breadth", "lag1", "hi", 1),
-    ("str_3d", "breadth", "lag1", "lo", 1),
-    ("overnight_drift_20d", "breadth", "lag1", "hi", 1),
-    ("ivol_20d", "liq", "lag1", "lo", 1),
-    ("vol_compression", "liq", "lag1", "hi", 1),
-    ("intraday_rs", "breadth", "ema3", "hi", 0),
-    ("intraday_pressure", "liq", "lag1", "z", 1),
+WAVE1_REGIMES: tuple[RegimeMode, ...] = ("hi", "lo", "z", "rank")
+
+
+WAVE2_REGISTRY: tuple[WaveTransformSeed, ...] = (
+    WaveTransformSeed("tanh", ("z",)),
+    WaveTransformSeed("clip3", ("hi", "lo")),
+    WaveTransformSeed("sign", ("rank", "hi")),
+    WaveTransformSeed("signed_square", ("z",)),
 )
 
 
-def _build_wave1() -> tuple[AlphaRecipe, ...]:
+WAVE3_REGISTRY: tuple[WaveTemporalSeed, ...] = (
+    WaveTemporalSeed("lag1", ("hi", "z", "lo"), lag=1),
+    WaveTemporalSeed("lag2", ("hi", "z"), lag=2),
+    WaveTemporalSeed("ema3", ("z", "hi"), lag=0),
+)
+
+
+WAVE4_SURVIVOR_REGISTRY: tuple[SurvivorExpansionPlan, ...] = (
+    SurvivorExpansionPlan(
+        wave="wave4",
+        transforms=("signed_log", "sqrt_signed", "cube", "tanh_z"),
+        regimes=("z", "rank", "hi", "lo"),
+        interactions=("regime",),
+        inherit_modulators=True,
+        inherit_regimes=True,
+        max_modulators_per_family=3,
+    ),
+)
+
+
+WAVE5_SURVIVOR_REGISTRY: tuple[SurvivorExpansionPlan, ...] = (
+    SurvivorExpansionPlan(
+        wave="wave5",
+        transforms=("raw", "z"),
+        regimes=("z", "rank", "hi"),
+        interactions=("raw_mul", "z_mul", "rank_mul"),
+        inherit_modulators=True,
+        inherit_regimes=True,
+        max_modulators_per_family=3,
+    ),
+)
+
+
+WAVE6_SURVIVOR_REGISTRY: tuple[SurvivorExpansionPlan, ...] = (
+    SurvivorExpansionPlan(
+        wave="wave6",
+        transforms=("ema3", "lag1", "signed_log"),
+        regimes=("z", "rank", "hi", "lo"),
+        interactions=("regime", "z_mul"),
+        inherit_modulators=True,
+        inherit_regimes=True,
+        max_modulators_per_family=3,
+    ),
+)
+
+
+SURVIVOR_DEFAULT_PRIORITY: tuple[str, ...] = (
+    "rev1",
+    "pressure",
+    "gap",
+    "mom3",
+    "momentum_20d",
+    "intraday_rs",
+    "intraday_pressure",
+    "vol_compression",
+    "overnight_drift_20d",
+    "ivol_20d",
+    "str_3d",
+)
+
+
+DEFAULT_SURVIVOR_MIN_RECIPES = 2
+DEFAULT_SURVIVOR_TOP_N = 6
+
+
+def _recipe_name(
+    left: str,
+    modulator: str | None,
+    transform: TransformName,
+    regime: RegimeMode,
+    interaction: InteractionMode,
+    lag: int,
+) -> str:
+    parts: list[str] = [left, transform, interaction]
+    if modulator:
+        parts.append(modulator)
+    parts.append(regime)
+    if lag > 0:
+        parts.append(f"lag{lag}")
+    return "_".join(parts)
+
+
+def _append_unique(out: list[AlphaRecipe], seen: set[str], recipe: AlphaRecipe) -> None:
+    key = recipe.name
+    if key in seen:
+        return
+    seen.add(key)
+    out.append(recipe)
+
+
+def build_wave1_recipes() -> tuple[AlphaRecipe, ...]:
     out: list[AlphaRecipe] = []
-    for left, modulators in WAVE1_PAIRS.items():
-        for mod in modulators:
-            for regime in ("hi", "lo", "z", "rank"):
-                name = f"{left}_{regime}_{mod}"
-                out.append(AlphaRecipe(name, left, mod, "raw", regime, 0, left, "wave1"))
+    seen: set[str] = set()
+    for seed in WAVE1_REGISTRY:
+        for modulator in seed.modulators:
+            for regime in WAVE1_REGIMES:
+                name = _recipe_name(seed.base_signal, modulator, "raw", regime, "regime", 0)
+                _append_unique(
+                    out,
+                    seen,
+                    AlphaRecipe(
+                        name=name,
+                        left=seed.base_signal,
+                        modulator=modulator,
+                        transform="raw",
+                        regime=regime,
+                        interaction="regime",
+                        lag=0,
+                        family=seed.family,
+                        wave="wave1",
+                        parents=(seed.family,),
+                        source="registry:wave1",
+                    ),
+                )
     return tuple(out)
 
 
-def _build_wave2() -> tuple[AlphaRecipe, ...]:
-    return tuple(
-        AlphaRecipe(f"{left}_{transform}_{regime}_{mod}", left, mod, transform, regime, 0, left, "wave2")
-        for left, mod, transform, regime in WAVE2_SPECS
-    )
+def build_wave2_recipes() -> tuple[AlphaRecipe, ...]:
+    out: list[AlphaRecipe] = []
+    seen: set[str] = set()
+    for seed in WAVE1_REGISTRY:
+        for modulator in seed.modulators:
+            for transform_seed in WAVE2_REGISTRY:
+                for regime in transform_seed.regimes:
+                    name = _recipe_name(seed.base_signal, modulator, transform_seed.transform, regime, transform_seed.interaction, 0)
+                    _append_unique(
+                        out,
+                        seen,
+                        AlphaRecipe(
+                            name=name,
+                            left=seed.base_signal,
+                            modulator=modulator,
+                            transform=transform_seed.transform,
+                            regime=regime,
+                            interaction=transform_seed.interaction,
+                            lag=0,
+                            family=seed.family,
+                            wave="wave2",
+                            parents=(seed.family,),
+                            source="registry:wave2",
+                        ),
+                    )
+    return tuple(out)
 
 
-def _build_wave3() -> tuple[AlphaRecipe, ...]:
-    return tuple(
-        AlphaRecipe(f"{left}_{transform}_{regime}_{mod}", left, mod, transform, regime, lag, left, "wave3")
-        for left, mod, transform, regime, lag in WAVE3_SPECS
-    )
+def build_wave3_recipes() -> tuple[AlphaRecipe, ...]:
+    out: list[AlphaRecipe] = []
+    seen: set[str] = set()
+    for seed in WAVE1_REGISTRY:
+        for modulator in seed.modulators:
+            for temporal_seed in WAVE3_REGISTRY:
+                for regime in temporal_seed.regimes:
+                    name = _recipe_name(seed.base_signal, modulator, temporal_seed.transform, regime, temporal_seed.interaction, temporal_seed.lag)
+                    _append_unique(
+                        out,
+                        seen,
+                        AlphaRecipe(
+                            name=name,
+                            left=seed.base_signal,
+                            modulator=modulator,
+                            transform=temporal_seed.transform,
+                            regime=regime,
+                            interaction=temporal_seed.interaction,
+                            lag=temporal_seed.lag,
+                            family=seed.family,
+                            wave="wave3",
+                            parents=(seed.family,),
+                            source="registry:wave3",
+                        ),
+                    )
+    return tuple(out)
 
 
-WAVE1_RECIPES = _build_wave1()
-WAVE2_RECIPES = _build_wave2()
-WAVE3_RECIPES = _build_wave3()
-ALL_RECIPES = WAVE1_RECIPES + WAVE2_RECIPES + WAVE3_RECIPES
+WAVE1_RECIPES = build_wave1_recipes()
+WAVE2_RECIPES = build_wave2_recipes()
+WAVE3_RECIPES = build_wave3_recipes()
+SEED_RECIPES = WAVE1_RECIPES + WAVE2_RECIPES + WAVE3_RECIPES
+ALL_RECIPES = SEED_RECIPES
+
+
+def survivor_registry_bundle() -> tuple[SurvivorExpansionPlan, ...]:
+    return WAVE4_SURVIVOR_REGISTRY + WAVE5_SURVIVOR_REGISTRY + WAVE6_SURVIVOR_REGISTRY
+
+
+__all__ = [
+    "ALL_RECIPES",
+    "BASE_SIGNAL_REGISTRY",
+    "DEFAULT_SURVIVOR_MIN_RECIPES",
+    "DEFAULT_SURVIVOR_TOP_N",
+    "FamilySeed",
+    "InteractionMode",
+    "MODULATOR_REGISTRY",
+    "ModulatorSpec",
+    "RegimeMode",
+    "SEED_RECIPES",
+    "SURVIVOR_DEFAULT_PRIORITY",
+    "SurvivorExpansionPlan",
+    "TransformName",
+    "WAVE1_RECIPES",
+    "WAVE2_RECIPES",
+    "WAVE3_RECIPES",
+    "WAVE4_SURVIVOR_REGISTRY",
+    "WAVE5_SURVIVOR_REGISTRY",
+    "WAVE6_SURVIVOR_REGISTRY",
+    "WaveTemporalSeed",
+    "WaveTransformSeed",
+    "AlphaRecipe",
+    "BaseSignalSpec",
+    "build_wave1_recipes",
+    "build_wave2_recipes",
+    "build_wave3_recipes",
+    "survivor_registry_bundle",
+]
