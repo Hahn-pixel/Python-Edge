@@ -75,8 +75,8 @@ MIN_SIGN_CONSISTENCY = float(os.getenv("MIN_SIGN_CONSISTENCY", "0.75"))
 RIDGE_L2 = float(os.getenv("RIDGE_L2", "25.0"))
 MAX_ALPHAS = int(os.getenv("MAX_ALPHAS", "6"))
 MIN_SELECTED_ALPHAS = int(os.getenv("MIN_SELECTED_ALPHAS", "3"))
-BASE_ENTER_PCT = float(os.getenv("ENTER_PCT", "0.06"))
-BASE_EXIT_PCT = float(os.getenv("EXIT_PCT", "0.14"))
+BASE_ENTER_PCT = float(os.getenv("ENTER_PCT", "0.10"))
+BASE_EXIT_PCT = float(os.getenv("EXIT_PCT", "0.22"))
 BASE_WEIGHT_CAP = float(os.getenv("WEIGHT_CAP", "0.05"))
 BASE_GROSS_TARGET = float(os.getenv("GROSS_TARGET", "0.85"))
 BASE_MAX_DAILY_TURNOVER = float(os.getenv("MAX_DAILY_TURNOVER", "0.20"))
@@ -85,13 +85,14 @@ TOPK_DEBUG = int(os.getenv("TOPK_DEBUG", "10"))
 CORR_PRUNE = float(os.getenv("CORR_PRUNE", "0.80"))
 MIN_FINAL_SELECT_SCORE = float(os.getenv("MIN_FINAL_SELECT_SCORE", "0.160"))
 
-CONSENSUS_MODE = str(os.getenv("CONSENSUS_MODE", "recent_weighted")).strip().lower()
-CONSENSUS_REQUIRED_LAST_FOLD = str(os.getenv("CONSENSUS_REQUIRED_LAST_FOLD", "1")).strip().lower() not in {"0", "false", "no", "off"}
-CONSENSUS_MIN_FOLDS = int(os.getenv("CONSENSUS_MIN_FOLDS", "2"))
-CONSENSUS_MAX_SIGN_FLIP = float(os.getenv("CONSENSUS_MAX_SIGN_FLIP", "0.25"))
-CONSENSUS_MIN_MEAN_ABS_IC = float(os.getenv("CONSENSUS_MIN_MEAN_ABS_IC", "0.0050"))
-CONSENSUS_HISTORY_BLEND = float(os.getenv("CONSENSUS_HISTORY_BLEND", "0.55"))
-CONSENSUS_FAMILY_CAP = int(os.getenv("CONSENSUS_FAMILY_CAP", "1"))
+RECENT_FOLDS = int(os.getenv("RECENT_FOLDS", "3"))
+REQUIRE_LAST_FOLD_POSITIVE = str(os.getenv("REQUIRE_LAST_FOLD_POSITIVE", "1")).strip().lower() not in {"0", "false", "no", "off"}
+REQUIRE_LAST2_MEAN_POSITIVE = str(os.getenv("REQUIRE_LAST2_MEAN_POSITIVE", "1")).strip().lower() not in {"0", "false", "no", "off"}
+RECENT_MIN_FOLDS = int(os.getenv("RECENT_MIN_FOLDS", "2"))
+RECENT_MIN_MEAN_ABS_IC = float(os.getenv("RECENT_MIN_MEAN_ABS_IC", "0.0050"))
+RECENT_MAX_SIGN_FLIP = float(os.getenv("RECENT_MAX_SIGN_FLIP", "0.50"))
+RECENT_HISTORY_BLEND = float(os.getenv("RECENT_HISTORY_BLEND", "0.65"))
+RECENT_FAMILY_CAP = int(os.getenv("RECENT_FAMILY_CAP", "1"))
 CURRENT_FAMILY_CAP = int(os.getenv("CURRENT_FAMILY_CAP", "2"))
 
 
@@ -345,14 +346,21 @@ def build_walkforward_splits(dates: Sequence[pd.Timestamp]) -> List[WFSplit]:
     return splits
 
 
-def build_consensus_from_history(history_stats: pd.DataFrame) -> pd.DataFrame:
+def build_recent_admission(history_stats: pd.DataFrame) -> pd.DataFrame:
     if history_stats.empty:
-        return pd.DataFrame(columns=["alpha", "family", "history_folds", "mean_abs_ic", "last_ic", "sign_flip_rate", "history_score", "consensus_admitted"])
-    work = history_stats.sort_values(["alpha", "fold_id"]).reset_index(drop=True)
+        return pd.DataFrame(columns=["alpha", "family", "recent_folds", "recent_mean_ic", "recent_mean_abs_ic", "recent_last_ic", "recent_last2_mean_ic", "recent_sign_flip_rate", "recent_score", "recent_admitted"])
     rows: List[Dict[str, object]] = []
+    work = history_stats.sort_values(["alpha", "fold_id"]).reset_index(drop=True)
     for alpha, g in work.groupby("alpha", sort=False):
         fam = str(g["family"].iloc[0]) if "family" in g.columns else "unknown"
-        ics = [float(x) for x in g["ic"].tolist() if pd.notna(x)]
+        recent = g.tail(RECENT_FOLDS).copy().reset_index(drop=True)
+        ics = [float(x) for x in recent["ic"].tolist() if pd.notna(x)]
+        last_ic = float(recent["ic"].iloc[-1]) if len(recent) else float("nan")
+        last2 = recent.tail(2)
+        last2_vals = [float(x) for x in last2["ic"].tolist() if pd.notna(x)]
+        last2_mean = float(np.mean(last2_vals)) if last2_vals else float("nan")
+        mean_ic = float(np.mean(ics)) if ics else float("nan")
+        mean_abs_ic = float(np.mean(np.abs(ics))) if ics else float("nan")
         signs = [int(np.sign(x)) for x in ics if abs(x) >= MIN_BLOCK_IC_ABS]
         sign_flips = 0
         transitions = 0
@@ -366,36 +374,55 @@ def build_consensus_from_history(history_stats: pd.DataFrame) -> pd.DataFrame:
                 sign_flips += 1
             prev_sign = s
         flip_rate = float(sign_flips / max(1, transitions)) if transitions > 0 else 0.0
-        mean_abs_ic = float(np.mean(np.abs(ics))) if ics else float("nan")
-        last_ic = float(g["ic"].iloc[-1]) if len(g) else float("nan")
-        mean_current = float(g["current_score"].mean()) if "current_score" in g.columns and len(g) else float("nan")
-        folds = int(g["fold_id"].nunique())
-        admitted = int((folds >= CONSENSUS_MIN_FOLDS) and pd.notna(mean_abs_ic) and (mean_abs_ic >= CONSENSUS_MIN_MEAN_ABS_IC) and (flip_rate <= CONSENSUS_MAX_SIGN_FLIP))
-        history_score = 0.35 * (mean_abs_ic if pd.notna(mean_abs_ic) else 0.0) + (0.20 * abs(last_ic) if pd.notna(last_ic) else 0.0) + 0.25 * (1.0 - flip_rate) + 0.20 * (mean_current if pd.notna(mean_current) else 0.0)
-        rows.append({"alpha": alpha, "family": fam, "history_folds": folds, "mean_abs_ic": mean_abs_ic, "last_ic": last_ic, "sign_flip_rate": flip_rate, "history_score": float(history_score), "consensus_admitted": admitted})
+        admitted = True
+        if int(recent["fold_id"].nunique()) < RECENT_MIN_FOLDS:
+            admitted = False
+        if pd.isna(mean_abs_ic) or float(mean_abs_ic) < RECENT_MIN_MEAN_ABS_IC:
+            admitted = False
+        if float(flip_rate) > RECENT_MAX_SIGN_FLIP:
+            admitted = False
+        if REQUIRE_LAST_FOLD_POSITIVE and (pd.isna(last_ic) or float(last_ic) <= 0.0):
+            admitted = False
+        if REQUIRE_LAST2_MEAN_POSITIVE and (pd.isna(last2_mean) or float(last2_mean) <= 0.0):
+            admitted = False
+        recent_score = 0.45 * (abs(last_ic) if pd.notna(last_ic) else 0.0) + 0.25 * (last2_mean if pd.notna(last2_mean) else 0.0) + 0.20 * (mean_abs_ic if pd.notna(mean_abs_ic) else 0.0) + 0.10 * (1.0 - flip_rate)
+        rows.append({
+            "alpha": alpha,
+            "family": fam,
+            "recent_folds": int(recent["fold_id"].nunique()),
+            "recent_mean_ic": mean_ic,
+            "recent_mean_abs_ic": mean_abs_ic,
+            "recent_last_ic": last_ic,
+            "recent_last2_mean_ic": last2_mean,
+            "recent_sign_flip_rate": flip_rate,
+            "recent_score": float(recent_score),
+            "recent_admitted": int(admitted),
+        })
     out = pd.DataFrame(rows)
     if out.empty:
         return out
-    out = out.sort_values(["consensus_admitted", "history_score", "alpha"], ascending=[False, False, True]).reset_index(drop=True)
-    if CONSENSUS_FAMILY_CAP > 0 and len(out):
-        out["family_rank"] = out.groupby("family", sort=False).cumcount() + 1
-        out["consensus_admitted"] = np.where((out["consensus_admitted"] == 1) & (out["family_rank"] <= CONSENSUS_FAMILY_CAP), 1, 0)
+    out = out.sort_values(["recent_admitted", "recent_score", "alpha"], ascending=[False, False, True]).reset_index(drop=True)
+    if RECENT_FAMILY_CAP > 0 and len(out):
+        out["recent_family_rank"] = out.groupby("family", sort=False).cumcount() + 1
+        out["recent_admitted"] = np.where((out["recent_admitted"] == 1) & (out["recent_family_rank"] <= RECENT_FAMILY_CAP), 1, 0)
     return out
 
 
-def select_current_fold_alphas(current_stats: pd.DataFrame, history_consensus: pd.DataFrame, is_last_fold: bool) -> Tuple[pd.DataFrame, Dict[str, object]]:
+def select_current_fold_alphas(current_stats: pd.DataFrame, recent_admission: pd.DataFrame, is_last_fold: bool) -> Tuple[pd.DataFrame, Dict[str, object]]:
     counters: Dict[str, object] = {
         "input_current": int(len(current_stats)),
         "after_current_thresholds": 0,
-        "history_rows": int(len(history_consensus)),
-        "dropped_by_fold_consensus": 0,
-        "dropped_by_sign_flip": 0,
+        "recent_rows": int(len(recent_admission)),
+        "dropped_by_recent_admission": 0,
+        "dropped_by_recent_sign_flip": 0,
         "dropped_by_family_dominance": 0,
         "dropped_by_weight_instability": 0,
         "dropped_by_low_final_score": 0,
         "corr_pruned": 0,
         "selected": 0,
-        "history_gate_active": 0,
+        "recent_gate_active": 0,
+        "recent_soft_fallback_used": 0,
+        "recent_soft_fallback_target": 0,
     }
     work = current_stats.copy()
     work = work.loc[(work["n_days"] >= MIN_ALPHA_DAYS) & (work["abs_ic"] >= MIN_ALPHA_ABS_IC)].copy()
@@ -403,37 +430,41 @@ def select_current_fold_alphas(current_stats: pd.DataFrame, history_consensus: p
     counters["after_current_thresholds"] = int(len(work))
     if work.empty:
         raise RuntimeError("No alpha passed current fold thresholds")
-    if CONSENSUS_MODE != "off" and len(history_consensus):
-        counters["history_gate_active"] = 1
-        hist = history_consensus[["alpha", "family", "history_folds", "mean_abs_ic", "sign_flip_rate", "history_score", "consensus_admitted"]].copy()
+    if len(recent_admission):
+        counters["recent_gate_active"] = 1
+        hist = recent_admission[["alpha", "family", "recent_folds", "recent_mean_abs_ic", "recent_last_ic", "recent_last2_mean_ic", "recent_sign_flip_rate", "recent_score", "recent_admitted"]].copy()
         work = work.merge(hist, on=["alpha", "family"], how="left")
-        work["history_folds"] = pd.to_numeric(work["history_folds"], errors="coerce").fillna(0.0)
-        work["mean_abs_ic"] = pd.to_numeric(work["mean_abs_ic"], errors="coerce")
-        work["sign_flip_rate"] = pd.to_numeric(work["sign_flip_rate"], errors="coerce")
-        work["history_score"] = pd.to_numeric(work["history_score"], errors="coerce").fillna(0.0)
-        work["consensus_admitted"] = pd.to_numeric(work["consensus_admitted"], errors="coerce").fillna(0.0)
-        sign_flip_drop_mask = work["sign_flip_rate"].fillna(0.0) > CONSENSUS_MAX_SIGN_FLIP
-        counters["dropped_by_sign_flip"] = int(sign_flip_drop_mask.sum())
-        work = work.loc[~sign_flip_drop_mask].copy()
-        if is_last_fold and CONSENSUS_REQUIRED_LAST_FOLD:
-            consensus_drop_mask = work["consensus_admitted"].fillna(0.0) <= 0.0
-            counters["dropped_by_fold_consensus"] = int(consensus_drop_mask.sum())
-            work = work.loc[~consensus_drop_mask].copy()
-        else:
-            work["consensus_admitted"] = work["consensus_admitted"].fillna(0.0)
+        work["recent_score"] = pd.to_numeric(work["recent_score"], errors="coerce").fillna(0.0)
+        work["recent_sign_flip_rate"] = pd.to_numeric(work["recent_sign_flip_rate"], errors="coerce").fillna(0.0)
+        flip_mask = work["recent_sign_flip_rate"] > RECENT_MAX_SIGN_FLIP
+        counters["dropped_by_recent_sign_flip"] = int(flip_mask.sum())
+        work = work.loc[~flip_mask].copy()
+        admission_mask = pd.to_numeric(work["recent_admitted"], errors="coerce").fillna(0.0) <= 0.0
+        counters["dropped_by_recent_admission"] = int(admission_mask.sum())
+        work = work.loc[~admission_mask].copy()
     else:
-        work["history_score"] = 0.0
-        work["consensus_admitted"] = 0.0
+        work["recent_score"] = 0.0
     if work.empty:
-        raise RuntimeError("No alpha remained after fold consensus gate")
-    history_blend = CONSENSUS_HISTORY_BLEND if (CONSENSUS_MODE != "off" and counters["history_gate_active"] == 1) else 0.0
-    work["final_select_score"] = (1.0 - history_blend) * pd.to_numeric(work["current_score"], errors="coerce").fillna(0.0) + history_blend * pd.to_numeric(work["history_score"], errors="coerce").fillna(0.0)
-    work["final_select_score"] += 0.02 * pd.to_numeric(work["consensus_admitted"], errors="coerce").fillna(0.0)
-    low_score_mask = pd.to_numeric(work["final_select_score"], errors="coerce").fillna(0.0) < MIN_FINAL_SELECT_SCORE
+        fallback_cols = [c for c in ["alpha", "family", "current_score", "abs_ic", "n_days", "block_hit_count", "sign_consistency"] if c in current_stats.columns]
+        fallback_df = current_stats[fallback_cols].copy()
+        if "family" not in fallback_df.columns:
+            fallback_df["family"] = "unknown"
+        fallback_df["recent_score"] = 0.0
+        fallback_df["final_select_score"] = pd.to_numeric(fallback_df.get("current_score", 0.0), errors="coerce").fillna(0.0)
+        fallback_df = fallback_df.sort_values(["final_select_score", "abs_ic", "alpha"], ascending=[False, False, True]).reset_index(drop=True)
+        work = fallback_df.copy()
+        counters["recent_soft_fallback_used"] = 1
+        counters["recent_soft_fallback_target"] = int(min(MIN_SELECTED_ALPHAS, len(work)))
+    work["final_select_score"] = (1.0 - RECENT_HISTORY_BLEND) * pd.to_numeric(work["current_score"], errors="coerce").fillna(0.0) + RECENT_HISTORY_BLEND * pd.to_numeric(work["recent_score"], errors="coerce").fillna(0.0)
+    score_series = pd.to_numeric(work["final_select_score"], errors="coerce").fillna(0.0)
+    low_score_mask = score_series < MIN_FINAL_SELECT_SCORE
     counters["dropped_by_low_final_score"] = int(low_score_mask.sum())
-    work = work.loc[~low_score_mask].copy()
-    if work.empty:
-        raise RuntimeError("No alpha remained after final score floor")
+    pruned = work.loc[~low_score_mask].copy()
+    if len(pruned) >= MIN_SELECTED_ALPHAS:
+        work = pruned
+    else:
+        counters["dropped_by_low_final_score"] = int(max(0, len(work) - MIN_SELECTED_ALPHAS))
+        work = work.assign(final_select_score=score_series).sort_values(["final_select_score", "abs_ic", "alpha"], ascending=[False, False, True]).head(MIN_SELECTED_ALPHAS).copy()
     work = work.sort_values(["final_select_score", "abs_ic", "alpha"], ascending=[False, False, True]).reset_index(drop=True)
     if CURRENT_FAMILY_CAP > 0:
         work["family_rank"] = work.groupby("family", sort=False).cumcount() + 1
@@ -626,14 +657,21 @@ def run_fold(
     train_df = _cs_zscore_df(train_df, alpha_cols)
     test_df = _cs_zscore_df(test_df, alpha_cols)
     current_stats = _alpha_stats(train_df, alpha_cols, split.fold_id, family_map)
-    history_consensus = build_consensus_from_history(history_stats)
-    candidate_df, counters = select_current_fold_alphas(current_stats, history_consensus, is_last_fold=is_last_fold)
+    recent_admission = build_recent_admission(history_stats)
+    candidate_df, counters = select_current_fold_alphas(current_stats, recent_admission, is_last_fold=is_last_fold)
     candidate_df, corr_removed = corr_prune_selected(train_df, candidate_df)
     counters["corr_pruned"] = int(corr_removed)
     selected = candidate_df["alpha"].head(MAX_ALPHAS).tolist()
     counters["selected"] = int(len(selected))
     if len(selected) < MIN_SELECTED_ALPHAS:
-        raise RuntimeError(f"Fold {split.fold_id}: selected alpha list too small after hardening: {len(selected)} < {MIN_SELECTED_ALPHAS}")
+        if len(candidate_df) >= 1:
+            fallback_n = min(MIN_SELECTED_ALPHAS, len(candidate_df))
+            selected = candidate_df["alpha"].head(fallback_n).tolist()
+            counters["selected"] = int(len(selected))
+            counters["recent_soft_fallback_used"] = 1
+            counters["recent_soft_fallback_target"] = int(fallback_n)
+        else:
+            raise RuntimeError(f"Fold {split.fold_id}: selected alpha list empty after recent admission")
     weights_df = fit_ridge_weights(train_df, selected)
     scored = apply_weights(test_df, weights_df)
 
@@ -660,7 +698,7 @@ def run_fold(
         summary["shell_max_daily_turnover"] = float(shell.max_daily_turnover)
         shell_daily_map[shell.name] = daily
         shell_summary_map[shell.name] = summary
-    return current_stats, history_consensus, candidate_df, weights_df, counters, shell_summary_map["base_hardened"], shell_daily_map, shell_summary_map
+    return current_stats, recent_admission, candidate_df, weights_df, counters, shell_summary_map["base_hardened"], shell_daily_map, shell_summary_map
 
 
 def main() -> int:
@@ -668,10 +706,8 @@ def main() -> int:
     print(f"[CFG] alpha_lib_file={ALPHA_LIB_FILE}")
     print(f"[CFG] alpha_shortlist_csv={ALPHA_SHORTLIST_CSV}")
     print(f"[CFG] alpha_shortlist_required={int(ALPHA_SHORTLIST_REQUIRED)}")
-    print(f"[CFG] consensus_mode={CONSENSUS_MODE}")
-    print(f"[CFG] consensus_required_last_fold={int(CONSENSUS_REQUIRED_LAST_FOLD)}")
-    print(f"[CFG] consensus_min_folds={CONSENSUS_MIN_FOLDS} consensus_max_sign_flip={CONSENSUS_MAX_SIGN_FLIP} consensus_min_mean_abs_ic={CONSENSUS_MIN_MEAN_ABS_IC}")
-    print(f"[CFG] consensus_history_blend={CONSENSUS_HISTORY_BLEND} consensus_family_cap={CONSENSUS_FAMILY_CAP} current_family_cap={CURRENT_FAMILY_CAP}")
+    print(f"[CFG] recent_folds={RECENT_FOLDS} recent_min_folds={RECENT_MIN_FOLDS} require_last_fold_positive={int(REQUIRE_LAST_FOLD_POSITIVE)} require_last2_mean_positive={int(REQUIRE_LAST2_MEAN_POSITIVE)}")
+    print(f"[CFG] recent_min_mean_abs_ic={RECENT_MIN_MEAN_ABS_IC} recent_max_sign_flip={RECENT_MAX_SIGN_FLIP} recent_history_blend={RECENT_HISTORY_BLEND} recent_family_cap={RECENT_FAMILY_CAP} current_family_cap={CURRENT_FAMILY_CAP}")
     print(f"[CFG] hardening max_alphas={MAX_ALPHAS} min_selected_alphas={MIN_SELECTED_ALPHAS} min_final_select_score={MIN_FINAL_SELECT_SCORE} corr_prune={CORR_PRUNE}")
     print(f"[CFG] base_shell gross_target={BASE_GROSS_TARGET} weight_cap={BASE_WEIGHT_CAP} max_daily_turnover={BASE_MAX_DAILY_TURNOVER} enter_pct={BASE_ENTER_PCT} exit_pct={BASE_EXIT_PCT}")
 
@@ -705,13 +741,13 @@ def main() -> int:
         is_last_fold = idx == len(splits)
         history_df = pd.concat(all_history_stats, ignore_index=True) if all_history_stats else pd.DataFrame()
         print(f"[WF][FOLD {split.fold_id}] start history_rows={len(history_df)} is_last_fold={int(is_last_fold)}")
-        current_stats, history_consensus, candidate_df, weights_df, counters, base_summary, fold_shell_daily, fold_shell_summary = run_fold(df, split, alpha_cols, family_map, history_df, is_last_fold=is_last_fold)
+        current_stats, recent_admission, candidate_df, weights_df, counters, base_summary, fold_shell_daily, fold_shell_summary = run_fold(df, split, alpha_cols, family_map, history_df, is_last_fold=is_last_fold)
         all_history_stats.append(current_stats)
         fold_summaries.append(base_summary)
         fold_debug_rows.append({"fold_id": split.fold_id, **counters})
 
         current_stats.to_csv(OUT_DIR / f"wf_alpha_stats__fold{split.fold_id}.csv", index=False)
-        history_consensus.to_csv(OUT_DIR / f"wf_consensus__fold{split.fold_id}.csv", index=False)
+        recent_admission.to_csv(OUT_DIR / f"wf_recent_admission__fold{split.fold_id}.csv", index=False)
         candidate_df.to_csv(OUT_DIR / f"wf_selected_alphas__fold{split.fold_id}.csv", index=False)
         weights_df.to_csv(OUT_DIR / f"wf_alpha_weights__fold{split.fold_id}.csv", index=False)
 
@@ -721,12 +757,12 @@ def main() -> int:
             shell_summary_rows.append(fold_shell_summary[shell_name])
             print(f"[WF][FOLD {split.fold_id}][{shell_name}] sharpe={fold_shell_summary[shell_name]['sharpe']:.4f} mean_daily={fold_shell_summary[shell_name]['mean_daily']:.6f} cum_ret={fold_shell_summary[shell_name]['cum_ret']:.4f} maxdd={fold_shell_summary[shell_name]['max_drawdown']:.4f} avg_turn={fold_shell_summary[shell_name]['avg_turnover']:.4f}")
 
-        print(f"[WF][FOLD {split.fold_id}][CONSENSUS] selected={counters['selected']} dropped_by_fold_consensus={counters['dropped_by_fold_consensus']} dropped_by_sign_flip={counters['dropped_by_sign_flip']} dropped_by_family_dominance={counters['dropped_by_family_dominance']} dropped_by_low_final_score={counters['dropped_by_low_final_score']} corr_pruned={counters['corr_pruned']}")
+        print(f"[WF][FOLD {split.fold_id}][RECENT] selected={counters['selected']} dropped_by_recent_admission={counters['dropped_by_recent_admission']} dropped_by_recent_sign_flip={counters['dropped_by_recent_sign_flip']} dropped_by_family_dominance={counters['dropped_by_family_dominance']} dropped_by_low_final_score={counters['dropped_by_low_final_score']} corr_pruned={counters['corr_pruned']}")
         print(f"[WF][FOLD {split.fold_id}][TOP_WEIGHTS]")
         print(weights_df.head(TOPK_DEBUG).to_string(index=False))
 
     pd.DataFrame(fold_summaries).to_csv(OUT_DIR / "wf_fold_summaries.csv", index=False)
-    pd.DataFrame(fold_debug_rows).to_csv(OUT_DIR / "wf_fold_consensus_debug.csv", index=False)
+    pd.DataFrame(fold_debug_rows).to_csv(OUT_DIR / "wf_fold_recent_debug.csv", index=False)
     shell_summary_df = pd.DataFrame(shell_summary_rows)
     shell_summary_df.to_csv(OUT_DIR / "wf_shell_fold_summaries.csv", index=False)
 
@@ -761,13 +797,14 @@ def main() -> int:
         "alpha_lib_file": str(ALPHA_LIB_FILE),
         "alpha_shortlist_csv": str(ALPHA_SHORTLIST_CSV),
         "alpha_shortlist_required": int(ALPHA_SHORTLIST_REQUIRED),
-        "consensus_mode": CONSENSUS_MODE,
-        "consensus_required_last_fold": int(CONSENSUS_REQUIRED_LAST_FOLD),
-        "consensus_min_folds": CONSENSUS_MIN_FOLDS,
-        "consensus_max_sign_flip": CONSENSUS_MAX_SIGN_FLIP,
-        "consensus_min_mean_abs_ic": CONSENSUS_MIN_MEAN_ABS_IC,
-        "consensus_history_blend": CONSENSUS_HISTORY_BLEND,
-        "consensus_family_cap": CONSENSUS_FAMILY_CAP,
+        "recent_folds": RECENT_FOLDS,
+        "recent_min_folds": RECENT_MIN_FOLDS,
+        "require_last_fold_positive": int(REQUIRE_LAST_FOLD_POSITIVE),
+        "require_last2_mean_positive": int(REQUIRE_LAST2_MEAN_POSITIVE),
+        "recent_min_mean_abs_ic": RECENT_MIN_MEAN_ABS_IC,
+        "recent_max_sign_flip": RECENT_MAX_SIGN_FLIP,
+        "recent_history_blend": RECENT_HISTORY_BLEND,
+        "recent_family_cap": RECENT_FAMILY_CAP,
         "current_family_cap": CURRENT_FAMILY_CAP,
         "max_alphas": MAX_ALPHAS,
         "min_selected_alphas": MIN_SELECTED_ALPHAS,
@@ -784,12 +821,12 @@ def main() -> int:
         print(shell_overall_df.to_string(index=False))
         print(f"[BEST_SHELL] name={best_shell.get('shell_name', '')} sharpe={best_shell.get('sharpe', float('nan')):.4f} cum_ret={best_shell.get('cum_ret', float('nan')):.4f} avg_turnover={best_shell.get('avg_turnover', float('nan')):.4f}")
     print(f"[ARTIFACT] {OUT_DIR / 'wf_fold_summaries.csv'}")
-    print(f"[ARTIFACT] {OUT_DIR / 'wf_fold_consensus_debug.csv'}")
+    print(f"[ARTIFACT] {OUT_DIR / 'wf_fold_recent_debug.csv'}")
     print(f"[ARTIFACT] {OUT_DIR / 'wf_shell_fold_summaries.csv'}")
     print(f"[ARTIFACT] {OUT_DIR / 'wf_shell_comparison.csv'}")
     print(f"[ARTIFACT] {meta_path}")
     print(f"[ARTIFACT] {shortlist_debug_path}")
-    print("[FINAL] multi-alpha walkforward shell comparison complete")
+    print("[FINAL] multi-alpha walkforward recent-admission shell comparison complete")
     return 0
 
 
