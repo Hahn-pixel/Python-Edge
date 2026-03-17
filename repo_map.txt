@@ -7,32 +7,8 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/.gitattributes
 .gitignore
 https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/.gitignore
 
-    artifacts/multi_alpha_wf/wf_multi_alpha_meta.json
-    https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/artifacts/multi_alpha_wf/wf_multi_alpha_meta.json
-
-    artifacts/regime_interaction_scan/regime_scan_meta.json
-    https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/artifacts/regime_interaction_scan/regime_scan_meta.json
-
-console64.log
-https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console64.log
-
-    data/alpha_library_v2/alpha_library_v2.meta.json
-    https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/data/alpha_library_v2/alpha_library_v2.meta.json
-
-    data/alpha_library_v2/alpha_library_v2.parquet
-    https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/data/alpha_library_v2/alpha_library_v2.parquet
-
-    data/alpha_library/alpha_library_v1.meta.json
-    https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/data/alpha_library/alpha_library_v1.meta.json
-
-    data/alpha_library/alpha_library_v1.parquet
-    https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/data/alpha_library/alpha_library_v1.parquet
-
-    data/features/feature_matrix_v1.meta.json
-    https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/data/features/feature_matrix_v1.meta.json
-
-    data/features/feature_matrix_v1.parquet
-    https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/data/features/feature_matrix_v1.parquet
+console74.log
+https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console74.log
 
 deps_edges.txt
 https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/deps_edges.txt
@@ -40,14 +16,11 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/deps_edges.txt
   experiments/console_01_pre_interactions_best.log
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/experiments/console_01_pre_interactions_best.log
 
-files1.txt
-https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/files1.txt
+files3.txt
+https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/files3.txt
 
 pyproject.toml
 https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/pyproject.toml
-
-README.md
-https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/README.md
 
 repo_map.txt
 https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/repo_map.txt
@@ -55,11 +28,17 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/repo_map.txt
   scripts/alpha_age_surface.py
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/alpha_age_surface.py
 
+  scripts/build_feature_matrix_v1.py
+  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/build_feature_matrix_v1.py
+
   scripts/build_feature_matrix.py
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/build_feature_matrix.py
 
   scripts/build_multi_alpha_library.py
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/build_multi_alpha_library.py
+
+  scripts/diagnose_alpha_library_v2.py
+  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/diagnose_alpha_library_v2.py
 
   scripts/download_massive_aggs.py
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/download_massive_aggs.py
