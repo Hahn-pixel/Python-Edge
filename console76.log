@@ -1,0 +1,654 @@
+
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_single_alpha_audit_wf.py
+[CFG] alpha_lib_file=data\alpha_library_v2\alpha_library_v2.parquet
+[CFG] alpha_shortlist_csv=data\alpha_library_v2\diagnostics\alpha_candidate_shortlist__clean.csv
+[CFG] alpha_shortlist_required=1
+[CFG] target_col=target_fwd_ret_1d
+[CFG] wf train_days=252 test_days=63 step_days=63 purge_days=5 embargo_days=5
+[CFG] shell gross_target=0.85 weight_cap=0.05 max_daily_turnover=0.2 enter_pct=0.1 exit_pct=0.22 cost_bps=8.0
+[CFG] alpha_limit=0 alpha_name_filter=''
+[CFG] alive min_last_fold_sharpe=0.0 min_last2_mean_sharpe=0.0 min_mean_ic=0.0 min_sign_stability=0.5 min_positive_sharpe_fraction=0.5
+[DATA] rows=76727 dates=791 symbols=97 alpha_cols=54
+[ALPHA_SHORTLIST]
+{
+  "shortlist_required": 1,
+  "shortlist_path": "data\\alpha_library_v2\\diagnostics\\alpha_candidate_shortlist__clean.csv",
+  "shortlist_csv_exists": 1,
+  "shortlist_rows_raw": 54,
+  "shortlist_rows_unique": 54,
+  "shortlist_duplicates_removed": 0,
+  "shortlist_alpha_missing_name": 0,
+  "alpha_cols_before_shortlist": 1163,
+  "shortlist_found_in_parquet": 54,
+  "shortlist_missing_in_parquet": 0,
+  "shortlist_missing_in_parquet_list": [],
+  "alpha_cols_after_filters": 54,
+  "alpha_name_filter": "",
+  "alpha_limit": 0
+}
+[ALPHA_SHORTLIST][HEAD]
+ shortlist_rank                                            alpha              family  wave transform interaction regime  selector_score
+              1        alpha_intraday_pressure_ema3_regime_liq_z   intraday_pressure wave3      ema3      regime      z       12.848269
+              2                     alpha_pressure_z_z_mul_liq_z            pressure wave5         z       z_mul      z       12.834244
+              3                  alpha_mom3_z_rank_mul_breadth_z                mom3 wave5         z    rank_mul      z       12.831842
+              4                        alpha_mom3_z_z_mul_rvol_z                mom3 wave5         z       z_mul      z       12.828941
+              5                          alpha_gap_z_z_mul_liq_z                 gap wave5         z       z_mul      z       12.827754
+              6                         alpha_rev1_z_z_mul_liq_z                rev1 wave5         z       z_mul      z       12.827754
+              7                   alpha_mom3_z_raw_mul_breadth_z                mom3 wave5         z     raw_mul      z       12.813842
+              9              alpha_pressure_z_rank_mul_breadth_z            pressure wave5         z    rank_mul      z       12.798052
+             10                     alpha_mom3_z_rank_mul_rvol_z                mom3 wave5         z    rank_mul      z       12.792941
+             11                   alpha_gap_z_rank_mul_breadth_z                 gap wave5         z    rank_mul      z       12.791742
+             12                  alpha_rev1_z_rank_mul_breadth_z                rev1 wave5         z    rank_mul      z       12.791625
+             13             alpha_intraday_rs_ema3_regime_rvol_z         intraday_rs wave3      ema3      regime      z       12.789853
+             14                  alpha_str_3d_ema3_regime_rvol_z              str_3d wave3      ema3      regime      z       12.789853
+             17 alpha_overnight_drift_20d_ema3_regime_volshock_z overnight_drift_20d wave3      ema3      regime      z       12.783361
+             18                     alpha_ivol_20d_z_z_mul_liq_z            ivol_20d wave5         z       z_mul      z       12.782079
+             19                alpha_ivol_20d_z_z_mul_volshock_z            ivol_20d wave5         z       z_mul      z       12.782079
+             20               alpha_pressure_z_raw_mul_breadth_z            pressure wave5         z     raw_mul      z       12.779885
+             22                         alpha_gap_z_z_mul_rvol_z                 gap wave5         z       z_mul      z       12.775828
+             23                    alpha_pressure_z_z_mul_rvol_z            pressure wave5         z       z_mul      z       12.775828
+             24                        alpha_rev1_z_z_mul_rvol_z                rev1 wave5         z       z_mul      z       12.775828
+[WF] folds=8
+[WF][FOLD 1] train=2023-01-03..2024-01-03 test=2024-01-19..2024-04-18
+[WF][FOLD 2] train=2023-04-04..2024-04-04 test=2024-04-19..2024-07-19
+[WF][FOLD 3] train=2023-07-06..2024-07-05 test=2024-07-22..2024-10-17
+[WF][FOLD 4] train=2023-10-04..2024-10-03 test=2024-10-18..2025-01-21
+[WF][FOLD 5] train=2024-01-04..2025-01-03 test=2025-01-22..2025-04-22
+[WF][FOLD 6] train=2024-04-05..2025-04-07 test=2025-04-23..2025-07-23
+[WF][FOLD 7] train=2024-07-08..2025-07-09 test=2025-07-24..2025-10-21
+[WF][FOLD 8] train=2024-10-04..2025-10-07 test=2025-10-22..2026-01-22
+[AUDIT] 1/54 alpha=alpha_intraday_pressure_ema3_regime_liq_z family=intraday_pressure
+[AUDIT][alpha_intraday_pressure_ema3_regime_liq_z][FOLD 1] sharpe=0.9245 mean_ic=0.02781 maxdd=-0.0085 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_pressure_ema3_regime_liq_z][FOLD 2] sharpe=3.1907 mean_ic=-0.00104 maxdd=-0.0089 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_pressure_ema3_regime_liq_z][FOLD 3] sharpe=0.0032 mean_ic=-0.01932 maxdd=-0.0289 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_pressure_ema3_regime_liq_z][FOLD 4] sharpe=0.1403 mean_ic=0.02939 maxdd=-0.0342 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_pressure_ema3_regime_liq_z][FOLD 5] sharpe=-5.9851 mean_ic=-0.03382 maxdd=-0.0710 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_pressure_ema3_regime_liq_z][FOLD 6] sharpe=0.4387 mean_ic=0.02866 maxdd=-0.0208 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_pressure_ema3_regime_liq_z][FOLD 7] sharpe=0.3033 mean_ic=0.02198 maxdd=-0.0159 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_pressure_ema3_regime_liq_z][FOLD 8] sharpe=-2.0019 mean_ic=0.01203 maxdd=-0.0253 turnover=0.2000 train_sign=1
+[AUDIT] 2/54 alpha=alpha_pressure_z_z_mul_liq_z family=pressure
+[AUDIT][alpha_pressure_z_z_mul_liq_z][FOLD 1] sharpe=0.7578 mean_ic=0.02847 maxdd=-0.0084 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_pressure_z_z_mul_liq_z][FOLD 2] sharpe=2.3832 mean_ic=-0.01364 maxdd=-0.0083 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_pressure_z_z_mul_liq_z][FOLD 3] sharpe=-1.0225 mean_ic=-0.00497 maxdd=-0.0248 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_pressure_z_z_mul_liq_z][FOLD 4] sharpe=-0.5322 mean_ic=0.00348 maxdd=-0.0272 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_pressure_z_z_mul_liq_z][FOLD 5] sharpe=-5.1020 mean_ic=-0.00557 maxdd=-0.0526 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_pressure_z_z_mul_liq_z][FOLD 6] sharpe=1.3813 mean_ic=0.02944 maxdd=-0.0077 turnover=0.2000 train_sign=1
+[AUDIT][alpha_pressure_z_z_mul_liq_z][FOLD 7] sharpe=0.4704 mean_ic=0.02861 maxdd=-0.0097 turnover=0.2000 train_sign=1
+[AUDIT][alpha_pressure_z_z_mul_liq_z][FOLD 8] sharpe=-1.6662 mean_ic=0.01411 maxdd=-0.0231 turnover=0.2000 train_sign=1
+[AUDIT] 3/54 alpha=alpha_mom3_z_rank_mul_breadth_z family=mom3
+[AUDIT][alpha_mom3_z_rank_mul_breadth_z][FOLD 1] sharpe=-1.8518 mean_ic=0.01508 maxdd=-0.0196 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_mom3_z_rank_mul_breadth_z][FOLD 2] sharpe=-0.9943 mean_ic=-0.01628 maxdd=-0.0243 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_mom3_z_rank_mul_breadth_z][FOLD 3] sharpe=-0.8899 mean_ic=-0.01295 maxdd=-0.0466 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_mom3_z_rank_mul_breadth_z][FOLD 4] sharpe=-1.5362 mean_ic=0.02028 maxdd=-0.0492 turnover=0.2000 train_sign=1
+[AUDIT][alpha_mom3_z_rank_mul_breadth_z][FOLD 5] sharpe=-0.9106 mean_ic=-0.01188 maxdd=-0.0651 turnover=0.2000 train_sign=1
+[AUDIT][alpha_mom3_z_rank_mul_breadth_z][FOLD 6] sharpe=-0.1192 mean_ic=-0.01379 maxdd=-0.0355 turnover=0.2000 train_sign=1
+[AUDIT][alpha_mom3_z_rank_mul_breadth_z][FOLD 7] sharpe=-6.0213 mean_ic=-0.04589 maxdd=-0.0588 turnover=0.2000 train_sign=1
+[AUDIT][alpha_mom3_z_rank_mul_breadth_z][FOLD 8] sharpe=-2.4867 mean_ic=-0.01751 maxdd=-0.0581 turnover=0.2000 train_sign=-1
+[AUDIT] 4/54 alpha=alpha_mom3_z_z_mul_rvol_z family=mom3
+[AUDIT][alpha_mom3_z_z_mul_rvol_z][FOLD 1] sharpe=-2.3998 mean_ic=0.01894 maxdd=-0.0205 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_mom3_z_z_mul_rvol_z][FOLD 2] sharpe=0.4930 mean_ic=0.01845 maxdd=-0.0171 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_mom3_z_z_mul_rvol_z][FOLD 3] sharpe=1.6878 mean_ic=0.02768 maxdd=-0.0232 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_mom3_z_z_mul_rvol_z][FOLD 4] sharpe=1.8486 mean_ic=0.01181 maxdd=-0.0196 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_mom3_z_z_mul_rvol_z][FOLD 5] sharpe=2.7705 mean_ic=0.00118 maxdd=-0.0147 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_mom3_z_z_mul_rvol_z][FOLD 6] sharpe=0.1734 mean_ic=-0.00561 maxdd=-0.0118 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_mom3_z_z_mul_rvol_z][FOLD 7] sharpe=2.0838 mean_ic=0.01679 maxdd=-0.0112 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_mom3_z_z_mul_rvol_z][FOLD 8] sharpe=-2.2427 mean_ic=-0.00164 maxdd=-0.0332 turnover=0.2000 train_sign=-1
+[AUDIT] 5/54 alpha=alpha_gap_z_z_mul_liq_z family=gap
+[AUDIT][alpha_gap_z_z_mul_liq_z][FOLD 1] sharpe=-0.4734 mean_ic=0.01525 maxdd=-0.0210 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_gap_z_z_mul_liq_z][FOLD 2] sharpe=-3.0267 mean_ic=-0.01802 maxdd=-0.0222 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_gap_z_z_mul_liq_z][FOLD 3] sharpe=2.7526 mean_ic=0.03143 maxdd=-0.0110 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_gap_z_z_mul_liq_z][FOLD 4] sharpe=-0.4559 mean_ic=0.01144 maxdd=-0.0147 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_gap_z_z_mul_liq_z][FOLD 5] sharpe=1.0724 mean_ic=-0.00983 maxdd=-0.0191 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_gap_z_z_mul_liq_z][FOLD 6] sharpe=1.1524 mean_ic=0.01477 maxdd=-0.0111 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_gap_z_z_mul_liq_z][FOLD 7] sharpe=-3.4537 mean_ic=0.00044 maxdd=-0.0375 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_gap_z_z_mul_liq_z][FOLD 8] sharpe=-6.0000 mean_ic=-0.02869 maxdd=-0.0456 turnover=0.2000 train_sign=-1
+[AUDIT] 6/54 alpha=alpha_rev1_z_z_mul_liq_z family=rev1
+[AUDIT][alpha_rev1_z_z_mul_liq_z][FOLD 1] sharpe=0.4433 mean_ic=0.01985 maxdd=-0.0111 turnover=0.2000 train_sign=1
+[AUDIT][alpha_rev1_z_z_mul_liq_z][FOLD 2] sharpe=-1.7967 mean_ic=-0.01752 maxdd=-0.0158 turnover=0.2000 train_sign=1
+[AUDIT][alpha_rev1_z_z_mul_liq_z][FOLD 3] sharpe=-0.9393 mean_ic=0.01071 maxdd=-0.0240 turnover=0.2000 train_sign=1
+[AUDIT][alpha_rev1_z_z_mul_liq_z][FOLD 4] sharpe=-0.0067 mean_ic=-0.00735 maxdd=-0.0190 turnover=0.2000 train_sign=1
+[AUDIT][alpha_rev1_z_z_mul_liq_z][FOLD 5] sharpe=1.0183 mean_ic=0.02560 maxdd=-0.0149 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_rev1_z_z_mul_liq_z][FOLD 6] sharpe=0.4709 mean_ic=0.01493 maxdd=-0.0117 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_rev1_z_z_mul_liq_z][FOLD 7] sharpe=-1.5758 mean_ic=0.02554 maxdd=-0.0159 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_rev1_z_z_mul_liq_z][FOLD 8] sharpe=-1.9777 mean_ic=0.03475 maxdd=-0.0198 turnover=0.2000 train_sign=-1
+[AUDIT] 7/54 alpha=alpha_mom3_z_raw_mul_breadth_z family=mom3
+[AUDIT][alpha_mom3_z_raw_mul_breadth_z][FOLD 1] sharpe=-1.8518 mean_ic=0.01508 maxdd=-0.0196 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_mom3_z_raw_mul_breadth_z][FOLD 2] sharpe=-0.9943 mean_ic=-0.01628 maxdd=-0.0243 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_mom3_z_raw_mul_breadth_z][FOLD 3] sharpe=-0.8899 mean_ic=-0.01295 maxdd=-0.0466 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_mom3_z_raw_mul_breadth_z][FOLD 4] sharpe=-1.5362 mean_ic=0.02028 maxdd=-0.0492 turnover=0.2000 train_sign=1
+[AUDIT][alpha_mom3_z_raw_mul_breadth_z][FOLD 5] sharpe=-0.9106 mean_ic=-0.01188 maxdd=-0.0651 turnover=0.2000 train_sign=1
+[AUDIT][alpha_mom3_z_raw_mul_breadth_z][FOLD 6] sharpe=-0.1192 mean_ic=-0.01379 maxdd=-0.0355 turnover=0.2000 train_sign=1
+[AUDIT][alpha_mom3_z_raw_mul_breadth_z][FOLD 7] sharpe=-6.0213 mean_ic=-0.04589 maxdd=-0.0588 turnover=0.2000 train_sign=1
+[AUDIT][alpha_mom3_z_raw_mul_breadth_z][FOLD 8] sharpe=-2.4867 mean_ic=-0.01751 maxdd=-0.0581 turnover=0.2000 train_sign=-1
+[AUDIT] 8/54 alpha=alpha_pressure_z_rank_mul_breadth_z family=pressure
+[AUDIT][alpha_pressure_z_rank_mul_breadth_z][FOLD 1] sharpe=0.9609 mean_ic=0.01513 maxdd=-0.0097 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_pressure_z_rank_mul_breadth_z][FOLD 2] sharpe=-1.0541 mean_ic=-0.01033 maxdd=-0.0130 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_pressure_z_rank_mul_breadth_z][FOLD 3] sharpe=2.2582 mean_ic=0.04433 maxdd=-0.0253 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_pressure_z_rank_mul_breadth_z][FOLD 4] sharpe=-2.0364 mean_ic=0.00170 maxdd=-0.0402 turnover=0.2000 train_sign=1
+[AUDIT][alpha_pressure_z_rank_mul_breadth_z][FOLD 5] sharpe=2.1783 mean_ic=0.03433 maxdd=-0.0267 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_pressure_z_rank_mul_breadth_z][FOLD 6] sharpe=1.8798 mean_ic=0.00828 maxdd=-0.0100 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_pressure_z_rank_mul_breadth_z][FOLD 7] sharpe=-1.0257 mean_ic=0.02011 maxdd=-0.0146 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_pressure_z_rank_mul_breadth_z][FOLD 8] sharpe=0.8424 mean_ic=-0.02756 maxdd=-0.0158 turnover=0.2000 train_sign=-1
+[AUDIT] 9/54 alpha=alpha_mom3_z_rank_mul_rvol_z family=mom3
+[AUDIT][alpha_mom3_z_rank_mul_rvol_z][FOLD 1] sharpe=-3.2240 mean_ic=0.01735 maxdd=-0.0256 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_mom3_z_rank_mul_rvol_z][FOLD 2] sharpe=1.1729 mean_ic=0.01580 maxdd=-0.0238 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_mom3_z_rank_mul_rvol_z][FOLD 3] sharpe=-0.0692 mean_ic=0.01860 maxdd=-0.0196 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_mom3_z_rank_mul_rvol_z][FOLD 4] sharpe=-0.2709 mean_ic=0.00490 maxdd=-0.0372 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_mom3_z_rank_mul_rvol_z][FOLD 5] sharpe=0.8881 mean_ic=0.00040 maxdd=-0.0129 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_mom3_z_rank_mul_rvol_z][FOLD 6] sharpe=0.4420 mean_ic=0.00100 maxdd=-0.0111 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_mom3_z_rank_mul_rvol_z][FOLD 7] sharpe=5.6061 mean_ic=0.02642 maxdd=-0.0047 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_mom3_z_rank_mul_rvol_z][FOLD 8] sharpe=-3.4782 mean_ic=-0.01420 maxdd=-0.0552 turnover=0.2000 train_sign=-1
+[AUDIT] 10/54 alpha=alpha_gap_z_rank_mul_breadth_z family=gap
+[AUDIT][alpha_gap_z_rank_mul_breadth_z][FOLD 1] sharpe=-2.2019 mean_ic=-0.05310 maxdd=-0.0370 turnover=0.2000 train_sign=1
+[AUDIT][alpha_gap_z_rank_mul_breadth_z][FOLD 2] sharpe=-0.5715 mean_ic=-0.01448 maxdd=-0.0153 turnover=0.2000 train_sign=1
+[AUDIT][alpha_gap_z_rank_mul_breadth_z][FOLD 3] sharpe=-0.5055 mean_ic=-0.00370 maxdd=-0.0530 turnover=0.2000 train_sign=1
+[AUDIT][alpha_gap_z_rank_mul_breadth_z][FOLD 4] sharpe=-2.2029 mean_ic=-0.02848 maxdd=-0.0337 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_gap_z_rank_mul_breadth_z][FOLD 5] sharpe=-0.4350 mean_ic=0.02034 maxdd=-0.0384 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_gap_z_rank_mul_breadth_z][FOLD 6] sharpe=-2.0140 mean_ic=0.00429 maxdd=-0.0206 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_gap_z_rank_mul_breadth_z][FOLD 7] sharpe=0.4194 mean_ic=0.01644 maxdd=-0.0177 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_gap_z_rank_mul_breadth_z][FOLD 8] sharpe=-8.1639 mean_ic=0.02295 maxdd=-0.0687 turnover=0.2000 train_sign=-1
+[AUDIT] 11/54 alpha=alpha_rev1_z_rank_mul_breadth_z family=rev1
+[AUDIT][alpha_rev1_z_rank_mul_breadth_z][FOLD 1] sharpe=0.2579 mean_ic=0.04016 maxdd=-0.0107 turnover=0.2000 train_sign=1
+[AUDIT][alpha_rev1_z_rank_mul_breadth_z][FOLD 2] sharpe=-0.9138 mean_ic=0.00312 maxdd=-0.0187 turnover=0.2000 train_sign=1
+[AUDIT][alpha_rev1_z_rank_mul_breadth_z][FOLD 3] sharpe=2.5478 mean_ic=0.05215 maxdd=-0.0285 turnover=0.2000 train_sign=1
+[AUDIT][alpha_rev1_z_rank_mul_breadth_z][FOLD 4] sharpe=-3.0137 mean_ic=-0.03423 maxdd=-0.0580 turnover=0.2000 train_sign=1
+[AUDIT][alpha_rev1_z_rank_mul_breadth_z][FOLD 5] sharpe=3.4885 mean_ic=0.05923 maxdd=-0.0107 turnover=0.2000 train_sign=1
+[AUDIT][alpha_rev1_z_rank_mul_breadth_z][FOLD 6] sharpe=-1.4452 mean_ic=0.00571 maxdd=-0.0135 turnover=0.2000 train_sign=1
+[AUDIT][alpha_rev1_z_rank_mul_breadth_z][FOLD 7] sharpe=-0.4797 mean_ic=0.03315 maxdd=-0.0299 turnover=0.2000 train_sign=1
+[AUDIT][alpha_rev1_z_rank_mul_breadth_z][FOLD 8] sharpe=-1.8225 mean_ic=-0.01490 maxdd=-0.0363 turnover=0.2000 train_sign=1
+[AUDIT] 12/54 alpha=alpha_intraday_rs_ema3_regime_rvol_z family=intraday_rs
+[AUDIT][alpha_intraday_rs_ema3_regime_rvol_z][FOLD 1] sharpe=-2.2758 mean_ic=0.01908 maxdd=-0.0178 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_rs_ema3_regime_rvol_z][FOLD 2] sharpe=1.1076 mean_ic=0.01786 maxdd=-0.0205 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_rs_ema3_regime_rvol_z][FOLD 3] sharpe=0.2117 mean_ic=0.02320 maxdd=-0.0205 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_rs_ema3_regime_rvol_z][FOLD 4] sharpe=0.2929 mean_ic=0.00549 maxdd=-0.0229 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_rs_ema3_regime_rvol_z][FOLD 5] sharpe=2.0240 mean_ic=0.01387 maxdd=-0.0133 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_rs_ema3_regime_rvol_z][FOLD 6] sharpe=-0.7353 mean_ic=0.00483 maxdd=-0.0128 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_rs_ema3_regime_rvol_z][FOLD 7] sharpe=0.5472 mean_ic=0.01493 maxdd=-0.0146 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_rs_ema3_regime_rvol_z][FOLD 8] sharpe=-1.3050 mean_ic=0.01310 maxdd=-0.0200 turnover=0.2000 train_sign=1
+[AUDIT] 13/54 alpha=alpha_str_3d_ema3_regime_rvol_z family=str_3d
+[AUDIT][alpha_str_3d_ema3_regime_rvol_z][FOLD 1] sharpe=-1.1567 mean_ic=0.02041 maxdd=-0.0191 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_ema3_regime_rvol_z][FOLD 2] sharpe=-0.1759 mean_ic=0.02497 maxdd=-0.0250 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_ema3_regime_rvol_z][FOLD 3] sharpe=-1.1454 mean_ic=-0.00265 maxdd=-0.0333 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_ema3_regime_rvol_z][FOLD 4] sharpe=-0.1575 mean_ic=0.02293 maxdd=-0.0357 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_ema3_regime_rvol_z][FOLD 5] sharpe=-0.4294 mean_ic=-0.00773 maxdd=-0.0308 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_ema3_regime_rvol_z][FOLD 6] sharpe=-1.0511 mean_ic=0.00057 maxdd=-0.0089 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_ema3_regime_rvol_z][FOLD 7] sharpe=1.7614 mean_ic=0.03197 maxdd=-0.0156 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_ema3_regime_rvol_z][FOLD 8] sharpe=-0.3160 mean_ic=0.00424 maxdd=-0.0329 turnover=0.2000 train_sign=1
+[AUDIT] 14/54 alpha=alpha_overnight_drift_20d_ema3_regime_volshock_z family=overnight_drift_20d
+[AUDIT][alpha_overnight_drift_20d_ema3_regime_volshock_z][FOLD 1] sharpe=-4.2119 mean_ic=0.01536 maxdd=-0.0307 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_overnight_drift_20d_ema3_regime_volshock_z][FOLD 2] sharpe=0.3956 mean_ic=0.04435 maxdd=-0.0106 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_overnight_drift_20d_ema3_regime_volshock_z][FOLD 3] sharpe=1.3204 mean_ic=0.01208 maxdd=-0.0146 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_overnight_drift_20d_ema3_regime_volshock_z][FOLD 4] sharpe=-1.1595 mean_ic=0.00108 maxdd=-0.0382 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_overnight_drift_20d_ema3_regime_volshock_z][FOLD 5] sharpe=0.3834 mean_ic=-0.00270 maxdd=-0.0419 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_overnight_drift_20d_ema3_regime_volshock_z][FOLD 6] sharpe=-3.6822 mean_ic=-0.01120 maxdd=-0.0289 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_overnight_drift_20d_ema3_regime_volshock_z][FOLD 7] sharpe=-2.4737 mean_ic=-0.01430 maxdd=-0.0285 turnover=0.2000 train_sign=1
+[AUDIT][alpha_overnight_drift_20d_ema3_regime_volshock_z][FOLD 8] sharpe=-1.5845 mean_ic=-0.00056 maxdd=-0.0251 turnover=0.2000 train_sign=-1
+[AUDIT] 15/54 alpha=alpha_ivol_20d_z_z_mul_liq_z family=ivol_20d
+[AUDIT][alpha_ivol_20d_z_z_mul_liq_z][FOLD 1] sharpe=-2.4441 mean_ic=0.00993 maxdd=-0.0495 turnover=0.0840 train_sign=1
+[AUDIT][alpha_ivol_20d_z_z_mul_liq_z][FOLD 2] sharpe=1.3982 mean_ic=0.01392 maxdd=-0.0395 turnover=0.0887 train_sign=1
+[AUDIT][alpha_ivol_20d_z_z_mul_liq_z][FOLD 3] sharpe=-2.1202 mean_ic=0.00957 maxdd=-0.0756 turnover=0.0653 train_sign=1
+[AUDIT][alpha_ivol_20d_z_z_mul_liq_z][FOLD 4] sharpe=-2.1898 mean_ic=-0.01414 maxdd=-0.0736 turnover=0.0889 train_sign=1
+[AUDIT][alpha_ivol_20d_z_z_mul_liq_z][FOLD 5] sharpe=-0.4635 mean_ic=0.00360 maxdd=-0.0790 turnover=0.0807 train_sign=1
+[AUDIT][alpha_ivol_20d_z_z_mul_liq_z][FOLD 6] sharpe=1.8833 mean_ic=0.00125 maxdd=-0.0174 turnover=0.0696 train_sign=1
+[AUDIT][alpha_ivol_20d_z_z_mul_liq_z][FOLD 7] sharpe=-0.5600 mean_ic=-0.01016 maxdd=-0.0389 turnover=0.0717 train_sign=-1
+[AUDIT][alpha_ivol_20d_z_z_mul_liq_z][FOLD 8] sharpe=-0.5873 mean_ic=0.00383 maxdd=-0.0523 turnover=0.0636 train_sign=1
+[AUDIT] 16/54 alpha=alpha_ivol_20d_z_z_mul_volshock_z family=ivol_20d
+[AUDIT][alpha_ivol_20d_z_z_mul_volshock_z][FOLD 1] sharpe=-0.7763 mean_ic=0.01849 maxdd=-0.0189 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_ivol_20d_z_z_mul_volshock_z][FOLD 2] sharpe=-1.3105 mean_ic=-0.01200 maxdd=-0.0176 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_ivol_20d_z_z_mul_volshock_z][FOLD 3] sharpe=1.8775 mean_ic=0.01131 maxdd=-0.0143 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_ivol_20d_z_z_mul_volshock_z][FOLD 4] sharpe=4.4720 mean_ic=0.00142 maxdd=-0.0085 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_ivol_20d_z_z_mul_volshock_z][FOLD 5] sharpe=-1.2056 mean_ic=-0.00425 maxdd=-0.0576 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_ivol_20d_z_z_mul_volshock_z][FOLD 6] sharpe=0.5928 mean_ic=-0.01151 maxdd=-0.0159 turnover=0.2000 train_sign=1
+[AUDIT][alpha_ivol_20d_z_z_mul_volshock_z][FOLD 7] sharpe=1.4753 mean_ic=0.00258 maxdd=-0.0153 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_ivol_20d_z_z_mul_volshock_z][FOLD 8] sharpe=1.1973 mean_ic=0.01961 maxdd=-0.0299 turnover=0.2000 train_sign=-1
+[AUDIT] 17/54 alpha=alpha_pressure_z_raw_mul_breadth_z family=pressure
+[AUDIT][alpha_pressure_z_raw_mul_breadth_z][FOLD 1] sharpe=0.9609 mean_ic=0.01513 maxdd=-0.0097 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_pressure_z_raw_mul_breadth_z][FOLD 2] sharpe=-1.0541 mean_ic=-0.01033 maxdd=-0.0130 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_pressure_z_raw_mul_breadth_z][FOLD 3] sharpe=2.2582 mean_ic=0.04433 maxdd=-0.0253 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_pressure_z_raw_mul_breadth_z][FOLD 4] sharpe=-2.0364 mean_ic=0.00170 maxdd=-0.0402 turnover=0.2000 train_sign=1
+[AUDIT][alpha_pressure_z_raw_mul_breadth_z][FOLD 5] sharpe=2.1783 mean_ic=0.03433 maxdd=-0.0267 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_pressure_z_raw_mul_breadth_z][FOLD 6] sharpe=1.8798 mean_ic=0.00828 maxdd=-0.0100 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_pressure_z_raw_mul_breadth_z][FOLD 7] sharpe=-1.0257 mean_ic=0.02011 maxdd=-0.0146 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_pressure_z_raw_mul_breadth_z][FOLD 8] sharpe=0.8424 mean_ic=-0.02756 maxdd=-0.0158 turnover=0.2000 train_sign=-1
+[AUDIT] 18/54 alpha=alpha_gap_z_z_mul_rvol_z family=gap
+[AUDIT][alpha_gap_z_z_mul_rvol_z][FOLD 1] sharpe=1.0079 mean_ic=0.00002 maxdd=-0.0121 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_gap_z_z_mul_rvol_z][FOLD 2] sharpe=0.6963 mean_ic=-0.01224 maxdd=-0.0094 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_gap_z_z_mul_rvol_z][FOLD 3] sharpe=-0.5126 mean_ic=0.03085 maxdd=-0.0169 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_gap_z_z_mul_rvol_z][FOLD 4] sharpe=-0.8812 mean_ic=0.02047 maxdd=-0.0218 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_gap_z_z_mul_rvol_z][FOLD 5] sharpe=-0.6010 mean_ic=0.00184 maxdd=-0.0207 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_gap_z_z_mul_rvol_z][FOLD 6] sharpe=0.2529 mean_ic=-0.00194 maxdd=-0.0073 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_gap_z_z_mul_rvol_z][FOLD 7] sharpe=-1.6880 mean_ic=0.02586 maxdd=-0.0235 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_gap_z_z_mul_rvol_z][FOLD 8] sharpe=-5.9323 mean_ic=0.01520 maxdd=-0.0396 turnover=0.2000 train_sign=-1
+[AUDIT] 19/54 alpha=alpha_pressure_z_z_mul_rvol_z family=pressure
+[AUDIT][alpha_pressure_z_z_mul_rvol_z][FOLD 1] sharpe=0.0296 mean_ic=0.02817 maxdd=-0.0119 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_pressure_z_z_mul_rvol_z][FOLD 2] sharpe=-0.4490 mean_ic=0.03094 maxdd=-0.0089 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_pressure_z_z_mul_rvol_z][FOLD 3] sharpe=1.9056 mean_ic=0.00815 maxdd=-0.0089 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_pressure_z_z_mul_rvol_z][FOLD 4] sharpe=-0.3113 mean_ic=-0.00448 maxdd=-0.0343 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_pressure_z_z_mul_rvol_z][FOLD 5] sharpe=-0.8645 mean_ic=0.01166 maxdd=-0.0165 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_pressure_z_z_mul_rvol_z][FOLD 6] sharpe=1.3245 mean_ic=0.00877 maxdd=-0.0050 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_pressure_z_z_mul_rvol_z][FOLD 7] sharpe=-2.7410 mean_ic=-0.01808 maxdd=-0.0355 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_pressure_z_z_mul_rvol_z][FOLD 8] sharpe=-5.3216 mean_ic=-0.03418 maxdd=-0.0384 turnover=0.2000 train_sign=1
+[AUDIT] 20/54 alpha=alpha_rev1_z_z_mul_rvol_z family=rev1
+[AUDIT][alpha_rev1_z_z_mul_rvol_z][FOLD 1] sharpe=-1.5121 mean_ic=0.03834 maxdd=-0.0173 turnover=0.2000 train_sign=1
+[AUDIT][alpha_rev1_z_z_mul_rvol_z][FOLD 2] sharpe=-0.5115 mean_ic=0.01939 maxdd=-0.0199 turnover=0.2000 train_sign=1
+[AUDIT][alpha_rev1_z_z_mul_rvol_z][FOLD 3] sharpe=0.3036 mean_ic=0.02301 maxdd=-0.0223 turnover=0.2000 train_sign=1
+[AUDIT][alpha_rev1_z_z_mul_rvol_z][FOLD 4] sharpe=0.0681 mean_ic=-0.00023 maxdd=-0.0228 turnover=0.2000 train_sign=1
+[AUDIT][alpha_rev1_z_z_mul_rvol_z][FOLD 5] sharpe=1.2049 mean_ic=0.01056 maxdd=-0.0085 turnover=0.2000 train_sign=1
+[AUDIT][alpha_rev1_z_z_mul_rvol_z][FOLD 6] sharpe=-1.0052 mean_ic=0.01708 maxdd=-0.0117 turnover=0.2000 train_sign=1
+[AUDIT][alpha_rev1_z_z_mul_rvol_z][FOLD 7] sharpe=0.0720 mean_ic=0.00647 maxdd=-0.0114 turnover=0.2000 train_sign=1
+[AUDIT][alpha_rev1_z_z_mul_rvol_z][FOLD 8] sharpe=-3.7710 mean_ic=0.03439 maxdd=-0.0233 turnover=0.2000 train_sign=1
+[AUDIT] 21/54 alpha=alpha_gap_z_raw_mul_breadth_z family=gap
+[AUDIT][alpha_gap_z_raw_mul_breadth_z][FOLD 1] sharpe=-2.2019 mean_ic=-0.05310 maxdd=-0.0370 turnover=0.2000 train_sign=1
+[AUDIT][alpha_gap_z_raw_mul_breadth_z][FOLD 2] sharpe=-0.5715 mean_ic=-0.01448 maxdd=-0.0153 turnover=0.2000 train_sign=1
+[AUDIT][alpha_gap_z_raw_mul_breadth_z][FOLD 3] sharpe=-0.5055 mean_ic=-0.00370 maxdd=-0.0530 turnover=0.2000 train_sign=1
+[AUDIT][alpha_gap_z_raw_mul_breadth_z][FOLD 4] sharpe=-2.2029 mean_ic=-0.02848 maxdd=-0.0337 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_gap_z_raw_mul_breadth_z][FOLD 5] sharpe=-0.4350 mean_ic=0.02034 maxdd=-0.0384 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_gap_z_raw_mul_breadth_z][FOLD 6] sharpe=-2.0140 mean_ic=0.00429 maxdd=-0.0206 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_gap_z_raw_mul_breadth_z][FOLD 7] sharpe=0.4194 mean_ic=0.01644 maxdd=-0.0177 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_gap_z_raw_mul_breadth_z][FOLD 8] sharpe=-8.1639 mean_ic=0.02295 maxdd=-0.0687 turnover=0.2000 train_sign=-1
+[AUDIT] 22/54 alpha=alpha_ivol_20d_signed_log_z_mul_liq_z family=ivol_20d
+[AUDIT][alpha_ivol_20d_signed_log_z_mul_liq_z][FOLD 1] sharpe=-2.6938 mean_ic=-0.01557 maxdd=-0.0657 turnover=0.0782 train_sign=1
+[AUDIT][alpha_ivol_20d_signed_log_z_mul_liq_z][FOLD 2] sharpe=2.0738 mean_ic=0.04944 maxdd=-0.0453 turnover=0.0689 train_sign=1
+[AUDIT][alpha_ivol_20d_signed_log_z_mul_liq_z][FOLD 3] sharpe=-2.2580 mean_ic=-0.01356 maxdd=-0.0835 turnover=0.0565 train_sign=1
+[AUDIT][alpha_ivol_20d_signed_log_z_mul_liq_z][FOLD 4] sharpe=-2.1705 mean_ic=-0.00413 maxdd=-0.0788 turnover=0.0610 train_sign=1
+[AUDIT][alpha_ivol_20d_signed_log_z_mul_liq_z][FOLD 5] sharpe=-0.6223 mean_ic=0.00844 maxdd=-0.0821 turnover=0.0734 train_sign=1
+[AUDIT][alpha_ivol_20d_signed_log_z_mul_liq_z][FOLD 6] sharpe=2.1598 mean_ic=0.02648 maxdd=-0.0162 turnover=0.0588 train_sign=1
+[AUDIT][alpha_ivol_20d_signed_log_z_mul_liq_z][FOLD 7] sharpe=0.3104 mean_ic=0.01101 maxdd=-0.0288 turnover=0.0484 train_sign=1
+[AUDIT][alpha_ivol_20d_signed_log_z_mul_liq_z][FOLD 8] sharpe=-1.1477 mean_ic=-0.00679 maxdd=-0.0690 turnover=0.0574 train_sign=1
+[AUDIT] 23/54 alpha=alpha_ivol_20d_signed_log_z_mul_volshock_z family=ivol_20d
+[AUDIT][alpha_ivol_20d_signed_log_z_mul_volshock_z][FOLD 1] sharpe=-0.7662 mean_ic=0.01961 maxdd=-0.0242 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_ivol_20d_signed_log_z_mul_volshock_z][FOLD 2] sharpe=-1.1893 mean_ic=0.00091 maxdd=-0.0144 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_ivol_20d_signed_log_z_mul_volshock_z][FOLD 3] sharpe=1.9229 mean_ic=0.01689 maxdd=-0.0159 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_ivol_20d_signed_log_z_mul_volshock_z][FOLD 4] sharpe=1.1255 mean_ic=-0.00611 maxdd=-0.0131 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_ivol_20d_signed_log_z_mul_volshock_z][FOLD 5] sharpe=-0.6989 mean_ic=0.00367 maxdd=-0.0563 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_ivol_20d_signed_log_z_mul_volshock_z][FOLD 6] sharpe=-0.8007 mean_ic=0.04012 maxdd=-0.0108 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_ivol_20d_signed_log_z_mul_volshock_z][FOLD 7] sharpe=2.4174 mean_ic=0.01661 maxdd=-0.0090 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_ivol_20d_signed_log_z_mul_volshock_z][FOLD 8] sharpe=0.8312 mean_ic=0.01862 maxdd=-0.0260 turnover=0.2000 train_sign=-1
+[AUDIT] 24/54 alpha=alpha_mom3_ema3_z_mul_rvol_z family=mom3
+[AUDIT][alpha_mom3_ema3_z_mul_rvol_z][FOLD 1] sharpe=-3.5274 mean_ic=0.00483 maxdd=-0.0296 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_mom3_ema3_z_mul_rvol_z][FOLD 2] sharpe=0.0324 mean_ic=0.01468 maxdd=-0.0234 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_mom3_ema3_z_mul_rvol_z][FOLD 3] sharpe=-0.5246 mean_ic=0.00775 maxdd=-0.0258 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_mom3_ema3_z_mul_rvol_z][FOLD 4] sharpe=-2.3853 mean_ic=0.02349 maxdd=-0.0337 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_mom3_ema3_z_mul_rvol_z][FOLD 5] sharpe=1.0765 mean_ic=0.00111 maxdd=-0.0252 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_mom3_ema3_z_mul_rvol_z][FOLD 6] sharpe=-1.1311 mean_ic=-0.01292 maxdd=-0.0120 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_mom3_ema3_z_mul_rvol_z][FOLD 7] sharpe=0.3362 mean_ic=0.03011 maxdd=-0.0105 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_mom3_ema3_z_mul_rvol_z][FOLD 8] sharpe=-0.9471 mean_ic=-0.00666 maxdd=-0.0299 turnover=0.2000 train_sign=-1
+[AUDIT] 25/54 alpha=alpha_gap_ema3_z_mul_liq_z family=gap
+[AUDIT][alpha_gap_ema3_z_mul_liq_z][FOLD 1] sharpe=-2.5659 mean_ic=-0.00138 maxdd=-0.0397 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_gap_ema3_z_mul_liq_z][FOLD 2] sharpe=-0.5713 mean_ic=-0.00714 maxdd=-0.0210 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_gap_ema3_z_mul_liq_z][FOLD 3] sharpe=-0.2564 mean_ic=0.01672 maxdd=-0.0351 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_gap_ema3_z_mul_liq_z][FOLD 4] sharpe=-0.8891 mean_ic=0.02439 maxdd=-0.0303 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_gap_ema3_z_mul_liq_z][FOLD 5] sharpe=-0.5261 mean_ic=-0.00872 maxdd=-0.0324 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_gap_ema3_z_mul_liq_z][FOLD 6] sharpe=1.7462 mean_ic=0.02480 maxdd=-0.0095 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_gap_ema3_z_mul_liq_z][FOLD 7] sharpe=-2.9840 mean_ic=0.00644 maxdd=-0.0474 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_gap_ema3_z_mul_liq_z][FOLD 8] sharpe=-2.3902 mean_ic=-0.02770 maxdd=-0.0297 turnover=0.2000 train_sign=-1
+[AUDIT] 26/54 alpha=alpha_rev1_ema3_z_mul_liq_z family=rev1
+[AUDIT][alpha_rev1_ema3_z_mul_liq_z][FOLD 1] sharpe=-0.3827 mean_ic=0.02238 maxdd=-0.0127 turnover=0.2000 train_sign=1
+[AUDIT][alpha_rev1_ema3_z_mul_liq_z][FOLD 2] sharpe=-0.4961 mean_ic=-0.00399 maxdd=-0.0184 turnover=0.2000 train_sign=1
+[AUDIT][alpha_rev1_ema3_z_mul_liq_z][FOLD 3] sharpe=-1.8860 mean_ic=-0.01386 maxdd=-0.0417 turnover=0.2000 train_sign=1
+[AUDIT][alpha_rev1_ema3_z_mul_liq_z][FOLD 4] sharpe=-0.0923 mean_ic=0.01273 maxdd=-0.0310 turnover=0.2000 train_sign=1
+[AUDIT][alpha_rev1_ema3_z_mul_liq_z][FOLD 5] sharpe=-3.0069 mean_ic=-0.03600 maxdd=-0.0551 turnover=0.2000 train_sign=1
+[AUDIT][alpha_rev1_ema3_z_mul_liq_z][FOLD 6] sharpe=-0.0759 mean_ic=0.00530 maxdd=-0.0127 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_rev1_ema3_z_mul_liq_z][FOLD 7] sharpe=-1.8462 mean_ic=0.00601 maxdd=-0.0237 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_rev1_ema3_z_mul_liq_z][FOLD 8] sharpe=0.3231 mean_ic=0.02887 maxdd=-0.0212 turnover=0.2000 train_sign=-1
+[AUDIT] 27/54 alpha=alpha_intraday_pressure_lag1_regime_liq_z_lag1 family=intraday_pressure
+[AUDIT][alpha_intraday_pressure_lag1_regime_liq_z_lag1][FOLD 1] sharpe=-2.2917 mean_ic=0.02469 maxdd=-0.0162 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_pressure_lag1_regime_liq_z_lag1][FOLD 2] sharpe=-0.8101 mean_ic=0.02099 maxdd=-0.0122 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_pressure_lag1_regime_liq_z_lag1][FOLD 3] sharpe=0.0211 mean_ic=-0.00115 maxdd=-0.0149 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_pressure_lag1_regime_liq_z_lag1][FOLD 4] sharpe=0.5870 mean_ic=0.02909 maxdd=-0.0289 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_pressure_lag1_regime_liq_z_lag1][FOLD 5] sharpe=-0.3977 mean_ic=-0.00886 maxdd=-0.0283 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_pressure_lag1_regime_liq_z_lag1][FOLD 6] sharpe=0.2728 mean_ic=0.02039 maxdd=-0.0133 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_pressure_lag1_regime_liq_z_lag1][FOLD 7] sharpe=-0.8440 mean_ic=0.01065 maxdd=-0.0138 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_pressure_lag1_regime_liq_z_lag1][FOLD 8] sharpe=0.3415 mean_ic=0.01383 maxdd=-0.0267 turnover=0.2000 train_sign=-1
+[AUDIT] 28/54 alpha=alpha_momentum_20d_ema3_regime_liq_z family=momentum_20d
+[AUDIT][alpha_momentum_20d_ema3_regime_liq_z][FOLD 1] sharpe=-1.7892 mean_ic=0.00088 maxdd=-0.0422 turnover=0.1572 train_sign=-1
+[AUDIT][alpha_momentum_20d_ema3_regime_liq_z][FOLD 2] sharpe=0.2342 mean_ic=-0.01144 maxdd=-0.0190 turnover=0.1732 train_sign=-1
+[AUDIT][alpha_momentum_20d_ema3_regime_liq_z][FOLD 3] sharpe=1.1462 mean_ic=0.02403 maxdd=-0.0326 turnover=0.1678 train_sign=-1
+[AUDIT][alpha_momentum_20d_ema3_regime_liq_z][FOLD 4] sharpe=-3.5812 mean_ic=-0.01706 maxdd=-0.0789 turnover=0.1646 train_sign=-1
+[AUDIT][alpha_momentum_20d_ema3_regime_liq_z][FOLD 5] sharpe=-1.6268 mean_ic=-0.00400 maxdd=-0.0557 turnover=0.1576 train_sign=1
+[AUDIT][alpha_momentum_20d_ema3_regime_liq_z][FOLD 6] sharpe=-0.8153 mean_ic=0.00216 maxdd=-0.0251 turnover=0.1503 train_sign=-1
+[AUDIT][alpha_momentum_20d_ema3_regime_liq_z][FOLD 7] sharpe=-0.9144 mean_ic=0.01806 maxdd=-0.0328 turnover=0.1401 train_sign=-1
+[AUDIT][alpha_momentum_20d_ema3_regime_liq_z][FOLD 8] sharpe=1.7847 mean_ic=0.01010 maxdd=-0.0175 turnover=0.1552 train_sign=-1
+[AUDIT] 29/54 alpha=alpha_str_3d_signed_square_regime_rvol_z family=str_3d
+[AUDIT][alpha_str_3d_signed_square_regime_rvol_z][FOLD 1] sharpe=-4.7869 mean_ic=0.03141 maxdd=-0.0402 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_signed_square_regime_rvol_z][FOLD 2] sharpe=-0.3660 mean_ic=0.03386 maxdd=-0.0159 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_signed_square_regime_rvol_z][FOLD 3] sharpe=1.2283 mean_ic=0.01878 maxdd=-0.0181 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_signed_square_regime_rvol_z][FOLD 4] sharpe=-2.4553 mean_ic=0.01494 maxdd=-0.0449 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_signed_square_regime_rvol_z][FOLD 5] sharpe=1.8626 mean_ic=-0.00803 maxdd=-0.0151 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_signed_square_regime_rvol_z][FOLD 6] sharpe=1.0976 mean_ic=0.00340 maxdd=-0.0096 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_signed_square_regime_rvol_z][FOLD 7] sharpe=2.8455 mean_ic=0.01778 maxdd=-0.0061 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_signed_square_regime_rvol_z][FOLD 8] sharpe=-2.4132 mean_ic=0.00004 maxdd=-0.0398 turnover=0.2000 train_sign=1
+[AUDIT] 30/54 alpha=alpha_overnight_drift_20d_signed_square_regime_volshock_z family=overnight_drift_20d
+[AUDIT][alpha_overnight_drift_20d_signed_square_regime_volshock_z][FOLD 1] sharpe=-3.5467 mean_ic=0.01768 maxdd=-0.0258 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_overnight_drift_20d_signed_square_regime_volshock_z][FOLD 2] sharpe=1.0020 mean_ic=0.04575 maxdd=-0.0082 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_overnight_drift_20d_signed_square_regime_volshock_z][FOLD 3] sharpe=1.9275 mean_ic=0.01370 maxdd=-0.0190 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_overnight_drift_20d_signed_square_regime_volshock_z][FOLD 4] sharpe=-4.2961 mean_ic=0.00111 maxdd=-0.0619 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_overnight_drift_20d_signed_square_regime_volshock_z][FOLD 5] sharpe=0.2344 mean_ic=0.00153 maxdd=-0.0373 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_overnight_drift_20d_signed_square_regime_volshock_z][FOLD 6] sharpe=-4.8314 mean_ic=-0.00790 maxdd=-0.0366 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_overnight_drift_20d_signed_square_regime_volshock_z][FOLD 7] sharpe=1.1155 mean_ic=0.01977 maxdd=-0.0137 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_overnight_drift_20d_signed_square_regime_volshock_z][FOLD 8] sharpe=-3.4406 mean_ic=-0.00265 maxdd=-0.0387 turnover=0.2000 train_sign=-1
+[AUDIT] 31/54 alpha=alpha_intraday_rs_lag1_regime_rvol_z_lag1 family=intraday_rs
+[AUDIT][alpha_intraday_rs_lag1_regime_rvol_z_lag1][FOLD 1] sharpe=0.7903 mean_ic=-0.00764 maxdd=-0.0089 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_rs_lag1_regime_rvol_z_lag1][FOLD 2] sharpe=-2.5966 mean_ic=0.01035 maxdd=-0.0280 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_rs_lag1_regime_rvol_z_lag1][FOLD 3] sharpe=1.0348 mean_ic=0.01074 maxdd=-0.0159 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_rs_lag1_regime_rvol_z_lag1][FOLD 4] sharpe=1.2194 mean_ic=0.00638 maxdd=-0.0110 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_rs_lag1_regime_rvol_z_lag1][FOLD 5] sharpe=3.5587 mean_ic=-0.00284 maxdd=-0.0083 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_rs_lag1_regime_rvol_z_lag1][FOLD 6] sharpe=0.2763 mean_ic=-0.01291 maxdd=-0.0112 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_rs_lag1_regime_rvol_z_lag1][FOLD 7] sharpe=-0.9486 mean_ic=0.00298 maxdd=-0.0145 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_rs_lag1_regime_rvol_z_lag1][FOLD 8] sharpe=0.6225 mean_ic=0.00484 maxdd=-0.0173 turnover=0.2000 train_sign=-1
+[AUDIT] 32/54 alpha=alpha_str_3d_lag1_regime_rvol_z_lag1 family=str_3d
+[AUDIT][alpha_str_3d_lag1_regime_rvol_z_lag1][FOLD 1] sharpe=-6.6996 mean_ic=-0.01238 maxdd=-0.0407 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_lag1_regime_rvol_z_lag1][FOLD 2] sharpe=-1.7469 mean_ic=-0.00700 maxdd=-0.0240 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_str_3d_lag1_regime_rvol_z_lag1][FOLD 3] sharpe=0.5197 mean_ic=0.00120 maxdd=-0.0137 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_lag1_regime_rvol_z_lag1][FOLD 4] sharpe=1.8690 mean_ic=0.01779 maxdd=-0.0164 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_lag1_regime_rvol_z_lag1][FOLD 5] sharpe=0.7042 mean_ic=-0.00435 maxdd=-0.0256 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_lag1_regime_rvol_z_lag1][FOLD 6] sharpe=-0.7735 mean_ic=0.00430 maxdd=-0.0076 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_lag1_regime_rvol_z_lag1][FOLD 7] sharpe=0.6987 mean_ic=0.03930 maxdd=-0.0095 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_lag1_regime_rvol_z_lag1][FOLD 8] sharpe=-1.2510 mean_ic=-0.00877 maxdd=-0.0245 turnover=0.2000 train_sign=1
+[AUDIT] 33/54 alpha=alpha_overnight_drift_20d_lag1_regime_volshock_z_lag1 family=overnight_drift_20d
+[AUDIT][alpha_overnight_drift_20d_lag1_regime_volshock_z_lag1][FOLD 1] sharpe=-3.4969 mean_ic=0.01510 maxdd=-0.0302 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_overnight_drift_20d_lag1_regime_volshock_z_lag1][FOLD 2] sharpe=-0.7793 mean_ic=0.04546 maxdd=-0.0190 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_overnight_drift_20d_lag1_regime_volshock_z_lag1][FOLD 3] sharpe=0.6758 mean_ic=0.00923 maxdd=-0.0176 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_overnight_drift_20d_lag1_regime_volshock_z_lag1][FOLD 4] sharpe=0.3444 mean_ic=0.00214 maxdd=-0.0308 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_overnight_drift_20d_lag1_regime_volshock_z_lag1][FOLD 5] sharpe=0.4871 mean_ic=-0.00396 maxdd=-0.0364 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_overnight_drift_20d_lag1_regime_volshock_z_lag1][FOLD 6] sharpe=-3.9800 mean_ic=-0.01129 maxdd=-0.0312 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_overnight_drift_20d_lag1_regime_volshock_z_lag1][FOLD 7] sharpe=-1.1086 mean_ic=-0.00699 maxdd=-0.0183 turnover=0.2000 train_sign=1
+[AUDIT][alpha_overnight_drift_20d_lag1_regime_volshock_z_lag1][FOLD 8] sharpe=-1.4281 mean_ic=-0.00115 maxdd=-0.0230 turnover=0.2000 train_sign=-1
+[AUDIT] 34/54 alpha=alpha_intraday_pressure_lag2_regime_liq_z_lag2 family=intraday_pressure
+[AUDIT][alpha_intraday_pressure_lag2_regime_liq_z_lag2][FOLD 1] sharpe=0.6881 mean_ic=-0.00990 maxdd=-0.0107 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_pressure_lag2_regime_liq_z_lag2][FOLD 2] sharpe=-0.2816 mean_ic=0.00414 maxdd=-0.0130 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_pressure_lag2_regime_liq_z_lag2][FOLD 3] sharpe=-4.1006 mean_ic=0.00355 maxdd=-0.0640 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_pressure_lag2_regime_liq_z_lag2][FOLD 4] sharpe=-0.7351 mean_ic=-0.01762 maxdd=-0.0305 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_pressure_lag2_regime_liq_z_lag2][FOLD 5] sharpe=4.7461 mean_ic=0.01286 maxdd=-0.0174 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_pressure_lag2_regime_liq_z_lag2][FOLD 6] sharpe=-1.9336 mean_ic=-0.00357 maxdd=-0.0153 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_pressure_lag2_regime_liq_z_lag2][FOLD 7] sharpe=-0.9317 mean_ic=-0.00692 maxdd=-0.0102 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_pressure_lag2_regime_liq_z_lag2][FOLD 8] sharpe=1.0597 mean_ic=-0.01499 maxdd=-0.0165 turnover=0.2000 train_sign=-1
+[AUDIT] 35/54 alpha=alpha_momentum_20d_signed_square_regime_liq_z family=momentum_20d
+[AUDIT][alpha_momentum_20d_signed_square_regime_liq_z][FOLD 1] sharpe=-1.7819 mean_ic=-0.00145 maxdd=-0.0437 turnover=0.1886 train_sign=-1
+[AUDIT][alpha_momentum_20d_signed_square_regime_liq_z][FOLD 2] sharpe=-0.5091 mean_ic=-0.01706 maxdd=-0.0192 turnover=0.1928 train_sign=-1
+[AUDIT][alpha_momentum_20d_signed_square_regime_liq_z][FOLD 3] sharpe=0.5799 mean_ic=0.01659 maxdd=-0.0401 turnover=0.1945 train_sign=-1
+[AUDIT][alpha_momentum_20d_signed_square_regime_liq_z][FOLD 4] sharpe=-3.1666 mean_ic=-0.01216 maxdd=-0.0567 turnover=0.1868 train_sign=-1
+[AUDIT][alpha_momentum_20d_signed_square_regime_liq_z][FOLD 5] sharpe=-0.4257 mean_ic=0.00338 maxdd=-0.0525 turnover=0.1903 train_sign=1
+[AUDIT][alpha_momentum_20d_signed_square_regime_liq_z][FOLD 6] sharpe=-0.4216 mean_ic=0.00050 maxdd=-0.0241 turnover=0.1740 train_sign=1
+[AUDIT][alpha_momentum_20d_signed_square_regime_liq_z][FOLD 7] sharpe=-0.0478 mean_ic=0.01480 maxdd=-0.0266 turnover=0.1722 train_sign=-1
+[AUDIT][alpha_momentum_20d_signed_square_regime_liq_z][FOLD 8] sharpe=-0.1860 mean_ic=0.01436 maxdd=-0.0226 turnover=0.1895 train_sign=-1
+[AUDIT] 36/54 alpha=alpha_momentum_20d_lag1_regime_liq_z_lag1 family=momentum_20d
+[AUDIT][alpha_momentum_20d_lag1_regime_liq_z_lag1][FOLD 1] sharpe=-2.1872 mean_ic=0.00115 maxdd=-0.0459 turnover=0.1764 train_sign=-1
+[AUDIT][alpha_momentum_20d_lag1_regime_liq_z_lag1][FOLD 2] sharpe=-0.1237 mean_ic=-0.01406 maxdd=-0.0192 turnover=0.1810 train_sign=-1
+[AUDIT][alpha_momentum_20d_lag1_regime_liq_z_lag1][FOLD 3] sharpe=1.9629 mean_ic=0.03243 maxdd=-0.0266 turnover=0.1857 train_sign=-1
+[AUDIT][alpha_momentum_20d_lag1_regime_liq_z_lag1][FOLD 4] sharpe=-4.1666 mean_ic=-0.01655 maxdd=-0.0832 turnover=0.1864 train_sign=-1
+[AUDIT][alpha_momentum_20d_lag1_regime_liq_z_lag1][FOLD 5] sharpe=0.1014 mean_ic=-0.00628 maxdd=-0.0319 turnover=0.1728 train_sign=-1
+[AUDIT][alpha_momentum_20d_lag1_regime_liq_z_lag1][FOLD 6] sharpe=-1.6422 mean_ic=0.01204 maxdd=-0.0302 turnover=0.1621 train_sign=-1
+[AUDIT][alpha_momentum_20d_lag1_regime_liq_z_lag1][FOLD 7] sharpe=-1.4622 mean_ic=0.02017 maxdd=-0.0403 turnover=0.1628 train_sign=-1
+[AUDIT][alpha_momentum_20d_lag1_regime_liq_z_lag1][FOLD 8] sharpe=0.9011 mean_ic=0.01269 maxdd=-0.0191 turnover=0.1794 train_sign=-1
+[AUDIT] 37/54 alpha=alpha_intraday_pressure_ema3_regime_liq_hi family=intraday_pressure
+[AUDIT][alpha_intraday_pressure_ema3_regime_liq_hi][FOLD 1] sharpe=3.3622 mean_ic=0.03086 maxdd=-0.0072 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_pressure_ema3_regime_liq_hi][FOLD 2] sharpe=2.9601 mean_ic=0.00231 maxdd=-0.0100 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_pressure_ema3_regime_liq_hi][FOLD 3] sharpe=-0.8476 mean_ic=0.01111 maxdd=-0.0119 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_pressure_ema3_regime_liq_hi][FOLD 4] sharpe=-1.1536 mean_ic=0.02096 maxdd=-0.0352 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_pressure_ema3_regime_liq_hi][FOLD 5] sharpe=-1.0127 mean_ic=0.00177 maxdd=-0.0346 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_pressure_ema3_regime_liq_hi][FOLD 6] sharpe=-2.1581 mean_ic=-0.00270 maxdd=-0.0311 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_pressure_ema3_regime_liq_hi][FOLD 7] sharpe=0.2434 mean_ic=-0.00476 maxdd=-0.0147 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_pressure_ema3_regime_liq_hi][FOLD 8] sharpe=-0.4562 mean_ic=-0.01107 maxdd=-0.0249 turnover=0.2000 train_sign=-1
+[AUDIT] 38/54 alpha=alpha_intraday_rs_ema3_regime_rvol_hi family=intraday_rs
+[AUDIT][alpha_intraday_rs_ema3_regime_rvol_hi][FOLD 1] sharpe=-1.9746 mean_ic=0.03311 maxdd=-0.0169 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_rs_ema3_regime_rvol_hi][FOLD 2] sharpe=0.4146 mean_ic=0.01173 maxdd=-0.0160 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_rs_ema3_regime_rvol_hi][FOLD 3] sharpe=2.7946 mean_ic=0.03121 maxdd=-0.0138 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_rs_ema3_regime_rvol_hi][FOLD 4] sharpe=-2.4603 mean_ic=-0.01582 maxdd=-0.0405 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_rs_ema3_regime_rvol_hi][FOLD 5] sharpe=2.6883 mean_ic=0.02902 maxdd=-0.0127 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_rs_ema3_regime_rvol_hi][FOLD 6] sharpe=-1.3931 mean_ic=0.00527 maxdd=-0.0196 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_rs_ema3_regime_rvol_hi][FOLD 7] sharpe=0.8467 mean_ic=0.02812 maxdd=-0.0080 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_rs_ema3_regime_rvol_hi][FOLD 8] sharpe=-2.1551 mean_ic=-0.00484 maxdd=-0.0220 turnover=0.2000 train_sign=1
+[AUDIT] 39/54 alpha=alpha_str_3d_ema3_regime_rvol_hi family=str_3d
+[AUDIT][alpha_str_3d_ema3_regime_rvol_hi][FOLD 1] sharpe=-0.3562 mean_ic=0.02244 maxdd=-0.0160 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_ema3_regime_rvol_hi][FOLD 2] sharpe=-0.1194 mean_ic=0.00725 maxdd=-0.0204 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_ema3_regime_rvol_hi][FOLD 3] sharpe=0.0141 mean_ic=0.00853 maxdd=-0.0158 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_ema3_regime_rvol_hi][FOLD 4] sharpe=0.6271 mean_ic=0.01612 maxdd=-0.0249 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_ema3_regime_rvol_hi][FOLD 5] sharpe=1.1174 mean_ic=-0.01413 maxdd=-0.0202 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_ema3_regime_rvol_hi][FOLD 6] sharpe=-2.6077 mean_ic=0.00259 maxdd=-0.0187 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_ema3_regime_rvol_hi][FOLD 7] sharpe=2.0831 mean_ic=0.04836 maxdd=-0.0111 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_ema3_regime_rvol_hi][FOLD 8] sharpe=-0.6858 mean_ic=-0.00242 maxdd=-0.0181 turnover=0.2000 train_sign=1
+[AUDIT] 40/54 alpha=alpha_intraday_rs_lag2_regime_rvol_z_lag2 family=intraday_rs
+[AUDIT][alpha_intraday_rs_lag2_regime_rvol_z_lag2][FOLD 1] sharpe=2.5109 mean_ic=0.01102 maxdd=-0.0095 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_rs_lag2_regime_rvol_z_lag2][FOLD 2] sharpe=-0.2317 mean_ic=-0.00702 maxdd=-0.0182 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_rs_lag2_regime_rvol_z_lag2][FOLD 3] sharpe=-1.2953 mean_ic=0.00238 maxdd=-0.0244 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_rs_lag2_regime_rvol_z_lag2][FOLD 4] sharpe=-3.1480 mean_ic=-0.02725 maxdd=-0.0441 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_rs_lag2_regime_rvol_z_lag2][FOLD 5] sharpe=1.4453 mean_ic=0.00552 maxdd=-0.0188 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_rs_lag2_regime_rvol_z_lag2][FOLD 6] sharpe=1.2518 mean_ic=-0.01501 maxdd=-0.0063 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_rs_lag2_regime_rvol_z_lag2][FOLD 7] sharpe=2.3381 mean_ic=0.00262 maxdd=-0.0109 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_rs_lag2_regime_rvol_z_lag2][FOLD 8] sharpe=-7.6615 mean_ic=-0.01902 maxdd=-0.0530 turnover=0.2000 train_sign=1
+[AUDIT] 41/54 alpha=alpha_str_3d_lag2_regime_rvol_z_lag2 family=str_3d
+[AUDIT][alpha_str_3d_lag2_regime_rvol_z_lag2][FOLD 1] sharpe=0.6309 mean_ic=0.00885 maxdd=-0.0087 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_str_3d_lag2_regime_rvol_z_lag2][FOLD 2] sharpe=-2.1286 mean_ic=0.01556 maxdd=-0.0239 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_str_3d_lag2_regime_rvol_z_lag2][FOLD 3] sharpe=-1.2760 mean_ic=0.00698 maxdd=-0.0315 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_str_3d_lag2_regime_rvol_z_lag2][FOLD 4] sharpe=-4.7750 mean_ic=-0.01663 maxdd=-0.0435 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_str_3d_lag2_regime_rvol_z_lag2][FOLD 5] sharpe=-1.6894 mean_ic=0.00225 maxdd=-0.0302 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_str_3d_lag2_regime_rvol_z_lag2][FOLD 6] sharpe=-2.0063 mean_ic=-0.00525 maxdd=-0.0167 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_lag2_regime_rvol_z_lag2][FOLD 7] sharpe=1.6934 mean_ic=0.02076 maxdd=-0.0053 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_lag2_regime_rvol_z_lag2][FOLD 8] sharpe=0.3719 mean_ic=-0.01108 maxdd=-0.0307 turnover=0.2000 train_sign=1
+[AUDIT] 42/54 alpha=alpha_overnight_drift_20d_lag2_regime_volshock_z_lag2 family=overnight_drift_20d
+[AUDIT][alpha_overnight_drift_20d_lag2_regime_volshock_z_lag2][FOLD 1] sharpe=-2.7357 mean_ic=0.00989 maxdd=-0.0233 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_overnight_drift_20d_lag2_regime_volshock_z_lag2][FOLD 2] sharpe=0.0820 mean_ic=0.03953 maxdd=-0.0119 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_overnight_drift_20d_lag2_regime_volshock_z_lag2][FOLD 3] sharpe=-1.0024 mean_ic=0.01024 maxdd=-0.0263 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_overnight_drift_20d_lag2_regime_volshock_z_lag2][FOLD 4] sharpe=-1.1473 mean_ic=0.00360 maxdd=-0.0348 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_overnight_drift_20d_lag2_regime_volshock_z_lag2][FOLD 5] sharpe=0.4153 mean_ic=0.00007 maxdd=-0.0515 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_overnight_drift_20d_lag2_regime_volshock_z_lag2][FOLD 6] sharpe=-3.2235 mean_ic=-0.01795 maxdd=-0.0255 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_overnight_drift_20d_lag2_regime_volshock_z_lag2][FOLD 7] sharpe=-1.9392 mean_ic=-0.00440 maxdd=-0.0295 turnover=0.2000 train_sign=1
+[AUDIT][alpha_overnight_drift_20d_lag2_regime_volshock_z_lag2][FOLD 8] sharpe=-0.9477 mean_ic=-0.00276 maxdd=-0.0330 turnover=0.2000 train_sign=1
+[AUDIT] 43/54 alpha=alpha_overnight_drift_20d_ema3_regime_volshock_hi family=overnight_drift_20d
+[AUDIT][alpha_overnight_drift_20d_ema3_regime_volshock_hi][FOLD 1] sharpe=-1.1675 mean_ic=-0.01080 maxdd=-0.0226 turnover=0.2000 train_sign=1
+[AUDIT][alpha_overnight_drift_20d_ema3_regime_volshock_hi][FOLD 2] sharpe=-2.7850 mean_ic=-0.02878 maxdd=-0.0353 turnover=0.2000 train_sign=1
+[AUDIT][alpha_overnight_drift_20d_ema3_regime_volshock_hi][FOLD 3] sharpe=1.1981 mean_ic=-0.00650 maxdd=-0.0190 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_overnight_drift_20d_ema3_regime_volshock_hi][FOLD 4] sharpe=0.5695 mean_ic=0.01503 maxdd=-0.0364 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_overnight_drift_20d_ema3_regime_volshock_hi][FOLD 5] sharpe=0.9949 mean_ic=0.00165 maxdd=-0.0208 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_overnight_drift_20d_ema3_regime_volshock_hi][FOLD 6] sharpe=-2.6433 mean_ic=-0.00378 maxdd=-0.0307 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_overnight_drift_20d_ema3_regime_volshock_hi][FOLD 7] sharpe=-0.1264 mean_ic=0.01938 maxdd=-0.0261 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_overnight_drift_20d_ema3_regime_volshock_hi][FOLD 8] sharpe=-2.0128 mean_ic=0.00353 maxdd=-0.0262 turnover=0.2000 train_sign=-1
+[AUDIT] 44/54 alpha=alpha_momentum_20d_lag2_regime_liq_z_lag2 family=momentum_20d
+[AUDIT][alpha_momentum_20d_lag2_regime_liq_z_lag2][FOLD 1] sharpe=-2.0141 mean_ic=-0.00772 maxdd=-0.0416 turnover=0.1747 train_sign=-1
+[AUDIT][alpha_momentum_20d_lag2_regime_liq_z_lag2][FOLD 2] sharpe=0.0070 mean_ic=-0.01251 maxdd=-0.0183 turnover=0.1814 train_sign=-1
+[AUDIT][alpha_momentum_20d_lag2_regime_liq_z_lag2][FOLD 3] sharpe=1.4924 mean_ic=0.02635 maxdd=-0.0341 turnover=0.1835 train_sign=-1
+[AUDIT][alpha_momentum_20d_lag2_regime_liq_z_lag2][FOLD 4] sharpe=-3.7749 mean_ic=-0.02173 maxdd=-0.0804 turnover=0.1906 train_sign=-1
+[AUDIT][alpha_momentum_20d_lag2_regime_liq_z_lag2][FOLD 5] sharpe=-1.9352 mean_ic=-0.01322 maxdd=-0.0453 turnover=0.1789 train_sign=1
+[AUDIT][alpha_momentum_20d_lag2_regime_liq_z_lag2][FOLD 6] sharpe=-1.5282 mean_ic=0.00066 maxdd=-0.0288 turnover=0.1638 train_sign=-1
+[AUDIT][alpha_momentum_20d_lag2_regime_liq_z_lag2][FOLD 7] sharpe=-1.5157 mean_ic=0.01727 maxdd=-0.0400 turnover=0.1655 train_sign=-1
+[AUDIT][alpha_momentum_20d_lag2_regime_liq_z_lag2][FOLD 8] sharpe=1.1499 mean_ic=0.00725 maxdd=-0.0177 turnover=0.1809 train_sign=-1
+[AUDIT] 45/54 alpha=alpha_intraday_pressure_lag1_regime_liq_hi_lag1 family=intraday_pressure
+[AUDIT][alpha_intraday_pressure_lag1_regime_liq_hi_lag1][FOLD 1] sharpe=-5.1798 mean_ic=-0.03976 maxdd=-0.0335 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_pressure_lag1_regime_liq_hi_lag1][FOLD 2] sharpe=-0.3765 mean_ic=0.00630 maxdd=-0.0232 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_pressure_lag1_regime_liq_hi_lag1][FOLD 3] sharpe=-2.0326 mean_ic=-0.01183 maxdd=-0.0231 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_pressure_lag1_regime_liq_hi_lag1][FOLD 4] sharpe=0.7069 mean_ic=0.01845 maxdd=-0.0095 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_pressure_lag1_regime_liq_hi_lag1][FOLD 5] sharpe=-4.8051 mean_ic=-0.03650 maxdd=-0.0564 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_pressure_lag1_regime_liq_hi_lag1][FOLD 6] sharpe=-2.2166 mean_ic=-0.04641 maxdd=-0.0242 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_pressure_lag1_regime_liq_hi_lag1][FOLD 7] sharpe=-4.2536 mean_ic=-0.00534 maxdd=-0.0424 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_pressure_lag1_regime_liq_hi_lag1][FOLD 8] sharpe=-1.9521 mean_ic=0.00003 maxdd=-0.0292 turnover=0.2000 train_sign=-1
+[AUDIT] 46/54 alpha=alpha_intraday_pressure_lag1_regime_liq_lo_lag1 family=intraday_pressure
+[AUDIT][alpha_intraday_pressure_lag1_regime_liq_lo_lag1][FOLD 1] sharpe=-3.4151 mean_ic=-0.01446 maxdd=-0.0324 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_pressure_lag1_regime_liq_lo_lag1][FOLD 2] sharpe=-1.6345 mean_ic=0.01906 maxdd=-0.0104 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_pressure_lag1_regime_liq_lo_lag1][FOLD 3] sharpe=-1.4989 mean_ic=-0.02470 maxdd=-0.0439 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_pressure_lag1_regime_liq_lo_lag1][FOLD 4] sharpe=0.4037 mean_ic=0.01324 maxdd=-0.0405 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_pressure_lag1_regime_liq_lo_lag1][FOLD 5] sharpe=1.4069 mean_ic=0.03857 maxdd=-0.0303 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_pressure_lag1_regime_liq_lo_lag1][FOLD 6] sharpe=-0.1941 mean_ic=-0.01954 maxdd=-0.0167 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_pressure_lag1_regime_liq_lo_lag1][FOLD 7] sharpe=-4.5288 mean_ic=0.01488 maxdd=-0.0536 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_pressure_lag1_regime_liq_lo_lag1][FOLD 8] sharpe=-0.3802 mean_ic=0.02103 maxdd=-0.0158 turnover=0.2000 train_sign=1
+[AUDIT] 47/54 alpha=alpha_intraday_rs_lag1_regime_rvol_hi_lag1 family=intraday_rs
+[AUDIT][alpha_intraday_rs_lag1_regime_rvol_hi_lag1][FOLD 1] sharpe=-0.8479 mean_ic=0.01106 maxdd=-0.0066 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_rs_lag1_regime_rvol_hi_lag1][FOLD 2] sharpe=-1.3916 mean_ic=-0.02050 maxdd=-0.0171 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_rs_lag1_regime_rvol_hi_lag1][FOLD 3] sharpe=-1.4999 mean_ic=0.00765 maxdd=-0.0270 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_rs_lag1_regime_rvol_hi_lag1][FOLD 4] sharpe=0.9987 mean_ic=-0.00993 maxdd=-0.0110 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_rs_lag1_regime_rvol_hi_lag1][FOLD 5] sharpe=0.7038 mean_ic=0.05198 maxdd=-0.0176 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_rs_lag1_regime_rvol_hi_lag1][FOLD 6] sharpe=0.3533 mean_ic=-0.00495 maxdd=-0.0093 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_rs_lag1_regime_rvol_hi_lag1][FOLD 7] sharpe=-3.3374 mean_ic=0.00518 maxdd=-0.0359 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_rs_lag1_regime_rvol_hi_lag1][FOLD 8] sharpe=0.0145 mean_ic=0.02216 maxdd=-0.0219 turnover=0.2000 train_sign=-1
+[AUDIT] 48/54 alpha=alpha_intraday_rs_lag1_regime_rvol_lo_lag1 family=intraday_rs
+[AUDIT][alpha_intraday_rs_lag1_regime_rvol_lo_lag1][FOLD 1] sharpe=-1.0711 mean_ic=0.00092 maxdd=-0.0147 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_rs_lag1_regime_rvol_lo_lag1][FOLD 2] sharpe=-5.3274 mean_ic=-0.01626 maxdd=-0.0203 turnover=0.2000 train_sign=1
+[AUDIT][alpha_intraday_rs_lag1_regime_rvol_lo_lag1][FOLD 3] sharpe=-0.8390 mean_ic=0.00837 maxdd=-0.0207 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_rs_lag1_regime_rvol_lo_lag1][FOLD 4] sharpe=-4.5929 mean_ic=0.00532 maxdd=-0.0302 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_rs_lag1_regime_rvol_lo_lag1][FOLD 5] sharpe=-0.2093 mean_ic=0.02375 maxdd=-0.0241 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_rs_lag1_regime_rvol_lo_lag1][FOLD 6] sharpe=2.7631 mean_ic=-0.00350 maxdd=-0.0080 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_rs_lag1_regime_rvol_lo_lag1][FOLD 7] sharpe=-3.2594 mean_ic=0.00557 maxdd=-0.0201 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_rs_lag1_regime_rvol_lo_lag1][FOLD 8] sharpe=-3.2109 mean_ic=0.00702 maxdd=-0.0197 turnover=0.2000 train_sign=-1
+[AUDIT] 49/54 alpha=alpha_str_3d_lag1_regime_rvol_hi_lag1 family=str_3d
+[AUDIT][alpha_str_3d_lag1_regime_rvol_hi_lag1][FOLD 1] sharpe=-2.0257 mean_ic=-0.00164 maxdd=-0.0191 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_lag1_regime_rvol_hi_lag1][FOLD 2] sharpe=1.5451 mean_ic=-0.00846 maxdd=-0.0138 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_lag1_regime_rvol_hi_lag1][FOLD 3] sharpe=-1.2064 mean_ic=-0.01394 maxdd=-0.0319 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_str_3d_lag1_regime_rvol_hi_lag1][FOLD 4] sharpe=2.3897 mean_ic=0.02464 maxdd=-0.0151 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_lag1_regime_rvol_hi_lag1][FOLD 5] sharpe=2.1217 mean_ic=-0.00667 maxdd=-0.0130 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_lag1_regime_rvol_hi_lag1][FOLD 6] sharpe=-2.3259 mean_ic=0.00632 maxdd=-0.0204 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_lag1_regime_rvol_hi_lag1][FOLD 7] sharpe=0.2957 mean_ic=0.04325 maxdd=-0.0150 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_lag1_regime_rvol_hi_lag1][FOLD 8] sharpe=0.1114 mean_ic=-0.00910 maxdd=-0.0124 turnover=0.2000 train_sign=1
+[AUDIT] 50/54 alpha=alpha_momentum_20d_ema3_regime_liq_hi family=momentum_20d
+[AUDIT][alpha_momentum_20d_ema3_regime_liq_hi][FOLD 1] sharpe=-0.5385 mean_ic=0.00864 maxdd=-0.0194 turnover=0.1984 train_sign=-1
+[AUDIT][alpha_momentum_20d_ema3_regime_liq_hi][FOLD 2] sharpe=-2.4788 mean_ic=0.00577 maxdd=-0.0484 turnover=0.2000 train_sign=1
+[AUDIT][alpha_momentum_20d_ema3_regime_liq_hi][FOLD 3] sharpe=-3.0896 mean_ic=-0.02449 maxdd=-0.0683 turnover=0.2000 train_sign=1
+[AUDIT][alpha_momentum_20d_ema3_regime_liq_hi][FOLD 4] sharpe=-1.3413 mean_ic=-0.00021 maxdd=-0.0321 turnover=0.1983 train_sign=1
+[AUDIT][alpha_momentum_20d_ema3_regime_liq_hi][FOLD 5] sharpe=1.4216 mean_ic=0.01409 maxdd=-0.0340 turnover=0.1980 train_sign=-1
+[AUDIT][alpha_momentum_20d_ema3_regime_liq_hi][FOLD 6] sharpe=-2.8466 mean_ic=-0.01256 maxdd=-0.0605 turnover=0.1965 train_sign=-1
+[AUDIT][alpha_momentum_20d_ema3_regime_liq_hi][FOLD 7] sharpe=0.6465 mean_ic=0.02892 maxdd=-0.0214 turnover=0.1976 train_sign=-1
+[AUDIT][alpha_momentum_20d_ema3_regime_liq_hi][FOLD 8] sharpe=-0.1253 mean_ic=0.02580 maxdd=-0.0196 turnover=0.1977 train_sign=-1
+[AUDIT] 51/54 alpha=alpha_str_3d_lag1_regime_rvol_lo_lag1 family=str_3d
+[AUDIT][alpha_str_3d_lag1_regime_rvol_lo_lag1][FOLD 1] sharpe=2.0447 mean_ic=0.01415 maxdd=-0.0080 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_lag1_regime_rvol_lo_lag1][FOLD 2] sharpe=-0.5161 mean_ic=-0.00112 maxdd=-0.0086 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_lag1_regime_rvol_lo_lag1][FOLD 3] sharpe=0.3461 mean_ic=0.01128 maxdd=-0.0270 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_lag1_regime_rvol_lo_lag1][FOLD 4] sharpe=0.3053 mean_ic=0.01225 maxdd=-0.0105 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_lag1_regime_rvol_lo_lag1][FOLD 5] sharpe=-2.2685 mean_ic=-0.00629 maxdd=-0.0689 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_lag1_regime_rvol_lo_lag1][FOLD 6] sharpe=-2.8431 mean_ic=-0.01280 maxdd=-0.0221 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_lag1_regime_rvol_lo_lag1][FOLD 7] sharpe=-1.7340 mean_ic=-0.01788 maxdd=-0.0166 turnover=0.2000 train_sign=1
+[AUDIT][alpha_str_3d_lag1_regime_rvol_lo_lag1][FOLD 8] sharpe=-1.1407 mean_ic=-0.01402 maxdd=-0.0202 turnover=0.2000 train_sign=-1
+[AUDIT] 52/54 alpha=alpha_overnight_drift_20d_lag1_regime_volshock_hi_lag1 family=overnight_drift_20d
+[AUDIT][alpha_overnight_drift_20d_lag1_regime_volshock_hi_lag1][FOLD 1] sharpe=-0.6839 mean_ic=-0.00956 maxdd=-0.0181 turnover=0.2000 train_sign=1
+[AUDIT][alpha_overnight_drift_20d_lag1_regime_volshock_hi_lag1][FOLD 2] sharpe=-2.1476 mean_ic=-0.02416 maxdd=-0.0217 turnover=0.2000 train_sign=1
+[AUDIT][alpha_overnight_drift_20d_lag1_regime_volshock_hi_lag1][FOLD 3] sharpe=0.2792 mean_ic=-0.00987 maxdd=-0.0354 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_overnight_drift_20d_lag1_regime_volshock_hi_lag1][FOLD 4] sharpe=0.1556 mean_ic=0.01217 maxdd=-0.0422 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_overnight_drift_20d_lag1_regime_volshock_hi_lag1][FOLD 5] sharpe=1.0555 mean_ic=-0.00361 maxdd=-0.0219 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_overnight_drift_20d_lag1_regime_volshock_hi_lag1][FOLD 6] sharpe=-1.6177 mean_ic=-0.00653 maxdd=-0.0215 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_overnight_drift_20d_lag1_regime_volshock_hi_lag1][FOLD 7] sharpe=0.3317 mean_ic=0.01529 maxdd=-0.0304 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_overnight_drift_20d_lag1_regime_volshock_hi_lag1][FOLD 8] sharpe=-3.9740 mean_ic=0.00606 maxdd=-0.0422 turnover=0.2000 train_sign=-1
+[AUDIT] 53/54 alpha=alpha_overnight_drift_20d_lag1_regime_volshock_lo_lag1 family=overnight_drift_20d
+[AUDIT][alpha_overnight_drift_20d_lag1_regime_volshock_lo_lag1][FOLD 1] sharpe=0.7480 mean_ic=-0.01085 maxdd=-0.0069 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_overnight_drift_20d_lag1_regime_volshock_lo_lag1][FOLD 2] sharpe=-1.3893 mean_ic=0.03028 maxdd=-0.0177 turnover=0.2000 train_sign=1
+[AUDIT][alpha_overnight_drift_20d_lag1_regime_volshock_lo_lag1][FOLD 3] sharpe=-0.8278 mean_ic=0.02136 maxdd=-0.0261 turnover=0.2000 train_sign=1
+[AUDIT][alpha_overnight_drift_20d_lag1_regime_volshock_lo_lag1][FOLD 4] sharpe=-3.3737 mean_ic=-0.00553 maxdd=-0.0376 turnover=0.2000 train_sign=1
+[AUDIT][alpha_overnight_drift_20d_lag1_regime_volshock_lo_lag1][FOLD 5] sharpe=0.2677 mean_ic=-0.00570 maxdd=-0.0302 turnover=0.2000 train_sign=1
+[AUDIT][alpha_overnight_drift_20d_lag1_regime_volshock_lo_lag1][FOLD 6] sharpe=-3.0575 mean_ic=-0.00257 maxdd=-0.0239 turnover=0.2000 train_sign=1
+[AUDIT][alpha_overnight_drift_20d_lag1_regime_volshock_lo_lag1][FOLD 7] sharpe=-0.4681 mean_ic=0.01017 maxdd=-0.0134 turnover=0.2000 train_sign=1
+[AUDIT][alpha_overnight_drift_20d_lag1_regime_volshock_lo_lag1][FOLD 8] sharpe=-3.4801 mean_ic=-0.00776 maxdd=-0.0416 turnover=0.2000 train_sign=1
+[AUDIT] 54/54 alpha=alpha_intraday_pressure_clip3_regime_liq_hi family=intraday_pressure
+[AUDIT][alpha_intraday_pressure_clip3_regime_liq_hi][FOLD 1] sharpe=4.2671 mean_ic=0.02911 maxdd=-0.0053 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_pressure_clip3_regime_liq_hi][FOLD 2] sharpe=-0.3032 mean_ic=-0.00520 maxdd=-0.0122 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_pressure_clip3_regime_liq_hi][FOLD 3] sharpe=-2.2193 mean_ic=0.02266 maxdd=-0.0218 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_pressure_clip3_regime_liq_hi][FOLD 4] sharpe=-1.7172 mean_ic=0.00041 maxdd=-0.0264 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_pressure_clip3_regime_liq_hi][FOLD 5] sharpe=-0.6626 mean_ic=0.03069 maxdd=-0.0242 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_pressure_clip3_regime_liq_hi][FOLD 6] sharpe=-1.7520 mean_ic=-0.00018 maxdd=-0.0150 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_pressure_clip3_regime_liq_hi][FOLD 7] sharpe=-1.7031 mean_ic=-0.00363 maxdd=-0.0161 turnover=0.2000 train_sign=-1
+[AUDIT][alpha_intraday_pressure_clip3_regime_liq_hi][FOLD 8] sharpe=-1.9334 mean_ic=-0.02129 maxdd=-0.0257 turnover=0.2000 train_sign=-1
+[SUMMARY][TOP]
+                                                alpha              family  folds  oos_sharpe_mean  oos_sharpe_median  oos_sharpe_std  oos_sharpe_min  oos_sharpe_max  last_fold_sharpe  last_2_fold_mean_sharpe  daily_ic_mean  daily_ic_mean_abs  fold_ic_mean  sign_stability  fold_positive_ic_fraction  positive_sharpe_fraction  max_drawdown  turnover_mean  turnover_last_fold  cum_ret_total  standalone_alive                                                                                    alive_reason
+                    alpha_ivol_20d_z_z_mul_volshock_z            ivol_20d      8         0.790316           0.895057        1.811859       -1.310511        4.472032          1.197313                 1.336321       0.003206           0.097417      0.003206        0.500000                      0.625                     0.625     -0.057578       0.200000            0.200000       0.083022                 1                                                                                              ok
+           alpha_ivol_20d_signed_log_z_mul_volshock_z            ivol_20d      8         0.355230           0.066160        1.304822       -1.189314        2.417404          0.831171                 1.624287       0.013791           0.113993      0.013791        0.533730                      0.875                     0.500     -0.056293       0.200000            0.200000       0.033551                 1                                                                                              ok
+                alpha_str_3d_lag1_regime_rvol_hi_lag1              str_3d      8         0.113203           0.203551        1.716311       -2.325916        2.389729          0.111450                 0.203551       0.004301           0.131175      0.004301        0.505952                      0.375                     0.625     -0.031931       0.200000            0.200000       0.041175                 1                                                                                              ok
+                 alpha_momentum_20d_ema3_regime_liq_z        momentum_20d      8        -0.695220          -0.864843        1.614780       -3.581166        1.784683          1.784683                 0.435141       0.002841           0.113936      0.002841        0.521825                      0.625                     0.375     -0.078897       0.158247            0.155227      -0.100986                 0                                                                    positive_sharpe_fraction<0.5
+            alpha_momentum_20d_lag2_regime_liq_z_lag2        momentum_20d      8        -1.014838          -1.521938        1.658090       -3.774860        1.492404          1.149893                -0.182902      -0.000456           0.114034     -0.000456        0.523810                      0.500                     0.375     -0.080374       0.177408            0.180890      -0.122936                 0                             last2_fold_mean_sharpe<0.0;mean_ic<0.0;positive_sharpe_fraction<0.5
+       alpha_intraday_pressure_lag2_regime_liq_z_lag2   intraday_pressure      8        -0.186095          -0.508346        2.394943       -4.100573        4.746086          1.059659                 0.063984      -0.004056           0.113746     -0.004056        0.478175                      0.375                     0.375     -0.064044       0.200000            0.200000      -0.010550                 0                                     mean_ic<0.0;sign_stability<0.5;positive_sharpe_fraction<0.5
+            alpha_momentum_20d_lag1_regime_liq_z_lag1        momentum_20d      8        -0.827056          -0.792927        1.809615       -4.166574        1.962917          0.901142                -0.280530       0.005201           0.113135      0.005201        0.525794                      0.625                     0.375     -0.083212       0.175827            0.179426      -0.096369                 0                                         last2_fold_mean_sharpe<0.0;positive_sharpe_fraction<0.5
+                  alpha_pressure_z_rank_mul_breadth_z            pressure      8         0.500426           0.901675        1.553936       -2.036440        2.258153          0.842410                -0.091626       0.010750           0.180664      0.010750        0.515873                      0.750                     0.625     -0.040219       0.200000            0.200000       0.073157                 0                                                                      last2_fold_mean_sharpe<0.0
+                   alpha_pressure_z_raw_mul_breadth_z            pressure      8         0.500426           0.901675        1.553936       -2.036440        2.258153          0.842410                -0.091626       0.010750           0.180664      0.010750        0.515873                      0.750                     0.625     -0.040219       0.200000            0.200000       0.073157                 0                                                                      last2_fold_mean_sharpe<0.0
+            alpha_intraday_rs_lag1_regime_rvol_z_lag1         intraday_rs      8         0.494617           0.706409        1.658136       -2.596558        3.558702          0.622506                -0.163026       0.001488           0.113189      0.001488        0.521825                      0.625                     0.750     -0.028042       0.200000            0.200000       0.072441                 0                                                                      last2_fold_mean_sharpe<0.0
+                 alpha_str_3d_lag2_regime_rvol_z_lag2              str_3d      8        -1.147394          -1.482711        1.894419       -4.774955        1.693388          0.371898                 1.032643       0.002679           0.110306      0.002679        0.501984                      0.625                     0.375     -0.043454       0.200000            0.200000      -0.083208                 0                                                                    positive_sharpe_fraction<0.5
+       alpha_intraday_pressure_lag1_regime_liq_z_lag1   intraday_pressure      8        -0.390132          -0.188311        0.872991       -2.291654        0.586969          0.341538                -0.251228       0.013702           0.112408      0.013702        0.549603                      0.750                     0.500     -0.028899       0.200000            0.200000      -0.021932                 0                                                                      last2_fold_mean_sharpe<0.0
+                          alpha_rev1_ema3_z_mul_liq_z                rev1      8        -0.932895          -0.439415        1.092941       -3.006924        0.323077          0.323077                -0.761586       0.002680           0.115341      0.002680        0.496032                      0.625                     0.125     -0.055082       0.200000            0.200000      -0.105048                 0                      last2_fold_mean_sharpe<0.0;sign_stability<0.5;positive_sharpe_fraction<0.5
+           alpha_intraday_rs_lag1_regime_rvol_hi_lag1         intraday_rs      8        -0.625806          -0.416711        1.347583       -3.337390        0.998678          0.014505                -1.661442       0.007832           0.130147      0.007832        0.529762                      0.625                     0.500     -0.035889       0.200000            0.200000      -0.043017                 0                                                                      last2_fold_mean_sharpe<0.0
+                alpha_momentum_20d_ema3_regime_liq_hi        momentum_20d      8        -1.044013          -0.939937        1.565946       -3.089609        1.421588         -0.125319                 0.260605       0.005746           0.143140      0.005746        0.501984                      0.625                     0.250     -0.068320       0.198305            0.197730      -0.103317                 0                                               last_fold_sharpe<0.0;positive_sharpe_fraction<0.5
+        alpha_momentum_20d_signed_square_regime_liq_z        momentum_20d      8        -0.744858          -0.423680        1.104278       -3.166607        0.579938         -0.186005                -0.116927       0.002370           0.111851      0.002370        0.519841                      0.625                     0.125     -0.056678       0.186086            0.189491      -0.090768                 0                    last_fold_sharpe<0.0;last2_fold_mean_sharpe<0.0;positive_sharpe_fraction<0.5
+                      alpha_str_3d_ema3_regime_rvol_z              str_3d      8        -0.333818          -0.372711        0.887817       -1.156667        1.761420         -0.315990                 0.722715       0.011840           0.110408      0.011840        0.565476                      0.750                     0.125     -0.035677       0.200000            0.200000      -0.029900                 0                                               last_fold_sharpe<0.0;positive_sharpe_fraction<0.5
+      alpha_intraday_pressure_lag1_regime_liq_lo_lag1   intraday_pressure      8        -1.230134          -0.939535        1.847637       -4.528785        1.406903         -0.380189                -2.454487       0.006010           0.130304      0.006010        0.513889                      0.625                     0.250     -0.053645       0.200000            0.200000      -0.067218                 0                    last_fold_sharpe<0.0;last2_fold_mean_sharpe<0.0;positive_sharpe_fraction<0.5
+           alpha_intraday_pressure_ema3_regime_liq_hi   intraday_pressure      8         0.117193          -0.651878        1.869365       -2.158118        3.362177         -0.456169                -0.106394       0.006059           0.125279      0.006059        0.515873                      0.625                     0.375     -0.035156       0.200000            0.200000      -0.008049                 0                    last_fold_sharpe<0.0;last2_fold_mean_sharpe<0.0;positive_sharpe_fraction<0.5
+                         alpha_ivol_20d_z_z_mul_liq_z            ivol_20d      8        -0.635441          -0.573669        1.516938       -2.444134        1.883265         -0.587341                -0.573669       0.002223           0.102156      0.002223        0.498016                      0.750                     0.250     -0.078970       0.076556            0.063572      -0.152446                 0 last_fold_sharpe<0.0;last2_fold_mean_sharpe<0.0;sign_stability<0.5;positive_sharpe_fraction<0.5
+                     alpha_str_3d_ema3_regime_rvol_hi              str_3d      8         0.009080          -0.052635        1.293844       -2.607653        2.083128         -0.685846                 0.698641       0.011093           0.138535      0.011093        0.513889                      0.750                     0.500     -0.024866       0.200000            0.200000       0.029819                 0                                                                            last_fold_sharpe<0.0
+                         alpha_mom3_ema3_z_mul_rvol_z                mom3      8        -0.883800          -0.735823        1.396793       -3.527450        1.076492         -0.947077                -0.305441       0.007799           0.106498      0.007799        0.539683                      0.750                     0.375     -0.033735       0.200000            0.200000      -0.049013                 0                    last_fold_sharpe<0.0;last2_fold_mean_sharpe<0.0;positive_sharpe_fraction<0.5
+alpha_overnight_drift_20d_lag2_regime_volshock_z_lag2 overnight_drift_20d      8        -1.312319          -1.074895        1.186198       -3.223535        0.415307         -0.947695                -1.443431       0.004780           0.112128      0.004780        0.519841                      0.625                     0.250     -0.051502       0.200000            0.200000      -0.089598                 0                    last_fold_sharpe<0.0;last2_fold_mean_sharpe<0.0;positive_sharpe_fraction<0.5
+                alpha_str_3d_lag1_regime_rvol_lo_lag1              str_3d      8        -0.725778          -0.828406        1.499291       -2.843057        2.044669         -1.140701                -1.437353      -0.001806           0.115671     -0.001806        0.515873                      0.375                     0.375     -0.068921       0.200000            0.200000      -0.086039                 0        last_fold_sharpe<0.0;last2_fold_mean_sharpe<0.0;mean_ic<0.0;positive_sharpe_fraction<0.5
+                alpha_ivol_20d_signed_log_z_mul_liq_z            ivol_20d      8        -0.543543          -0.884989        1.784258       -2.693794        2.159760         -1.147685                -0.418666       0.006915           0.168822      0.006915        0.535714                      0.500                     0.375     -0.083469       0.062825            0.057384      -0.184717                 0                    last_fold_sharpe<0.0;last2_fold_mean_sharpe<0.0;positive_sharpe_fraction<0.5
+                 alpha_str_3d_lag1_regime_rvol_z_lag1              str_3d      8        -0.834931          -0.126911        2.481697       -6.699625        1.869027         -1.250997                -0.276152       0.003761           0.112439      0.003761        0.505952                      0.500                     0.500     -0.040663       0.200000            0.200000      -0.030114                 0                                                 last_fold_sharpe<0.0;last2_fold_mean_sharpe<0.0
+                 alpha_intraday_rs_ema3_regime_rvol_z         intraday_rs      8        -0.016593           0.252310        1.283275       -2.275833        2.024001         -1.305018                -0.378915       0.014045           0.104577      0.014045        0.539683                      1.000                     0.625     -0.022865       0.200000            0.200000       0.016333                 0                                                 last_fold_sharpe<0.0;last2_fold_mean_sharpe<0.0
+alpha_overnight_drift_20d_lag1_regime_volshock_z_lag1 overnight_drift_20d      8        -1.160694          -0.943970        1.657516       -3.979955        0.675767         -1.428128                -1.268366       0.006067           0.112754      0.006067        0.517857                      0.500                     0.375     -0.036409       0.200000            0.200000      -0.065954                 0                    last_fold_sharpe<0.0;last2_fold_mean_sharpe<0.0;positive_sharpe_fraction<0.5
+     alpha_overnight_drift_20d_ema3_regime_volshock_z overnight_drift_20d      8        -1.376536          -1.371998        1.876206       -4.211911        1.320442         -1.584520                -2.029124       0.005514           0.114851      0.005514        0.503968                      0.500                     0.375     -0.041887       0.200000            0.200000      -0.083781                 0                    last_fold_sharpe<0.0;last2_fold_mean_sharpe<0.0;positive_sharpe_fraction<0.5
+                         alpha_pressure_z_z_mul_liq_z            pressure      8        -0.416271          -0.030894        2.154420       -5.101959        2.383226         -1.666245                -0.597913       0.009991           0.115590      0.009991        0.529762                      0.625                     0.500     -0.052563       0.200000            0.200000      -0.051662                 0                                                 last_fold_sharpe<0.0;last2_fold_mean_sharpe<0.0
+[SUMMARY] total=54 alive=3 dead=51 failures=0
+[ARTIFACT] artifacts\single_alpha_audit_wf\single_alpha_audit__summary.csv
+[ARTIFACT] artifacts\single_alpha_audit_wf\single_alpha_audit__fold_metrics.csv
+[ARTIFACT] artifacts\single_alpha_audit_wf\single_alpha_audit__daily_ic.csv
+[ARTIFACT] artifacts\single_alpha_audit_wf\single_alpha_audit__failures.csv
+[ARTIFACT] artifacts\single_alpha_audit_wf\single_alpha_audit__meta.json
+[ARTIFACT] artifacts\single_alpha_audit_wf\audit_alpha_shortlist_debug.json
+[FINAL] single-alpha walk-forward audit complete
+
+
+
+
+-------------------------------------
+
+
+
+
+single_alpha_audit__summary.csv
+
+
+
+
+alpha,family,folds,oos_sharpe_mean,oos_sharpe_median,oos_sharpe_std,oos_sharpe_min,oos_sharpe_max,last_fold_sharpe,last_2_fold_mean_sharpe,daily_ic_mean,daily_ic_mean_abs,fold_ic_mean,sign_stability,fold_positive_ic_fraction,positive_sharpe_fraction,max_drawdown,turnover_mean,turnover_last_fold,cum_ret_total,standalone_alive,alive_reason				
+alpha_ivol_20d_z_z_mul_volshock_z,ivol_20d,8,0.790315873973733,0.8950573037294033,1.8118591464983227,-1.310511316120245,4.472031529047405,1.197312767514266,1.3363206991422465,0.0032055777637515484,0.09741696138445559,0.0032055777637515492,0.5,0.625,0.625,-0.05757849459982489,0.1999999999999999,0.19999999999999993,0.08302210577035485,1,ok				
+alpha_ivol_20d_signed_log_z_mul_volshock_z,ivol_20d,8,0.3552301959230084,0.06615990972750346,1.304821889118723,-1.1893142023764205,2.4174037633122007,0.8311711445527352,1.6242874539324679,0.01379060614181853,0.11399277586586917,0.013790606141818533,0.5337301587301587,0.875,0.5,-0.05629311411576221,0.1999999999999999,0.1999999999999999,0.03355146010471577,1,ok				
+alpha_str_3d_lag1_regime_rvol_hi_lag1,str_3d,8,0.1132032502115381,0.20355098092080923,1.7163113073735672,-2.3259159735214503,2.389728555434716,0.11144967450632208,0.20355098092080923,0.004300930547569082,0.1311745530001127,0.0043009305475690835,0.5059523809523809,0.375,0.625,-0.03193134502018913,0.1999999999999999,0.1999999999999999,0.041175160488249096,1,ok				
+alpha_momentum_20d_ema3_regime_liq_z,momentum_20d,8,-0.6952199621453152,-0.8648425715021573,1.614780188538836,-3.581166389911448,1.7846828275151074,1.7846828275151074,0.4351406422536783,0.0028413028196059955,0.11393571603899291,0.0028413028196059955,0.5218253968253969,0.625,0.375,-0.07889673112941886,0.15824720154469316,0.15522652364658995,-0.10098600891578347,0,positive_sharpe_fraction<0.5				
+alpha_momentum_20d_lag2_regime_liq_z_lag2,momentum_20d,8,-1.0148379565308898,-1.5219382029291468,1.6580903499287798,-3.7748601360538148,1.4924041970337243,1.1498928770436296,-0.18290229917574474,-0.0004560090270315117,0.11403394856139652,-0.0004560090270315136,0.5238095238095238,0.5,0.375,-0.08037427857653534,0.17740815241084906,0.18088995454683096,-0.12293616649627215,0,last2_fold_mean_sharpe<0.0	mean_ic<0.0	positive_sharpe_fraction<0.5		
+alpha_intraday_pressure_lag2_regime_liq_z_lag2,intraday_pressure,8,-0.18609514047268066,-0.5083464180142184,2.3949430529496984,-4.100572736965882,4.746086187481383,1.0596589420299836,0.06398403159958815,-0.00405617880436416,0.11374582970154187,-0.004056178804364161,0.4781746031746032,0.375,0.375,-0.06404409550580725,0.1999999999999999,0.1999999999999999,-0.010549846658616135,0,mean_ic<0.0	sign_stability<0.5	positive_sharpe_fraction<0.5		
+alpha_momentum_20d_lag1_regime_liq_z_lag1,momentum_20d,8,-0.8270557937434937,-0.7929270654745584,1.8096148186992667,-4.166574196546808,1.9629171825157692,0.9011418394519769,-0.28053023151325557,0.005200677543566959,0.11313478199329928,0.005200677543566959,0.5257936507936508,0.625,0.375,-0.0832115591083259,0.17582693304624084,0.1794264976316663,-0.09636879431983392,0,last2_fold_mean_sharpe<0.0	positive_sharpe_fraction<0.5			
+alpha_pressure_z_rank_mul_breadth_z,pressure,8,0.5004256490184752,0.901674750245581,1.553936265414734,-2.0364401293496783,2.2581531230670486,0.8424098225376714,-0.09162565986276022,0.01075037134005374,0.1806635422903741,0.01075037134005374,0.5158730158730159,0.75,0.625,-0.04021911831535285,0.1999999999999999,0.1999999999999999,0.07315669858895069,0,last2_fold_mean_sharpe<0.0				
+alpha_pressure_z_raw_mul_breadth_z,pressure,8,0.5004256490184752,0.901674750245581,1.553936265414734,-2.0364401293496783,2.2581531230670486,0.8424098225376714,-0.09162565986276022,0.01075037134005374,0.1806635422903741,0.01075037134005374,0.5158730158730159,0.75,0.625,-0.04021911831535285,0.1999999999999999,0.1999999999999999,0.07315669858895069,0,last2_fold_mean_sharpe<0.0				
+alpha_intraday_rs_lag1_regime_rvol_z_lag1,intraday_rs,8,0.49461678568242745,0.7064086634265037,1.658135710495985,-2.5965579022241,3.558701973747655,0.6225062967849077,-0.1630258151309374,0.0014880952380952378,0.11318905937436338,0.0014880952380952378,0.5218253968253969,0.625,0.75,-0.028041986948813546,0.1999999999999999,0.1999999999999999,0.07244131676088039,0,last2_fold_mean_sharpe<0.0				
+alpha_str_3d_lag2_regime_rvol_z_lag2,str_3d,8,-1.147394456900367,-1.482711347119055,1.8944192840765566,-4.77495502410079,1.6933882028628557,0.3718981215764408,1.0326431622196484,0.0026790146343342366,0.1103059324222784,0.002679014634334237,0.501984126984127,0.625,0.375,-0.04345367185491966,0.1999999999999999,0.1999999999999999,-0.08320802676972205,0,positive_sharpe_fraction<0.5				
+alpha_intraday_pressure_lag1_regime_liq_z_lag1,intraday_pressure,8,-0.3901322844116186,-0.18831129919770712,0.8729912974965717,-2.2916544051511627,0.5869689984831928,0.3415384838807436,-0.2512283200238751,0.013702029044312862,0.1124084851171691,0.013702029044312863,0.5496031746031746,0.75,0.5,-0.028899264063190655,0.1999999999999999,0.1999999999999999,-0.021932141217395063,0,last2_fold_mean_sharpe<0.0				
+alpha_rev1_ema3_z_mul_liq_z,rev1,8,-0.9328948412023385,-0.43941480536482885,1.0929408016194468,-3.0069236340081353,0.32307710392611544,0.32307710392611544,-0.7615861866122349,0.002679698536262809,0.11534053054211375,0.0026796985362628097,0.49603174603174605,0.625,0.125,-0.055082280912777004,0.1999999999999999,0.1999999999999999,-0.10504759182110612,0,last2_fold_mean_sharpe<0.0	sign_stability<0.5	positive_sharpe_fraction<0.5		
+alpha_intraday_rs_lag1_regime_rvol_hi_lag1,intraday_rs,8,-0.6258059550329556,-0.4167105168744876,1.347582747930467,-3.3373900055003523,0.9986777763727388,0.014505472338443,-1.6614422665809547,0.007831801018038317,0.13014690764133144,0.007831801018038313,0.5297619047619048,0.625,0.5,-0.03588943633422492,0.1999999999999999,0.1999999999999999,-0.04301742801218633,0,last2_fold_mean_sharpe<0.0				
+alpha_momentum_20d_ema3_regime_liq_hi,momentum_20d,8,-1.0440130837697457,-0.9399371828839826,1.5659457934154188,-3.0896093639918982,1.421588400869748,-0.12531929426808547,0.26060460143147546,0.005745615925580302,0.14314034436776304,0.0057456159255803,0.501984126984127,0.625,0.25,-0.06831951242771406,0.198304643869095,0.19772967641933528,-0.10331726168635469,0,last_fold_sharpe<0.0	positive_sharpe_fraction<0.5			
+alpha_momentum_20d_signed_square_regime_liq_z,momentum_20d,8,-0.7448581455759506,-0.42367988486302977,1.1042782716133468,-3.166606534949128,0.5799376672933761,-0.18600460623841117,-0.1169270747592476,0.002369964466453327,0.11185081672015708,0.0023699644664533256,0.5198412698412699,0.625,0.125,-0.056677970970830605,0.18608631877018778,0.1894908006126707,-0.09076821532996715,0,last_fold_sharpe<0.0	last2_fold_mean_sharpe<0.0	positive_sharpe_fraction<0.5		
+alpha_str_3d_ema3_regime_rvol_z,str_3d,8,-0.33381838777022144,-0.37271117619180727,0.8878167246740067,-1.1566670436158757,1.7614200938814166,-0.31599011064067595,0.7227149916203703,0.011839796669772472,0.11040807768861102,0.011839796669772473,0.5654761904761905,0.75,0.125,-0.03567711488871328,0.1999999999999999,0.1999999999999999,-0.029899769004256838,0,last_fold_sharpe<0.0	positive_sharpe_fraction<0.5			
+alpha_intraday_pressure_lag1_regime_liq_lo_lag1,intraday_pressure,8,-1.2301335120375043,-0.9395353409395983,1.8476370485773015,-4.528784510206749,1.4069030429977496,-0.38018911818046974,-2.454486814193609,0.006010351301644597,0.1303043203554303,0.006010351301644597,0.5138888888888888,0.625,0.25,-0.053645267534640384,0.1999999999999999,0.1999999999999999,-0.06721848181855639,0,last_fold_sharpe<0.0	last2_fold_mean_sharpe<0.0	positive_sharpe_fraction<0.5		
+alpha_intraday_pressure_ema3_regime_liq_hi,intraday_pressure,8,0.1171930300884102,-0.6518775309084321,1.8693645969446022,-2.1581182112049677,3.362177323402249,-0.45616947144786224,-0.10639413513678865,0.006058699165108884,0.12527936932704026,0.006058699165108884,0.5158730158730159,0.625,0.375,-0.035156029744906725,0.1999999999999999,0.1999999999999999,-0.008048622349303258,0,last_fold_sharpe<0.0	last2_fold_mean_sharpe<0.0	positive_sharpe_fraction<0.5		
+alpha_ivol_20d_z_z_mul_liq_z,ivol_20d,8,-0.6354409873052123,-0.5736693717290583,1.516937593057751,-2.4441340589948304,1.8832647506983098,-0.5873409173228058,-0.5736693717290583,0.002223193830796922,0.10215631877444152,0.002223193830796924,0.498015873015873,0.75,0.25,-0.07897007996554029,0.07655617667669279,0.06357217157462523,-0.1524458490438818,0,last_fold_sharpe<0.0	last2_fold_mean_sharpe<0.0	sign_stability<0.5	positive_sharpe_fraction<0.5	
+alpha_str_3d_ema3_regime_rvol_hi,str_3d,8,0.009080345446403688,-0.05263503731516468,1.2938440369842519,-2.6076534262755278,2.0831279434636283,-0.6858464519277868,0.6986407457679207,0.011092788343089677,0.13853487270842038,0.011092788343089677,0.5138888888888888,0.75,0.5,-0.024866294622941876,0.1999999999999999,0.1999999999999999,0.029818793056408666,0,last_fold_sharpe<0.0				
+alpha_mom3_ema3_z_mul_rvol_z,mom3,8,-0.8837996044156728,-0.7358233369374243,1.3967926339627443,-3.5274498695330063,1.0764916837125154,-0.9470773430270927,-0.30544070370115606,0.007799141686620647,0.1064982402509359,0.0077991416866206465,0.5396825396825397,0.75,0.375,-0.03373544868349854,0.1999999999999999,0.1999999999999999,-0.04901264818672546,0,last_fold_sharpe<0.0	last2_fold_mean_sharpe<0.0	positive_sharpe_fraction<0.5		
+alpha_overnight_drift_20d_lag2_regime_volshock_z_lag2,overnight_drift_20d,8,-1.31231927705326,-1.0748947519844592,1.1861983695046496,-3.223534592575676,0.41530651182250294,-0.9476950544021584,-1.4434310938223738,0.004779719325138007,0.11212806489802596,0.004779719325138005,0.5198412698412699,0.625,0.25,-0.051501758202823655,0.1999999999999999,0.1999999999999999,-0.0895983577474172,0,last_fold_sharpe<0.0	last2_fold_mean_sharpe<0.0	positive_sharpe_fraction<0.5		
+alpha_str_3d_lag1_regime_rvol_lo_lag1,str_3d,8,-0.7257778054135848,-0.8284056305499532,1.4992905734681077,-2.8430571939728737,2.0446688818021306,-1.1407010151512853,-1.4373527841295592,-0.001805706694014861,0.11567145082479045,-0.0018057066940148619,0.5158730158730159,0.375,0.375,-0.0689207781413459,0.1999999999999999,0.1999999999999999,-0.08603897463282095,0,last_fold_sharpe<0.0	last2_fold_mean_sharpe<0.0	mean_ic<0.0	positive_sharpe_fraction<0.5	
+alpha_ivol_20d_signed_log_z_mul_liq_z,ivol_20d,8,-0.5435432730759054,-0.8849894210315202,1.78425804672028,-2.693793779771005,2.159759900509762,-1.1476851818680944,-0.4186658558074992,0.006914988319824738,0.1688223905787155,0.00691498831982474,0.5357142857142857,0.5,0.375,-0.08346901849663502,0.06282521731714902,0.05738372623203806,-0.18471725395651006,0,last_fold_sharpe<0.0	last2_fold_mean_sharpe<0.0	positive_sharpe_fraction<0.5		
+alpha_str_3d_lag1_regime_rvol_z_lag1,str_3d,8,-0.8349305866912098,-0.1269113807033489,2.4816968066749205,-6.69962494984537,1.8690265285755345,-1.2509965884583072,-0.2761516495504135,0.0037608748007818904,0.11243877216978569,0.003760874800781889,0.5059523809523809,0.5,0.5,-0.04066256664069856,0.1999999999999999,0.1999999999999999,-0.030114226524377008,0,last_fold_sharpe<0.0	last2_fold_mean_sharpe<0.0			
+alpha_intraday_rs_ema3_regime_rvol_z,intraday_rs,8,-0.016593207282381103,0.25231021866089565,1.283275077367542,-2.275833059532328,2.0240012245057035,-1.3050178111472148,-0.3789150507151064,0.014045457714258996,0.10457719998897937,0.014045457714258996,0.5396825396825397,1.0,0.625,-0.022864932789890102,0.1999999999999999,0.1999999999999999,0.01633251471521735,0,last_fold_sharpe<0.0	last2_fold_mean_sharpe<0.0			
+alpha_overnight_drift_20d_lag1_regime_volshock_z_lag1,overnight_drift_20d,8,-1.1606942529937858,-0.9439703139936979,1.6575155505259949,-3.979955428727759,0.675766921938742,-1.4281279276466954,-1.2683658193035527,0.006067074596161489,0.11275444456132967,0.006067074596161486,0.5178571428571429,0.5,0.375,-0.03640871110549304,0.1999999999999999,0.1999999999999999,-0.0659542221861249,0,last_fold_sharpe<0.0	last2_fold_mean_sharpe<0.0	positive_sharpe_fraction<0.5		
+alpha_overnight_drift_20d_ema3_regime_volshock_z,overnight_drift_20d,8,-1.3765356987162969,-1.3719982271129108,1.8762057643422372,-4.2119107408910965,1.3204416764822149,-1.5845203618211314,-2.0291242779674796,0.005513591666416198,0.11485149103824151,0.0055135916664162,0.503968253968254,0.5,0.375,-0.04188739467475777,0.1999999999999999,0.1999999999999999,-0.08378118574853743,0,last_fold_sharpe<0.0	last2_fold_mean_sharpe<0.0	positive_sharpe_fraction<0.5		
+alpha_pressure_z_z_mul_liq_z,pressure,8,-0.41627077748767954,-0.030893791258603198,2.154420283207121,-5.101958837272887,2.3832264683110633,-1.6662446174869396,-0.5979126914421595,0.009991131332257989,0.11559011184247875,0.009991131332257987,0.5297619047619048,0.625,0.5,-0.05256278213580712,0.1999999999999999,0.1999999999999999,-0.051662455685844044,0,last_fold_sharpe<0.0	last2_fold_mean_sharpe<0.0			
+alpha_rev1_z_rank_mul_breadth_z,rev1,8,-0.17256760558337408,-0.6967201538670038,2.0629662341824977,-3.0136631349757694,3.4885392855158543,-1.82246071534688,-1.1510643002014733,0.018050349657742035,0.18509368489053016,0.018050349657742035,0.5416666666666666,0.75,0.375,-0.05797223795390838,0.1999999999999999,0.1999999999999999,0.05348290699230707,0,last_fold_sharpe<0.0	last2_fold_mean_sharpe<0.0	positive_sharpe_fraction<0.5		
+alpha_intraday_pressure_clip3_regime_liq_hi,intraday_pressure,8,-0.7529807032493517,-1.7101321709677957,1.9932873838188936,-2.219333039254957,4.267075225229378,-1.9334333854851669,-1.8182482761152676,0.006569801167383267,0.1341389772818988,0.006569801167383267,0.5079365079365079,0.5,0.125,-0.026425736335101147,0.1999999999999999,0.1999999999999999,-0.05592193371768206,0,last_fold_sharpe<0.0	last2_fold_mean_sharpe<0.0	positive_sharpe_fraction<0.5		
+alpha_intraday_pressure_lag1_regime_liq_hi_lag1,intraday_pressure,8,-2.5136567897944935,-2.124585935507623,1.9672579195051412,-5.179790268359471,0.7069021714855636,-1.9520855075448522,-3.1028320320457734,-0.014381134268665871,0.13339603488440593,-0.014381134268665871,0.44841269841269843,0.375,0.125,-0.05641056297117575,0.1999999999999999,0.1999999999999999,-0.16464845766615732,0,last_fold_sharpe<0.0	last2_fold_mean_sharpe<0.0	mean_ic<0.0	sign_stability<0.5	positive_sharpe_fraction<0.5
+alpha_rev1_z_z_mul_liq_z,rev1,8,-0.5454724025661346,-0.4730399205423474,1.0942912766365407,-1.9776804904550689,1.018314374336548,-1.9776804904550689,-1.7767452482652766,0.013314194418562708,0.11675095449323566,0.013314194418562712,0.5238095238095238,0.75,0.375,-0.023955296763484846,0.1999999999999999,0.1999999999999999,-0.025832340748471294,0,last_fold_sharpe<0.0	last2_fold_mean_sharpe<0.0	positive_sharpe_fraction<0.5		
+alpha_intraday_pressure_ema3_regime_liq_z,intraday_pressure,8,-0.3732697768048062,0.22181567397180213,2.5013435051412714,-5.985088116110914,3.190709817448888,-2.0018796510696895,-0.8492778730103953,0.008209831551668285,0.11386052334532241,0.008209831551668283,0.5357142857142857,0.625,0.75,-0.07102264066721309,0.1999999999999999,0.1999999999999999,-0.043407456688917545,0,last_fold_sharpe<0.0	last2_fold_mean_sharpe<0.0			
+alpha_overnight_drift_20d_ema3_regime_volshock_hi,overnight_drift_20d,8,-0.7465750942647833,-0.6469894222875953,1.519228236564818,-2.7849757869864225,1.198129400093567,-2.0128258094045766,-1.0696295235590743,-0.001285438340352289,0.1223068628647096,-0.0012854383403522892,0.4722222222222222,0.5,0.375,-0.03636904931735885,0.1999999999999999,0.1999999999999999,-0.03390232971323859,0,last_fold_sharpe<0.0	last2_fold_mean_sharpe<0.0	mean_ic<0.0	sign_stability<0.5	positive_sharpe_fraction<0.5
+alpha_intraday_rs_ema3_regime_rvol_hi,intraday_rs,8,-0.15488438388654716,-0.4892914257521253,2.008440197609216,-2.460322725519803,2.794560125205715,-2.1551256418659253,-0.6542124322606907,0.014726605881790745,0.13167234045081944,0.014726605881790747,0.5357142857142857,0.75,0.5,-0.04053444340720502,0.1999999999999999,0.1999999999999999,0.016362878385622004,0,last_fold_sharpe<0.0	last2_fold_mean_sharpe<0.0			
+alpha_mom3_z_z_mul_rvol_z,mom3,8,0.5518068043490281,1.0903948945198843,1.8340330171100963,-2.3998485947784265,2.7704584951991174,-2.242654014238249,-0.07943204650473268,0.010950529573636033,0.10685909734536916,0.010950529573636028,0.5555555555555556,0.75,0.75,-0.03324503424941305,0.1999999999999999,0.1999999999999999,0.06044678017010785,0,last_fold_sharpe<0.0	last2_fold_mean_sharpe<0.0			
+alpha_gap_ema3_z_mul_liq_z,gap,8,-1.0545969519434044,-0.7301846876724092,1.4496691575384357,-2.9840296269646114,1.7461634602176157,-2.3902224392119047,-2.687126033088258,0.0034266943768179845,0.1129929374179716,0.003426694376817981,0.5059523809523809,0.5,0.125,-0.04744571256589558,0.1999999999999999,0.1999999999999999,-0.10879132252534984,0,last_fold_sharpe<0.0	last2_fold_mean_sharpe<0.0	positive_sharpe_fraction<0.5		
+alpha_str_3d_signed_square_regime_rvol_z,str_3d,8,-0.3734215691502773,0.36581788932175074,2.451144082987631,-4.786923265179309,2.845503192985209,-2.413238234042773,0.21613247947121805,0.014023357823464732,0.11037438110591948,0.014023357823464736,0.5376984126984127,0.875,0.5,-0.04492445731611683,0.1999999999999999,0.1999999999999999,-0.03476098034505937,0,last_fold_sharpe<0.0				
+alpha_mom3_z_rank_mul_breadth_z,mom3,8,-1.8512434686937997,-1.2652346022274799,1.7115680742818549,-6.021276428778345,-0.11916220614241382,-2.4867401896474743,-4.254008309212909,-0.010367391800516051,0.1912666057167706,-0.010367391800516051,0.4722222222222222,0.25,0.0,-0.06506930847674663,0.1999999999999999,0.1999999999999999,-0.2035398714584704,0,last_fold_sharpe<0.0	last2_fold_mean_sharpe<0.0	mean_ic<0.0	sign_stability<0.5	positive_sharpe_fraction<0.5
+alpha_mom3_z_raw_mul_breadth_z,mom3,8,-1.8512434686937997,-1.2652346022274799,1.7115680742818549,-6.021276428778345,-0.11916220614241382,-2.4867401896474743,-4.254008309212909,-0.010367391800516051,0.1912666057167706,-0.010367391800516051,0.4722222222222222,0.25,0.0,-0.06506930847674663,0.1999999999999999,0.1999999999999999,-0.2035398714584704,0,last_fold_sharpe<0.0	last2_fold_mean_sharpe<0.0	mean_ic<0.0	sign_stability<0.5	positive_sharpe_fraction<0.5
+alpha_intraday_rs_lag1_regime_rvol_lo_lag1,intraday_rs,8,-1.9683668474470788,-2.1410220135252094,2.473454812690264,-5.32741471559952,2.7631150632968664,-3.2109447258865584,-3.2351956936682282,0.003896833235771055,0.12301730362933334,0.003896833235771057,0.5238095238095238,0.75,0.125,-0.030206329861555137,0.1999999999999999,0.1999999999999999,-0.08387962556232431,0,last_fold_sharpe<0.0	last2_fold_mean_sharpe<0.0	positive_sharpe_fraction<0.5		
+alpha_overnight_drift_20d_signed_square_regime_volshock_z,overnight_drift_20d,8,-1.4794384431664418,-1.6031268969608259,2.615447630846948,-4.831373354771213,1.92748601625573,-3.440618869364199,-1.1625781556591792,0.011123326662525588,0.1152038948249894,0.011123326662525588,0.5416666666666666,0.75,0.5,-0.06189792978371722,0.1999999999999999,0.1999999999999999,-0.10117757687243445,0,last_fold_sharpe<0.0	last2_fold_mean_sharpe<0.0			
+alpha_mom3_z_rank_mul_rvol_z,mom3,8,0.13335225997743222,0.1864172383353445,2.650846028684134,-3.4781996913324114,5.606057625941227,-3.4781996913324114,1.0639289673044077,0.008784786926552648,0.10920392488119449,0.008784786926552653,0.5297619047619048,0.875,0.5,-0.055226289546407514,0.1999999999999999,0.1999999999999999,-0.01368978814071653,0,last_fold_sharpe<0.0				
+alpha_overnight_drift_20d_lag1_regime_volshock_lo_lag1,overnight_drift_20d,8,-1.4476045938454007,-1.1085514408264376,1.5629500853521983,-3.4800732199403814,0.7480062094917123,-3.4800732199403814,-1.974086787791599,0.0036749187414222497,0.1128183022872686,0.0036749187414222514,0.5218253968253969,0.375,0.25,-0.04155616655990635,0.1999999999999999,0.1999999999999999,-0.10760116941684239,0,last_fold_sharpe<0.0	last2_fold_mean_sharpe<0.0	positive_sharpe_fraction<0.5		
+alpha_rev1_z_z_mul_rvol_z,rev1,8,-0.6439142354711718,-0.2217148612983573,1.4149284086542313,-3.77104712968077,1.2048893839350334,-3.77104712968077,-1.8495206007488703,0.01862514151463236,0.10626037356523364,0.018625141514632362,0.5436507936507936,0.875,0.5,-0.023319966814051463,0.1999999999999999,0.1999999999999999,-0.024497748838732347,0,last_fold_sharpe<0.0	last2_fold_mean_sharpe<0.0			
+alpha_overnight_drift_20d_lag1_regime_volshock_hi_lag1,overnight_drift_20d,8,-0.8251308321416749,-0.26411416576095476,1.555993631710956,-3.9740216549555503,1.0555291598745447,-3.9740216549555503,-1.8211797872850206,-0.0025248350278327275,0.12271948529010092,-0.0025248350278327266,0.4861111111111111,0.375,0.5,-0.04224146388347627,0.1999999999999999,0.1999999999999999,-0.04046656362165102,0,last_fold_sharpe<0.0	last2_fold_mean_sharpe<0.0	mean_ic<0.0	sign_stability<0.5	
+alpha_pressure_z_z_mul_rvol_z,pressure,8,-0.8034664213095419,-0.38017557809690217,2.153496764455942,-5.32161061208069,1.905563725580622,-5.32161061208069,-4.0313021523724055,0.0038688493315833915,0.10710205166995615,0.0038688493315833924,0.5158730158730159,0.625,0.375,-0.038447012525212876,0.1999999999999999,0.1999999999999999,-0.057506721359888435,0,last_fold_sharpe<0.0	last2_fold_mean_sharpe<0.0	positive_sharpe_fraction<0.5		
+alpha_gap_z_z_mul_rvol_z,gap,8,-0.9572500126925801,-0.5567793515556307,2.0516974734923115,-5.932258086533688,1.007940885669734,-5.932258086533688,-3.810150733791111,0.010008690209024208,0.10956532987519994,0.010008690209024208,0.5277777777777778,0.75,0.375,-0.039642018645704824,0.1999999999999999,0.1999999999999999,-0.06125495941391568,0,last_fold_sharpe<0.0	last2_fold_mean_sharpe<0.0	positive_sharpe_fraction<0.5		
+alpha_gap_z_z_mul_liq_z,gap,8,-1.0540434130737601,-0.46464961817740136,2.7085120382262438,-6.000007218480413,2.752638069334358,-6.000007218480413,-4.726856666837311,0.0020984292710702324,0.11165585373815702,0.002098429271070235,0.49404761904761907,0.625,0.375,-0.045591174245737,0.1999999999999999,0.1999999999999999,-0.05740925028016919,0,last_fold_sharpe<0.0	last2_fold_mean_sharpe<0.0	sign_stability<0.5	positive_sharpe_fraction<0.5	
+alpha_intraday_rs_lag2_regime_rvol_z_lag2,intraday_rs,8,-0.5987874170030218,0.5100582820636719,3.2190628504157828,-7.661468155970704,2.5109232803965402,-7.661468155970704,-2.6616619852193093,-0.005843662022982977,0.10346804253120001,-0.005843662022982978,0.5099206349206349,0.5,0.5,-0.05304410757959077,0.1999999999999999,0.1999999999999999,-0.04867852726798361,0,last_fold_sharpe<0.0	last2_fold_mean_sharpe<0.0	mean_ic<0.0		
+alpha_gap_z_rank_mul_breadth_z,gap,8,-1.9594214621780088,-1.292726874508359,2.5159563885336573,-8.16394727345311,0.41942918170489024,-8.16394727345311,-3.8722590458741095,-0.004467349698245279,0.19537390691584133,-0.004467349698245278,0.49603174603174605,0.5,0.125,-0.06867195740791032,0.1999999999999999,0.1999999999999999,-0.14210776316871576,0,last_fold_sharpe<0.0	last2_fold_mean_sharpe<0.0	mean_ic<0.0	sign_stability<0.5	positive_sharpe_fraction<0.5
+alpha_gap_z_raw_mul_breadth_z,gap,8,-1.9594214621780088,-1.292726874508359,2.5159563885336573,-8.16394727345311,0.41942918170489024,-8.16394727345311,-3.8722590458741095,-0.004467349698245279,0.19537390691584133,-0.004467349698245278,0.49603174603174605,0.5,0.125,-0.06867195740791032,0.1999999999999999,0.1999999999999999,-0.14210776316871576,0,last_fold_sharpe<0.0	last2_fold_mean_sharpe<0.0	mean_ic<0.0	sign_stability<0.5	positive_sharpe_fraction<0.5
