@@ -1,0 +1,387 @@
+
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_residual_layer_wf.py
+[CFG] alpha_lib_file=data\alpha_library_v2\alpha_library_v2.parquet
+[CFG] alive_summary_csv=artifacts\single_alpha_audit_wf\single_alpha_audit__alive.csv
+[CFG] target_col=target_fwd_ret_1d
+[CFG] residual_method=ols alive_alpha_limit=3 core_alpha=''
+[CFG] wf train_days=252 test_days=63 step_days=63 purge_days=5 embargo_days=5
+[CFG] shell gross_target=0.85 weight_cap=0.05 max_daily_turnover=0.2 enter_pct=0.1 exit_pct=0.22 cost_bps=8.0
+[CFG] sign_lock_ic_abs=0.01 sign_lock_pos_rate=0.55 tail_top_pct=0.1
+[CFG] enable_dynamic_budgets=0 has_budget_allocation=1 enable_regime_multipliers=0 has_regime_allocation=1
+[ALIVE] selected_count=3
+[ALIVE][1] alpha_ivol_20d_z_z_mul_volshock_z
+[ALIVE][2] alpha_ivol_20d_signed_log_z_mul_volshock_z
+[ALIVE][3] alpha_str_3d_lag1_regime_rvol_hi_lag1
+[WF] folds=8
+[WF][FOLD 1] train=2023-01-03..2024-01-03 test=2024-01-19..2024-04-18
+[WF][FOLD 2] train=2023-04-04..2024-04-04 test=2024-04-19..2024-07-19
+[WF][FOLD 3] train=2023-07-06..2024-07-05 test=2024-07-22..2024-10-17
+[WF][FOLD 4] train=2023-10-04..2024-10-03 test=2024-10-18..2025-01-21
+[WF][FOLD 5] train=2024-01-04..2025-01-03 test=2025-01-22..2025-04-22
+[WF][FOLD 6] train=2024-04-05..2025-04-07 test=2025-04-23..2025-07-23
+[WF][FOLD 7] train=2024-07-08..2025-07-09 test=2025-07-24..2025-10-21
+[WF][FOLD 8] train=2024-10-04..2025-10-07 test=2025-10-22..2026-01-22
+[FOLD 1][component][comp1] alpha=alpha_ivol_20d_z_z_mul_volshock_z sharpe=-0.4502 mean_ic=0.01849 sign_stability=0.5556 maxdd=-0.0231 turnover=0.2000
+[FOLD 1][component][comp2] alpha=alpha_ivol_20d_signed_log_z_mul_volshock_z sharpe=-3.2538 mean_ic=0.01156 sign_stability=0.5397 maxdd=-0.0177 turnover=0.2000
+[FOLD 1][component][comp3] alpha=alpha_str_3d_lag1_regime_rvol_hi_lag1 sharpe=-1.1214 mean_ic=0.00161 sign_stability=0.5238 maxdd=-0.0167 turnover=0.2000
+[FOLD 1][incremental][cum1] add=alpha_ivol_20d_z_z_mul_volshock_z cum_sharpe=-0.4502 delta_vs_prev_component_sharpe=nan
+[FOLD 1][incremental][cum2] add=alpha_ivol_20d_signed_log_z_mul_volshock_z cum_sharpe=-0.8613 delta_vs_prev_component_sharpe=-0.4110
+[FOLD 1][incremental][cum3] add=alpha_str_3d_lag1_regime_rvol_hi_lag1 cum_sharpe=-1.1312 delta_vs_prev_component_sharpe=2.1226
+[FOLD 2][component][comp1] alpha=alpha_ivol_20d_z_z_mul_volshock_z sharpe=-1.3447 mean_ic=0.01200 sign_stability=0.5397 maxdd=-0.0285 turnover=0.2000
+[FOLD 2][component][comp2] alpha=alpha_ivol_20d_signed_log_z_mul_volshock_z sharpe=-2.2353 mean_ic=0.00191 sign_stability=0.5079 maxdd=-0.0120 turnover=0.2000
+[FOLD 2][component][comp3] alpha=alpha_str_3d_lag1_regime_rvol_hi_lag1 sharpe=2.0118 mean_ic=-0.00261 sign_stability=0.5079 maxdd=-0.0131 turnover=0.2000
+[FOLD 2][incremental][cum1] add=alpha_ivol_20d_z_z_mul_volshock_z cum_sharpe=-1.3447 delta_vs_prev_component_sharpe=nan
+[FOLD 2][incremental][cum2] add=alpha_ivol_20d_signed_log_z_mul_volshock_z cum_sharpe=-1.1811 delta_vs_prev_component_sharpe=0.1636
+[FOLD 2][incremental][cum3] add=alpha_str_3d_lag1_regime_rvol_hi_lag1 cum_sharpe=0.9154 delta_vs_prev_component_sharpe=3.1507
+[FOLD 3][component][comp1] alpha=alpha_ivol_20d_z_z_mul_volshock_z sharpe=2.1101 mean_ic=0.01131 sign_stability=0.5238 maxdd=-0.0343 turnover=0.2000
+[FOLD 3][component][comp2] alpha=alpha_ivol_20d_signed_log_z_mul_volshock_z sharpe=-0.5292 mean_ic=0.01300 sign_stability=0.5714 maxdd=-0.0183 turnover=0.2000
+[FOLD 3][component][comp3] alpha=alpha_str_3d_lag1_regime_rvol_hi_lag1 sharpe=-0.5324 mean_ic=0.01610 sign_stability=0.5556 maxdd=-0.0265 turnover=0.2000
+[FOLD 3][incremental][cum1] add=alpha_ivol_20d_z_z_mul_volshock_z cum_sharpe=2.1101 delta_vs_prev_component_sharpe=nan
+[FOLD 3][incremental][cum2] add=alpha_ivol_20d_signed_log_z_mul_volshock_z cum_sharpe=2.8784 delta_vs_prev_component_sharpe=0.7683
+[FOLD 3][incremental][cum3] add=alpha_str_3d_lag1_regime_rvol_hi_lag1 cum_sharpe=-0.2750 delta_vs_prev_component_sharpe=0.2542
+[FOLD 4][component][comp1] alpha=alpha_ivol_20d_z_z_mul_volshock_z sharpe=-4.7043 mean_ic=-0.00142 sign_stability=0.5238 maxdd=-0.0671 turnover=0.2000
+[FOLD 4][component][comp2] alpha=alpha_ivol_20d_signed_log_z_mul_volshock_z sharpe=-1.6166 mean_ic=-0.00011 sign_stability=0.5079 maxdd=-0.0133 turnover=0.2000
+[FOLD 4][component][comp3] alpha=alpha_str_3d_lag1_regime_rvol_hi_lag1 sharpe=1.0714 mean_ic=0.02187 sign_stability=0.5556 maxdd=-0.0179 turnover=0.2000
+[FOLD 4][incremental][cum1] add=alpha_ivol_20d_z_z_mul_volshock_z cum_sharpe=-4.7043 delta_vs_prev_component_sharpe=nan
+[FOLD 4][incremental][cum2] add=alpha_ivol_20d_signed_log_z_mul_volshock_z cum_sharpe=-4.0120 delta_vs_prev_component_sharpe=0.6923
+[FOLD 4][incremental][cum3] add=alpha_str_3d_lag1_regime_rvol_hi_lag1 cum_sharpe=1.3435 delta_vs_prev_component_sharpe=2.9602
+[FOLD 5][component][comp1] alpha=alpha_ivol_20d_z_z_mul_volshock_z sharpe=-0.1775 mean_ic=-0.00425 sign_stability=0.5079 maxdd=-0.0637 turnover=0.2000
+[FOLD 5][component][comp2] alpha=alpha_ivol_20d_signed_log_z_mul_volshock_z sharpe=-4.0497 mean_ic=0.00082 sign_stability=0.5397 maxdd=-0.0289 turnover=0.2000
+[FOLD 5][component][comp3] alpha=alpha_str_3d_lag1_regime_rvol_hi_lag1 sharpe=-2.1248 mean_ic=0.00899 sign_stability=0.5238 maxdd=-0.0677 turnover=0.2000
+[FOLD 5][incremental][cum1] add=alpha_ivol_20d_z_z_mul_volshock_z cum_sharpe=-0.1775 delta_vs_prev_component_sharpe=nan
+[FOLD 5][incremental][cum2] add=alpha_ivol_20d_signed_log_z_mul_volshock_z cum_sharpe=-0.4364 delta_vs_prev_component_sharpe=-0.2589
+[FOLD 5][incremental][cum3] add=alpha_str_3d_lag1_regime_rvol_hi_lag1 cum_sharpe=-1.3748 delta_vs_prev_component_sharpe=2.6749
+[FOLD 6][component][comp1] alpha=alpha_ivol_20d_z_z_mul_volshock_z sharpe=-2.4681 mean_ic=0.01151 sign_stability=0.5556 maxdd=-0.0298 turnover=0.2000
+[FOLD 6][component][comp2] alpha=alpha_ivol_20d_signed_log_z_mul_volshock_z sharpe=-0.2687 mean_ic=0.03528 sign_stability=0.6349 maxdd=-0.0109 turnover=0.2000
+[FOLD 6][component][comp3] alpha=alpha_str_3d_lag1_regime_rvol_hi_lag1 sharpe=1.3757 mean_ic=0.01466 sign_stability=0.4444 maxdd=-0.0133 turnover=0.2000
+[FOLD 6][incremental][cum1] add=alpha_ivol_20d_z_z_mul_volshock_z cum_sharpe=-2.4681 delta_vs_prev_component_sharpe=nan
+[FOLD 6][incremental][cum2] add=alpha_ivol_20d_signed_log_z_mul_volshock_z cum_sharpe=-3.1885 delta_vs_prev_component_sharpe=-0.7203
+[FOLD 6][incremental][cum3] add=alpha_str_3d_lag1_regime_rvol_hi_lag1 cum_sharpe=1.2561 delta_vs_prev_component_sharpe=1.5247
+[FOLD 7][component][comp1] alpha=alpha_ivol_20d_z_z_mul_volshock_z sharpe=-0.2926 mean_ic=0.00258 sign_stability=0.5397 maxdd=-0.0357 turnover=0.2000
+[FOLD 7][component][comp2] alpha=alpha_ivol_20d_signed_log_z_mul_volshock_z sharpe=-2.2734 mean_ic=0.00759 sign_stability=0.5079 maxdd=-0.0198 turnover=0.2000
+[FOLD 7][component][comp3] alpha=alpha_str_3d_lag1_regime_rvol_hi_lag1 sharpe=1.2224 mean_ic=0.03334 sign_stability=0.5238 maxdd=-0.0130 turnover=0.2000
+[FOLD 7][incremental][cum1] add=alpha_ivol_20d_z_z_mul_volshock_z cum_sharpe=-0.2926 delta_vs_prev_component_sharpe=nan
+[FOLD 7][incremental][cum2] add=alpha_ivol_20d_signed_log_z_mul_volshock_z cum_sharpe=0.0675 delta_vs_prev_component_sharpe=0.3601
+[FOLD 7][incremental][cum3] add=alpha_str_3d_lag1_regime_rvol_hi_lag1 cum_sharpe=3.1922 delta_vs_prev_component_sharpe=5.4656
+[FOLD 8][component][comp1] alpha=alpha_ivol_20d_z_z_mul_volshock_z sharpe=-1.9424 mean_ic=-0.01961 sign_stability=0.5079 maxdd=-0.0350 turnover=0.2000
+[FOLD 8][component][comp2] alpha=alpha_ivol_20d_signed_log_z_mul_volshock_z sharpe=-0.1353 mean_ic=0.01192 sign_stability=0.5079 maxdd=-0.0083 turnover=0.2000
+[FOLD 8][component][comp3] alpha=alpha_str_3d_lag1_regime_rvol_hi_lag1 sharpe=-1.3705 mean_ic=0.00857 sign_stability=0.5397 maxdd=-0.0450 turnover=0.2000
+[FOLD 8][incremental][cum1] add=alpha_ivol_20d_z_z_mul_volshock_z cum_sharpe=-1.9424 delta_vs_prev_component_sharpe=nan
+[FOLD 8][incremental][cum2] add=alpha_ivol_20d_signed_log_z_mul_volshock_z cum_sharpe=-5.7348 delta_vs_prev_component_sharpe=-3.7925
+[FOLD 8][incremental][cum3] add=alpha_str_3d_lag1_regime_rvol_hi_lag1 cum_sharpe=-1.6864 delta_vs_prev_component_sharpe=-1.5512
+[SUMMARY][COMPONENTS]
+layer_kind component                                      alpha  folds  oos_sharpe_mean  last_fold_sharpe  last_2_fold_mean_sharpe  test_mean_ic  sign_stability  tail_positive_rate  max_drawdown  turnover_mean  positive_sharpe_fraction  sign_lock_rate
+ component     comp3      alpha_str_3d_lag1_regime_rvol_hi_lag1      8         0.066539         -1.370456                -0.074012      0.012816        0.521825            0.517857     -0.067696            0.2                     0.500           0.625
+ component     comp1          alpha_ivol_20d_z_z_mul_volshock_z      8        -1.158734         -1.942392                -1.117520      0.003825        0.531746            0.525794     -0.067143            0.2                     0.125           0.750
+ component     comp2 alpha_ivol_20d_signed_log_z_mul_volshock_z      8        -1.795238         -0.135275                -1.204321      0.010247        0.539683            0.511905     -0.028864            0.2                     0.000           0.750
+[SUMMARY][INCREMENTAL]
+component                                alpha_added  folds  cum_sharpe_mean  last_fold_cum_sharpe  last_2_fold_cum_sharpe  delta_vs_prev_component_sharpe_mean  cum_turnover_mean  cum_max_drawdown
+     cum3      alpha_str_3d_lag1_regime_rvol_hi_lag1      8         0.279963             -1.686430                0.752890                             2.075201                0.2         -0.065929
+     cum1          alpha_ivol_20d_z_z_mul_volshock_z      8        -1.158734             -1.942392               -1.117520                                  NaN                0.2         -0.067143
+     cum2 alpha_ivol_20d_signed_log_z_mul_volshock_z      8        -1.558532             -5.734850               -2.833688                            -0.399798                0.2         -0.063233
+[ARTIFACT] artifacts\residual_layer_wf\residual_component_summary.csv
+[ARTIFACT] artifacts\residual_layer_wf\residual_incremental_summary.csv
+[ARTIFACT] artifacts\residual_layer_wf\residual_sign_diagnostics__all_folds.csv
+[ARTIFACT] artifacts\residual_layer_wf\residual_corr__all_folds.csv
+[ARTIFACT] artifacts\residual_layer_wf\residual_layer_meta.json
+
+
+
+
+
+---------------------------
+
+
+residual_component_summary.csv
+
+
+layer_kind,component,alpha,folds,oos_sharpe_mean,last_fold_sharpe,last_2_fold_mean_sharpe,test_mean_ic,sign_stability,tail_positive_rate,max_drawdown,turnover_mean,positive_sharpe_fraction,sign_lock_rate
+component,comp3,alpha_str_3d_lag1_regime_rvol_hi_lag1,8,0.06653926926734743,-1.3704564311404788,-0.0740117764057927,0.012815918893330527,0.5218253968253967,0.5178571428571428,-0.06769553962882013,0.1999999999999999,0.5,0.625
+component,comp1,alpha_ivol_20d_z_z_mul_volshock_z,8,-1.15873433851389,-1.9423923819889855,-1.1175197930355614,0.003825017365807394,0.5317460317460317,0.5257936507936508,-0.06714300858207245,0.1999999999999999,0.125,0.75
+component,comp2,alpha_ivol_20d_signed_log_z_mul_volshock_z,8,-1.7952380264312189,-0.13527486603995442,-1.204321054936642,0.010247470060680136,0.5396825396825395,0.5119047619047619,-0.028863935009730057,0.1999999999999999,0.0,0.75
+
+
+
+----------------------------
+
+
+residual_incremental_summary.csv
+
+
+component,alpha_added,folds,cum_sharpe_mean,last_fold_cum_sharpe,last_2_fold_cum_sharpe,delta_vs_prev_component_sharpe_mean,cum_turnover_mean,cum_max_drawdown
+cum3,alpha_str_3d_lag1_regime_rvol_hi_lag1,8,0.2799632219538022,-1.686430355804342,0.7528895378045415,2.075201248385021,0.1999999999999999,-0.06592901774732707
+cum1,alpha_ivol_20d_z_z_mul_volshock_z,8,-1.15873433851389,-1.9423923819889855,-1.1175197930355614,,0.1999999999999999,-0.06714300858207245
+cum2,alpha_ivol_20d_signed_log_z_mul_volshock_z,8,-1.5585320100930522,-5.734849594448528,-2.833688177284865,-0.3997976715791624,0.1999999999999999,-0.06323272339394626
+
+
+
+-----------------------------
+
+
+residual_sign_diagnostics__all_folds.csv
+
+
+fold_id,component,layer_kind,train_mean_ic,train_abs_mean_ic,train_pos_rate,train_sign_naive,train_sign_locked,sign_lock_triggered,sign_lock_reason,test_mean_ic,test_sign_stability,tail_mean_spread,tail_positive_rate,tail_merge_rows,regime,regime_days,regime_mean_ic,regime_sign_stability
+1,comp1,component,-0.018487279546084513,0.11503240225889078,0.4444444444444444,-1.0,-1.0,0.0,ok,0.018487279546084513,0.5555555555555556,0.0010450918407747232,0.6031746031746031,63.0,,,,
+1,comp1,component,,,,,,,,,,,,,market_breadth_hi,0.0,,
+1,comp1,component,,,,,,,,,,,,,market_breadth_lo,0.0,,
+1,comp1,component,,,,,,,,,,,,,volume_shock_hi,0.0,,
+1,comp1,component,,,,,,,,,,,,,volume_shock_lo,0.0,,
+1,comp1,component,,,,,,,,,,,,,target_abs_median_hi,21.0,0.02230546121246731,0.5714285714285714
+1,comp1,component,,,,,,,,,,,,,target_abs_median_lo,21.0,0.018574108583050305,0.5714285714285714
+1,comp2,component,-0.01155661086231252,0.1049266294637639,0.4603174603174603,-1.0,-1.0,1.0,weak_pos_rate,0.01155661086231252,0.5396825396825397,0.0014769180979252144,0.5079365079365079,63.0,,,,
+1,comp2,component,,,,,,,,,,,,,market_breadth_hi,0.0,,
+1,comp2,component,,,,,,,,,,,,,market_breadth_lo,0.0,,
+1,comp2,component,,,,,,,,,,,,,volume_shock_hi,0.0,,
+1,comp2,component,,,,,,,,,,,,,volume_shock_lo,0.0,,
+1,comp2,component,,,,,,,,,,,,,target_abs_median_hi,21.0,0.0063719154819512494,0.5238095238095238
+1,comp2,component,,,,,,,,,,,,,target_abs_median_lo,21.0,0.03284266578501798,0.6666666666666666
+1,comp3,component,0.0016067546311602707,0.13627399904488055,0.5238095238095238,1.0,1.0,1.0,weak_mean_ic,0.0016067546311602707,0.5238095238095238,0.00021254266849186188,0.49206349206349204,63.0,,,,
+1,comp3,component,,,,,,,,,,,,,market_breadth_hi,0.0,,
+1,comp3,component,,,,,,,,,,,,,market_breadth_lo,0.0,,
+1,comp3,component,,,,,,,,,,,,,volume_shock_hi,0.0,,
+1,comp3,component,,,,,,,,,,,,,volume_shock_lo,0.0,,
+1,comp3,component,,,,,,,,,,,,,target_abs_median_hi,21.0,-0.005832156131966774,0.47619047619047616
+1,comp3,component,,,,,,,,,,,,,target_abs_median_lo,21.0,0.015021214671435584,0.5714285714285714
+2,comp1,component,0.011997435203831161,0.09409929902250544,0.5396825396825397,1.0,1.0,1.0,weak_pos_rate,0.011997435203831161,0.5396825396825397,0.001612669650037263,0.5873015873015873,63.0,,,,
+2,comp1,component,,,,,,,,,,,,,market_breadth_hi,0.0,,
+2,comp1,component,,,,,,,,,,,,,market_breadth_lo,0.0,,
+2,comp1,component,,,,,,,,,,,,,volume_shock_hi,0.0,,
+2,comp1,component,,,,,,,,,,,,,volume_shock_lo,0.0,,
+2,comp1,component,,,,,,,,,,,,,target_abs_median_hi,21.0,0.051387970504844054,0.6190476190476191
+2,comp1,component,,,,,,,,,,,,,target_abs_median_lo,21.0,0.015212822978970668,0.5714285714285714
+2,comp2,component,-0.0019081515767819157,0.09765928953810289,0.49206349206349204,-1.0,-1.0,1.0,weak_mean_ic,0.0019081515767819157,0.5079365079365079,-0.00043699345308091756,0.49206349206349204,63.0,,,,
+2,comp2,component,,,,,,,,,,,,,market_breadth_hi,0.0,,
+2,comp2,component,,,,,,,,,,,,,market_breadth_lo,0.0,,
+2,comp2,component,,,,,,,,,,,,,volume_shock_hi,0.0,,
+2,comp2,component,,,,,,,,,,,,,volume_shock_lo,0.0,,
+2,comp2,component,,,,,,,,,,,,,target_abs_median_hi,21.0,-0.01726102812258924,0.47619047619047616
+2,comp2,component,,,,,,,,,,,,,target_abs_median_lo,21.0,0.0256817749190987,0.6666666666666666
+2,comp3,component,-0.002607584516378959,0.13489913638503997,0.5079365079365079,-1.0,1.0,1.0,weak_mean_ic,-0.002607584516378959,0.5079365079365079,-6.185784795598066e-05,0.4444444444444444,63.0,,,,
+2,comp3,component,,,,,,,,,,,,,market_breadth_hi,0.0,,
+2,comp3,component,,,,,,,,,,,,,market_breadth_lo,0.0,,
+2,comp3,component,,,,,,,,,,,,,volume_shock_hi,0.0,,
+2,comp3,component,,,,,,,,,,,,,volume_shock_lo,0.0,,
+2,comp3,component,,,,,,,,,,,,,target_abs_median_hi,21.0,0.038389914139440755,0.5714285714285714
+2,comp3,component,,,,,,,,,,,,,target_abs_median_lo,21.0,0.017231598088425348,0.5714285714285714
+3,comp1,component,-0.01131031695938071,0.08657314177511947,0.47619047619047616,-1.0,-1.0,1.0,weak_pos_rate,0.01131031695938071,0.5238095238095238,0.0026037096087893775,0.5714285714285714,63.0,,,,
+3,comp1,component,,,,,,,,,,,,,market_breadth_hi,0.0,,
+3,comp1,component,,,,,,,,,,,,,market_breadth_lo,0.0,,
+3,comp1,component,,,,,,,,,,,,,volume_shock_hi,0.0,,
+3,comp1,component,,,,,,,,,,,,,volume_shock_lo,0.0,,
+3,comp1,component,,,,,,,,,,,,,target_abs_median_hi,21.0,-0.03014950457355254,0.42857142857142855
+3,comp1,component,,,,,,,,,,,,,target_abs_median_lo,21.0,0.03689649644835842,0.6190476190476191
+3,comp2,component,-0.013003483180213667,0.0954276163091648,0.42857142857142855,-1.0,-1.0,0.0,ok,0.013003483180213667,0.5714285714285714,0.001452572263824206,0.5396825396825397,63.0,,,,
+3,comp2,component,,,,,,,,,,,,,market_breadth_hi,0.0,,
+3,comp2,component,,,,,,,,,,,,,market_breadth_lo,0.0,,
+3,comp2,component,,,,,,,,,,,,,volume_shock_hi,0.0,,
+3,comp2,component,,,,,,,,,,,,,volume_shock_lo,0.0,,
+3,comp2,component,,,,,,,,,,,,,target_abs_median_hi,21.0,0.0034013605442176917,0.5238095238095238
+3,comp2,component,,,,,,,,,,,,,target_abs_median_lo,21.0,0.0172660374901065,0.5714285714285714
+3,comp3,component,0.016103655502456262,0.12519306937306093,0.5555555555555556,1.0,1.0,0.0,ok,0.016103655502456262,0.5555555555555556,0.001338350013612347,0.5396825396825397,63.0,,,,
+3,comp3,component,,,,,,,,,,,,,market_breadth_hi,0.0,,
+3,comp3,component,,,,,,,,,,,,,market_breadth_lo,0.0,,
+3,comp3,component,,,,,,,,,,,,,volume_shock_hi,0.0,,
+3,comp3,component,,,,,,,,,,,,,volume_shock_lo,0.0,,
+3,comp3,component,,,,,,,,,,,,,target_abs_median_hi,21.0,0.04176184464949455,0.7619047619047619
+3,comp3,component,,,,,,,,,,,,,target_abs_median_lo,21.0,0.047984105276867736,0.6190476190476191
+4,comp1,component,-0.0014214080330217538,0.0985868574233817,0.5238095238095238,-1.0,1.0,1.0,weak_mean_ic,-0.0014214080330217538,0.5238095238095238,-0.0017244509361265734,0.42857142857142855,63.0,,,,
+4,comp1,component,,,,,,,,,,,,,market_breadth_hi,0.0,,
+4,comp1,component,,,,,,,,,,,,,market_breadth_lo,0.0,,
+4,comp1,component,,,,,,,,,,,,,volume_shock_hi,0.0,,
+4,comp1,component,,,,,,,,,,,,,volume_shock_lo,0.0,,
+4,comp1,component,,,,,,,,,,,,,target_abs_median_hi,21.0,-0.008961132317433599,0.47619047619047616
+4,comp1,component,,,,,,,,,,,,,target_abs_median_lo,21.0,0.013091982006351876,0.5714285714285714
+4,comp2,component,0.00010811884891413351,0.10335911487815547,0.49206349206349204,1.0,-1.0,1.0,weak_mean_ic,-0.00010811884891413351,0.5079365079365079,-0.00020625592023925627,0.4603174603174603,63.0,,,,
+4,comp2,component,,,,,,,,,,,,,market_breadth_hi,0.0,,
+4,comp2,component,,,,,,,,,,,,,market_breadth_lo,0.0,,
+4,comp2,component,,,,,,,,,,,,,volume_shock_hi,0.0,,
+4,comp2,component,,,,,,,,,,,,,volume_shock_lo,0.0,,
+4,comp2,component,,,,,,,,,,,,,target_abs_median_hi,21.0,0.03489337561239518,0.6190476190476191
+4,comp2,component,,,,,,,,,,,,,target_abs_median_lo,21.0,-0.02840186148096941,0.38095238095238093
+4,comp3,component,0.021865680489181433,0.10256408650843744,0.5555555555555556,1.0,1.0,0.0,ok,0.021865680489181433,0.5555555555555556,0.0007774016922431288,0.5555555555555556,63.0,,,,
+4,comp3,component,,,,,,,,,,,,,market_breadth_hi,0.0,,
+4,comp3,component,,,,,,,,,,,,,market_breadth_lo,0.0,,
+4,comp3,component,,,,,,,,,,,,,volume_shock_hi,0.0,,
+4,comp3,component,,,,,,,,,,,,,volume_shock_lo,0.0,,
+4,comp3,component,,,,,,,,,,,,,target_abs_median_hi,21.0,0.03403301674130624,0.5714285714285714
+4,comp3,component,,,,,,,,,,,,,target_abs_median_lo,21.0,0.013467058399206514,0.5238095238095238
+5,comp1,component,0.004250657062039344,0.09161152187924751,0.49206349206349204,1.0,-1.0,1.0,weak_mean_ic,-0.004250657062039344,0.5079365079365079,0.00232571549672647,0.5555555555555556,63.0,,,,
+5,comp1,component,,,,,,,,,,,,,market_breadth_hi,0.0,,
+5,comp1,component,,,,,,,,,,,,,market_breadth_lo,0.0,,
+5,comp1,component,,,,,,,,,,,,,volume_shock_hi,0.0,,
+5,comp1,component,,,,,,,,,,,,,volume_shock_lo,0.0,,
+5,comp1,component,,,,,,,,,,,,,target_abs_median_hi,21.0,-0.007963015839620087,0.42857142857142855
+5,comp1,component,,,,,,,,,,,,,target_abs_median_lo,21.0,-0.005336854918697962,0.5714285714285714
+5,comp2,component,-0.0008221624437698495,0.09450693630422223,0.4603174603174603,-1.0,-1.0,1.0,weak_mean_ic,0.0008221624437698495,0.5396825396825397,-0.0023672711751895515,0.4444444444444444,63.0,,,,
+5,comp2,component,,,,,,,,,,,,,market_breadth_hi,0.0,,
+5,comp2,component,,,,,,,,,,,,,market_breadth_lo,0.0,,
+5,comp2,component,,,,,,,,,,,,,volume_shock_hi,0.0,,
+5,comp2,component,,,,,,,,,,,,,volume_shock_lo,0.0,,
+5,comp2,component,,,,,,,,,,,,,target_abs_median_hi,21.0,0.007296769959824872,0.6190476190476191
+5,comp2,component,,,,,,,,,,,,,target_abs_median_lo,21.0,-0.02102431546992876,0.42857142857142855
+5,comp3,component,-0.008991397246183698,0.15178300087830907,0.47619047619047616,-1.0,-1.0,1.0,weak_mean_ic,0.008991397246183698,0.5238095238095238,-0.0015229198028954415,0.4444444444444444,63.0,,,,
+5,comp3,component,,,,,,,,,,,,,market_breadth_hi,0.0,,
+5,comp3,component,,,,,,,,,,,,,market_breadth_lo,0.0,,
+5,comp3,component,,,,,,,,,,,,,volume_shock_hi,0.0,,
+5,comp3,component,,,,,,,,,,,,,volume_shock_lo,0.0,,
+5,comp3,component,,,,,,,,,,,,,target_abs_median_hi,21.0,-0.019287943454259455,0.5238095238095238
+5,comp3,component,,,,,,,,,,,,,target_abs_median_lo,21.0,0.01905876489034494,0.5714285714285714
+6,comp1,component,-0.01151006548913134,0.09798093267744012,0.4444444444444444,-1.0,-1.0,0.0,ok,0.01151006548913134,0.5555555555555556,0.0007362180192902651,0.5079365079365079,63.0,,,,
+6,comp1,component,,,,,,,,,,,,,market_breadth_hi,0.0,,
+6,comp1,component,,,,,,,,,,,,,market_breadth_lo,0.0,,
+6,comp1,component,,,,,,,,,,,,,volume_shock_hi,0.0,,
+6,comp1,component,,,,,,,,,,,,,volume_shock_lo,0.0,,
+6,comp1,component,,,,,,,,,,,,,target_abs_median_hi,21.0,-0.012679961528057468,0.5238095238095238
+6,comp1,component,,,,,,,,,,,,,target_abs_median_lo,21.0,-0.004009372526624781,0.47619047619047616
+6,comp2,component,-0.03528285393686192,0.08989414371541447,0.36507936507936506,-1.0,-1.0,0.0,ok,0.03528285393686192,0.6349206349206349,0.0007455501419629362,0.5714285714285714,63.0,,,,
+6,comp2,component,,,,,,,,,,,,,market_breadth_hi,0.0,,
+6,comp2,component,,,,,,,,,,,,,market_breadth_lo,0.0,,
+6,comp2,component,,,,,,,,,,,,,volume_shock_hi,0.0,,
+6,comp2,component,,,,,,,,,,,,,volume_shock_lo,0.0,,
+6,comp2,component,,,,,,,,,,,,,target_abs_median_hi,21.0,0.02468616312504383,0.6190476190476191
+6,comp2,component,,,,,,,,,,,,,target_abs_median_lo,21.0,0.05134163385530943,0.7142857142857143
+6,comp3,component,-0.014658870421020636,0.11379592337671444,0.5555555555555556,-1.0,-1.0,0.0,ok,0.014658870421020636,0.4444444444444444,-0.00047201609851154155,0.49206349206349204,63.0,,,,
+6,comp3,component,,,,,,,,,,,,,market_breadth_hi,0.0,,
+6,comp3,component,,,,,,,,,,,,,market_breadth_lo,0.0,,
+6,comp3,component,,,,,,,,,,,,,volume_shock_hi,0.0,,
+6,comp3,component,,,,,,,,,,,,,volume_shock_lo,0.0,,
+6,comp3,component,,,,,,,,,,,,,target_abs_median_hi,21.0,0.025386222235580534,0.42857142857142855
+6,comp3,component,,,,,,,,,,,,,target_abs_median_lo,21.0,0.03641246631200344,0.5238095238095238
+7,comp1,component,-0.0025754410748098913,0.09824434191938926,0.4603174603174603,-1.0,-1.0,1.0,weak_mean_ic,0.0025754410748098913,0.5396825396825397,0.0015196615744903555,0.5555555555555556,63.0,,,,
+7,comp1,component,,,,,,,,,,,,,market_breadth_hi,0.0,,
+7,comp1,component,,,,,,,,,,,,,market_breadth_lo,0.0,,
+7,comp1,component,,,,,,,,,,,,,volume_shock_hi,0.0,,
+7,comp1,component,,,,,,,,,,,,,volume_shock_lo,0.0,,
+7,comp1,component,,,,,,,,,,,,,target_abs_median_hi,21.0,-0.023620420185747344,0.38095238095238093
+7,comp1,component,,,,,,,,,,,,,target_abs_median_lo,21.0,-0.00284469457886247,0.5714285714285714
+7,comp2,component,-0.007593157537929261,0.08955893353905137,0.49206349206349204,-1.0,-1.0,1.0,weak_mean_ic,0.007593157537929261,0.5079365079365079,8.600050114826398e-05,0.47619047619047616,63.0,,,,
+7,comp2,component,,,,,,,,,,,,,market_breadth_hi,0.0,,
+7,comp2,component,,,,,,,,,,,,,market_breadth_lo,0.0,,
+7,comp2,component,,,,,,,,,,,,,volume_shock_hi,0.0,,
+7,comp2,component,,,,,,,,,,,,,volume_shock_lo,0.0,,
+7,comp2,component,,,,,,,,,,,,,target_abs_median_hi,21.0,-0.0013462675202628898,0.47619047619047616
+7,comp2,component,,,,,,,,,,,,,target_abs_median_lo,21.0,0.021691187520663638,0.5238095238095238
+7,comp3,component,0.03333942806381266,0.11305850273344484,0.5238095238095238,1.0,1.0,1.0,weak_pos_rate,0.03333942806381266,0.5238095238095238,0.002113146940669592,0.6190476190476191,63.0,,,,
+7,comp3,component,,,,,,,,,,,,,market_breadth_hi,0.0,,
+7,comp3,component,,,,,,,,,,,,,market_breadth_lo,0.0,,
+7,comp3,component,,,,,,,,,,,,,volume_shock_hi,0.0,,
+7,comp3,component,,,,,,,,,,,,,volume_shock_lo,0.0,,
+7,comp3,component,,,,,,,,,,,,,target_abs_median_hi,21.0,0.08197391622333763,0.6666666666666666
+7,comp3,component,,,,,,,,,,,,,target_abs_median_lo,21.0,-0.0015084457936340955,0.42857142857142855
+8,comp1,component,-0.019608334251717367,0.09720719411967044,0.5079365079365079,-1.0,1.0,1.0,weak_pos_rate,-0.019608334251717367,0.5079365079365079,-0.0025368763995708577,0.3968253968253968,63.0,,,,
+8,comp1,component,,,,,,,,,,,,,market_breadth_hi,0.0,,
+8,comp1,component,,,,,,,,,,,,,market_breadth_lo,0.0,,
+8,comp1,component,,,,,,,,,,,,,volume_shock_hi,0.0,,
+8,comp1,component,,,,,,,,,,,,,volume_shock_lo,0.0,,
+8,comp1,component,,,,,,,,,,,,,target_abs_median_hi,21.0,-0.035360499133379415,0.5238095238095238
+8,comp1,component,,,,,,,,,,,,,target_abs_median_lo,21.0,-0.04484072715978879,0.42857142857142855
+8,comp2,component,-0.011921459796486095,0.08706364234451759,0.49206349206349204,-1.0,-1.0,1.0,weak_pos_rate,0.011921459796486095,0.5079365079365079,0.0016227300849043838,0.6031746031746031,63.0,,,,
+8,comp2,component,,,,,,,,,,,,,market_breadth_hi,0.0,,
+8,comp2,component,,,,,,,,,,,,,market_breadth_lo,0.0,,
+8,comp2,component,,,,,,,,,,,,,volume_shock_hi,0.0,,
+8,comp2,component,,,,,,,,,,,,,volume_shock_lo,0.0,,
+8,comp2,component,,,,,,,,,,,,,target_abs_median_hi,21.0,-0.00458169276547143,0.42857142857142855
+8,comp2,component,,,,,,,,,,,,,target_abs_median_lo,21.0,0.009813977137246653,0.5238095238095238
+8,comp3,component,-0.00856914930920822,0.1108429012252913,0.4603174603174603,-1.0,-1.0,1.0,weak_mean_ic,0.00856914930920822,0.5396825396825397,0.0009652204296676907,0.5555555555555556,63.0,,,,
+8,comp3,component,,,,,,,,,,,,,market_breadth_hi,0.0,,
+8,comp3,component,,,,,,,,,,,,,market_breadth_lo,0.0,,
+8,comp3,component,,,,,,,,,,,,,volume_shock_hi,0.0,,
+8,comp3,component,,,,,,,,,,,,,volume_shock_lo,0.0,,
+8,comp3,component,,,,,,,,,,,,,target_abs_median_hi,21.0,-0.005674987226112835,0.5238095238095238
+8,comp3,component,,,,,,,,,,,,,target_abs_median_lo,21.0,0.054183823750413265,0.7142857142857143
+
+
+
+
+
+---------------------------------
+
+
+residual_corr__all_folds.csv
+
+
+fold_id,left,right,spearman_corr
+1,comp1_resid,comp2_resid,-0.18401825562454574
+1,comp1_resid,comp3_resid,0.4199122539768479
+1,comp2_resid,comp3_resid,-0.09830383561903656
+2,comp1_resid,comp2_resid,-0.23022052522529923
+2,comp1_resid,comp3_resid,0.25304270365966497
+2,comp2_resid,comp3_resid,0.14170796749782189
+3,comp1_resid,comp2_resid,-0.2992000107745845
+3,comp1_resid,comp3_resid,0.3227891287060901
+3,comp2_resid,comp3_resid,0.03432907948964965
+4,comp1_resid,comp2_resid,-0.309759227986374
+4,comp1_resid,comp3_resid,0.11230439046136086
+4,comp2_resid,comp3_resid,0.27774778982980125
+5,comp1_resid,comp2_resid,-0.40452517498221996
+5,comp1_resid,comp3_resid,0.2217543910355698
+5,comp2_resid,comp3_resid,0.22164559660854558
+6,comp1_resid,comp2_resid,-0.3752894045081774
+6,comp1_resid,comp3_resid,0.2839626814673963
+6,comp2_resid,comp3_resid,-0.032922287312902816
+7,comp1_resid,comp2_resid,-0.32949349242382797
+7,comp1_resid,comp3_resid,0.10591838611987794
+7,comp2_resid,comp3_resid,0.24018235936511034
+8,comp1_resid,comp2_resid,-0.06947989802317461
+8,comp1_resid,comp3_resid,0.1933242183084169
+8,comp2_resid,comp3_resid,0.24720183933065734
+
+
+
+
+---------------------------
+
+
+residual_layer_meta.json
+
+
+{
+  "alpha_lib_file": "data\\alpha_library_v2\\alpha_library_v2.parquet",
+  "alive_summary_csv": "artifacts\\single_alpha_audit_wf\\single_alpha_audit__alive.csv",
+  "target_col": "target_fwd_ret_1d",
+  "ordered_alphas": [
+    "alpha_ivol_20d_z_z_mul_volshock_z",
+    "alpha_ivol_20d_signed_log_z_mul_volshock_z",
+    "alpha_str_3d_lag1_regime_rvol_hi_lag1"
+  ],
+  "residual_method": "ols",
+  "wf": {
+    "train_days": 252,
+    "test_days": 63,
+    "step_days": 63,
+    "purge_days": 5,
+    "embargo_days": 5,
+    "folds": 8
+  },
+  "shell": {
+    "enter_pct": 0.1,
+    "exit_pct": 0.22,
+    "weight_cap": 0.05,
+    "gross_target": 0.85,
+    "max_daily_turnover": 0.2,
+    "cost_bps": 8.0
+  },
+  "sign_lock": {
+    "sign_lock_ic_abs": 0.01,
+    "sign_lock_pos_rate": 0.55
+  },
+  "modules": {
+    "holding_inertia": 1,
+    "turnover_control": 1,
+    "budget_allocation": 1,
+    "regime_allocation": 1
+  },
+  "overlays": {
+    "enable_dynamic_budgets": 0,
+    "enable_regime_multipliers": 0
+  },
+  "rows": {
+    "component_fold_rows": 24,
+    "sign_rows": 168,
+    "daily_rows": 3024,
+    "incremental_rows": 24,
+    "coef_rows": 24,
+    "corr_rows": 24
+  }
+}
