@@ -1,0 +1,260 @@
+
+[CFG] feature_v2_manifest=data\features\feature_matrix_v2_manifest.csv
+[CFG] feature_v2_diag_csv=data\features\feature_matrix_v2_diag.csv
+[CFG] out_dir=data\alpha_library_fs2_base
+[CFG] target_col=target_fwd_ret_1d
+[CFG] min_non_na=200 max_nan_ratio=0.995 min_unique=5 max_base_features=0
+[CFG] include_z_features=1 exclude_target_derived=1 exclude_market_wide_constants=1
+[CFG] transforms raw=1 signed_log=1 ema3=1 lag1=1 tanh_z=1
+[FS2] safe_base_features=31 dropped_features=19
+[FS2][SAFE_BASES]
+                                    feature            cluster                                    source                                                             formula
+               z_fs2_dollar_vol_accel_proxy          cs_zscore                fs2_dollar_vol_accel_proxy                cross-sectional zscore of fs2_dollar_vol_accel_proxy
+              z_fs2_gap_fill_fraction_proxy          cs_zscore               fs2_gap_fill_fraction_proxy               cross-sectional zscore of fs2_gap_fill_fraction_proxy
+                   z_fs2_hl_vol_ratio_proxy          cs_zscore                    fs2_hl_vol_ratio_proxy                    cross-sectional zscore of fs2_hl_vol_ratio_proxy
+              z_fs2_intraday_pressure_proxy          cs_zscore               fs2_intraday_pressure_proxy               cross-sectional zscore of fs2_intraday_pressure_proxy
+             z_fs2_intraday_pressure_rs_mix          cs_zscore              fs2_intraday_pressure_rs_mix              cross-sectional zscore of fs2_intraday_pressure_rs_mix
+       z_fs2_intraday_range_expansion_proxy          cs_zscore        fs2_intraday_range_expansion_proxy        cross-sectional zscore of fs2_intraday_range_expansion_proxy
+           z_fs2_intraday_reversal_pressure          cs_zscore            fs2_intraday_reversal_pressure            cross-sectional zscore of fs2_intraday_reversal_pressure
+                    z_fs2_intraday_rs_proxy          cs_zscore                     fs2_intraday_rs_proxy                     cross-sectional zscore of fs2_intraday_rs_proxy
+    z_fs2_intraday_strength_liq_interaction          cs_zscore     fs2_intraday_strength_liq_interaction     cross-sectional zscore of fs2_intraday_strength_liq_interaction
+   z_fs2_intraday_strength_rvol_interaction          cs_zscore    fs2_intraday_strength_rvol_interaction    cross-sectional zscore of fs2_intraday_strength_rvol_interaction
+z_fs2_overnight_vs_intraday_vol_ratio_proxy          cs_zscore fs2_overnight_vs_intraday_vol_ratio_proxy cross-sectional zscore of fs2_overnight_vs_intraday_vol_ratio_proxy
+              z_fs2_pressure_dispersion_mix          cs_zscore               fs2_pressure_dispersion_mix               cross-sectional zscore of fs2_pressure_dispersion_mix
+             z_fs2_range_compression_streak          cs_zscore              fs2_range_compression_streak              cross-sectional zscore of fs2_range_compression_streak
+                   z_fs2_realized_vol_accel          cs_zscore                    fs2_realized_vol_accel                    cross-sectional zscore of fs2_realized_vol_accel
+                z_fs2_shock_reversion_ratio          cs_zscore                 fs2_shock_reversion_ratio                 cross-sectional zscore of fs2_shock_reversion_ratio
+                          z_fs2_vol_liq_mix          cs_zscore                           fs2_vol_liq_mix                           cross-sectional zscore of fs2_vol_liq_mix
+                     z_fs2_vol_of_vol_short          cs_zscore                      fs2_vol_of_vol_short                      cross-sectional zscore of fs2_vol_of_vol_short
+                 fs2_dollar_vol_accel_proxy intraday_liquidity                                       liq                                            mean_5(liq)-mean_20(liq)
+                fs2_gap_fill_fraction_proxy intraday_liquidity                      intraday_rs|ivol_20d                                -intraday_proxy / (abs(vol_proxy)+1)
+                fs2_intraday_pressure_proxy intraday_liquidity                         intraday_pressure                        intraday_pressure or fallback intraday proxy
+               fs2_intraday_pressure_rs_mix intraday_liquidity                               intraday_rs                                      0.5*pressure + 0.5*intraday_rs
+         fs2_intraday_range_expansion_proxy intraday_liquidity                 intraday_rs|rel_volume_20                                   abs(intraday_proxy)*(1+abs(rvol))
+             fs2_intraday_reversal_pressure intraday_liquidity                               intraday_rs                                  -intraday_rs*(1+intraday_pressure)
+                      fs2_intraday_rs_proxy intraday_liquidity                               intraday_rs                              intraday_rs or fallback intraday proxy
+      fs2_intraday_strength_liq_interaction intraday_liquidity                           intraday_rs|liq                                       intraday_rs * signed_log(liq)
+     fs2_intraday_strength_rvol_interaction intraday_liquidity                 intraday_rs|rel_volume_20                                      intraday_rs * signed_log(rvol)
+               fs2_range_compression_streak      vol_structure                                  ivol_20d                                  mean_5(abs(vol))/mean_60(abs(vol))
+                     fs2_realized_vol_accel      vol_structure                                  ivol_20d                                  mean_5(abs(vol))-mean_20(abs(vol))
+                  fs2_shock_reversion_ratio      vol_structure                                  ivol_20d                                 vol_proxy / mean_20(abs(vol_proxy))
+                            fs2_vol_liq_mix      vol_structure                              ivol_20d|liq                       signed_log(abs(vol)+1)-signed_log(abs(liq)+1)
+                       fs2_vol_of_vol_short      vol_structure                                  ivol_20d                                                    std_5(vol_proxy)
+[FS2][DROPPED_BASES]
+                                  feature       cluster  target_derived  market_wide_constant  non_na  nan_ratio  unique  eligible
+fs2_overnight_vs_intraday_vol_ratio_proxy vol_structure               1                     0   76533   0.002528   76533         0
+                   fs2_hl_vol_ratio_proxy vol_structure               1                     0   76630   0.001264   76629         0
+                      fs2_target_rank_pct   cs_pressure               1                     1   76630   0.001264      97         0
+         fs2_cs_winner_loser_spread_proxy   cs_pressure               1                     1   76630   0.001264      97         0
+                  fs2_cs_dispersion_short   cs_pressure               1                     1   76630   0.001264     790         0
+                  fs2_cs_dispersion_accel   cs_pressure               1                     1   76242   0.006321     786         0
+          fs2_market_breadth_thrust_proxy   cs_pressure               1                     1   76727   0.000000      87         0
+               fs2_breadth_reversal_proxy   cs_pressure               1                     1   76630   0.001264     790         0
+              fs2_top_tail_strength_proxy   cs_pressure               1                     0   75757   0.012642   75757         0
+           fs2_bottom_tail_strength_proxy   cs_pressure               1                     0   75757   0.012642   74977         0
+              fs2_pressure_dispersion_mix   cs_pressure               1                     1   76630   0.001264   76521         0
+                    z_fs2_target_rank_pct     cs_zscore               1                     0   76630   0.001264     572         0
+       z_fs2_cs_winner_loser_spread_proxy     cs_zscore               1                     0   76630   0.001264     493         0
+                z_fs2_cs_dispersion_short     cs_zscore               1                     0       0   1.000000       0         0
+                z_fs2_cs_dispersion_accel     cs_zscore               1                     0       0   1.000000       0         0
+        z_fs2_market_breadth_thrust_proxy     cs_zscore               0                     0       0   1.000000       0         0
+             z_fs2_breadth_reversal_proxy     cs_zscore               0                     0       0   1.000000       0         0
+            z_fs2_top_tail_strength_proxy     cs_zscore               1                     0   75757   0.012642   75757         0
+         z_fs2_bottom_tail_strength_proxy     cs_zscore               1                     0   75757   0.012642   75757         0
+[FS2] recipes=82
+[FS2][BUILD] 25/82 kept=25 dropped=0
+[FS2][BUILD] 50/82 kept=50 dropped=0
+[FS2][BUILD] 75/82 kept=75 dropped=0
+[FS2][BUILD] 82/82 kept=82 dropped=0
+[FS2][TOP_KEPT_ALPHAS]
+                                                      alpha                                base_feature  transform            cluster                                    source                                                             formula  non_na  nan_ratio  unique      std  keep
+                         alpha_fs2_hl_vol_ratio_proxy__ema3                    z_fs2_hl_vol_ratio_proxy       ema3          cs_zscore                    fs2_hl_vol_ratio_proxy                    cross-sectional zscore of fs2_hl_vol_ratio_proxy   76727   0.000000   76630 0.592500     1
+                         alpha_fs2_hl_vol_ratio_proxy__lag1                    z_fs2_hl_vol_ratio_proxy       lag1          cs_zscore                    fs2_hl_vol_ratio_proxy                    cross-sectional zscore of fs2_hl_vol_ratio_proxy   76630   0.001264   76630 0.994832     1
+                          alpha_fs2_hl_vol_ratio_proxy__raw                    z_fs2_hl_vol_ratio_proxy        raw          cs_zscore                    fs2_hl_vol_ratio_proxy                    cross-sectional zscore of fs2_hl_vol_ratio_proxy   76630   0.001264   76630 0.994832     1
+                   alpha_fs2_hl_vol_ratio_proxy__signed_log                    z_fs2_hl_vol_ratio_proxy signed_log          cs_zscore                    fs2_hl_vol_ratio_proxy                    cross-sectional zscore of fs2_hl_vol_ratio_proxy   76630   0.001264   76630 0.355477     1
+      alpha_fs2_overnight_vs_intraday_vol_ratio_proxy__ema3 z_fs2_overnight_vs_intraday_vol_ratio_proxy       ema3          cs_zscore fs2_overnight_vs_intraday_vol_ratio_proxy cross-sectional zscore of fs2_overnight_vs_intraday_vol_ratio_proxy   76630   0.001264   76533 0.568020     1
+      alpha_fs2_overnight_vs_intraday_vol_ratio_proxy__lag1 z_fs2_overnight_vs_intraday_vol_ratio_proxy       lag1          cs_zscore fs2_overnight_vs_intraday_vol_ratio_proxy cross-sectional zscore of fs2_overnight_vs_intraday_vol_ratio_proxy   76533   0.002528   76533 0.994832     1
+       alpha_fs2_overnight_vs_intraday_vol_ratio_proxy__raw z_fs2_overnight_vs_intraday_vol_ratio_proxy        raw          cs_zscore fs2_overnight_vs_intraday_vol_ratio_proxy cross-sectional zscore of fs2_overnight_vs_intraday_vol_ratio_proxy   76533   0.002528   76533 0.994832     1
+alpha_fs2_overnight_vs_intraday_vol_ratio_proxy__signed_log z_fs2_overnight_vs_intraday_vol_ratio_proxy signed_log          cs_zscore fs2_overnight_vs_intraday_vol_ratio_proxy cross-sectional zscore of fs2_overnight_vs_intraday_vol_ratio_proxy   76533   0.002528   76533 0.394734     1
+                    alpha_fs2_pressure_dispersion_mix__ema3               z_fs2_pressure_dispersion_mix       ema3          cs_zscore               fs2_pressure_dispersion_mix               cross-sectional zscore of fs2_pressure_dispersion_mix   76727   0.000000   76630 0.580115     1
+                    alpha_fs2_pressure_dispersion_mix__lag1               z_fs2_pressure_dispersion_mix       lag1          cs_zscore               fs2_pressure_dispersion_mix               cross-sectional zscore of fs2_pressure_dispersion_mix   76630   0.001264   76521 0.994832     1
+                     alpha_fs2_pressure_dispersion_mix__raw               z_fs2_pressure_dispersion_mix        raw          cs_zscore               fs2_pressure_dispersion_mix               cross-sectional zscore of fs2_pressure_dispersion_mix   76630   0.001264   76521 0.994832     1
+              alpha_fs2_pressure_dispersion_mix__signed_log               z_fs2_pressure_dispersion_mix signed_log          cs_zscore               fs2_pressure_dispersion_mix               cross-sectional zscore of fs2_pressure_dispersion_mix   76630   0.001264   76521 0.581310     1
+                     alpha_fs2_dollar_vol_accel_proxy__ema3                  fs2_dollar_vol_accel_proxy       ema3 intraday_liquidity                                       liq                                            mean_5(liq)-mean_20(liq)   76242   0.006321   76242 0.203310     1
+                     alpha_fs2_dollar_vol_accel_proxy__lag1                  fs2_dollar_vol_accel_proxy       lag1 intraday_liquidity                                       liq                                            mean_5(liq)-mean_20(liq)   76145   0.007585   76145 0.222385     1
+                      alpha_fs2_dollar_vol_accel_proxy__raw                  fs2_dollar_vol_accel_proxy        raw intraday_liquidity                                       liq                                            mean_5(liq)-mean_20(liq)   76242   0.006321   76242 0.222323     1
+               alpha_fs2_dollar_vol_accel_proxy__signed_log                  fs2_dollar_vol_accel_proxy signed_log intraday_liquidity                                       liq                                            mean_5(liq)-mean_20(liq)   76242   0.006321   76242 0.187620     1
+                   alpha_fs2_dollar_vol_accel_proxy__tanh_z                  fs2_dollar_vol_accel_proxy     tanh_z intraday_liquidity                                       liq                                            mean_5(liq)-mean_20(liq)   76242   0.006321   74675 0.637624     1
+                    alpha_fs2_gap_fill_fraction_proxy__ema3                 fs2_gap_fill_fraction_proxy       ema3 intraday_liquidity                      intraday_rs|ivol_20d                                -intraday_proxy / (abs(vol_proxy)+1)   75757   0.012642   75757 0.557693     1
+                    alpha_fs2_gap_fill_fraction_proxy__lag1                 fs2_gap_fill_fraction_proxy       lag1 intraday_liquidity                      intraday_rs|ivol_20d                                -intraday_proxy / (abs(vol_proxy)+1)   75660   0.013906   75660 0.966776     1
+                     alpha_fs2_gap_fill_fraction_proxy__raw                 fs2_gap_fill_fraction_proxy        raw intraday_liquidity                      intraday_rs|ivol_20d                                -intraday_proxy / (abs(vol_proxy)+1)   75757   0.012642   75757 0.966772     1
+              alpha_fs2_gap_fill_fraction_proxy__signed_log                 fs2_gap_fill_fraction_proxy signed_log intraday_liquidity                      intraday_rs|ivol_20d                                -intraday_proxy / (abs(vol_proxy)+1)   75757   0.012642   75757 0.549400     1
+                  alpha_fs2_gap_fill_fraction_proxy__tanh_z                 fs2_gap_fill_fraction_proxy     tanh_z intraday_liquidity                      intraday_rs|ivol_20d                                -intraday_proxy / (abs(vol_proxy)+1)   75757   0.012642   74181 0.645715     1
+                    alpha_fs2_intraday_pressure_proxy__ema3                 fs2_intraday_pressure_proxy       ema3 intraday_liquidity                         intraday_pressure                        intraday_pressure or fallback intraday proxy   76727   0.000000   76727 0.566992     1
+                    alpha_fs2_intraday_pressure_proxy__lag1                 fs2_intraday_pressure_proxy       lag1 intraday_liquidity                         intraday_pressure                        intraday_pressure or fallback intraday proxy   76630   0.001264   76521 0.994832     1
+                     alpha_fs2_intraday_pressure_proxy__raw                 fs2_intraday_pressure_proxy        raw intraday_liquidity                         intraday_pressure                        intraday_pressure or fallback intraday proxy   76727   0.000000   76617 0.994832     1
+              alpha_fs2_intraday_pressure_proxy__signed_log                 fs2_intraday_pressure_proxy signed_log intraday_liquidity                         intraday_pressure                        intraday_pressure or fallback intraday proxy   76727   0.000000   76617 0.569663     1
+                  alpha_fs2_intraday_pressure_proxy__tanh_z                 fs2_intraday_pressure_proxy     tanh_z intraday_liquidity                         intraday_pressure                        intraday_pressure or fallback intraday proxy   76727   0.000000   75034 0.649191     1
+                   alpha_fs2_intraday_pressure_rs_mix__ema3                fs2_intraday_pressure_rs_mix       ema3 intraday_liquidity                               intraday_rs                                      0.5*pressure + 0.5*intraday_rs   76630   0.001264   76630 0.188940     1
+                   alpha_fs2_intraday_pressure_rs_mix__lag1                fs2_intraday_pressure_rs_mix       lag1 intraday_liquidity                               intraday_rs                                      0.5*pressure + 0.5*intraday_rs   76533   0.002528   76532 0.326502     1
+                    alpha_fs2_intraday_pressure_rs_mix__raw                fs2_intraday_pressure_rs_mix        raw intraday_liquidity                               intraday_rs                                      0.5*pressure + 0.5*intraday_rs   76630   0.001264   76629 0.326634     1
+             alpha_fs2_intraday_pressure_rs_mix__signed_log                fs2_intraday_pressure_rs_mix signed_log intraday_liquidity                               intraday_rs                                      0.5*pressure + 0.5*intraday_rs   76630   0.001264   76629 0.232503     1
+                 alpha_fs2_intraday_pressure_rs_mix__tanh_z                fs2_intraday_pressure_rs_mix     tanh_z intraday_liquidity                               intraday_rs                                      0.5*pressure + 0.5*intraday_rs   76630   0.001264   75024 0.645921     1
+             alpha_fs2_intraday_range_expansion_proxy__ema3          fs2_intraday_range_expansion_proxy       ema3 intraday_liquidity                 intraday_rs|rel_volume_20                                   abs(intraday_proxy)*(1+abs(rvol))   75854   0.011378   75854 1.560605     1
+             alpha_fs2_intraday_range_expansion_proxy__lag1          fs2_intraday_range_expansion_proxy       lag1 intraday_liquidity                 intraday_rs|rel_volume_20                                   abs(intraday_proxy)*(1+abs(rvol))   75757   0.012642   75757 2.292579     1
+              alpha_fs2_intraday_range_expansion_proxy__raw          fs2_intraday_range_expansion_proxy        raw intraday_liquidity                 intraday_rs|rel_volume_20                                   abs(intraday_proxy)*(1+abs(rvol))   75854   0.011378   75854 2.293102     1
+       alpha_fs2_intraday_range_expansion_proxy__signed_log          fs2_intraday_range_expansion_proxy signed_log intraday_liquidity                 intraday_rs|rel_volume_20                                   abs(intraday_proxy)*(1+abs(rvol))   75854   0.011378   75854 0.527213     1
+           alpha_fs2_intraday_range_expansion_proxy__tanh_z          fs2_intraday_range_expansion_proxy     tanh_z intraday_liquidity                 intraday_rs|rel_volume_20                                   abs(intraday_proxy)*(1+abs(rvol))   75854   0.011378   73902 0.629510     1
+                 alpha_fs2_intraday_reversal_pressure__ema3              fs2_intraday_reversal_pressure       ema3 intraday_liquidity                               intraday_rs                                  -intraday_rs*(1+intraday_pressure)   76630   0.001264   76630 1.727510     1
+                 alpha_fs2_intraday_reversal_pressure__lag1              fs2_intraday_reversal_pressure       lag1 intraday_liquidity                               intraday_rs                                  -intraday_rs*(1+intraday_pressure)   76533   0.002528   76532 2.583917     1
+                  alpha_fs2_intraday_reversal_pressure__raw              fs2_intraday_reversal_pressure        raw intraday_liquidity                               intraday_rs                                  -intraday_rs*(1+intraday_pressure)   76630   0.001264   76629 2.582901     1
+[ARTIFACT] data\alpha_library_fs2_base\alpha_library_fs2_base.parquet
+[ARTIFACT] data\alpha_library_fs2_base\alpha_library_fs2_base.manifest.csv
+[ARTIFACT] data\alpha_library_fs2_base\alpha_library_fs2_base.dropped.csv
+[ARTIFACT] data\alpha_library_fs2_base\alpha_library_fs2_base.meta.json
+
+
+
+
+--------------------------------------
+
+
+[ARTIFACT] data\alpha_library_fs2_base\alpha_library_fs2_base.manifest.csv
+
+
+alpha,base_feature,transform,cluster,source,formula,non_na,nan_ratio,unique,std,keep
+alpha_fs2_hl_vol_ratio_proxy__ema3,z_fs2_hl_vol_ratio_proxy,ema3,cs_zscore,fs2_hl_vol_ratio_proxy,cross-sectional zscore of fs2_hl_vol_ratio_proxy,76727,0.0,76630,0.5925000489964984,1
+alpha_fs2_hl_vol_ratio_proxy__lag1,z_fs2_hl_vol_ratio_proxy,lag1,cs_zscore,fs2_hl_vol_ratio_proxy,cross-sectional zscore of fs2_hl_vol_ratio_proxy,76630,0.0012642225031605564,76630,0.994832006747614,1
+alpha_fs2_hl_vol_ratio_proxy__raw,z_fs2_hl_vol_ratio_proxy,raw,cs_zscore,fs2_hl_vol_ratio_proxy,cross-sectional zscore of fs2_hl_vol_ratio_proxy,76630,0.0012642225031605564,76630,0.994832006747614,1
+alpha_fs2_hl_vol_ratio_proxy__signed_log,z_fs2_hl_vol_ratio_proxy,signed_log,cs_zscore,fs2_hl_vol_ratio_proxy,cross-sectional zscore of fs2_hl_vol_ratio_proxy,76630,0.0012642225031605564,76630,0.35547711845278723,1
+alpha_fs2_overnight_vs_intraday_vol_ratio_proxy__ema3,z_fs2_overnight_vs_intraday_vol_ratio_proxy,ema3,cs_zscore,fs2_overnight_vs_intraday_vol_ratio_proxy,cross-sectional zscore of fs2_overnight_vs_intraday_vol_ratio_proxy,76630,0.0012642225031605564,76533,0.5680203581195258,1
+alpha_fs2_overnight_vs_intraday_vol_ratio_proxy__lag1,z_fs2_overnight_vs_intraday_vol_ratio_proxy,lag1,cs_zscore,fs2_overnight_vs_intraday_vol_ratio_proxy,cross-sectional zscore of fs2_overnight_vs_intraday_vol_ratio_proxy,76533,0.0025284450063211127,76533,0.9948320067476139,1
+alpha_fs2_overnight_vs_intraday_vol_ratio_proxy__raw,z_fs2_overnight_vs_intraday_vol_ratio_proxy,raw,cs_zscore,fs2_overnight_vs_intraday_vol_ratio_proxy,cross-sectional zscore of fs2_overnight_vs_intraday_vol_ratio_proxy,76533,0.0025284450063211127,76533,0.994832006747614,1
+alpha_fs2_overnight_vs_intraday_vol_ratio_proxy__signed_log,z_fs2_overnight_vs_intraday_vol_ratio_proxy,signed_log,cs_zscore,fs2_overnight_vs_intraday_vol_ratio_proxy,cross-sectional zscore of fs2_overnight_vs_intraday_vol_ratio_proxy,76533,0.0025284450063211127,76533,0.394734079488199,1
+alpha_fs2_pressure_dispersion_mix__ema3,z_fs2_pressure_dispersion_mix,ema3,cs_zscore,fs2_pressure_dispersion_mix,cross-sectional zscore of fs2_pressure_dispersion_mix,76727,0.0,76630,0.5801145920108227,1
+alpha_fs2_pressure_dispersion_mix__lag1,z_fs2_pressure_dispersion_mix,lag1,cs_zscore,fs2_pressure_dispersion_mix,cross-sectional zscore of fs2_pressure_dispersion_mix,76630,0.0012642225031605564,76521,0.994832006747614,1
+alpha_fs2_pressure_dispersion_mix__raw,z_fs2_pressure_dispersion_mix,raw,cs_zscore,fs2_pressure_dispersion_mix,cross-sectional zscore of fs2_pressure_dispersion_mix,76630,0.0012642225031605564,76521,0.994832006747614,1
+alpha_fs2_pressure_dispersion_mix__signed_log,z_fs2_pressure_dispersion_mix,signed_log,cs_zscore,fs2_pressure_dispersion_mix,cross-sectional zscore of fs2_pressure_dispersion_mix,76630,0.0012642225031605564,76521,0.5813097027196766,1
+alpha_fs2_dollar_vol_accel_proxy__ema3,fs2_dollar_vol_accel_proxy,ema3,intraday_liquidity,liq,mean_5(liq)-mean_20(liq),76242,0.006321112515802781,76242,0.20330980128672413,1
+alpha_fs2_dollar_vol_accel_proxy__lag1,fs2_dollar_vol_accel_proxy,lag1,intraday_liquidity,liq,mean_5(liq)-mean_20(liq),76145,0.007585335018963337,76145,0.22238468677063747,1
+alpha_fs2_dollar_vol_accel_proxy__raw,fs2_dollar_vol_accel_proxy,raw,intraday_liquidity,liq,mean_5(liq)-mean_20(liq),76242,0.006321112515802781,76242,0.22232346495296762,1
+alpha_fs2_dollar_vol_accel_proxy__signed_log,fs2_dollar_vol_accel_proxy,signed_log,intraday_liquidity,liq,mean_5(liq)-mean_20(liq),76242,0.006321112515802781,76242,0.1876200342200068,1
+alpha_fs2_dollar_vol_accel_proxy__tanh_z,fs2_dollar_vol_accel_proxy,tanh_z,intraday_liquidity,liq,mean_5(liq)-mean_20(liq),76242,0.006321112515802781,74675,0.6376243597457414,1
+alpha_fs2_gap_fill_fraction_proxy__ema3,fs2_gap_fill_fraction_proxy,ema3,intraday_liquidity,intraday_rs|ivol_20d,-intraday_proxy / (abs(vol_proxy)+1),75757,0.012642225031605562,75757,0.5576933348390616,1
+alpha_fs2_gap_fill_fraction_proxy__lag1,fs2_gap_fill_fraction_proxy,lag1,intraday_liquidity,intraday_rs|ivol_20d,-intraday_proxy / (abs(vol_proxy)+1),75660,0.01390644753476612,75660,0.9667757295025737,1
+alpha_fs2_gap_fill_fraction_proxy__raw,fs2_gap_fill_fraction_proxy,raw,intraday_liquidity,intraday_rs|ivol_20d,-intraday_proxy / (abs(vol_proxy)+1),75757,0.012642225031605562,75757,0.9667722910646643,1
+alpha_fs2_gap_fill_fraction_proxy__signed_log,fs2_gap_fill_fraction_proxy,signed_log,intraday_liquidity,intraday_rs|ivol_20d,-intraday_proxy / (abs(vol_proxy)+1),75757,0.012642225031605562,75757,0.5493995683619192,1
+alpha_fs2_gap_fill_fraction_proxy__tanh_z,fs2_gap_fill_fraction_proxy,tanh_z,intraday_liquidity,intraday_rs|ivol_20d,-intraday_proxy / (abs(vol_proxy)+1),75757,0.012642225031605562,74181,0.6457149216402911,1
+alpha_fs2_intraday_pressure_proxy__ema3,fs2_intraday_pressure_proxy,ema3,intraday_liquidity,intraday_pressure,intraday_pressure or fallback intraday proxy,76727,0.0,76727,0.5669918862761789,1
+alpha_fs2_intraday_pressure_proxy__lag1,fs2_intraday_pressure_proxy,lag1,intraday_liquidity,intraday_pressure,intraday_pressure or fallback intraday proxy,76630,0.0012642225031605564,76521,0.9948320066629502,1
+alpha_fs2_intraday_pressure_proxy__raw,fs2_intraday_pressure_proxy,raw,intraday_liquidity,intraday_pressure,intraday_pressure or fallback intraday proxy,76727,0.0,76617,0.9948320066629815,1
+alpha_fs2_intraday_pressure_proxy__signed_log,fs2_intraday_pressure_proxy,signed_log,intraday_liquidity,intraday_pressure,intraday_pressure or fallback intraday proxy,76727,0.0,76617,0.5696631454431009,1
+alpha_fs2_intraday_pressure_proxy__tanh_z,fs2_intraday_pressure_proxy,tanh_z,intraday_liquidity,intraday_pressure,intraday_pressure or fallback intraday proxy,76727,0.0,75034,0.649191441865352,1
+alpha_fs2_intraday_pressure_rs_mix__ema3,fs2_intraday_pressure_rs_mix,ema3,intraday_liquidity,intraday_rs,0.5*pressure + 0.5*intraday_rs,76630,0.0012642225031605564,76630,0.1889395408640364,1
+alpha_fs2_intraday_pressure_rs_mix__lag1,fs2_intraday_pressure_rs_mix,lag1,intraday_liquidity,intraday_rs,0.5*pressure + 0.5*intraday_rs,76533,0.0025284450063211127,76532,0.3265016742875509,1
+alpha_fs2_intraday_pressure_rs_mix__raw,fs2_intraday_pressure_rs_mix,raw,intraday_liquidity,intraday_rs,0.5*pressure + 0.5*intraday_rs,76630,0.0012642225031605564,76629,0.3266335747605963,1
+alpha_fs2_intraday_pressure_rs_mix__signed_log,fs2_intraday_pressure_rs_mix,signed_log,intraday_liquidity,intraday_rs,0.5*pressure + 0.5*intraday_rs,76630,0.0012642225031605564,76629,0.23250331994871526,1
+alpha_fs2_intraday_pressure_rs_mix__tanh_z,fs2_intraday_pressure_rs_mix,tanh_z,intraday_liquidity,intraday_rs,0.5*pressure + 0.5*intraday_rs,76630,0.0012642225031605564,75024,0.6459214080551182,1
+alpha_fs2_intraday_range_expansion_proxy__ema3,fs2_intraday_range_expansion_proxy,ema3,intraday_liquidity,intraday_rs|rel_volume_20,abs(intraday_proxy)*(1+abs(rvol)),75854,0.011378002528445006,75854,1.5606054006336982,1
+alpha_fs2_intraday_range_expansion_proxy__lag1,fs2_intraday_range_expansion_proxy,lag1,intraday_liquidity,intraday_rs|rel_volume_20,abs(intraday_proxy)*(1+abs(rvol)),75757,0.012642225031605562,75757,2.292579260926717,1
+alpha_fs2_intraday_range_expansion_proxy__raw,fs2_intraday_range_expansion_proxy,raw,intraday_liquidity,intraday_rs|rel_volume_20,abs(intraday_proxy)*(1+abs(rvol)),75854,0.011378002528445006,75854,2.293101936321841,1
+alpha_fs2_intraday_range_expansion_proxy__signed_log,fs2_intraday_range_expansion_proxy,signed_log,intraday_liquidity,intraday_rs|rel_volume_20,abs(intraday_proxy)*(1+abs(rvol)),75854,0.011378002528445006,75854,0.52721299402735,1
+alpha_fs2_intraday_range_expansion_proxy__tanh_z,fs2_intraday_range_expansion_proxy,tanh_z,intraday_liquidity,intraday_rs|rel_volume_20,abs(intraday_proxy)*(1+abs(rvol)),75854,0.011378002528445006,73902,0.6295096527659304,1
+alpha_fs2_intraday_reversal_pressure__ema3,fs2_intraday_reversal_pressure,ema3,intraday_liquidity,intraday_rs,-intraday_rs*(1+intraday_pressure),76630,0.0012642225031605564,76630,1.7275098132075728,1
+alpha_fs2_intraday_reversal_pressure__lag1,fs2_intraday_reversal_pressure,lag1,intraday_liquidity,intraday_rs,-intraday_rs*(1+intraday_pressure),76533,0.0025284450063211127,76532,2.583917455234719,1
+alpha_fs2_intraday_reversal_pressure__raw,fs2_intraday_reversal_pressure,raw,intraday_liquidity,intraday_rs,-intraday_rs*(1+intraday_pressure),76630,0.0012642225031605564,76629,2.5829006272419646,1
+alpha_fs2_intraday_reversal_pressure__signed_log,fs2_intraday_reversal_pressure,signed_log,intraday_liquidity,intraday_rs,-intraday_rs*(1+intraday_pressure),76630,0.0012642225031605564,76629,0.6611615408994362,1
+alpha_fs2_intraday_reversal_pressure__tanh_z,fs2_intraday_reversal_pressure,tanh_z,intraday_liquidity,intraday_rs,-intraday_rs*(1+intraday_pressure),76630,0.0012642225031605564,73690,0.6560457945240574,1
+alpha_fs2_intraday_rs_proxy__ema3,fs2_intraday_rs_proxy,ema3,intraday_liquidity,intraday_rs,intraday_rs or fallback intraday proxy,76630,0.0012642225031605564,76630,0.5744643376973516,1
+alpha_fs2_intraday_rs_proxy__lag1,fs2_intraday_rs_proxy,lag1,intraday_liquidity,intraday_rs,intraday_rs or fallback intraday proxy,76533,0.0025284450063211127,76459,0.994832006680408,1
+alpha_fs2_intraday_rs_proxy__raw,fs2_intraday_rs_proxy,raw,intraday_liquidity,intraday_rs,intraday_rs or fallback intraday proxy,76630,0.0012642225031605564,76556,0.9948320066804484,1
+alpha_fs2_intraday_rs_proxy__signed_log,fs2_intraday_rs_proxy,signed_log,intraday_liquidity,intraday_rs,intraday_rs or fallback intraday proxy,76630,0.0012642225031605564,76556,0.5577230500484234,1
+alpha_fs2_intraday_rs_proxy__tanh_z,fs2_intraday_rs_proxy,tanh_z,intraday_liquidity,intraday_rs,intraday_rs or fallback intraday proxy,76630,0.0012642225031605564,74957,0.645913072875871,1
+alpha_fs2_intraday_strength_liq_interaction__ema3,fs2_intraday_strength_liq_interaction,ema3,intraday_liquidity,intraday_rs|liq,intraday_rs * signed_log(liq),76630,0.0012642225031605564,76630,1.7763920268652684,1
+alpha_fs2_intraday_strength_liq_interaction__lag1,fs2_intraday_strength_liq_interaction,lag1,intraday_liquidity,intraday_rs|liq,intraday_rs * signed_log(liq),76533,0.0025284450063211127,76533,3.075653050554642,1
+alpha_fs2_intraday_strength_liq_interaction__raw,fs2_intraday_strength_liq_interaction,raw,intraday_liquidity,intraday_rs|liq,intraday_rs * signed_log(liq),76630,0.0012642225031605564,76630,3.075710490942395,1
+alpha_fs2_intraday_strength_liq_interaction__signed_log,fs2_intraday_strength_liq_interaction,signed_log,intraday_liquidity,intraday_rs|liq,intraday_rs * signed_log(liq),76630,0.0012642225031605564,76630,1.0899802898209665,1
+alpha_fs2_intraday_strength_liq_interaction__tanh_z,fs2_intraday_strength_liq_interaction,tanh_z,intraday_liquidity,intraday_rs|liq,intraday_rs * signed_log(liq),76630,0.0012642225031605564,75032,0.6461250633565262,1
+alpha_fs2_intraday_strength_rvol_interaction__ema3,fs2_intraday_strength_rvol_interaction,ema3,intraday_liquidity,intraday_rs|rel_volume_20,intraday_rs * signed_log(rvol),75854,0.011378002528445006,75854,0.5312965079348314,1
+alpha_fs2_intraday_strength_rvol_interaction__lag1,fs2_intraday_strength_rvol_interaction,lag1,intraday_liquidity,intraday_rs|rel_volume_20,intraday_rs * signed_log(rvol),75757,0.012642225031605562,75757,0.914047636736345,1
+alpha_fs2_intraday_strength_rvol_interaction__raw,fs2_intraday_strength_rvol_interaction,raw,intraday_liquidity,intraday_rs|rel_volume_20,intraday_rs * signed_log(rvol),75854,0.011378002528445006,75854,0.9142870573058771,1
+alpha_fs2_intraday_strength_rvol_interaction__signed_log,fs2_intraday_strength_rvol_interaction,signed_log,intraday_liquidity,intraday_rs|rel_volume_20,intraday_rs * signed_log(rvol),75854,0.011378002528445006,75854,0.46376207757259663,1
+alpha_fs2_intraday_strength_rvol_interaction__tanh_z,fs2_intraday_strength_rvol_interaction,tanh_z,intraday_liquidity,intraday_rs|rel_volume_20,intraday_rs * signed_log(rvol),75854,0.011378002528445006,74078,0.6526678960078001,1
+alpha_fs2_range_compression_streak__ema3,fs2_range_compression_streak,ema3,vol_structure,ivol_20d,mean_5(abs(vol))/mean_60(abs(vol)),73914,0.03666245259165613,73914,0.2939632666880292,1
+alpha_fs2_range_compression_streak__lag1,fs2_range_compression_streak,lag1,vol_structure,ivol_20d,mean_5(abs(vol))/mean_60(abs(vol)),73817,0.03792667509481669,73817,0.29860867935609936,1
+alpha_fs2_range_compression_streak__raw,fs2_range_compression_streak,raw,vol_structure,ivol_20d,mean_5(abs(vol))/mean_60(abs(vol)),73914,0.03666245259165613,73914,0.2985999012857448,1
+alpha_fs2_range_compression_streak__signed_log,fs2_range_compression_streak,signed_log,vol_structure,ivol_20d,mean_5(abs(vol))/mean_60(abs(vol)),73914,0.03666245259165613,73914,0.1406650023258147,1
+alpha_fs2_range_compression_streak__tanh_z,fs2_range_compression_streak,tanh_z,vol_structure,ivol_20d,mean_5(abs(vol))/mean_60(abs(vol)),73914,0.03666245259165613,72395,0.6310243539658906,1
+alpha_fs2_realized_vol_accel__ema3,fs2_realized_vol_accel,ema3,vol_structure,ivol_20d,mean_5(abs(vol))-mean_20(abs(vol)),75272,0.018963337547408345,75272,0.004195510212988517,1
+alpha_fs2_realized_vol_accel__lag1,fs2_realized_vol_accel,lag1,vol_structure,ivol_20d,mean_5(abs(vol))-mean_20(abs(vol)),75175,0.020227560050568902,75175,0.004308728785936912,1
+alpha_fs2_realized_vol_accel__raw,fs2_realized_vol_accel,raw,vol_structure,ivol_20d,mean_5(abs(vol))-mean_20(abs(vol)),75272,0.018963337547408345,75272,0.004307596035190264,1
+alpha_fs2_realized_vol_accel__signed_log,fs2_realized_vol_accel,signed_log,vol_structure,ivol_20d,mean_5(abs(vol))-mean_20(abs(vol)),75272,0.018963337547408345,75272,0.004263701819933843,1
+alpha_fs2_realized_vol_accel__tanh_z,fs2_realized_vol_accel,tanh_z,vol_structure,ivol_20d,mean_5(abs(vol))-mean_20(abs(vol)),75272,0.018963337547408345,73634,0.6535591123200305,1
+alpha_fs2_shock_reversion_ratio__ema3,fs2_shock_reversion_ratio,ema3,vol_structure,ivol_20d,vol_proxy / mean_20(abs(vol_proxy)),75272,0.018963337547408345,75272,0.21688443831557622,1
+alpha_fs2_shock_reversion_ratio__lag1,fs2_shock_reversion_ratio,lag1,vol_structure,ivol_20d,vol_proxy / mean_20(abs(vol_proxy)),75175,0.020227560050568902,75175,0.2285299348684224,1
+alpha_fs2_shock_reversion_ratio__raw,fs2_shock_reversion_ratio,raw,vol_structure,ivol_20d,vol_proxy / mean_20(abs(vol_proxy)),75272,0.018963337547408345,75272,0.22848947678964013,1
+alpha_fs2_shock_reversion_ratio__signed_log,fs2_shock_reversion_ratio,signed_log,vol_structure,ivol_20d,vol_proxy / mean_20(abs(vol_proxy)),75272,0.018963337547408345,75272,0.11072154690054188,1
+alpha_fs2_shock_reversion_ratio__tanh_z,fs2_shock_reversion_ratio,tanh_z,vol_structure,ivol_20d,vol_proxy / mean_20(abs(vol_proxy)),75272,0.018963337547408345,73725,0.6366165839592598,1
+alpha_fs2_vol_liq_mix__ema3,fs2_vol_liq_mix,ema3,vol_structure,ivol_20d|liq,signed_log(abs(vol)+1)-signed_log(abs(liq)+1),75757,0.012642225031605562,75757,0.06213968876949585,1
+alpha_fs2_vol_liq_mix__lag1,fs2_vol_liq_mix,lag1,vol_structure,ivol_20d|liq,signed_log(abs(vol)+1)-signed_log(abs(liq)+1),75660,0.01390644753476612,75660,0.06306642758709713,1
+alpha_fs2_vol_liq_mix__raw,fs2_vol_liq_mix,raw,vol_structure,ivol_20d|liq,signed_log(abs(vol)+1)-signed_log(abs(liq)+1),75757,0.012642225031605562,75757,0.06307584919106622,1
+alpha_fs2_vol_liq_mix__signed_log,fs2_vol_liq_mix,signed_log,vol_structure,ivol_20d|liq,signed_log(abs(vol)+1)-signed_log(abs(liq)+1),75757,0.012642225031605562,75757,0.018580568162580607,1
+alpha_fs2_vol_liq_mix__tanh_z,fs2_vol_liq_mix,tanh_z,vol_structure,ivol_20d|liq,signed_log(abs(vol)+1)-signed_log(abs(liq)+1),75757,0.012642225031605562,74200,0.6586124208584803,1
+alpha_fs2_vol_of_vol_short__ema3,fs2_vol_of_vol_short,ema3,vol_structure,ivol_20d,std_5(vol_proxy),75563,0.015170670037926675,75563,0.0012410743862097174,1
+alpha_fs2_vol_of_vol_short__lag1,fs2_vol_of_vol_short,lag1,vol_structure,ivol_20d,std_5(vol_proxy),75466,0.01643489254108723,75466,0.0014362463446972282,1
+alpha_fs2_vol_of_vol_short__raw,fs2_vol_of_vol_short,raw,vol_structure,ivol_20d,std_5(vol_proxy),75563,0.015170670037926675,75563,0.0014366453931224997,1
+alpha_fs2_vol_of_vol_short__signed_log,fs2_vol_of_vol_short,signed_log,vol_structure,ivol_20d,std_5(vol_proxy),75563,0.015170670037926675,75563,0.0014278662086681748,1
+alpha_fs2_vol_of_vol_short__tanh_z,fs2_vol_of_vol_short,tanh_z,vol_structure,ivol_20d,std_5(vol_proxy),75563,0.015170670037926675,73442,0.6353615268382686,1
+
+
+
+--------------------------------------
+
+
+[ARTIFACT] data\alpha_library_fs2_base\alpha_library_fs2_base.dropped.csv
+
+
+
+
+
+--------------------------------------
+
+
+[ARTIFACT] data\alpha_library_fs2_base\alpha_library_fs2_base.meta.json
+
+
+
+{
+  "rows": 76727,
+  "columns": 90,
+  "safe_base_features": 31,
+  "dropped_base_features": 19,
+  "recipes_requested": 82,
+  "alphas_kept": 82,
+  "alphas_dropped": 0,
+  "clusters": {
+    "cs_zscore": 12,
+    "intraday_liquidity": 45,
+    "vol_structure": 25
+  },
+  "filters": {
+    "include_z_features": 1,
+    "exclude_target_derived": 1,
+    "exclude_market_wide_constants": 1,
+    "min_non_na": 200,
+    "max_nan_ratio": 0.995,
+    "min_unique": 5
+  },
+  "transforms": {
+    "raw": 1,
+    "signed_log": 1,
+    "ema3": 1,
+    "lag1": 1,
+    "tanh_z": 1
+  },
+  "inputs": {
+    "feature_v2_file": "data\\features\\feature_matrix_v2.parquet",
+    "feature_v2_manifest": "data\\features\\feature_matrix_v2_manifest.csv",
+    "feature_v2_diag_csv": "data\\features\\feature_matrix_v2_diag.csv"
+  }
+}
