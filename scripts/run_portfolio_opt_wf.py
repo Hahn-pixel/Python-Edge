@@ -139,18 +139,23 @@ ENABLE_TREND_GATE = str(os.getenv("ENABLE_TREND_GATE", "1")).strip().lower() not
 ENABLE_DYNAMIC_BUDGETS = str(os.getenv("ENABLE_DYNAMIC_BUDGETS", "0")).strip().lower() not in {"0", "false", "no", "off"}
 ENABLE_REGIME_MULTIPLIERS = str(os.getenv("ENABLE_REGIME_MULTIPLIERS", "0")).strip().lower() not in {"0", "false", "no", "off"}
 COMPONENT_OVERRIDE = [x.strip() for x in str(os.getenv("COMPONENT_OVERRIDE", "")).split("|") if x.strip()]
-ENABLE_DYNAMIC_GROSS = str(os.getenv("ENABLE_DYNAMIC_GROSS", "1")).strip().lower() not in {"0", "false", "no", "off"}
-DYN_GROSS_TREND_HI_MULT = float(os.getenv("DYN_GROSS_TREND_HI_MULT", "1.00"))
-DYN_GROSS_TREND_LO_MULT = float(os.getenv("DYN_GROSS_TREND_LO_MULT", "0.20"))
-DYN_GROSS_NEUTRAL_MULT = float(os.getenv("DYN_GROSS_NEUTRAL_MULT", "0.50"))
-DYN_GROSS_MIN = float(os.getenv("DYN_GROSS_MIN", "0.00"))
-DYN_GROSS_MAX = float(os.getenv("DYN_GROSS_MAX", "1.00"))
 AUTO_BUILD_FS2_IF_MISSING = str(os.getenv("AUTO_BUILD_FS2_IF_MISSING", "1")).strip().lower() not in {"0", "false", "no", "off"}
 FS2_ENABLE_RAW = str(os.getenv("FS2_ENABLE_RAW", "1")).strip().lower() not in {"0", "false", "no", "off"}
 FS2_ENABLE_SIGNED_LOG = str(os.getenv("FS2_ENABLE_SIGNED_LOG", "1")).strip().lower() not in {"0", "false", "no", "off"}
 FS2_ENABLE_EMA3 = str(os.getenv("FS2_ENABLE_EMA3", "1")).strip().lower() not in {"0", "false", "no", "off"}
 FS2_ENABLE_LAG1 = str(os.getenv("FS2_ENABLE_LAG1", "1")).strip().lower() not in {"0", "false", "no", "off"}
 FS2_ENABLE_TANH_Z = str(os.getenv("FS2_ENABLE_TANH_Z", "1")).strip().lower() not in {"0", "false", "no", "off"}
+ENABLE_DYNAMIC_GROSS = str(os.getenv("ENABLE_DYNAMIC_GROSS", "1")).strip().lower() not in {"0", "false", "no", "off"}
+DYN_GROSS_TREND_HI_MULT = float(os.getenv("DYN_GROSS_TREND_HI_MULT", "1.00"))
+DYN_GROSS_TREND_LO_MULT = float(os.getenv("DYN_GROSS_TREND_LO_MULT", "0.20"))
+DYN_GROSS_NEUTRAL_MULT = float(os.getenv("DYN_GROSS_NEUTRAL_MULT", "0.50"))
+DYN_GROSS_MIN = float(os.getenv("DYN_GROSS_MIN", "0.00"))
+DYN_GROSS_MAX = float(os.getenv("DYN_GROSS_MAX", "1.00"))
+ENABLE_MR_LEG = str(os.getenv("ENABLE_MR_LEG", "1")).strip().lower() not in {"0", "false", "no", "off"}
+MR_GROSS_MULT = float(os.getenv("MR_GROSS_MULT", "0.35"))
+MR_WEIGHT = float(os.getenv("MR_WEIGHT", "0.50"))
+MR_COMPONENT_NAME = str(os.getenv("MR_COMPONENT_NAME", "")).strip()
+MR_ONLY_TREND_LO = str(os.getenv("MR_ONLY_TREND_LO", "1")).strip().lower() not in {"0", "false", "no", "off"}
 
 
 @dataclass(frozen=True)
@@ -168,6 +173,7 @@ class PortfolioSpec:
     weighting: str
     trend_gate: int
     component_count: int
+    mr_leg: int
 
 
 def _enable_line_buffering() -> None:
@@ -229,6 +235,11 @@ def _robust_zscore_series(s: pd.Series) -> pd.Series:
         std = float(valid.std(ddof=0))
         out = (x - mean) / (std + EPS)
     return out.replace([np.inf, -np.inf], np.nan)
+
+
+def _cs_zscore_by_date(df: pd.DataFrame, values: pd.Series) -> pd.Series:
+    tmp = pd.DataFrame({"date": df["date"].values, "v": _num(values).values}, index=df.index)
+    return tmp.groupby("date", sort=False)["v"].transform(_robust_zscore_series)
 
 
 def _safe_mean(values: Sequence[float]) -> float:
@@ -428,14 +439,10 @@ def _auto_build_requested_alpha_columns(df: pd.DataFrame, alpha_names: Sequence[
             continue
         body = str(alpha)[len("alpha_"):]
         family, transform = body.rsplit("__", 1)
-        if family not in out.columns:
-            zcol = f"z_{family}"
-            if zcol in out.columns:
-                base = _num(out[zcol])
-            else:
-                continue
-        else:
-            base = _num(out[family])
+        base_col = family if family in out.columns else f"z_{family}" if f"z_{family}" in out.columns else None
+        if base_col is None:
+            continue
+        base = _num(out[base_col])
         if transform == "raw":
             built[alpha] = base
         elif transform == "signed_log":
@@ -445,7 +452,7 @@ def _auto_build_requested_alpha_columns(df: pd.DataFrame, alpha_names: Sequence[
         elif transform == "lag1":
             built[alpha] = _lag1_by_symbol(out.assign(_x=base), "_x")
         elif transform == "tanh_z":
-            built[alpha] = np.tanh(out.groupby("date", sort=False)[family if family in out.columns else f"z_{family}"].transform(_robust_zscore_series))
+            built[alpha] = np.tanh(_cs_zscore_by_date(out, base))
     if built:
         out = pd.concat([out, pd.DataFrame(built, index=out.index)], axis=1).copy()
     still_missing = [a for a in alpha_names if a not in out.columns]
@@ -486,7 +493,7 @@ def _load_feature_panel(components_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _build_candidate_signal(df: pd.DataFrame, alpha_col: str, regime_col: str, kind: str) -> pd.Series:
-    alpha_z = df.groupby("date", sort=False)[alpha_col].transform(_robust_zscore_series)
+    alpha_z = _cs_zscore_by_date(df, _num(df[alpha_col]))
     if kind == "base" or regime_col == "none":
         return alpha_z
     regime = _num(df[regime_col]).fillna(0.0)
@@ -517,7 +524,16 @@ def _portfolio_weights(spec: PortfolioSpec, comp_train_info: pd.DataFrame) -> Di
     return {k: float(v / total) for k, v in vals.items()} if total > 0.0 else {k: 1.0 / len(vals) for k in vals}
 
 
-def _build_portfolio_scores(test_df: pd.DataFrame, signal_cols: Dict[str, pd.Series], weights: Dict[str, float], trend_gate: int) -> pd.DataFrame:
+def _mr_source_candidate(components_df: pd.DataFrame) -> str:
+    if MR_COMPONENT_NAME:
+        return MR_COMPONENT_NAME
+    for cand in components_df["candidate"].astype(str).tolist():
+        if "intraday_strength_rvol_interaction" in cand:
+            return cand
+    return str(components_df["candidate"].iloc[0])
+
+
+def _build_portfolio_scores(test_df: pd.DataFrame, signal_cols: Dict[str, pd.Series], weights: Dict[str, float], trend_gate: int, mr_signal: pd.Series | None) -> pd.DataFrame:
     out = test_df[["date", "symbol", TARGET_COL]].copy()
     score = pd.Series(0.0, index=test_df.index, dtype="float64")
     contrib_cols: Dict[str, pd.Series] = {}
@@ -525,12 +541,27 @@ def _build_portfolio_scores(test_df: pd.DataFrame, signal_cols: Dict[str, pd.Ser
         contrib = _num(signal_cols[cand]) * float(w)
         contrib_cols[f"contrib__{cand}"] = contrib
         score = score + contrib
-    out["score_raw"] = score
+    out["trend_score_raw"] = score
     if trend_gate == 1 and "regime_trend_hi" in test_df.columns:
-        out["score_raw"] = _num(out["score_raw"]) * _num(test_df["regime_trend_hi"]).fillna(0.0)
-    out["score"] = out.groupby("date", sort=False)["score_raw"].transform(_robust_zscore_series)
+        out["trend_score_raw"] = _num(out["trend_score_raw"]) * _num(test_df["regime_trend_hi"]).fillna(0.0)
+    out["mr_score_raw"] = 0.0
+    out["mr_enabled"] = 0
+    if mr_signal is not None:
+        mr = _num(mr_signal)
+        if MR_ONLY_TREND_LO and "regime_trend_lo" in test_df.columns:
+            mask = _num(test_df["regime_trend_lo"]).fillna(0.0)
+            out["mr_score_raw"] = mr * mask * float(MR_WEIGHT)
+            out["mr_enabled"] = (mask > 0.0).astype(int)
+        else:
+            neutral_mask = 1.0 - _num(test_df.get("regime_trend_hi", pd.Series(0.0, index=test_df.index))).fillna(0.0)
+            out["mr_score_raw"] = mr * neutral_mask * float(MR_WEIGHT)
+            out["mr_enabled"] = (neutral_mask > 0.0).astype(int)
+    out["score_raw"] = _num(out["trend_score_raw"]) + _num(out["mr_score_raw"])
+    out["score"] = _cs_zscore_by_date(out, _num(out["score_raw"]))
     for k, v in contrib_cols.items():
         out[k] = v.values
+    if mr_signal is not None:
+        out["contrib__mr_leg"] = _num(out["mr_score_raw"]).values
     return out
 
 
@@ -546,7 +577,7 @@ def _apply_optional_overlays(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-def _build_portfolio(scored_df: pd.DataFrame) -> pd.DataFrame:
+def _build_portfolio(scored_df: pd.DataFrame, mr_leg: int) -> pd.DataFrame:
     base = scored_df.copy()
     base["score"] = _num(base["score"]).fillna(0.0)
     base = _apply_optional_overlays(base)
@@ -569,6 +600,7 @@ def _build_portfolio(scored_df: pd.DataFrame) -> pd.DataFrame:
             gg.loc[long_mask, "weight"] = _num(gg.loc[long_mask, "weight"]) * float(_num(gg["regime_long_mult"]).iloc[0])
             gg.loc[short_mask, "weight"] = _num(gg.loc[short_mask, "weight"]) * float(_num(gg["regime_short_mult"]).iloc[0])
         gg["weight"] = _num(gg["weight"]).clip(lower=-WEIGHT_CAP, upper=WEIGHT_CAP)
+
         dynamic_gross_target = float(GROSS_TARGET)
         gross_reason = "static"
         if ENABLE_DYNAMIC_GROSS:
@@ -578,8 +610,8 @@ def _build_portfolio(scored_df: pd.DataFrame) -> pd.DataFrame:
                 dynamic_gross_target = float(GROSS_TARGET) * float(DYN_GROSS_TREND_HI_MULT)
                 gross_reason = "trend_hi"
             elif trend_lo >= 0.5:
-                dynamic_gross_target = float(GROSS_TARGET) * float(DYN_GROSS_TREND_LO_MULT)
-                gross_reason = "trend_lo"
+                dynamic_gross_target = float(GROSS_TARGET) * (float(MR_GROSS_MULT) if mr_leg == 1 else float(DYN_GROSS_TREND_LO_MULT))
+                gross_reason = "trend_lo_mr" if mr_leg == 1 else "trend_lo"
             else:
                 dynamic_gross_target = float(GROSS_TARGET) * float(DYN_GROSS_NEUTRAL_MULT)
                 gross_reason = "neutral"
@@ -646,18 +678,16 @@ def _portfolio_specs(max_components: int) -> List[PortfolioSpec]:
     if ENABLE_SHARPE_WEIGHT:
         weightings.append("sharpe")
     gate_options = [0, 1] if ENABLE_TREND_GATE else [0]
-    for n in range(2, max_components + 1):
+    mr_options = [0, 1] if ENABLE_MR_LEG else [0]
+    for n in range(1, max_components + 1):
         for weighting in weightings:
             for gate in gate_options:
-                specs.append(PortfolioSpec(name=f"pf__n{n}__{weighting}__trendgate{gate}", weighting=weighting, trend_gate=gate, component_count=n))
-    if max_components >= 1:
-        for weighting in weightings:
-            for gate in gate_options:
-                specs.append(PortfolioSpec(name=f"pf__n1__{weighting}__trendgate{gate}", weighting=weighting, trend_gate=gate, component_count=1))
+                for mr in mr_options:
+                    specs.append(PortfolioSpec(name=f"pf__n{n}__{weighting}__trendgate{gate}__mr{mr}", weighting=weighting, trend_gate=gate, component_count=n, mr_leg=mr))
     return specs
 
 
-def _build_component_signals(train_df: pd.DataFrame, test_df: pd.DataFrame, components_df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def _build_component_signals(train_df: pd.DataFrame, test_df: pd.DataFrame, components_df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, str]:
     info_rows: List[Dict[str, object]] = []
     train_signal_cols: Dict[str, pd.Series] = {}
     test_signal_cols: Dict[str, pd.Series] = {}
@@ -669,8 +699,8 @@ def _build_component_signals(train_df: pd.DataFrame, test_df: pd.DataFrame, comp
         kind = str(rec["kind"])
         train_signal_raw = _build_candidate_signal(train_df, alpha, regime, kind)
         test_signal_raw = _build_candidate_signal(test_df, alpha, regime, kind)
-        train_signal = train_df.groupby("date", sort=False).apply(lambda g: _robust_zscore_series(train_signal_raw.loc[g.index])).reset_index(level=0, drop=True)
-        test_signal = test_df.groupby("date", sort=False).apply(lambda g: _robust_zscore_series(test_signal_raw.loc[g.index])).reset_index(level=0, drop=True)
+        train_signal = _cs_zscore_by_date(train_df, train_signal_raw)
+        test_signal = _cs_zscore_by_date(test_df, test_signal_raw)
 
         train_scored = pd.DataFrame({
             "date": train_df["date"].values,
@@ -692,10 +722,11 @@ def _build_component_signals(train_df: pd.DataFrame, test_df: pd.DataFrame, comp
         train_signal_cols[candidate] = _num(train_signal) * float(sign_info["train_sign_locked"])
         test_signal_cols[candidate] = _num(test_signal) * float(sign_info["train_sign_locked"])
 
+    mr_source = _mr_source_candidate(components_df)
     train_sig_df = pd.concat([train_df[["date", "symbol", TARGET_COL]].copy(), pd.DataFrame(train_signal_cols, index=train_df.index)], axis=1)
     test_sig_df = pd.concat([test_df[["date", "symbol", TARGET_COL]].copy(), pd.DataFrame(test_signal_cols, index=test_df.index)], axis=1)
     info_df = pd.DataFrame(info_rows)
-    return train_sig_df, test_sig_df, info_df
+    return train_sig_df, test_sig_df, info_df, mr_source
 
 
 def _run_fold(df: pd.DataFrame, components_df: pd.DataFrame, split: WFSplit) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
@@ -705,19 +736,25 @@ def _run_fold(df: pd.DataFrame, components_df: pd.DataFrame, split: WFSplit) -> 
     if len(test_df) < MIN_TEST_ROWS:
         raise RuntimeError(f"Fold {split.fold_id}: too few test rows: {len(test_df)}")
 
-    train_sig_df, test_sig_df, comp_train_info = _build_component_signals(train_df, test_df, components_df)
+    train_sig_df, test_sig_df, comp_train_info, mr_source = _build_component_signals(train_df, test_df, components_df)
     specs = _portfolio_specs(max_components=min(len(components_df), COMPONENT_COUNT_LIMIT))
     result_rows: List[Dict[str, object]] = []
     daily_frames: List[pd.DataFrame] = []
     contrib_frames: List[pd.DataFrame] = []
     info_out = comp_train_info.copy()
     info_out["fold_id"] = int(split.fold_id)
+    info_out["mr_source_candidate"] = mr_source
 
     for spec in specs:
         chosen = comp_train_info.head(spec.component_count).copy()
         weights = _portfolio_weights(spec, chosen)
-        scored = _build_portfolio_scores(test_df, {cand: test_sig_df[cand] for cand in weights.keys()}, weights, spec.trend_gate)
-        port_df = _build_portfolio(scored)
+        mr_signal = None
+        if spec.mr_leg == 1:
+            if mr_source not in test_sig_df.columns:
+                raise RuntimeError(f"MR source candidate not found in test signals: {mr_source}")
+            mr_signal = -1.0 * _num(test_sig_df[mr_source])
+        scored = _build_portfolio_scores(test_df, {cand: test_sig_df[cand] for cand in weights.keys()}, weights, spec.trend_gate, mr_signal)
+        port_df = _build_portfolio(scored, spec.mr_leg)
         daily_df, summary = _evaluate_portfolio(port_df)
         daily_df["fold_id"] = int(split.fold_id)
         daily_df["portfolio"] = spec.name
@@ -731,6 +768,8 @@ def _run_fold(df: pd.DataFrame, components_df: pd.DataFrame, split: WFSplit) -> 
             "weighting": spec.weighting,
             "trend_gate": int(spec.trend_gate),
             "component_count": int(spec.component_count),
+            "mr_leg": int(spec.mr_leg),
+            "mr_source_candidate": mr_source if spec.mr_leg == 1 else "none",
             "components": "|".join(chosen["candidate"].astype(str).tolist()),
             "weights": json.dumps(weights, ensure_ascii=False, sort_keys=True),
             **summary,
@@ -761,6 +800,8 @@ def _summarize_portfolios(portfolio_fold_df: pd.DataFrame) -> pd.DataFrame:
             "weighting": str(g["weighting"].iloc[0]),
             "trend_gate": int(pd.to_numeric(g["trend_gate"], errors="coerce").iloc[0]),
             "component_count": int(pd.to_numeric(g["component_count"], errors="coerce").iloc[0]),
+            "mr_leg": int(pd.to_numeric(g["mr_leg"], errors="coerce").iloc[0]),
+            "mr_source_candidate": str(g["mr_source_candidate"].iloc[0]),
             "components": str(g["components"].iloc[0]),
             "folds": int(len(g)),
             "oos_sharpe_mean": _safe_mean(g["sharpe"].tolist()),
@@ -794,6 +835,7 @@ def main() -> int:
     print(f"[CFG] overlays dynamic_budgets={int(ENABLE_DYNAMIC_BUDGETS)} regime_multipliers={int(ENABLE_REGIME_MULTIPLIERS)}")
     print(f"[CFG] auto_build_fs2_if_missing={int(AUTO_BUILD_FS2_IF_MISSING)}")
     print(f"[CFG] dynamic_gross={int(ENABLE_DYNAMIC_GROSS)} trend_hi_mult={DYN_GROSS_TREND_HI_MULT} trend_lo_mult={DYN_GROSS_TREND_LO_MULT} neutral_mult={DYN_GROSS_NEUTRAL_MULT} min={DYN_GROSS_MIN} max={DYN_GROSS_MAX}")
+    print(f"[CFG] mr_leg={int(ENABLE_MR_LEG)} mr_weight={MR_WEIGHT} mr_gross_mult={MR_GROSS_MULT} mr_component_name={MR_COMPONENT_NAME!r} mr_only_trend_lo={int(MR_ONLY_TREND_LO)}")
 
     components_df = _load_component_universe()
     print("[COMPONENTS][SELECTED]")
@@ -879,6 +921,11 @@ def main() -> int:
             "dyn_gross_neutral_mult": DYN_GROSS_NEUTRAL_MULT,
             "dyn_gross_min": DYN_GROSS_MIN,
             "dyn_gross_max": DYN_GROSS_MAX,
+            "mr_leg": int(ENABLE_MR_LEG),
+            "mr_weight": MR_WEIGHT,
+            "mr_gross_mult": MR_GROSS_MULT,
+            "mr_component_name": MR_COMPONENT_NAME,
+            "mr_only_trend_lo": int(MR_ONLY_TREND_LO),
         },
         "modules": {
             "holding_inertia": int(HAS_HOLDING_INERTIA),
