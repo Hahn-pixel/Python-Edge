@@ -1,0 +1,110 @@
+[FOLD 1][pf__n1__equal__trendgate0__mr0__cont1] sharpe=-2.6076 mean_ic=-0.01553 sign_stability=0.4706 maxdd=-0.0000 turnover=0.0000
+[FOLD 1][pf__n1__equal__trendgate0__mr1__cont1] sharpe=-2.9638 mean_ic=-0.00826 sign_stability=0.4694 maxdd=-0.0000 turnover=0.0000
+[FOLD 1][pf__n1__ic__trendgate0__mr0__cont1] sharpe=-2.6076 mean_ic=-0.01553 sign_stability=0.4706 maxdd=-0.0000 turnover=0.0000
+[FOLD 1][pf__n1__ic__trendgate0__mr1__cont1] sharpe=-2.9638 mean_ic=-0.00826 sign_stability=0.4694 maxdd=-0.0000 turnover=0.0000
+[FOLD 1][pf__n1__sharpe__trendgate0__mr0__cont1] sharpe=-2.6076 mean_ic=-0.01553 sign_stability=0.4706 maxdd=-0.0000 turnover=0.0000
+[FOLD 1][pf__n1__sharpe__trendgate0__mr1__cont1] sharpe=-2.9638 mean_ic=-0.00826 sign_stability=0.4694 maxdd=-0.0000 turnover=0.0000
+[FOLD 1][pf__n2__equal__trendgate0__mr0__cont1] sharpe=-2.7139 mean_ic=-0.01547 sign_stability=0.4706 maxdd=-0.0000 turnover=0.0000
+[FOLD 1][pf__n2__equal__trendgate0__mr1__cont1] sharpe=-3.0896 mean_ic=-0.00824 sign_stability=0.4694 maxdd=-0.0000 turnover=0.0000
+[FOLD 1][pf__n2__ic__trendgate0__mr0__cont1] sharpe=-2.7139 mean_ic=-0.01543 sign_stability=0.4706 maxdd=-0.0000 turnover=0.0000
+[FOLD 1][pf__n2__ic__trendgate0__mr1__cont1] sharpe=-3.0896 mean_ic=-0.00823 sign_stability=0.4694 maxdd=-0.0000 turnover=0.0000
+[FOLD 1][pf__n2__sharpe__trendgate0__mr0__cont1] sharpe=-2.7139 mean_ic=-0.01547 sign_stability=0.4706 maxdd=-0.0000 turnover=0.0000
+[FOLD 1][pf__n2__sharpe__trendgate0__mr1__cont1] sharpe=-3.0896 mean_ic=-0.00824 sign_stability=0.4694 maxdd=-0.0000 turnover=0.0000
+[FOLD 2][pf__n1__equal__trendgate0__mr0__cont1] sharpe=-2.2804 mean_ic=-0.02545 sign_stability=0.4500 maxdd=-0.0000 turnover=0.0000
+[FOLD 2][pf__n1__equal__trendgate0__mr1__cont1] sharpe=-3.1017 mean_ic=0.00815 sign_stability=0.5490 maxdd=-0.0000 turnover=0.0000
+[FOLD 2][pf__n1__ic__trendgate0__mr0__cont1] sharpe=-2.2804 mean_ic=-0.02545 sign_stability=0.4500 maxdd=-0.0000 turnover=0.0000
+[FOLD 2][pf__n1__ic__trendgate0__mr1__cont1] sharpe=-3.1017 mean_ic=0.00815 sign_stability=0.5490 maxdd=-0.0000 turnover=0.0000
+[FOLD 2][pf__n1__sharpe__trendgate0__mr0__cont1] sharpe=-2.2804 mean_ic=-0.02545 sign_stability=0.4500 maxdd=-0.0000 turnover=0.0000
+[FOLD 2][pf__n1__sharpe__trendgate0__mr1__cont1] sharpe=-3.1017 mean_ic=0.00815 sign_stability=0.5490 maxdd=-0.0000 turnover=0.0000
+[FOLD 2][pf__n2__equal__trendgate0__mr0__cont1] sharpe=-2.5622 mean_ic=0.00779 sign_stability=0.4500 maxdd=-0.0000 turnover=0.0000
+[FOLD 2][pf__n2__equal__trendgate0__mr1__cont1] sharpe=-3.5272 mean_ic=0.02119 sign_stability=0.5490 maxdd=-0.0000 turnover=0.0000
+[FOLD 2][pf__n2__ic__trendgate0__mr0__cont1] sharpe=-3.0749 mean_ic=0.00556 sign_stability=0.4500 maxdd=-0.0000 turnover=0.0000
+[FOLD 2][pf__n2__ic__trendgate0__mr1__cont1] sharpe=-4.0315 mean_ic=0.02031 sign_stability=0.5490 maxdd=-0.0000 turnover=0.0000
+[FOLD 2][pf__n2__sharpe__trendgate0__mr0__cont1] sharpe=-2.4958 mean_ic=0.00742 sign_stability=0.4500 maxdd=-0.0000 turnover=0.0000
+[FOLD 2][pf__n2__sharpe__trendgate0__mr1__cont1] sharpe=-3.2342 mean_ic=0.02104 sign_stability=0.5490 maxdd=-0.0000 turnover=0.0000
+[FOLD 3][pf__n1__equal__trendgate0__mr0__cont1] sharpe=-0.1951 mean_ic=0.00810 sign_stability=0.3125 maxdd=-0.0000 turnover=0.0000
+[FOLD 3][pf__n1__equal__trendgate0__mr1__cont1] sharpe=1.1635 mean_ic=0.05227 sign_stability=0.5333 maxdd=-0.0000 turnover=0.0000
+[FOLD 3][pf__n1__ic__trendgate0__mr0__cont1] sharpe=-0.1951 mean_ic=0.00810 sign_stability=0.3125 maxdd=-0.0000 turnover=0.0000
+[FOLD 3][pf__n1__ic__trendgate0__mr1__cont1] sharpe=1.1635 mean_ic=0.05227 sign_stability=0.5333 maxdd=-0.0000 turnover=0.0000
+[FOLD 3][pf__n1__sharpe__trendgate0__mr0__cont1] sharpe=-0.1951 mean_ic=0.00810 sign_stability=0.3125 maxdd=-0.0000 turnover=0.0000
+[FOLD 3][pf__n1__sharpe__trendgate0__mr1__cont1] sharpe=1.1635 mean_ic=0.05227 sign_stability=0.5333 maxdd=-0.0000 turnover=0.0000
+[FOLD 3][pf__n2__equal__trendgate0__mr0__cont1] sharpe=-0.1797 mean_ic=0.00797 sign_stability=0.3125 maxdd=-0.0000 turnover=0.0000
+[FOLD 3][pf__n2__equal__trendgate0__mr1__cont1] sharpe=1.1985 mean_ic=0.05222 sign_stability=0.5333 maxdd=-0.0000 turnover=0.0000
+[FOLD 3][pf__n2__ic__trendgate0__mr0__cont1] sharpe=-0.1800 mean_ic=0.00795 sign_stability=0.3125 maxdd=-0.0000 turnover=0.0000
+[FOLD 3][pf__n2__ic__trendgate0__mr1__cont1] sharpe=1.1986 mean_ic=0.05222 sign_stability=0.5333 maxdd=-0.0000 turnover=0.0000
+[FOLD 3][pf__n2__sharpe__trendgate0__mr0__cont1] sharpe=-0.1795 mean_ic=0.00800 sign_stability=0.3125 maxdd=-0.0000 turnover=0.0000
+[FOLD 3][pf__n2__sharpe__trendgate0__mr1__cont1] sharpe=1.1985 mean_ic=0.05223 sign_stability=0.5333 maxdd=-0.0000 turnover=0.0000
+[FOLD 4][pf__n1__equal__trendgate0__mr0__cont1] sharpe=-0.2638 mean_ic=0.09713 sign_stability=0.6842 maxdd=-0.0000 turnover=0.0000
+[FOLD 4][pf__n1__equal__trendgate0__mr1__cont1] sharpe=-1.3644 mean_ic=0.04321 sign_stability=0.6222 maxdd=-0.0000 turnover=0.0000
+[FOLD 4][pf__n1__ic__trendgate0__mr0__cont1] sharpe=-0.2638 mean_ic=0.09713 sign_stability=0.6842 maxdd=-0.0000 turnover=0.0000
+[FOLD 4][pf__n1__ic__trendgate0__mr1__cont1] sharpe=-1.3644 mean_ic=0.04321 sign_stability=0.6222 maxdd=-0.0000 turnover=0.0000
+[FOLD 4][pf__n1__sharpe__trendgate0__mr0__cont1] sharpe=-0.2638 mean_ic=0.09713 sign_stability=0.6842 maxdd=-0.0000 turnover=0.0000
+[FOLD 4][pf__n1__sharpe__trendgate0__mr1__cont1] sharpe=-1.3644 mean_ic=0.04321 sign_stability=0.6222 maxdd=-0.0000 turnover=0.0000
+[FOLD 4][pf__n2__equal__trendgate0__mr0__cont1] sharpe=-0.1245 mean_ic=0.09898 sign_stability=0.6842 maxdd=-0.0000 turnover=0.0000
+[FOLD 4][pf__n2__equal__trendgate0__mr1__cont1] sharpe=-1.2093 mean_ic=0.04399 sign_stability=0.6222 maxdd=-0.0000 turnover=0.0000
+[FOLD 4][pf__n2__ic__trendgate0__mr0__cont1] sharpe=-0.1240 mean_ic=0.09892 sign_stability=0.6842 maxdd=-0.0000 turnover=0.0000
+[FOLD 4][pf__n2__ic__trendgate0__mr1__cont1] sharpe=-1.2089 mean_ic=0.04397 sign_stability=0.6222 maxdd=-0.0000 turnover=0.0000
+[FOLD 4][pf__n2__sharpe__trendgate0__mr0__cont1] sharpe=-0.1242 mean_ic=0.09894 sign_stability=0.6842 maxdd=-0.0000 turnover=0.0000
+[FOLD 4][pf__n2__sharpe__trendgate0__mr1__cont1] sharpe=-1.2090 mean_ic=0.04398 sign_stability=0.6222 maxdd=-0.0000 turnover=0.0000
+[FOLD 5][pf__n1__equal__trendgate0__mr0__cont1] sharpe=-0.3224 mean_ic=0.00516 sign_stability=0.5000 maxdd=-0.0000 turnover=0.0000
+[FOLD 5][pf__n1__equal__trendgate0__mr1__cont1] sharpe=0.0965 mean_ic=0.08350 sign_stability=0.5614 maxdd=-0.0000 turnover=0.0000
+[FOLD 5][pf__n1__ic__trendgate0__mr0__cont1] sharpe=-0.3224 mean_ic=0.00516 sign_stability=0.5000 maxdd=-0.0000 turnover=0.0000
+[FOLD 5][pf__n1__ic__trendgate0__mr1__cont1] sharpe=0.0965 mean_ic=0.08350 sign_stability=0.5614 maxdd=-0.0000 turnover=0.0000
+[FOLD 5][pf__n1__sharpe__trendgate0__mr0__cont1] sharpe=-0.3224 mean_ic=0.00516 sign_stability=0.5000 maxdd=-0.0000 turnover=0.0000
+[FOLD 5][pf__n1__sharpe__trendgate0__mr1__cont1] sharpe=0.0965 mean_ic=0.08350 sign_stability=0.5614 maxdd=-0.0000 turnover=0.0000
+[FOLD 5][pf__n2__equal__trendgate0__mr0__cont1] sharpe=-0.2715 mean_ic=0.00640 sign_stability=0.5000 maxdd=-0.0000 turnover=0.0000
+[FOLD 5][pf__n2__equal__trendgate0__mr1__cont1] sharpe=0.1363 mean_ic=0.08411 sign_stability=0.5614 maxdd=-0.0000 turnover=0.0000
+[FOLD 5][pf__n2__ic__trendgate0__mr0__cont1] sharpe=-0.2715 mean_ic=0.00639 sign_stability=0.5000 maxdd=-0.0000 turnover=0.0000
+[FOLD 5][pf__n2__ic__trendgate0__mr1__cont1] sharpe=0.1363 mean_ic=0.08410 sign_stability=0.5614 maxdd=-0.0000 turnover=0.0000
+[FOLD 5][pf__n2__sharpe__trendgate0__mr0__cont1] sharpe=-0.2715 mean_ic=0.00640 sign_stability=0.5000 maxdd=-0.0000 turnover=0.0000
+[FOLD 5][pf__n2__sharpe__trendgate0__mr1__cont1] sharpe=0.1363 mean_ic=0.08411 sign_stability=0.5614 maxdd=-0.0000 turnover=0.0000
+[FOLD 6][pf__n1__equal__trendgate0__mr0__cont1] sharpe=0.1550 mean_ic=0.01876 sign_stability=0.4583 maxdd=-0.0000 turnover=0.0000
+[FOLD 6][pf__n1__equal__trendgate0__mr1__cont1] sharpe=0.9096 mean_ic=-0.01329 sign_stability=0.4000 maxdd=-0.0000 turnover=0.0000
+[FOLD 6][pf__n1__ic__trendgate0__mr0__cont1] sharpe=0.1550 mean_ic=0.01876 sign_stability=0.4583 maxdd=-0.0000 turnover=0.0000
+[FOLD 6][pf__n1__ic__trendgate0__mr1__cont1] sharpe=0.9096 mean_ic=-0.01329 sign_stability=0.4000 maxdd=-0.0000 turnover=0.0000
+[FOLD 6][pf__n1__sharpe__trendgate0__mr0__cont1] sharpe=0.1550 mean_ic=0.01876 sign_stability=0.4583 maxdd=-0.0000 turnover=0.0000
+[FOLD 6][pf__n1__sharpe__trendgate0__mr1__cont1] sharpe=0.9096 mean_ic=-0.01329 sign_stability=0.4000 maxdd=-0.0000 turnover=0.0000
+[FOLD 6][pf__n2__equal__trendgate0__mr0__cont1] sharpe=0.1402 mean_ic=0.01893 sign_stability=0.4583 maxdd=-0.0000 turnover=0.0000
+[FOLD 6][pf__n2__equal__trendgate0__mr1__cont1] sharpe=0.8120 mean_ic=-0.01320 sign_stability=0.4000 maxdd=-0.0000 turnover=0.0000
+[FOLD 6][pf__n2__ic__trendgate0__mr0__cont1] sharpe=0.1402 mean_ic=0.01889 sign_stability=0.4583 maxdd=-0.0000 turnover=0.0000
+[FOLD 6][pf__n2__ic__trendgate0__mr1__cont1] sharpe=0.8120 mean_ic=-0.01322 sign_stability=0.4000 maxdd=-0.0000 turnover=0.0000
+[FOLD 6][pf__n2__sharpe__trendgate0__mr0__cont1] sharpe=0.1402 mean_ic=0.01893 sign_stability=0.4583 maxdd=-0.0000 turnover=0.0000
+[FOLD 6][pf__n2__sharpe__trendgate0__mr1__cont1] sharpe=0.8120 mean_ic=-0.01320 sign_stability=0.4000 maxdd=-0.0000 turnover=0.0000
+[FOLD 7][pf__n1__equal__trendgate0__mr0__cont1] sharpe=-1.8159 mean_ic=0.03943 sign_stability=0.5000 maxdd=-0.0000 turnover=0.0000
+[FOLD 7][pf__n1__equal__trendgate0__mr1__cont1] sharpe=-2.3373 mean_ic=-0.00269 sign_stability=0.5400 maxdd=-0.0000 turnover=0.0000
+[FOLD 7][pf__n1__ic__trendgate0__mr0__cont1] sharpe=-1.8159 mean_ic=0.03943 sign_stability=0.5000 maxdd=-0.0000 turnover=0.0000
+[FOLD 7][pf__n1__ic__trendgate0__mr1__cont1] sharpe=-2.3373 mean_ic=-0.00269 sign_stability=0.5400 maxdd=-0.0000 turnover=0.0000
+[FOLD 7][pf__n1__sharpe__trendgate0__mr0__cont1] sharpe=-1.8159 mean_ic=0.03943 sign_stability=0.5000 maxdd=-0.0000 turnover=0.0000
+[FOLD 7][pf__n1__sharpe__trendgate0__mr1__cont1] sharpe=-2.3373 mean_ic=-0.00269 sign_stability=0.5400 maxdd=-0.0000 turnover=0.0000
+[FOLD 7][pf__n2__equal__trendgate0__mr0__cont1] sharpe=-2.0524 mean_ic=0.03709 sign_stability=0.5000 maxdd=-0.0000 turnover=0.0000
+[FOLD 7][pf__n2__equal__trendgate0__mr1__cont1] sharpe=-2.6012 mean_ic=-0.00343 sign_stability=0.5400 maxdd=-0.0000 turnover=0.0000
+[FOLD 7][pf__n2__ic__trendgate0__mr0__cont1] sharpe=-2.0523 mean_ic=0.03709 sign_stability=0.5000 maxdd=-0.0000 turnover=0.0000
+[FOLD 7][pf__n2__ic__trendgate0__mr1__cont1] sharpe=-2.6012 mean_ic=-0.00343 sign_stability=0.5400 maxdd=-0.0000 turnover=0.0000
+[FOLD 7][pf__n2__sharpe__trendgate0__mr0__cont1] sharpe=-2.0524 mean_ic=0.03709 sign_stability=0.5000 maxdd=-0.0000 turnover=0.0000
+[FOLD 7][pf__n2__sharpe__trendgate0__mr1__cont1] sharpe=-2.6012 mean_ic=-0.00343 sign_stability=0.5400 maxdd=-0.0000 turnover=0.0000
+[FOLD 8][pf__n1__equal__trendgate0__mr0__cont1] sharpe=-1.1596 mean_ic=0.02761 sign_stability=0.7037 maxdd=-0.0000 turnover=0.0000
+[FOLD 8][pf__n1__equal__trendgate0__mr1__cont1] sharpe=-1.3788 mean_ic=0.02017 sign_stability=0.5962 maxdd=-0.0000 turnover=0.0000
+[FOLD 8][pf__n1__ic__trendgate0__mr0__cont1] sharpe=-1.1596 mean_ic=0.02761 sign_stability=0.7037 maxdd=-0.0000 turnover=0.0000
+[FOLD 8][pf__n1__ic__trendgate0__mr1__cont1] sharpe=-1.3788 mean_ic=0.02017 sign_stability=0.5962 maxdd=-0.0000 turnover=0.0000
+[FOLD 8][pf__n1__sharpe__trendgate0__mr0__cont1] sharpe=-1.1596 mean_ic=0.02761 sign_stability=0.7037 maxdd=-0.0000 turnover=0.0000
+[FOLD 8][pf__n1__sharpe__trendgate0__mr1__cont1] sharpe=-1.3788 mean_ic=0.02017 sign_stability=0.5962 maxdd=-0.0000 turnover=0.0000
+[FOLD 8][pf__n2__equal__trendgate0__mr0__cont1] sharpe=-0.9481 mean_ic=0.02960 sign_stability=0.7037 maxdd=-0.0000 turnover=0.0000
+[FOLD 8][pf__n2__equal__trendgate0__mr1__cont1] sharpe=-1.1922 mean_ic=0.02120 sign_stability=0.5962 maxdd=-0.0000 turnover=0.0000
+[FOLD 8][pf__n2__ic__trendgate0__mr0__cont1] sharpe=-0.9480 mean_ic=0.02961 sign_stability=0.7037 maxdd=-0.0000 turnover=0.0000
+[FOLD 8][pf__n2__ic__trendgate0__mr1__cont1] sharpe=-1.1920 mean_ic=0.02121 sign_stability=0.5962 maxdd=-0.0000 turnover=0.0000
+[FOLD 8][pf__n2__sharpe__trendgate0__mr0__cont1] sharpe=-0.9481 mean_ic=0.02960 sign_stability=0.7037 maxdd=-0.0000 turnover=0.0000
+[FOLD 8][pf__n2__sharpe__trendgate0__mr1__cont1] sharpe=-1.1922 mean_ic=0.02120 sign_stability=0.5962 maxdd=-0.0000 turnover=0.0000
+[SUMMARY][PORTFOLIOS]
+                             portfolio weighting  trend_gate  component_count  mr_leg  continuous_scaling                                    mr_alpha_source                                                                                                                                         components  folds  oos_sharpe_mean  last_fold_sharpe  last_2_fold_mean_sharpe  test_mean_ic  sign_stability  tail_positive_rate  max_drawdown  turnover_mean  positive_sharpe_fraction  avg_dynamic_gross_target
+ pf__n1__equal__trendgate0__mr0__cont1     equal           0                1       0                   1                                               none                                                                          gate::alpha_fs2_intraday_strength_rvol_interaction__lag1::regime_trend_hi      8        -1.061226         -1.159639                -1.487775      0.019402        0.509917            0.455876     -0.000002       0.000005                     0.125                  0.195638
+    pf__n1__ic__trendgate0__mr0__cont1        ic           0                1       0                   1                                               none                                                                          gate::alpha_fs2_intraday_strength_rvol_interaction__lag1::regime_trend_hi      8        -1.061226         -1.159639                -1.487775      0.019402        0.509917            0.455876     -0.000002       0.000005                     0.125                  0.195638
+pf__n1__sharpe__trendgate0__mr0__cont1    sharpe           0                1       0                   1                                               none                                                                          gate::alpha_fs2_intraday_strength_rvol_interaction__lag1::regime_trend_hi      8        -1.061226         -1.159639                -1.487775      0.019402        0.509917            0.455876     -0.000002       0.000005                     0.125                  0.195638
+    pf__n2__ic__trendgate0__mr0__cont1        ic           0                2       0                   1                                               none gate::alpha_fs2_intraday_strength_rvol_interaction__lag1::regime_trend_hi|gate::alpha_fs2_intraday_strength_liq_interaction__lag1::regime_trend_hi      8        -1.153049         -0.947964                -1.500147      0.023624        0.509917            0.466293     -0.000002       0.000005                     0.125                  0.195638
+pf__n2__sharpe__trendgate0__mr0__cont1    sharpe           0                2       0                   1                                               none gate::alpha_fs2_intraday_strength_rvol_interaction__lag1::regime_trend_hi|gate::alpha_fs2_intraday_strength_liq_interaction__lag1::regime_trend_hi      8        -1.080647         -0.948137                -1.500248      0.023865        0.509917            0.478793     -0.000002       0.000005                     0.125                  0.195638
+ pf__n2__equal__trendgate0__mr0__cont1     equal           0                2       0                   1                                               none gate::alpha_fs2_intraday_strength_rvol_interaction__lag1::regime_trend_hi|gate::alpha_fs2_intraday_strength_liq_interaction__lag1::regime_trend_hi      8        -1.089026         -0.948137                -1.500248      0.023912        0.509917            0.466293     -0.000002       0.000005                     0.125                  0.195638
+ pf__n1__equal__trendgate0__mr1__cont1     equal           0                1       1                   1 alpha_fs2_intraday_strength_rvol_interaction__lag1                                                                          gate::alpha_fs2_intraday_strength_rvol_interaction__lag1::regime_trend_hi      8        -1.122030         -1.378788                -1.858021      0.022882        0.533940            0.500815     -0.000002       0.000007                     0.375                  0.000004
+    pf__n1__ic__trendgate0__mr1__cont1        ic           0                1       1                   1 alpha_fs2_intraday_strength_rvol_interaction__lag1                                                                          gate::alpha_fs2_intraday_strength_rvol_interaction__lag1::regime_trend_hi      8        -1.122030         -1.378788                -1.858021      0.022882        0.533940            0.500815     -0.000002       0.000007                     0.375                  0.000004
+pf__n1__sharpe__trendgate0__mr1__cont1    sharpe           0                1       1                   1 alpha_fs2_intraday_strength_rvol_interaction__lag1                                                                          gate::alpha_fs2_intraday_strength_rvol_interaction__lag1::regime_trend_hi      8        -1.122030         -1.378788                -1.858021      0.022882        0.533940            0.500815     -0.000002       0.000007                     0.375                  0.000004
+    pf__n2__ic__trendgate0__mr1__cont1        ic           0                2       1                   1 alpha_fs2_intraday_strength_rvol_interaction__lag1 gate::alpha_fs2_intraday_strength_rvol_interaction__lag1::regime_trend_hi|gate::alpha_fs2_intraday_strength_liq_interaction__lag1::regime_trend_hi      8        -1.247032         -1.191999                -1.896600      0.024615        0.533940            0.505815     -0.000002       0.000007                     0.375                  0.000004
+pf__n2__sharpe__trendgate0__mr1__cont1    sharpe           0                2       1                   1 alpha_fs2_intraday_strength_rvol_interaction__lag1 gate::alpha_fs2_intraday_strength_rvol_interaction__lag1::regime_trend_hi|gate::alpha_fs2_intraday_strength_liq_interaction__lag1::regime_trend_hi      8        -1.147427         -1.192158                -1.896697      0.024709        0.533940            0.510717     -0.000002       0.000007                     0.375                  0.000004
+ pf__n2__equal__trendgate0__mr1__cont1     equal           0                2       1                   1 alpha_fs2_intraday_strength_rvol_interaction__lag1 gate::alpha_fs2_intraday_strength_rvol_interaction__lag1::regime_trend_hi|gate::alpha_fs2_intraday_strength_liq_interaction__lag1::regime_trend_hi      8        -1.184087         -1.192158                -1.896697      0.024728        0.533940            0.505815     -0.000002       0.000007                     0.375                  0.000004

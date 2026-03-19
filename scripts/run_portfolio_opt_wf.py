@@ -135,7 +135,10 @@ COMPONENT_COUNT_LIMIT = int(os.getenv("COMPONENT_COUNT_LIMIT", "3"))
 ENABLE_EQUAL_WEIGHT = str(os.getenv("ENABLE_EQUAL_WEIGHT", "1")).strip().lower() not in {"0", "false", "no", "off"}
 ENABLE_IC_WEIGHT = str(os.getenv("ENABLE_IC_WEIGHT", "1")).strip().lower() not in {"0", "false", "no", "off"}
 ENABLE_SHARPE_WEIGHT = str(os.getenv("ENABLE_SHARPE_WEIGHT", "1")).strip().lower() not in {"0", "false", "no", "off"}
-ENABLE_TREND_GATE = str(os.getenv("ENABLE_TREND_GATE", "1")).strip().lower() not in {"0", "false", "no", "off"}
+ENABLE_TREND_GATE = str(os.getenv("ENABLE_TREND_GATE", "0")).strip().lower() not in {"0", "false", "no", "off"}
+ENABLE_CONTINUOUS_REGIME_SCALING = str(os.getenv("ENABLE_CONTINUOUS_REGIME_SCALING", "1")).strip().lower() not in {"0", "false", "no", "off"}
+REGIME_STRENGTH_CLIP = float(os.getenv("REGIME_STRENGTH_CLIP", "2.0"))
+REGIME_STREND_POWER = float(os.getenv("REGIME_STREND_POWER", "1.0"))
 ENABLE_DYNAMIC_BUDGETS = str(os.getenv("ENABLE_DYNAMIC_BUDGETS", "0")).strip().lower() not in {"0", "false", "no", "off"}
 ENABLE_REGIME_MULTIPLIERS = str(os.getenv("ENABLE_REGIME_MULTIPLIERS", "0")).strip().lower() not in {"0", "false", "no", "off"}
 COMPONENT_OVERRIDE = [x.strip() for x in str(os.getenv("COMPONENT_OVERRIDE", "")).split("|") if x.strip()]
@@ -174,6 +177,7 @@ class PortfolioSpec:
     trend_gate: int
     component_count: int
     mr_leg: int
+    continuous_scaling: int
 
 
 def _enable_line_buffering() -> None:
@@ -422,6 +426,21 @@ def _build_explicit_regimes(df: pd.DataFrame) -> pd.DataFrame:
     _add_hi_lo("breadth", "breadth_proxy")
     trend_valid = _num(day_level["trend_proxy"]).fillna(0.0)
     day_level["regime_trend_pos"] = np.where(trend_valid >= 0.0, 1.0, 0.0)
+
+    trend_mu = _safe_nanmean(trend_valid.to_numpy(dtype="float64"))
+    trend_std = float(pd.to_numeric(trend_valid, errors="coerce").std(ddof=0))
+    if pd.isna(trend_std) or trend_std <= 0.0:
+        trend_z = pd.Series(0.0, index=day_level.index, dtype="float64")
+    else:
+        trend_z = (trend_valid - trend_mu) / (trend_std + EPS)
+    trend_z = trend_z.clip(lower=-REGIME_STRENGTH_CLIP, upper=REGIME_STRENGTH_CLIP)
+    trend_strength = (trend_z / REGIME_STRENGTH_CLIP).clip(lower=0.0, upper=1.0)
+    mr_strength = (-trend_z / REGIME_STRENGTH_CLIP).clip(lower=0.0, upper=1.0)
+    if REGIME_STREND_POWER != 1.0:
+        trend_strength = trend_strength.pow(REGIME_STREND_POWER)
+        mr_strength = mr_strength.pow(REGIME_STREND_POWER)
+    day_level["trend_strength"] = trend_strength.fillna(0.0)
+    day_level["mr_strength"] = mr_strength.fillna(0.0)
     return out.merge(day_level, on="date", how="left")
 
 
@@ -545,7 +564,7 @@ def _mr_alpha_source(components_df: pd.DataFrame) -> str:
     return str(components_df["alpha"].iloc[0])
 
 
-def _build_portfolio_scores(test_df: pd.DataFrame, signal_cols: Dict[str, pd.Series], weights: Dict[str, float], trend_gate: int, mr_signal: pd.Series | None) -> pd.DataFrame:
+def _build_portfolio_scores(test_df: pd.DataFrame, signal_cols: Dict[str, pd.Series], weights: Dict[str, float], trend_gate: int, mr_signal: pd.Series | None, continuous_scaling: int) -> pd.DataFrame:
     out = test_df[["date", "symbol", TARGET_COL]].copy()
     score = pd.Series(0.0, index=test_df.index, dtype="float64")
     contrib_cols: Dict[str, pd.Series] = {}
@@ -553,23 +572,35 @@ def _build_portfolio_scores(test_df: pd.DataFrame, signal_cols: Dict[str, pd.Ser
         contrib = _num(signal_cols[cand]) * float(w)
         contrib_cols[f"contrib__{cand}"] = contrib
         score = score + contrib
+    trend_strength = _num(test_df.get("trend_strength", pd.Series(0.0, index=test_df.index))).fillna(0.0)
+    mr_strength = _num(test_df.get("mr_strength", pd.Series(0.0, index=test_df.index))).fillna(0.0)
     out["trend_score_raw"] = score
-    if trend_gate == 1 and "regime_trend_hi" in test_df.columns:
+    if continuous_scaling == 1:
+        out["trend_score_raw"] = _num(out["trend_score_raw"]) * trend_strength
+    elif trend_gate == 1 and "regime_trend_hi" in test_df.columns:
         out["trend_score_raw"] = _num(out["trend_score_raw"]) * _num(test_df["regime_trend_hi"]).fillna(0.0)
     out["mr_score_raw"] = 0.0
     out["mr_enabled"] = 0
+    out["mr_strength_used"] = 0.0
     if mr_signal is not None:
         mr = _num(mr_signal)
-        if MR_ONLY_TREND_LO and "regime_trend_lo" in test_df.columns:
+        if continuous_scaling == 1:
+            out["mr_score_raw"] = mr * mr_strength * float(MR_WEIGHT)
+            out["mr_enabled"] = (mr_strength > 0.0).astype(int)
+            out["mr_strength_used"] = mr_strength
+        elif MR_ONLY_TREND_LO and "regime_trend_lo" in test_df.columns:
             mask = _num(test_df["regime_trend_lo"]).fillna(0.0)
             out["mr_score_raw"] = mr * mask * float(MR_WEIGHT)
             out["mr_enabled"] = (mask > 0.0).astype(int)
+            out["mr_strength_used"] = mask
         else:
             neutral_mask = 1.0 - _num(test_df.get("regime_trend_hi", pd.Series(0.0, index=test_df.index))).fillna(0.0)
             out["mr_score_raw"] = mr * neutral_mask * float(MR_WEIGHT)
             out["mr_enabled"] = (neutral_mask > 0.0).astype(int)
+            out["mr_strength_used"] = neutral_mask
     out["score_raw"] = _num(out["trend_score_raw"]) + _num(out["mr_score_raw"])
     out["score"] = _cs_zscore_by_date(out, _num(out["score_raw"]))
+    out["trend_strength_used"] = trend_strength if continuous_scaling == 1 else _num(test_df.get("regime_trend_hi", pd.Series(0.0, index=test_df.index))).fillna(0.0)
     for k, v in contrib_cols.items():
         out[k] = v.values
     if mr_signal is not None:
@@ -589,7 +620,7 @@ def _apply_optional_overlays(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-def _build_portfolio(scored_df: pd.DataFrame, mr_leg: int) -> pd.DataFrame:
+def _build_portfolio(scored_df: pd.DataFrame, mr_leg: int, continuous_scaling: int) -> pd.DataFrame:
     base = scored_df.copy()
     base["score"] = _num(base["score"]).fillna(0.0)
     base = _apply_optional_overlays(base)
@@ -616,17 +647,28 @@ def _build_portfolio(scored_df: pd.DataFrame, mr_leg: int) -> pd.DataFrame:
         dynamic_gross_target = float(GROSS_TARGET)
         gross_reason = "static"
         if ENABLE_DYNAMIC_GROSS:
-            trend_hi = float(_num(gg["regime_trend_hi"]).iloc[0]) if "regime_trend_hi" in gg.columns else 0.0
-            trend_lo = float(_num(gg["regime_trend_lo"]).iloc[0]) if "regime_trend_lo" in gg.columns else 0.0
-            if trend_hi >= 0.5:
-                dynamic_gross_target = float(GROSS_TARGET) * float(DYN_GROSS_TREND_HI_MULT)
-                gross_reason = "trend_hi"
-            elif trend_lo >= 0.5:
-                dynamic_gross_target = float(GROSS_TARGET) * (float(MR_GROSS_MULT) if mr_leg == 1 else float(DYN_GROSS_TREND_LO_MULT))
-                gross_reason = "trend_lo_mr" if mr_leg == 1 else "trend_lo"
+            if continuous_scaling == 1:
+                trend_strength = float(_num(gg.get("trend_strength_used", pd.Series(0.0, index=gg.index))).iloc[0])
+                mr_strength = float(_num(gg.get("mr_strength_used", pd.Series(0.0, index=gg.index))).iloc[0])
+                gross_mult = (trend_strength * float(DYN_GROSS_TREND_HI_MULT)) + (mr_strength * float(MR_GROSS_MULT))
+                if trend_strength <= 0.0 and mr_strength <= 0.0:
+                    gross_mult = float(DYN_GROSS_NEUTRAL_MULT)
+                    gross_reason = "neutral_cont"
+                else:
+                    gross_reason = "continuous_regime"
+                dynamic_gross_target = float(GROSS_TARGET) * gross_mult
             else:
-                dynamic_gross_target = float(GROSS_TARGET) * float(DYN_GROSS_NEUTRAL_MULT)
-                gross_reason = "neutral"
+                trend_hi = float(_num(gg["regime_trend_hi"]).iloc[0]) if "regime_trend_hi" in gg.columns else 0.0
+                trend_lo = float(_num(gg["regime_trend_lo"]).iloc[0]) if "regime_trend_lo" in gg.columns else 0.0
+                if trend_hi >= 0.5:
+                    dynamic_gross_target = float(GROSS_TARGET) * float(DYN_GROSS_TREND_HI_MULT)
+                    gross_reason = "trend_hi"
+                elif trend_lo >= 0.5:
+                    dynamic_gross_target = float(GROSS_TARGET) * (float(MR_GROSS_MULT) if mr_leg == 1 else float(DYN_GROSS_TREND_LO_MULT))
+                    gross_reason = "trend_lo_mr" if mr_leg == 1 else "trend_lo"
+                else:
+                    dynamic_gross_target = float(GROSS_TARGET) * float(DYN_GROSS_NEUTRAL_MULT)
+                    gross_reason = "neutral"
             dynamic_gross_target = max(float(DYN_GROSS_MIN), min(float(DYN_GROSS_MAX), dynamic_gross_target))
         gg["dynamic_gross_target"] = float(dynamic_gross_target)
         gg["dynamic_gross_reason"] = gross_reason
@@ -689,13 +731,16 @@ def _portfolio_specs(max_components: int) -> List[PortfolioSpec]:
         weightings.append("ic")
     if ENABLE_SHARPE_WEIGHT:
         weightings.append("sharpe")
-    gate_options = [0, 1] if ENABLE_TREND_GATE else [0]
+    gate_options = [0] if ENABLE_CONTINUOUS_REGIME_SCALING else ([0, 1] if ENABLE_TREND_GATE else [0])
+    scaling_options = [1] if ENABLE_CONTINUOUS_REGIME_SCALING else [0]
     mr_options = [0, 1] if ENABLE_MR_LEG else [0]
     for n in range(1, max_components + 1):
         for weighting in weightings:
             for gate in gate_options:
                 for mr in mr_options:
-                    specs.append(PortfolioSpec(name=f"pf__n{n}__{weighting}__trendgate{gate}__mr{mr}", weighting=weighting, trend_gate=gate, component_count=n, mr_leg=mr))
+                    for scaling in scaling_options:
+                        name = f"pf__n{n}__{weighting}__trendgate{gate}__mr{mr}__cont{scaling}"
+                        specs.append(PortfolioSpec(name=name, weighting=weighting, trend_gate=gate, component_count=n, mr_leg=mr, continuous_scaling=scaling))
     return specs
 
 
@@ -772,8 +817,8 @@ def _run_fold(df: pd.DataFrame, components_df: pd.DataFrame, split: WFSplit) -> 
         chosen = comp_train_info.head(spec.component_count).copy()
         weights = _portfolio_weights(spec, chosen)
         mr_signal = mr_signal_test if spec.mr_leg == 1 else None
-        scored = _build_portfolio_scores(test_df, {cand: test_sig_df[cand] for cand in weights.keys()}, weights, spec.trend_gate, mr_signal)
-        port_df = _build_portfolio(scored, spec.mr_leg)
+        scored = _build_portfolio_scores(test_df, {cand: test_sig_df[cand] for cand in weights.keys()}, weights, spec.trend_gate, mr_signal, spec.continuous_scaling)
+        port_df = _build_portfolio(scored, spec.mr_leg, spec.continuous_scaling)
         daily_df, summary = _evaluate_portfolio(port_df)
         daily_df["fold_id"] = int(split.fold_id)
         daily_df["portfolio"] = spec.name
@@ -788,6 +833,7 @@ def _run_fold(df: pd.DataFrame, components_df: pd.DataFrame, split: WFSplit) -> 
             "trend_gate": int(spec.trend_gate),
             "component_count": int(spec.component_count),
             "mr_leg": int(spec.mr_leg),
+            "continuous_scaling": int(spec.continuous_scaling),
             "mr_alpha_source": mr_alpha if spec.mr_leg == 1 else "none",
             "components": "|".join(chosen["candidate"].astype(str).tolist()),
             "weights": json.dumps(weights, ensure_ascii=False, sort_keys=True),
@@ -820,6 +866,7 @@ def _summarize_portfolios(portfolio_fold_df: pd.DataFrame) -> pd.DataFrame:
             "trend_gate": int(pd.to_numeric(g["trend_gate"], errors="coerce").iloc[0]),
             "component_count": int(pd.to_numeric(g["component_count"], errors="coerce").iloc[0]),
             "mr_leg": int(pd.to_numeric(g["mr_leg"], errors="coerce").iloc[0]),
+            "continuous_scaling": int(pd.to_numeric(g["continuous_scaling"], errors="coerce").iloc[0]),
             "mr_alpha_source": str(g["mr_alpha_source"].iloc[0]),
             "components": str(g["components"].iloc[0]),
             "folds": int(len(g)),
@@ -851,6 +898,7 @@ def main() -> int:
     print(f"[CFG] shell gross_target={GROSS_TARGET} weight_cap={WEIGHT_CAP} max_daily_turnover={MAX_DAILY_TURNOVER} enter_pct={ENTER_PCT} exit_pct={EXIT_PCT} cost_bps={COST_BPS}")
     print(f"[CFG] component_count_limit={COMPONENT_COUNT_LIMIT} override={COMPONENT_OVERRIDE}")
     print(f"[CFG] weighting equal={int(ENABLE_EQUAL_WEIGHT)} ic={int(ENABLE_IC_WEIGHT)} sharpe={int(ENABLE_SHARPE_WEIGHT)} trend_gate={int(ENABLE_TREND_GATE)}")
+    print(f"[CFG] continuous_regime_scaling={int(ENABLE_CONTINUOUS_REGIME_SCALING)} clip={REGIME_STRENGTH_CLIP} power={REGIME_STREND_POWER}")
     print(f"[CFG] overlays dynamic_budgets={int(ENABLE_DYNAMIC_BUDGETS)} regime_multipliers={int(ENABLE_REGIME_MULTIPLIERS)}")
     print(f"[CFG] auto_build_fs2_if_missing={int(AUTO_BUILD_FS2_IF_MISSING)}")
     print(f"[CFG] dynamic_gross={int(ENABLE_DYNAMIC_GROSS)} trend_hi_mult={DYN_GROSS_TREND_HI_MULT} trend_lo_mult={DYN_GROSS_TREND_LO_MULT} neutral_mult={DYN_GROSS_NEUTRAL_MULT} min={DYN_GROSS_MIN} max={DYN_GROSS_MAX}")
@@ -934,6 +982,9 @@ def main() -> int:
             "ic_weight": int(ENABLE_IC_WEIGHT),
             "sharpe_weight": int(ENABLE_SHARPE_WEIGHT),
             "trend_gate": int(ENABLE_TREND_GATE),
+            "continuous_regime_scaling": int(ENABLE_CONTINUOUS_REGIME_SCALING),
+            "regime_strength_clip": REGIME_STRENGTH_CLIP,
+            "regime_strength_power": REGIME_STREND_POWER,
             "dynamic_gross": int(ENABLE_DYNAMIC_GROSS),
             "dyn_gross_trend_hi_mult": DYN_GROSS_TREND_HI_MULT,
             "dyn_gross_trend_lo_mult": DYN_GROSS_TREND_LO_MULT,
