@@ -139,6 +139,12 @@ ENABLE_TREND_GATE = str(os.getenv("ENABLE_TREND_GATE", "1")).strip().lower() not
 ENABLE_DYNAMIC_BUDGETS = str(os.getenv("ENABLE_DYNAMIC_BUDGETS", "0")).strip().lower() not in {"0", "false", "no", "off"}
 ENABLE_REGIME_MULTIPLIERS = str(os.getenv("ENABLE_REGIME_MULTIPLIERS", "0")).strip().lower() not in {"0", "false", "no", "off"}
 COMPONENT_OVERRIDE = [x.strip() for x in str(os.getenv("COMPONENT_OVERRIDE", "")).split("|") if x.strip()]
+ENABLE_DYNAMIC_GROSS = str(os.getenv("ENABLE_DYNAMIC_GROSS", "1")).strip().lower() not in {"0", "false", "no", "off"}
+DYN_GROSS_TREND_HI_MULT = float(os.getenv("DYN_GROSS_TREND_HI_MULT", "1.00"))
+DYN_GROSS_TREND_LO_MULT = float(os.getenv("DYN_GROSS_TREND_LO_MULT", "0.20"))
+DYN_GROSS_NEUTRAL_MULT = float(os.getenv("DYN_GROSS_NEUTRAL_MULT", "0.50"))
+DYN_GROSS_MIN = float(os.getenv("DYN_GROSS_MIN", "0.00"))
+DYN_GROSS_MAX = float(os.getenv("DYN_GROSS_MAX", "1.00"))
 AUTO_BUILD_FS2_IF_MISSING = str(os.getenv("AUTO_BUILD_FS2_IF_MISSING", "1")).strip().lower() not in {"0", "false", "no", "off"}
 FS2_ENABLE_RAW = str(os.getenv("FS2_ENABLE_RAW", "1")).strip().lower() not in {"0", "false", "no", "off"}
 FS2_ENABLE_SIGNED_LOG = str(os.getenv("FS2_ENABLE_SIGNED_LOG", "1")).strip().lower() not in {"0", "false", "no", "off"}
@@ -563,9 +569,26 @@ def _build_portfolio(scored_df: pd.DataFrame) -> pd.DataFrame:
             gg.loc[long_mask, "weight"] = _num(gg.loc[long_mask, "weight"]) * float(_num(gg["regime_long_mult"]).iloc[0])
             gg.loc[short_mask, "weight"] = _num(gg.loc[short_mask, "weight"]) * float(_num(gg["regime_short_mult"]).iloc[0])
         gg["weight"] = _num(gg["weight"]).clip(lower=-WEIGHT_CAP, upper=WEIGHT_CAP)
+        dynamic_gross_target = float(GROSS_TARGET)
+        gross_reason = "static"
+        if ENABLE_DYNAMIC_GROSS:
+            trend_hi = float(_num(gg["regime_trend_hi"]).iloc[0]) if "regime_trend_hi" in gg.columns else 0.0
+            trend_lo = float(_num(gg["regime_trend_lo"]).iloc[0]) if "regime_trend_lo" in gg.columns else 0.0
+            if trend_hi >= 0.5:
+                dynamic_gross_target = float(GROSS_TARGET) * float(DYN_GROSS_TREND_HI_MULT)
+                gross_reason = "trend_hi"
+            elif trend_lo >= 0.5:
+                dynamic_gross_target = float(GROSS_TARGET) * float(DYN_GROSS_TREND_LO_MULT)
+                gross_reason = "trend_lo"
+            else:
+                dynamic_gross_target = float(GROSS_TARGET) * float(DYN_GROSS_NEUTRAL_MULT)
+                gross_reason = "neutral"
+            dynamic_gross_target = max(float(DYN_GROSS_MIN), min(float(DYN_GROSS_MAX), dynamic_gross_target))
+        gg["dynamic_gross_target"] = float(dynamic_gross_target)
+        gg["dynamic_gross_reason"] = gross_reason
         gross = float(gg["weight"].abs().sum())
         if gross > EPS:
-            gg["weight"] = gg["weight"] * (GROSS_TARGET / gross)
+            gg["weight"] = gg["weight"] * (float(dynamic_gross_target) / gross)
         pieces.append(gg)
     out = pd.concat(pieces, ignore_index=True).sort_values(["date", "symbol"]).reset_index(drop=True)
     if ENABLE_DYNAMIC_BUDGETS:
@@ -591,6 +614,7 @@ def _evaluate_portfolio(port_df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, 
         turnover=("turnover", "sum"),
         gross_exposure=("weight", lambda s: float(_num(s).abs().sum())),
         names_active=("side", lambda s: int((_num(s).abs() > 0).sum())),
+        dynamic_gross_target=("dynamic_gross_target", "first"),
     )
     daily = daily.sort_values("date").reset_index(drop=True)
     daily["equity"] = (1.0 + daily["net_ret"].fillna(0.0)).cumprod()
@@ -710,6 +734,7 @@ def _run_fold(df: pd.DataFrame, components_df: pd.DataFrame, split: WFSplit) -> 
             "components": "|".join(chosen["candidate"].astype(str).tolist()),
             "weights": json.dumps(weights, ensure_ascii=False, sort_keys=True),
             **summary,
+            "avg_dynamic_gross_target": float(_num(daily_df["dynamic_gross_target"]).mean()) if "dynamic_gross_target" in daily_df.columns else float("nan"),
             "test_mean_ic": float(test_ic_df["daily_ic"].mean()) if len(test_ic_df) else float("nan"),
             "test_sign_stability": float((test_ic_df["daily_ic"] > 0.0).mean()) if len(test_ic_df) else float("nan"),
             "tail_mean_spread": float(tail_df["tail_spread"].mean()) if len(tail_df) else float("nan"),
@@ -747,6 +772,7 @@ def _summarize_portfolios(portfolio_fold_df: pd.DataFrame) -> pd.DataFrame:
             "max_drawdown": float(pd.to_numeric(g["max_drawdown"], errors="coerce").min()),
             "turnover_mean": _safe_mean(g["avg_turnover"].tolist()),
             "positive_sharpe_fraction": _positive_fraction(g["sharpe"].tolist()),
+            "avg_dynamic_gross_target": _safe_mean(g["avg_dynamic_gross_target"].tolist()),
         })
     out = pd.DataFrame(rows)
     if len(out):
@@ -767,6 +793,7 @@ def main() -> int:
     print(f"[CFG] weighting equal={int(ENABLE_EQUAL_WEIGHT)} ic={int(ENABLE_IC_WEIGHT)} sharpe={int(ENABLE_SHARPE_WEIGHT)} trend_gate={int(ENABLE_TREND_GATE)}")
     print(f"[CFG] overlays dynamic_budgets={int(ENABLE_DYNAMIC_BUDGETS)} regime_multipliers={int(ENABLE_REGIME_MULTIPLIERS)}")
     print(f"[CFG] auto_build_fs2_if_missing={int(AUTO_BUILD_FS2_IF_MISSING)}")
+    print(f"[CFG] dynamic_gross={int(ENABLE_DYNAMIC_GROSS)} trend_hi_mult={DYN_GROSS_TREND_HI_MULT} trend_lo_mult={DYN_GROSS_TREND_LO_MULT} neutral_mult={DYN_GROSS_NEUTRAL_MULT} min={DYN_GROSS_MIN} max={DYN_GROSS_MAX}")
 
     components_df = _load_component_universe()
     print("[COMPONENTS][SELECTED]")
@@ -846,6 +873,12 @@ def main() -> int:
             "ic_weight": int(ENABLE_IC_WEIGHT),
             "sharpe_weight": int(ENABLE_SHARPE_WEIGHT),
             "trend_gate": int(ENABLE_TREND_GATE),
+            "dynamic_gross": int(ENABLE_DYNAMIC_GROSS),
+            "dyn_gross_trend_hi_mult": DYN_GROSS_TREND_HI_MULT,
+            "dyn_gross_trend_lo_mult": DYN_GROSS_TREND_LO_MULT,
+            "dyn_gross_neutral_mult": DYN_GROSS_NEUTRAL_MULT,
+            "dyn_gross_min": DYN_GROSS_MIN,
+            "dyn_gross_max": DYN_GROSS_MAX,
         },
         "modules": {
             "holding_inertia": int(HAS_HOLDING_INERTIA),
