@@ -136,9 +136,13 @@ ENABLE_EQUAL_WEIGHT = str(os.getenv("ENABLE_EQUAL_WEIGHT", "1")).strip().lower()
 ENABLE_IC_WEIGHT = str(os.getenv("ENABLE_IC_WEIGHT", "1")).strip().lower() not in {"0", "false", "no", "off"}
 ENABLE_SHARPE_WEIGHT = str(os.getenv("ENABLE_SHARPE_WEIGHT", "1")).strip().lower() not in {"0", "false", "no", "off"}
 ENABLE_TREND_GATE = str(os.getenv("ENABLE_TREND_GATE", "0")).strip().lower() not in {"0", "false", "no", "off"}
-ENABLE_CONTINUOUS_REGIME_SCALING = str(os.getenv("ENABLE_CONTINUOUS_REGIME_SCALING", "1")).strip().lower() not in {"0", "false", "no", "off"}
+ENABLE_CONTINUOUS_REGIME_SCALING = str(os.getenv("ENABLE_CONTINUOUS_REGIME_SCALING", "0")).strip().lower() not in {"0", "false", "no", "off"}
 REGIME_STRENGTH_CLIP = float(os.getenv("REGIME_STRENGTH_CLIP", "2.0"))
 REGIME_STREND_POWER = float(os.getenv("REGIME_STREND_POWER", "1.0"))
+ENABLE_ALLOCATION_ONLY_SCALING = str(os.getenv("ENABLE_ALLOCATION_ONLY_SCALING", "1")).strip().lower() not in {"0", "false", "no", "off"}
+TREND_GROSS_FLOOR = float(os.getenv("TREND_GROSS_FLOOR", "0.35"))
+MR_GROSS_FLOOR = float(os.getenv("MR_GROSS_FLOOR", "0.20"))
+NEUTRAL_GROSS_FLOOR = float(os.getenv("NEUTRAL_GROSS_FLOOR", "0.15"))
 ENABLE_DYNAMIC_BUDGETS = str(os.getenv("ENABLE_DYNAMIC_BUDGETS", "0")).strip().lower() not in {"0", "false", "no", "off"}
 ENABLE_REGIME_MULTIPLIERS = str(os.getenv("ENABLE_REGIME_MULTIPLIERS", "0")).strip().lower() not in {"0", "false", "no", "off"}
 COMPONENT_OVERRIDE = [x.strip() for x in str(os.getenv("COMPONENT_OVERRIDE", "")).split("|") if x.strip()]
@@ -601,6 +605,8 @@ def _build_portfolio_scores(test_df: pd.DataFrame, signal_cols: Dict[str, pd.Ser
     out["score_raw"] = _num(out["trend_score_raw"]) + _num(out["mr_score_raw"])
     out["score"] = _cs_zscore_by_date(out, _num(out["score_raw"]))
     out["trend_strength_used"] = trend_strength if continuous_scaling == 1 else _num(test_df.get("regime_trend_hi", pd.Series(0.0, index=test_df.index))).fillna(0.0)
+    out["alloc_trend_strength"] = trend_strength
+    out["alloc_mr_strength"] = mr_strength
     for k, v in contrib_cols.items():
         out[k] = v.values
     if mr_signal is not None:
@@ -647,7 +653,24 @@ def _build_portfolio(scored_df: pd.DataFrame, mr_leg: int, continuous_scaling: i
         dynamic_gross_target = float(GROSS_TARGET)
         gross_reason = "static"
         if ENABLE_DYNAMIC_GROSS:
-            if continuous_scaling == 1:
+            if ENABLE_ALLOCATION_ONLY_SCALING:
+                trend_strength = float(_num(gg.get("alloc_trend_strength", pd.Series(0.0, index=gg.index))).iloc[0])
+                mr_strength = float(_num(gg.get("alloc_mr_strength", pd.Series(0.0, index=gg.index))).iloc[0]) if mr_leg == 1 else 0.0
+                active_strength = max(trend_strength, mr_strength)
+                if trend_strength >= mr_strength and trend_strength > 0.0:
+                    gross_floor = float(TREND_GROSS_FLOOR)
+                    gross_mult = gross_floor + (float(DYN_GROSS_TREND_HI_MULT) - gross_floor) * trend_strength
+                    gross_reason = "alloc_trend"
+                elif mr_strength > 0.0:
+                    gross_floor = float(MR_GROSS_FLOOR)
+                    gross_mult = gross_floor + (float(MR_GROSS_MULT) - gross_floor) * mr_strength
+                    gross_reason = "alloc_mr"
+                else:
+                    gross_floor = float(NEUTRAL_GROSS_FLOOR)
+                    gross_mult = gross_floor
+                    gross_reason = "alloc_neutral"
+                dynamic_gross_target = float(GROSS_TARGET) * gross_mult
+            elif continuous_scaling == 1:
                 trend_strength = float(_num(gg.get("trend_strength_used", pd.Series(0.0, index=gg.index))).iloc[0])
                 mr_strength = float(_num(gg.get("mr_strength_used", pd.Series(0.0, index=gg.index))).iloc[0])
                 gross_mult = (trend_strength * float(DYN_GROSS_TREND_HI_MULT)) + (mr_strength * float(MR_GROSS_MULT))
@@ -731,7 +754,7 @@ def _portfolio_specs(max_components: int) -> List[PortfolioSpec]:
         weightings.append("ic")
     if ENABLE_SHARPE_WEIGHT:
         weightings.append("sharpe")
-    gate_options = [0] if ENABLE_CONTINUOUS_REGIME_SCALING else ([0, 1] if ENABLE_TREND_GATE else [0])
+    gate_options = [0] if ENABLE_CONTINUOUS_REGIME_SCALING or ENABLE_ALLOCATION_ONLY_SCALING else ([0, 1] if ENABLE_TREND_GATE else [0])
     scaling_options = [1] if ENABLE_CONTINUOUS_REGIME_SCALING else [0]
     mr_options = [0, 1] if ENABLE_MR_LEG else [0]
     for n in range(1, max_components + 1):
@@ -898,7 +921,8 @@ def main() -> int:
     print(f"[CFG] shell gross_target={GROSS_TARGET} weight_cap={WEIGHT_CAP} max_daily_turnover={MAX_DAILY_TURNOVER} enter_pct={ENTER_PCT} exit_pct={EXIT_PCT} cost_bps={COST_BPS}")
     print(f"[CFG] component_count_limit={COMPONENT_COUNT_LIMIT} override={COMPONENT_OVERRIDE}")
     print(f"[CFG] weighting equal={int(ENABLE_EQUAL_WEIGHT)} ic={int(ENABLE_IC_WEIGHT)} sharpe={int(ENABLE_SHARPE_WEIGHT)} trend_gate={int(ENABLE_TREND_GATE)}")
-    print(f"[CFG] continuous_regime_scaling={int(ENABLE_CONTINUOUS_REGIME_SCALING)} clip={REGIME_STRENGTH_CLIP} power={REGIME_STREND_POWER}")
+    print(f"[CFG] continuous_regime_scaling={int(ENABLE_CONTINUOUS_REGIME_SCALING)} allocation_only_scaling={int(ENABLE_ALLOCATION_ONLY_SCALING)} clip={REGIME_STRENGTH_CLIP} power={REGIME_STREND_POWER}")
+    print(f"[CFG] gross_floors trend={TREND_GROSS_FLOOR} mr={MR_GROSS_FLOOR} neutral={NEUTRAL_GROSS_FLOOR}")
     print(f"[CFG] overlays dynamic_budgets={int(ENABLE_DYNAMIC_BUDGETS)} regime_multipliers={int(ENABLE_REGIME_MULTIPLIERS)}")
     print(f"[CFG] auto_build_fs2_if_missing={int(AUTO_BUILD_FS2_IF_MISSING)}")
     print(f"[CFG] dynamic_gross={int(ENABLE_DYNAMIC_GROSS)} trend_hi_mult={DYN_GROSS_TREND_HI_MULT} trend_lo_mult={DYN_GROSS_TREND_LO_MULT} neutral_mult={DYN_GROSS_NEUTRAL_MULT} min={DYN_GROSS_MIN} max={DYN_GROSS_MAX}")
@@ -983,8 +1007,12 @@ def main() -> int:
             "sharpe_weight": int(ENABLE_SHARPE_WEIGHT),
             "trend_gate": int(ENABLE_TREND_GATE),
             "continuous_regime_scaling": int(ENABLE_CONTINUOUS_REGIME_SCALING),
+            "allocation_only_scaling": int(ENABLE_ALLOCATION_ONLY_SCALING),
             "regime_strength_clip": REGIME_STRENGTH_CLIP,
             "regime_strength_power": REGIME_STREND_POWER,
+            "trend_gross_floor": TREND_GROSS_FLOOR,
+            "mr_gross_floor": MR_GROSS_FLOOR,
+            "neutral_gross_floor": NEUTRAL_GROSS_FLOOR,
             "dynamic_gross": int(ENABLE_DYNAMIC_GROSS),
             "dyn_gross_trend_hi_mult": DYN_GROSS_TREND_HI_MULT,
             "dyn_gross_trend_lo_mult": DYN_GROSS_TREND_LO_MULT,
