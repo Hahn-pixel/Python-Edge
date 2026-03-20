@@ -71,49 +71,18 @@ except Exception:
         out["cap_hit"] = (day_turn > max_daily_turnover).astype(int)
         return out
 
-try:
-    from python_edge.portfolio.budget_allocation import attach_dynamic_side_budgets, apply_side_budgets
-    HAS_BUDGET_ALLOCATION = True
-except Exception:
-    HAS_BUDGET_ALLOCATION = False
-
-    def attach_dynamic_side_budgets(df: pd.DataFrame, min_long_budget: float = 0.35, max_long_budget: float = 0.75, input_lag_days: int = 1) -> pd.DataFrame:
-        out = df.copy()
-        out["long_budget"] = 0.50
-        out["short_budget"] = 0.50
-        out["budget_signal_lag_days"] = int(input_lag_days)
-        return out
-
-    def apply_side_budgets(df: pd.DataFrame, weight_col: str = "weight") -> pd.DataFrame:
-        return df.copy()
-
-try:
-    from python_edge.portfolio.regime_allocation import attach_regime_multipliers
-    HAS_REGIME_ALLOCATION = True
-except Exception:
-    HAS_REGIME_ALLOCATION = False
-
-    def attach_regime_multipliers(df: pd.DataFrame) -> pd.DataFrame:
-        out = df.copy()
-        out["market_regime"] = "neutral"
-        out["regime_long_mult"] = 1.0
-        out["regime_short_mult"] = 1.0
-        out["regime_top_pct"] = 0.10
-        return out
-
 EPS = 1e-12
 
 INTERACTION_SUMMARY_FILE = Path(os.getenv("INTERACTION_SUMMARY_FILE", "artifacts/residual_layer_fs2_interactions/residual_component_summary.csv"))
-INTERACTION_INCREMENTAL_FILE = Path(os.getenv("INTERACTION_INCREMENTAL_FILE", "artifacts/residual_layer_fs2_interactions/residual_incremental_summary.csv"))
 FEATURE_V2_FILE = Path(os.getenv("FEATURE_V2_FILE", "data/features/feature_matrix_v2.parquet"))
 ALPHA_LIB_FILE = Path(os.getenv("ALPHA_LIB_FILE", "data/alpha_library_fs2_base/alpha_library_fs2_base.parquet"))
 TARGET_COL = str(os.getenv("TARGET_COL", "target_fwd_ret_1d")).strip()
-OUT_DIR = Path(os.getenv("PORTFOLIO_OPT_OUT_DIR", "artifacts/portfolio_opt_wf"))
+OUT_DIR = Path(os.getenv("PORTFOLIO_OPT_OUT_DIR", "artifacts/portfolio_opt_wf_robustness"))
 PAUSE_ON_EXIT = str(os.getenv("PAUSE_ON_EXIT", "auto")).strip().lower()
 
-WF_TRAIN_DAYS = int(os.getenv("WF_TRAIN_DAYS", "252"))
-WF_TEST_DAYS = int(os.getenv("WF_TEST_DAYS", "63"))
-WF_STEP_DAYS = int(os.getenv("WF_STEP_DAYS", "63"))
+DEFAULT_TRAIN_DAYS = int(os.getenv("WF_TRAIN_DAYS", "252"))
+DEFAULT_TEST_DAYS = int(os.getenv("WF_TEST_DAYS", "63"))
+DEFAULT_STEP_DAYS = int(os.getenv("WF_STEP_DAYS", "63"))
 WF_PURGE_DAYS = int(os.getenv("WF_PURGE_DAYS", "5"))
 WF_EMBARGO_DAYS = int(os.getenv("WF_EMBARGO_DAYS", "5"))
 MIN_TRAIN_ROWS = int(os.getenv("MIN_TRAIN_ROWS", "3000"))
@@ -124,45 +93,32 @@ ENTER_PCT = float(os.getenv("ENTER_PCT", "0.10"))
 EXIT_PCT = float(os.getenv("EXIT_PCT", "0.22"))
 WEIGHT_CAP = float(os.getenv("WEIGHT_CAP", "0.05"))
 GROSS_TARGET = float(os.getenv("GROSS_TARGET", "0.85"))
-MAX_DAILY_TURNOVER = float(os.getenv("MAX_DAILY_TURNOVER", "0.20"))
-COST_BPS = float(os.getenv("COST_BPS", "8.0"))
+BASE_COST_BPS = float(os.getenv("COST_BPS", "8.0"))
+BASE_MAX_DAILY_TURNOVER = float(os.getenv("MAX_DAILY_TURNOVER", "0.20"))
 SIGN_LOCK_IC_ABS = float(os.getenv("SIGN_LOCK_IC_ABS", "0.0100"))
 SIGN_LOCK_POS_RATE = float(os.getenv("SIGN_LOCK_POS_RATE", "0.55"))
 TAIL_TOP_PCT = float(os.getenv("TAIL_TOP_PCT", "0.10"))
 TOPK_PRINT = int(os.getenv("TOPK_PRINT", "40"))
 
-COMPONENT_COUNT_LIMIT = int(os.getenv("COMPONENT_COUNT_LIMIT", "3"))
+COMPONENT_COUNT_LIMIT = int(os.getenv("COMPONENT_COUNT_LIMIT", "2"))
 ENABLE_EQUAL_WEIGHT = str(os.getenv("ENABLE_EQUAL_WEIGHT", "1")).strip().lower() not in {"0", "false", "no", "off"}
 ENABLE_IC_WEIGHT = str(os.getenv("ENABLE_IC_WEIGHT", "1")).strip().lower() not in {"0", "false", "no", "off"}
 ENABLE_SHARPE_WEIGHT = str(os.getenv("ENABLE_SHARPE_WEIGHT", "1")).strip().lower() not in {"0", "false", "no", "off"}
-ENABLE_TREND_GATE = str(os.getenv("ENABLE_TREND_GATE", "0")).strip().lower() not in {"0", "false", "no", "off"}
-ENABLE_CONTINUOUS_REGIME_SCALING = str(os.getenv("ENABLE_CONTINUOUS_REGIME_SCALING", "0")).strip().lower() not in {"0", "false", "no", "off"}
-REGIME_STRENGTH_CLIP = float(os.getenv("REGIME_STRENGTH_CLIP", "2.0"))
-REGIME_STREND_POWER = float(os.getenv("REGIME_STREND_POWER", "1.0"))
-ENABLE_ALLOCATION_ONLY_SCALING = str(os.getenv("ENABLE_ALLOCATION_ONLY_SCALING", "1")).strip().lower() not in {"0", "false", "no", "off"}
-TREND_GROSS_FLOOR = float(os.getenv("TREND_GROSS_FLOOR", "0.35"))
-MR_GROSS_FLOOR = float(os.getenv("MR_GROSS_FLOOR", "0.20"))
-NEUTRAL_GROSS_FLOOR = float(os.getenv("NEUTRAL_GROSS_FLOOR", "0.15"))
-ENABLE_DYNAMIC_BUDGETS = str(os.getenv("ENABLE_DYNAMIC_BUDGETS", "0")).strip().lower() not in {"0", "false", "no", "off"}
-ENABLE_REGIME_MULTIPLIERS = str(os.getenv("ENABLE_REGIME_MULTIPLIERS", "0")).strip().lower() not in {"0", "false", "no", "off"}
-COMPONENT_OVERRIDE = [x.strip() for x in str(os.getenv("COMPONENT_OVERRIDE", "")).split("|") if x.strip()]
+ENABLE_MR_LEG = str(os.getenv("ENABLE_MR_LEG", "1")).strip().lower() not in {"0", "false", "no", "off"}
+MR_WEIGHT = float(os.getenv("MR_WEIGHT", "0.50"))
+MR_GROSS_MULT = float(os.getenv("MR_GROSS_MULT", "0.35"))
+MR_ALPHA_OVERRIDE = str(os.getenv("MR_ALPHA_OVERRIDE", "alpha_fs2_intraday_strength_rvol_interaction__lag1")).strip()
+MR_ONLY_TREND_LO = str(os.getenv("MR_ONLY_TREND_LO", "1")).strip().lower() not in {"0", "false", "no", "off"}
 AUTO_BUILD_FS2_IF_MISSING = str(os.getenv("AUTO_BUILD_FS2_IF_MISSING", "1")).strip().lower() not in {"0", "false", "no", "off"}
 FS2_ENABLE_RAW = str(os.getenv("FS2_ENABLE_RAW", "1")).strip().lower() not in {"0", "false", "no", "off"}
 FS2_ENABLE_SIGNED_LOG = str(os.getenv("FS2_ENABLE_SIGNED_LOG", "1")).strip().lower() not in {"0", "false", "no", "off"}
 FS2_ENABLE_EMA3 = str(os.getenv("FS2_ENABLE_EMA3", "1")).strip().lower() not in {"0", "false", "no", "off"}
 FS2_ENABLE_LAG1 = str(os.getenv("FS2_ENABLE_LAG1", "1")).strip().lower() not in {"0", "false", "no", "off"}
 FS2_ENABLE_TANH_Z = str(os.getenv("FS2_ENABLE_TANH_Z", "1")).strip().lower() not in {"0", "false", "no", "off"}
-ENABLE_DYNAMIC_GROSS = str(os.getenv("ENABLE_DYNAMIC_GROSS", "1")).strip().lower() not in {"0", "false", "no", "off"}
-DYN_GROSS_TREND_HI_MULT = float(os.getenv("DYN_GROSS_TREND_HI_MULT", "1.00"))
-DYN_GROSS_TREND_LO_MULT = float(os.getenv("DYN_GROSS_TREND_LO_MULT", "0.20"))
-DYN_GROSS_NEUTRAL_MULT = float(os.getenv("DYN_GROSS_NEUTRAL_MULT", "0.50"))
-DYN_GROSS_MIN = float(os.getenv("DYN_GROSS_MIN", "0.00"))
-DYN_GROSS_MAX = float(os.getenv("DYN_GROSS_MAX", "1.00"))
-ENABLE_MR_LEG = str(os.getenv("ENABLE_MR_LEG", "1")).strip().lower() not in {"0", "false", "no", "off"}
-MR_GROSS_MULT = float(os.getenv("MR_GROSS_MULT", "0.35"))
-MR_WEIGHT = float(os.getenv("MR_WEIGHT", "0.50"))
-MR_ALPHA_OVERRIDE = str(os.getenv("MR_ALPHA_OVERRIDE", "")).strip()
-MR_ONLY_TREND_LO = str(os.getenv("MR_ONLY_TREND_LO", "1")).strip().lower() not in {"0", "false", "no", "off"}
+
+ROBUST_COST_BPS_GRID = str(os.getenv("ROBUST_COST_BPS_GRID", "5|8|12")).strip()
+ROBUST_TURNOVER_CAP_GRID = str(os.getenv("ROBUST_TURNOVER_CAP_GRID", "0.15|0.20|0.25")).strip()
+ROBUST_WF_GRID = str(os.getenv("ROBUST_WF_GRID", "200:40:40|252:63:63|300:80:80")).strip()
 
 
 @dataclass(frozen=True)
@@ -178,10 +134,18 @@ class WFSplit:
 class PortfolioSpec:
     name: str
     weighting: str
-    trend_gate: int
     component_count: int
     mr_leg: int
-    continuous_scaling: int
+
+
+@dataclass(frozen=True)
+class RobustConfig:
+    name: str
+    train_days: int
+    test_days: int
+    step_days: int
+    cost_bps: float
+    turnover_cap: float
 
 
 def _enable_line_buffering() -> None:
@@ -280,6 +244,35 @@ def _positive_fraction(values: Sequence[float]) -> float:
     return float(sum(1 for x in vals if x > 0.0) / len(vals)) if vals else float("nan")
 
 
+def _parse_float_grid(text: str, default: Sequence[float]) -> List[float]:
+    parts = [x.strip() for x in text.split("|") if x.strip()]
+    vals: List[float] = []
+    for p in parts:
+        try:
+            vals.append(float(p))
+        except Exception:
+            pass
+    return vals if vals else list(default)
+
+
+def _parse_wf_grid(text: str) -> List[Tuple[int, int, int]]:
+    out: List[Tuple[int, int, int]] = []
+    for part in [x.strip() for x in text.split("|") if x.strip()]:
+        pieces = [y.strip() for y in part.split(":") if y.strip()]
+        if len(pieces) != 3:
+            continue
+        try:
+            train_days = int(pieces[0])
+            test_days = int(pieces[1])
+            step_days = int(pieces[2])
+            out.append((train_days, test_days, step_days))
+        except Exception:
+            pass
+    if not out:
+        out.append((DEFAULT_TRAIN_DAYS, DEFAULT_TEST_DAYS, DEFAULT_STEP_DAYS))
+    return out
+
+
 def _daily_ic_series(frame: pd.DataFrame, factor_col: str, target_col: str, min_cs: int) -> pd.DataFrame:
     rows: List[Dict[str, object]] = []
     for dt, g in frame.groupby("date", sort=False):
@@ -309,22 +302,22 @@ def _tail_spread_series(frame: pd.DataFrame, factor_col: str, target_col: str, t
     return pd.DataFrame(rows)
 
 
-def _build_walkforward_splits(dates: Sequence[pd.Timestamp]) -> List[WFSplit]:
+def _build_walkforward_splits(dates: Sequence[pd.Timestamp], train_days: int, test_days: int, step_days: int) -> List[WFSplit]:
     uniq = pd.Index(sorted(pd.to_datetime(pd.Series(dates)).dt.normalize().unique()))
-    if len(uniq) < (WF_TRAIN_DAYS + WF_TEST_DAYS + WF_PURGE_DAYS + WF_EMBARGO_DAYS + 5):
+    if len(uniq) < (train_days + test_days + WF_PURGE_DAYS + WF_EMBARGO_DAYS + 5):
         raise RuntimeError("Not enough dates for walkforward configuration")
     splits: List[WFSplit] = []
     fold_id = 1
-    train_end_idx = WF_TRAIN_DAYS - 1
+    train_end_idx = train_days - 1
     while True:
         test_start_idx = train_end_idx + 1 + WF_PURGE_DAYS + WF_EMBARGO_DAYS
-        test_end_idx = test_start_idx + WF_TEST_DAYS - 1
+        test_end_idx = test_start_idx + test_days - 1
         if test_end_idx >= len(uniq):
             break
-        train_start_idx = train_end_idx - WF_TRAIN_DAYS + 1
+        train_start_idx = train_end_idx - train_days + 1
         splits.append(WFSplit(fold_id=fold_id, train_start=uniq[train_start_idx], train_end=uniq[train_end_idx], test_start=uniq[test_start_idx], test_end=uniq[test_end_idx]))
         fold_id += 1
-        train_end_idx += WF_STEP_DAYS
+        train_end_idx += step_days
     if not splits:
         raise RuntimeError("No walkforward splits generated")
     return splits
@@ -381,8 +374,6 @@ def _load_component_universe() -> pd.DataFrame:
     missing = [c for c in required if c not in df.columns]
     if missing:
         raise RuntimeError(f"Interaction summary missing columns: {missing}")
-    if COMPONENT_OVERRIDE:
-        df = df.loc[df["candidate"].astype(str).isin(set(COMPONENT_OVERRIDE))].copy()
     df = df.sort_values(["last_2_fold_mean_sharpe", "oos_sharpe_mean", "test_mean_ic", "candidate"], ascending=[False, False, False, True]).reset_index(drop=True)
     if COMPONENT_COUNT_LIMIT > 0:
         df = df.head(COMPONENT_COUNT_LIMIT).copy()
@@ -400,51 +391,20 @@ def _pick_regime_source(df: pd.DataFrame, candidates: Sequence[str]) -> Tuple[pd
 
 def _build_explicit_regimes(df: pd.DataFrame) -> pd.DataFrame:
     out = df.copy()
-    _, vol_name = _pick_regime_source(out, ["fs2_realized_vol_accel", "z_fs2_realized_vol_accel", "fs2_vol_of_vol_short", "z_fs2_vol_of_vol_short"])
-    _, liq_name = _pick_regime_source(out, ["fs2_dollar_vol_accel_proxy", "z_fs2_dollar_vol_accel_proxy", "fs2_intraday_strength_liq_interaction", "z_fs2_intraday_strength_liq_interaction"])
     _, trend_name = _pick_regime_source(out, ["fs2_intraday_pressure_rs_mix", "z_fs2_intraday_pressure_rs_mix", "fs2_intraday_rs_proxy", "z_fs2_intraday_rs_proxy"])
-    _, breadth_name = _pick_regime_source(out, ["fs2_market_breadth_thrust_proxy", "z_fs2_market_breadth_thrust_proxy", "fs2_breadth_reversal_proxy", "z_fs2_breadth_reversal_proxy"])
-
     day_level = out.groupby("date", sort=False).agg(
-        vol_proxy=(vol_name if vol_name != "none" else TARGET_COL, lambda s: float(_safe_nanmean(_num(s)))),
-        liq_proxy=(liq_name if liq_name != "none" else TARGET_COL, lambda s: float(_safe_nanmean(_num(s)))),
         trend_proxy=(trend_name if trend_name != "none" else TARGET_COL, lambda s: float(_safe_nanmean(_num(s)))),
-        breadth_proxy=(breadth_name if breadth_name != "none" else TARGET_COL, lambda s: float(_safe_nanmean(_num(s)))),
     ).reset_index()
-
-    def _add_hi_lo(name: str, source_col: str) -> None:
-        ser = _num(day_level[source_col])
-        valid = ser.dropna()
-        if valid.empty:
-            day_level[f"regime_{name}_hi"] = 0.0
-            day_level[f"regime_{name}_lo"] = 0.0
-            return
+    trend_valid = _num(day_level["trend_proxy"]).fillna(0.0)
+    valid = trend_valid.dropna()
+    if valid.empty:
+        day_level["regime_trend_hi"] = 0.0
+        day_level["regime_trend_lo"] = 0.0
+    else:
         q_hi = float(valid.quantile(0.67))
         q_lo = float(valid.quantile(0.33))
-        day_level[f"regime_{name}_hi"] = np.where(ser >= q_hi, 1.0, 0.0)
-        day_level[f"regime_{name}_lo"] = np.where(ser <= q_lo, 1.0, 0.0)
-
-    _add_hi_lo("vol", "vol_proxy")
-    _add_hi_lo("liq", "liq_proxy")
-    _add_hi_lo("trend", "trend_proxy")
-    _add_hi_lo("breadth", "breadth_proxy")
-    trend_valid = _num(day_level["trend_proxy"]).fillna(0.0)
-    day_level["regime_trend_pos"] = np.where(trend_valid >= 0.0, 1.0, 0.0)
-
-    trend_mu = _safe_nanmean(trend_valid.to_numpy(dtype="float64"))
-    trend_std = float(pd.to_numeric(trend_valid, errors="coerce").std(ddof=0))
-    if pd.isna(trend_std) or trend_std <= 0.0:
-        trend_z = pd.Series(0.0, index=day_level.index, dtype="float64")
-    else:
-        trend_z = (trend_valid - trend_mu) / (trend_std + EPS)
-    trend_z = trend_z.clip(lower=-REGIME_STRENGTH_CLIP, upper=REGIME_STRENGTH_CLIP)
-    trend_strength = (trend_z / REGIME_STRENGTH_CLIP).clip(lower=0.0, upper=1.0)
-    mr_strength = (-trend_z / REGIME_STRENGTH_CLIP).clip(lower=0.0, upper=1.0)
-    if REGIME_STREND_POWER != 1.0:
-        trend_strength = trend_strength.pow(REGIME_STREND_POWER)
-        mr_strength = mr_strength.pow(REGIME_STREND_POWER)
-    day_level["trend_strength"] = trend_strength.fillna(0.0)
-    day_level["mr_strength"] = mr_strength.fillna(0.0)
+        day_level["regime_trend_hi"] = np.where(trend_valid >= q_hi, 1.0, 0.0)
+        day_level["regime_trend_lo"] = np.where(trend_valid <= q_lo, 1.0, 0.0)
     return out.merge(day_level, on="date", how="left")
 
 
@@ -568,68 +528,30 @@ def _mr_alpha_source(components_df: pd.DataFrame) -> str:
     return str(components_df["alpha"].iloc[0])
 
 
-def _build_portfolio_scores(test_df: pd.DataFrame, signal_cols: Dict[str, pd.Series], weights: Dict[str, float], trend_gate: int, mr_signal: pd.Series | None, continuous_scaling: int) -> pd.DataFrame:
-    out = test_df[["date", "symbol", TARGET_COL]].copy()
+def _build_mr_signal(df: pd.DataFrame, alpha_col: str) -> pd.Series:
+    return -1.0 * _cs_zscore_by_date(df, _num(df[alpha_col]))
+
+
+def _build_portfolio_scores(test_df: pd.DataFrame, signal_cols: Dict[str, pd.Series], weights: Dict[str, float], mr_signal: pd.Series | None) -> pd.DataFrame:
+    out = test_df[["date", "symbol", TARGET_COL, "regime_trend_hi", "regime_trend_lo"]].copy()
     score = pd.Series(0.0, index=test_df.index, dtype="float64")
-    contrib_cols: Dict[str, pd.Series] = {}
     for cand, w in weights.items():
-        contrib = _num(signal_cols[cand]) * float(w)
-        contrib_cols[f"contrib__{cand}"] = contrib
-        score = score + contrib
-    trend_strength = _num(test_df.get("trend_strength", pd.Series(0.0, index=test_df.index))).fillna(0.0)
-    mr_strength = _num(test_df.get("mr_strength", pd.Series(0.0, index=test_df.index))).fillna(0.0)
-    out["trend_score_raw"] = score
-    if continuous_scaling == 1:
-        out["trend_score_raw"] = _num(out["trend_score_raw"]) * trend_strength
-    elif trend_gate == 1 and "regime_trend_hi" in test_df.columns:
-        out["trend_score_raw"] = _num(out["trend_score_raw"]) * _num(test_df["regime_trend_hi"]).fillna(0.0)
+        score = score + (_num(signal_cols[cand]) * float(w))
+    out["trend_score_raw"] = _num(score) * _num(test_df["regime_trend_hi"]).fillna(0.0)
     out["mr_score_raw"] = 0.0
-    out["mr_enabled"] = 0
-    out["mr_strength_used"] = 0.0
     if mr_signal is not None:
-        mr = _num(mr_signal)
-        if continuous_scaling == 1:
-            out["mr_score_raw"] = mr * mr_strength * float(MR_WEIGHT)
-            out["mr_enabled"] = (mr_strength > 0.0).astype(int)
-            out["mr_strength_used"] = mr_strength
-        elif MR_ONLY_TREND_LO and "regime_trend_lo" in test_df.columns:
-            mask = _num(test_df["regime_trend_lo"]).fillna(0.0)
-            out["mr_score_raw"] = mr * mask * float(MR_WEIGHT)
-            out["mr_enabled"] = (mask > 0.0).astype(int)
-            out["mr_strength_used"] = mask
+        if MR_ONLY_TREND_LO:
+            out["mr_score_raw"] = _num(mr_signal) * _num(test_df["regime_trend_lo"]).fillna(0.0) * float(MR_WEIGHT)
         else:
-            neutral_mask = 1.0 - _num(test_df.get("regime_trend_hi", pd.Series(0.0, index=test_df.index))).fillna(0.0)
-            out["mr_score_raw"] = mr * neutral_mask * float(MR_WEIGHT)
-            out["mr_enabled"] = (neutral_mask > 0.0).astype(int)
-            out["mr_strength_used"] = neutral_mask
+            out["mr_score_raw"] = _num(mr_signal) * float(MR_WEIGHT)
     out["score_raw"] = _num(out["trend_score_raw"]) + _num(out["mr_score_raw"])
     out["score"] = _cs_zscore_by_date(out, _num(out["score_raw"]))
-    out["trend_strength_used"] = trend_strength if continuous_scaling == 1 else _num(test_df.get("regime_trend_hi", pd.Series(0.0, index=test_df.index))).fillna(0.0)
-    out["alloc_trend_strength"] = trend_strength
-    out["alloc_mr_strength"] = mr_strength
-    for k, v in contrib_cols.items():
-        out[k] = v.values
-    if mr_signal is not None:
-        out["contrib__mr_leg"] = _num(out["mr_score_raw"]).values
     return out
 
 
-def _apply_optional_overlays(df: pd.DataFrame) -> pd.DataFrame:
-    out = df.copy()
-    if ENABLE_REGIME_MULTIPLIERS:
-        out = attach_regime_multipliers(out)
-    else:
-        out["market_regime"] = "neutral"
-        out["regime_long_mult"] = 1.0
-        out["regime_short_mult"] = 1.0
-        out["regime_top_pct"] = ENTER_PCT
-    return out
-
-
-def _build_portfolio(scored_df: pd.DataFrame, mr_leg: int, continuous_scaling: int) -> pd.DataFrame:
+def _build_portfolio(scored_df: pd.DataFrame, mr_leg: int, turnover_cap: float, cost_bps: float) -> pd.DataFrame:
     base = scored_df.copy()
     base["score"] = _num(base["score"]).fillna(0.0)
-    base = _apply_optional_overlays(base)
     out = apply_holding_inertia(base, enter_pct=ENTER_PCT, exit_pct=EXIT_PCT)
     out["raw_strength"] = _num(out["score"]).abs().fillna(0.0)
     out.loc[_num(out["side"]) == 0.0, "raw_strength"] = 0.0
@@ -645,54 +567,19 @@ def _build_portfolio(scored_df: pd.DataFrame, mr_leg: int, continuous_scaling: i
             gg.loc[long_mask, "weight"] = 0.5 * gg.loc[long_mask, "raw_strength"] / long_strength
         if short_strength > EPS:
             gg.loc[short_mask, "weight"] = -0.5 * gg.loc[short_mask, "raw_strength"] / short_strength
-        if ENABLE_REGIME_MULTIPLIERS:
-            gg.loc[long_mask, "weight"] = _num(gg.loc[long_mask, "weight"]) * float(_num(gg["regime_long_mult"]).iloc[0])
-            gg.loc[short_mask, "weight"] = _num(gg.loc[short_mask, "weight"]) * float(_num(gg["regime_short_mult"]).iloc[0])
         gg["weight"] = _num(gg["weight"]).clip(lower=-WEIGHT_CAP, upper=WEIGHT_CAP)
-
-        dynamic_gross_target = float(GROSS_TARGET)
-        gross_reason = "static"
-        if ENABLE_DYNAMIC_GROSS:
-            if ENABLE_ALLOCATION_ONLY_SCALING:
-                trend_strength = float(_num(gg.get("alloc_trend_strength", pd.Series(0.0, index=gg.index))).iloc[0])
-                mr_strength = float(_num(gg.get("alloc_mr_strength", pd.Series(0.0, index=gg.index))).iloc[0]) if mr_leg == 1 else 0.0
-                active_strength = max(trend_strength, mr_strength)
-                if trend_strength >= mr_strength and trend_strength > 0.0:
-                    gross_floor = float(TREND_GROSS_FLOOR)
-                    gross_mult = gross_floor + (float(DYN_GROSS_TREND_HI_MULT) - gross_floor) * trend_strength
-                    gross_reason = "alloc_trend"
-                elif mr_strength > 0.0:
-                    gross_floor = float(MR_GROSS_FLOOR)
-                    gross_mult = gross_floor + (float(MR_GROSS_MULT) - gross_floor) * mr_strength
-                    gross_reason = "alloc_mr"
-                else:
-                    gross_floor = float(NEUTRAL_GROSS_FLOOR)
-                    gross_mult = gross_floor
-                    gross_reason = "alloc_neutral"
-                dynamic_gross_target = float(GROSS_TARGET) * gross_mult
-            elif continuous_scaling == 1:
-                trend_strength = float(_num(gg.get("trend_strength_used", pd.Series(0.0, index=gg.index))).iloc[0])
-                mr_strength = float(_num(gg.get("mr_strength_used", pd.Series(0.0, index=gg.index))).iloc[0])
-                gross_mult = (trend_strength * float(DYN_GROSS_TREND_HI_MULT)) + (mr_strength * float(MR_GROSS_MULT))
-                if trend_strength <= 0.0 and mr_strength <= 0.0:
-                    gross_mult = float(DYN_GROSS_NEUTRAL_MULT)
-                    gross_reason = "neutral_cont"
-                else:
-                    gross_reason = "continuous_regime"
-                dynamic_gross_target = float(GROSS_TARGET) * gross_mult
-            else:
-                trend_hi = float(_num(gg["regime_trend_hi"]).iloc[0]) if "regime_trend_hi" in gg.columns else 0.0
-                trend_lo = float(_num(gg["regime_trend_lo"]).iloc[0]) if "regime_trend_lo" in gg.columns else 0.0
-                if trend_hi >= 0.5:
-                    dynamic_gross_target = float(GROSS_TARGET) * float(DYN_GROSS_TREND_HI_MULT)
-                    gross_reason = "trend_hi"
-                elif trend_lo >= 0.5:
-                    dynamic_gross_target = float(GROSS_TARGET) * (float(MR_GROSS_MULT) if mr_leg == 1 else float(DYN_GROSS_TREND_LO_MULT))
-                    gross_reason = "trend_lo_mr" if mr_leg == 1 else "trend_lo"
-                else:
-                    dynamic_gross_target = float(GROSS_TARGET) * float(DYN_GROSS_NEUTRAL_MULT)
-                    gross_reason = "neutral"
-            dynamic_gross_target = max(float(DYN_GROSS_MIN), min(float(DYN_GROSS_MAX), dynamic_gross_target))
+        trend_hi = float(_num(gg.get("regime_trend_hi", pd.Series(0.0, index=gg.index))).iloc[0])
+        trend_lo = float(_num(gg.get("regime_trend_lo", pd.Series(0.0, index=gg.index))).iloc[0])
+        if trend_hi >= 0.5:
+            gross_mult = 1.0
+            gross_reason = "trend_hi"
+        elif trend_lo >= 0.5 and mr_leg == 1:
+            gross_mult = float(MR_GROSS_MULT)
+            gross_reason = "trend_lo_mr"
+        else:
+            gross_mult = 0.50
+            gross_reason = "neutral"
+        dynamic_gross_target = float(GROSS_TARGET) * gross_mult
         gg["dynamic_gross_target"] = float(dynamic_gross_target)
         gg["dynamic_gross_reason"] = gross_reason
         gross = float(gg["weight"].abs().sum())
@@ -700,17 +587,14 @@ def _build_portfolio(scored_df: pd.DataFrame, mr_leg: int, continuous_scaling: i
             gg["weight"] = gg["weight"] * (float(dynamic_gross_target) / gross)
         pieces.append(gg)
     out = pd.concat(pieces, ignore_index=True).sort_values(["date", "symbol"]).reset_index(drop=True)
-    if ENABLE_DYNAMIC_BUDGETS:
-        out = attach_dynamic_side_budgets(out)
-        out = apply_side_budgets(out, weight_col="weight")
-    out = cap_daily_turnover(out, weight_col="weight", max_daily_turnover=MAX_DAILY_TURNOVER)
+    out = cap_daily_turnover(out, weight_col="weight", max_daily_turnover=turnover_cap)
     if "trade_abs_after" in out.columns:
         out["turnover"] = _num(out["trade_abs_after"])
     else:
         out["prev_weight"] = out.groupby("symbol", sort=False)["weight"].shift(1).fillna(0.0)
         out["turnover"] = (_num(out["weight"]) - _num(out["prev_weight"])).abs()
     out["gross_ret"] = _num(out["weight"]) * _num(out[TARGET_COL])
-    out["cost_ret"] = _num(out["turnover"]) * (COST_BPS / 10000.0)
+    out["cost_ret"] = _num(out["turnover"]) * (cost_bps / 10000.0)
     out["net_ret"] = _num(out["gross_ret"]) - _num(out["cost_ret"])
     return out
 
@@ -742,6 +626,7 @@ def _evaluate_portfolio(port_df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, 
         "avg_turnover": _safe_nanmean(daily["turnover"].to_numpy(dtype="float64")) if len(daily) else float("nan"),
         "avg_names_active": _safe_nanmean(daily["names_active"].to_numpy(dtype="float64")) if len(daily) else float("nan"),
         "avg_gross_exposure": _safe_nanmean(daily["gross_exposure"].to_numpy(dtype="float64")) if len(daily) else float("nan"),
+        "avg_dynamic_gross_target": _safe_nanmean(daily["dynamic_gross_target"].to_numpy(dtype="float64")) if len(daily) else float("nan"),
     }
 
 
@@ -754,16 +639,11 @@ def _portfolio_specs(max_components: int) -> List[PortfolioSpec]:
         weightings.append("ic")
     if ENABLE_SHARPE_WEIGHT:
         weightings.append("sharpe")
-    gate_options = [0] if ENABLE_CONTINUOUS_REGIME_SCALING or ENABLE_ALLOCATION_ONLY_SCALING else ([0, 1] if ENABLE_TREND_GATE else [0])
-    scaling_options = [1] if ENABLE_CONTINUOUS_REGIME_SCALING else [0]
     mr_options = [0, 1] if ENABLE_MR_LEG else [0]
     for n in range(1, max_components + 1):
         for weighting in weightings:
-            for gate in gate_options:
-                for mr in mr_options:
-                    for scaling in scaling_options:
-                        name = f"pf__n{n}__{weighting}__trendgate{gate}__mr{mr}__cont{scaling}"
-                        specs.append(PortfolioSpec(name=name, weighting=weighting, trend_gate=gate, component_count=n, mr_leg=mr, continuous_scaling=scaling))
+            for mr in mr_options:
+                specs.append(PortfolioSpec(name=f"pf__n{n}__{weighting}__mr{mr}", weighting=weighting, component_count=n, mr_leg=mr))
     return specs
 
 
@@ -771,7 +651,6 @@ def _build_component_signals(train_df: pd.DataFrame, test_df: pd.DataFrame, comp
     info_rows: List[Dict[str, object]] = []
     train_signal_cols: Dict[str, pd.Series] = {}
     test_signal_cols: Dict[str, pd.Series] = {}
-
     for _, rec in components_df.iterrows():
         candidate = str(rec["candidate"])
         alpha = str(rec["alpha"])
@@ -781,7 +660,6 @@ def _build_component_signals(train_df: pd.DataFrame, test_df: pd.DataFrame, comp
         test_signal_raw = _build_candidate_signal(test_df, alpha, regime, kind)
         train_signal = _cs_zscore_by_date(train_df, train_signal_raw)
         test_signal = _cs_zscore_by_date(test_df, test_signal_raw)
-
         train_scored = pd.DataFrame({"date": train_df["date"].values, "symbol": train_df["symbol"].values, TARGET_COL: _num(train_df[TARGET_COL]).values, "score": _num(train_signal).values})
         train_ic_df = _daily_ic_series(train_scored, "score", TARGET_COL, MIN_DAILY_IC_CS)
         sign_info = _sign_decision(train_ic_df)
@@ -794,29 +672,13 @@ def _build_component_signals(train_df: pd.DataFrame, test_df: pd.DataFrame, comp
         info_rows.append({"candidate": candidate, "alpha": alpha, "regime": regime, "kind": kind, **sign_info, "proxy_train_sharpe": proxy_train_sharpe})
         train_signal_cols[candidate] = _num(train_signal) * float(sign_info["train_sign_locked"])
         test_signal_cols[candidate] = _num(test_signal) * float(sign_info["train_sign_locked"])
-
     mr_alpha = _mr_alpha_source(components_df)
     train_sig_df = pd.concat([train_df[["date", "symbol", TARGET_COL]].copy(), pd.DataFrame(train_signal_cols, index=train_df.index)], axis=1)
-    test_sig_df = pd.concat([test_df[["date", "symbol", TARGET_COL]].copy(), pd.DataFrame(test_signal_cols, index=test_df.index)], axis=1)
-    info_df = pd.DataFrame(info_rows)
-    return train_sig_df, test_sig_df, info_df, mr_alpha
+    test_sig_df = pd.concat([test_df[["date", "symbol", TARGET_COL, "regime_trend_hi", "regime_trend_lo"]].copy(), pd.DataFrame(test_signal_cols, index=test_df.index)], axis=1)
+    return train_sig_df, test_sig_df, pd.DataFrame(info_rows), mr_alpha
 
 
-def _mr_alpha_source(components_df: pd.DataFrame) -> str:
-    if MR_ALPHA_OVERRIDE:
-        return MR_ALPHA_OVERRIDE
-    for alpha in components_df["alpha"].astype(str).tolist():
-        if "intraday_strength_rvol_interaction" in alpha:
-            return alpha
-    return str(components_df["alpha"].iloc[0])
-
-
-def _build_mr_signal(df: pd.DataFrame, alpha_col: str) -> pd.Series:
-    base = _cs_zscore_by_date(df, _num(df[alpha_col]))
-    return -1.0 * base
-
-
-def _run_fold(df: pd.DataFrame, components_df: pd.DataFrame, split: WFSplit) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def _run_fold(df: pd.DataFrame, components_df: pd.DataFrame, split: WFSplit, robust: RobustConfig) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     train_df, test_df = _split_frame(df, split)
     if len(train_df) < MIN_TRAIN_ROWS:
         raise RuntimeError(f"Fold {split.fold_id}: too few train rows: {len(train_df)}")
@@ -824,74 +686,69 @@ def _run_fold(df: pd.DataFrame, components_df: pd.DataFrame, split: WFSplit) -> 
         raise RuntimeError(f"Fold {split.fold_id}: too few test rows: {len(test_df)}")
 
     train_sig_df, test_sig_df, comp_train_info, mr_alpha = _build_component_signals(train_df, test_df, components_df)
-    specs = _portfolio_specs(max_components=min(len(components_df), COMPONENT_COUNT_LIMIT))
-    result_rows: List[Dict[str, object]] = []
-    daily_frames: List[pd.DataFrame] = []
-    contrib_frames: List[pd.DataFrame] = []
-    info_out = comp_train_info.copy()
-    info_out["fold_id"] = int(split.fold_id)
-    info_out["mr_alpha_source"] = mr_alpha
-
     if mr_alpha not in test_df.columns:
         raise RuntimeError(f"MR alpha source column not found: {mr_alpha}")
     mr_signal_test = _build_mr_signal(test_df, mr_alpha)
+    specs = _portfolio_specs(max_components=min(len(components_df), COMPONENT_COUNT_LIMIT))
 
+    result_rows: List[Dict[str, object]] = []
+    daily_frames: List[pd.DataFrame] = []
     for spec in specs:
         chosen = comp_train_info.head(spec.component_count).copy()
         weights = _portfolio_weights(spec, chosen)
         mr_signal = mr_signal_test if spec.mr_leg == 1 else None
-        scored = _build_portfolio_scores(test_df, {cand: test_sig_df[cand] for cand in weights.keys()}, weights, spec.trend_gate, mr_signal, spec.continuous_scaling)
-        port_df = _build_portfolio(scored, spec.mr_leg, spec.continuous_scaling)
+        scored = _build_portfolio_scores(test_df, {cand: test_sig_df[cand] for cand in weights.keys()}, weights, mr_signal)
+        port_df = _build_portfolio(scored, spec.mr_leg, robust.turnover_cap, robust.cost_bps)
         daily_df, summary = _evaluate_portfolio(port_df)
         daily_df["fold_id"] = int(split.fold_id)
         daily_df["portfolio"] = spec.name
+        daily_df["robust_name"] = robust.name
         daily_frames.append(daily_df)
-
         test_ic_df = _daily_ic_series(scored[["date", "symbol", TARGET_COL, "score"]].copy(), "score", TARGET_COL, MIN_DAILY_IC_CS)
         tail_df = _tail_spread_series(scored[["date", "symbol", TARGET_COL, "score"]].copy(), "score", TARGET_COL, TAIL_TOP_PCT)
         result_rows.append({
+            "robust_name": robust.name,
             "fold_id": int(split.fold_id),
             "portfolio": spec.name,
             "weighting": spec.weighting,
-            "trend_gate": int(spec.trend_gate),
             "component_count": int(spec.component_count),
             "mr_leg": int(spec.mr_leg),
-            "continuous_scaling": int(spec.continuous_scaling),
             "mr_alpha_source": mr_alpha if spec.mr_leg == 1 else "none",
             "components": "|".join(chosen["candidate"].astype(str).tolist()),
             "weights": json.dumps(weights, ensure_ascii=False, sort_keys=True),
+            "cost_bps": float(robust.cost_bps),
+            "turnover_cap": float(robust.turnover_cap),
+            "train_days": int(robust.train_days),
+            "test_days": int(robust.test_days),
+            "step_days": int(robust.step_days),
             **summary,
-            "avg_dynamic_gross_target": _safe_nanmean(daily_df["dynamic_gross_target"].to_numpy(dtype="float64")) if "dynamic_gross_target" in daily_df.columns else float("nan"),
             "test_mean_ic": _safe_nanmean(test_ic_df["daily_ic"].to_numpy(dtype="float64")) if len(test_ic_df) else float("nan"),
             "test_sign_stability": float((test_ic_df["daily_ic"] > 0.0).mean()) if len(test_ic_df) else float("nan"),
             "tail_mean_spread": _safe_nanmean(tail_df["tail_spread"].to_numpy(dtype="float64")) if len(tail_df) else float("nan"),
             "tail_positive_rate": float((tail_df["tail_spread"] > 0.0).mean()) if len(tail_df) else float("nan"),
         })
-
-        contrib_day = scored[["date"] + [c for c in scored.columns if c.startswith("contrib__")]].copy()
-        if len(contrib_day.columns) > 1:
-            contrib_day = contrib_day.groupby("date", sort=False).sum(numeric_only=True).reset_index()
-            contrib_day["fold_id"] = int(split.fold_id)
-            contrib_day["portfolio"] = spec.name
-            contrib_frames.append(contrib_day)
-
-    return pd.DataFrame(result_rows), pd.concat(daily_frames, ignore_index=True), pd.concat(contrib_frames, ignore_index=True) if contrib_frames else pd.DataFrame(), info_out
+    return pd.DataFrame(result_rows), pd.concat(daily_frames, ignore_index=True), comp_train_info.assign(robust_name=robust.name, fold_id=int(split.fold_id), mr_alpha_source=mr_alpha)
 
 
 def _summarize_portfolios(portfolio_fold_df: pd.DataFrame) -> pd.DataFrame:
     rows: List[Dict[str, object]] = []
     if portfolio_fold_df.empty:
         return pd.DataFrame()
-    for portfolio, g in portfolio_fold_df.sort_values(["portfolio", "fold_id"]).groupby("portfolio", sort=False):
+    grouped = portfolio_fold_df.sort_values(["robust_name", "portfolio", "fold_id"]).groupby(["robust_name", "portfolio"], sort=False)
+    for (robust_name, portfolio), g in grouped:
         rows.append({
+            "robust_name": robust_name,
             "portfolio": portfolio,
             "weighting": str(g["weighting"].iloc[0]),
-            "trend_gate": int(pd.to_numeric(g["trend_gate"], errors="coerce").iloc[0]),
             "component_count": int(pd.to_numeric(g["component_count"], errors="coerce").iloc[0]),
             "mr_leg": int(pd.to_numeric(g["mr_leg"], errors="coerce").iloc[0]),
-            "continuous_scaling": int(pd.to_numeric(g["continuous_scaling"], errors="coerce").iloc[0]),
             "mr_alpha_source": str(g["mr_alpha_source"].iloc[0]),
             "components": str(g["components"].iloc[0]),
+            "cost_bps": float(pd.to_numeric(g["cost_bps"], errors="coerce").iloc[0]),
+            "turnover_cap": float(pd.to_numeric(g["turnover_cap"], errors="coerce").iloc[0]),
+            "train_days": int(pd.to_numeric(g["train_days"], errors="coerce").iloc[0]),
+            "test_days": int(pd.to_numeric(g["test_days"], errors="coerce").iloc[0]),
+            "step_days": int(pd.to_numeric(g["step_days"], errors="coerce").iloc[0]),
             "folds": int(len(g)),
             "oos_sharpe_mean": _safe_mean(g["sharpe"].tolist()),
             "last_fold_sharpe": _safe_last(g["sharpe"].tolist()),
@@ -906,27 +763,34 @@ def _summarize_portfolios(portfolio_fold_df: pd.DataFrame) -> pd.DataFrame:
         })
     out = pd.DataFrame(rows)
     if len(out):
-        out = out.sort_values(["last_2_fold_mean_sharpe", "oos_sharpe_mean", "portfolio"], ascending=[False, False, True]).reset_index(drop=True)
+        out = out.sort_values(["last_2_fold_mean_sharpe", "oos_sharpe_mean", "robust_name", "portfolio"], ascending=[False, False, True, True]).reset_index(drop=True)
     return out
+
+
+def _robustness_grid() -> List[RobustConfig]:
+    cost_grid = _parse_float_grid(ROBUST_COST_BPS_GRID, [BASE_COST_BPS])
+    turn_grid = _parse_float_grid(ROBUST_TURNOVER_CAP_GRID, [BASE_MAX_DAILY_TURNOVER])
+    wf_grid = _parse_wf_grid(ROBUST_WF_GRID)
+    rows: List[RobustConfig] = []
+    for train_days, test_days, step_days in wf_grid:
+        for cost_bps in cost_grid:
+            for turnover_cap in turn_grid:
+                name = f"wf{train_days}_{test_days}_{step_days}__cost{cost_bps:.1f}__turn{turnover_cap:.2f}"
+                rows.append(RobustConfig(name=name, train_days=train_days, test_days=test_days, step_days=step_days, cost_bps=cost_bps, turnover_cap=turnover_cap))
+    return rows
 
 
 def main() -> int:
     _enable_line_buffering()
     print(f"[CFG] interaction_summary_file={INTERACTION_SUMMARY_FILE}")
-    print(f"[CFG] interaction_incremental_file={INTERACTION_INCREMENTAL_FILE}")
     print(f"[CFG] feature_v2_file={FEATURE_V2_FILE}")
     print(f"[CFG] alpha_lib_file={ALPHA_LIB_FILE}")
     print(f"[CFG] out_dir={OUT_DIR}")
-    print(f"[CFG] wf train_days={WF_TRAIN_DAYS} test_days={WF_TEST_DAYS} step_days={WF_STEP_DAYS} purge_days={WF_PURGE_DAYS} embargo_days={WF_EMBARGO_DAYS}")
-    print(f"[CFG] shell gross_target={GROSS_TARGET} weight_cap={WEIGHT_CAP} max_daily_turnover={MAX_DAILY_TURNOVER} enter_pct={ENTER_PCT} exit_pct={EXIT_PCT} cost_bps={COST_BPS}")
-    print(f"[CFG] component_count_limit={COMPONENT_COUNT_LIMIT} override={COMPONENT_OVERRIDE}")
-    print(f"[CFG] weighting equal={int(ENABLE_EQUAL_WEIGHT)} ic={int(ENABLE_IC_WEIGHT)} sharpe={int(ENABLE_SHARPE_WEIGHT)} trend_gate={int(ENABLE_TREND_GATE)}")
-    print(f"[CFG] continuous_regime_scaling={int(ENABLE_CONTINUOUS_REGIME_SCALING)} allocation_only_scaling={int(ENABLE_ALLOCATION_ONLY_SCALING)} clip={REGIME_STRENGTH_CLIP} power={REGIME_STREND_POWER}")
-    print(f"[CFG] gross_floors trend={TREND_GROSS_FLOOR} mr={MR_GROSS_FLOOR} neutral={NEUTRAL_GROSS_FLOOR}")
-    print(f"[CFG] overlays dynamic_budgets={int(ENABLE_DYNAMIC_BUDGETS)} regime_multipliers={int(ENABLE_REGIME_MULTIPLIERS)}")
-    print(f"[CFG] auto_build_fs2_if_missing={int(AUTO_BUILD_FS2_IF_MISSING)}")
-    print(f"[CFG] dynamic_gross={int(ENABLE_DYNAMIC_GROSS)} trend_hi_mult={DYN_GROSS_TREND_HI_MULT} trend_lo_mult={DYN_GROSS_TREND_LO_MULT} neutral_mult={DYN_GROSS_NEUTRAL_MULT} min={DYN_GROSS_MIN} max={DYN_GROSS_MAX}")
-    print(f"[CFG] mr_leg={int(ENABLE_MR_LEG)} mr_weight={MR_WEIGHT} mr_gross_mult={MR_GROSS_MULT} mr_alpha_override={MR_ALPHA_OVERRIDE!r} mr_only_trend_lo={int(MR_ONLY_TREND_LO)}")
+    print(f"[CFG] shell gross_target={GROSS_TARGET} weight_cap={WEIGHT_CAP} enter_pct={ENTER_PCT} exit_pct={EXIT_PCT}")
+    print(f"[CFG] component_count_limit={COMPONENT_COUNT_LIMIT}")
+    print(f"[CFG] weighting equal={int(ENABLE_EQUAL_WEIGHT)} ic={int(ENABLE_IC_WEIGHT)} sharpe={int(ENABLE_SHARPE_WEIGHT)}")
+    print(f"[CFG] mr_leg={int(ENABLE_MR_LEG)} mr_weight={MR_WEIGHT} mr_gross_mult={MR_GROSS_MULT} mr_alpha_override={MR_ALPHA_OVERRIDE!r}")
+    print(f"[CFG] robustness cost_grid={ROBUST_COST_BPS_GRID!r} turnover_grid={ROBUST_TURNOVER_CAP_GRID!r} wf_grid={ROBUST_WF_GRID!r}")
 
     components_df = _load_component_universe()
     print("[COMPONENTS][SELECTED]")
@@ -935,43 +799,37 @@ def main() -> int:
     df = _load_feature_panel(components_df)
     print(f"[DATA] rows={len(df)} dates={df['date'].nunique()} symbols={df['symbol'].nunique()}")
 
-    splits = _build_walkforward_splits(df["date"])
-    print(f"[WF] folds={len(splits)}")
-    for sp in splits:
-        print(f"[WF][FOLD {sp.fold_id}] train={sp.train_start.date()}..{sp.train_end.date()} test={sp.test_start.date()}..{sp.test_end.date()}")
+    robust_grid = _robustness_grid()
+    print(f"[ROBUSTNESS] configs={len(robust_grid)}")
+    for cfg in robust_grid:
+        print(f"[ROBUSTNESS][CFG] {cfg.name}")
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    portfolio_fold_rows: List[pd.DataFrame] = []
-    daily_rows: List[pd.DataFrame] = []
-    contrib_rows: List[pd.DataFrame] = []
-    component_info_rows: List[pd.DataFrame] = []
+    fold_rows_all: List[pd.DataFrame] = []
+    daily_rows_all: List[pd.DataFrame] = []
+    comp_info_all: List[pd.DataFrame] = []
 
-    for split in splits:
-        fold_pf_df, fold_daily_df, fold_contrib_df, fold_comp_info = _run_fold(df, components_df, split)
-        portfolio_fold_rows.append(fold_pf_df)
-        daily_rows.append(fold_daily_df)
-        if len(fold_contrib_df):
-            contrib_rows.append(fold_contrib_df)
-        component_info_rows.append(fold_comp_info)
+    for robust in robust_grid:
+        splits = _build_walkforward_splits(df["date"], robust.train_days, robust.test_days, robust.step_days)
+        print(f"[WF][{robust.name}] folds={len(splits)}")
+        for split in splits:
+            fold_pf_df, fold_daily_df, fold_comp_info = _run_fold(df, components_df, split, robust)
+            fold_rows_all.append(fold_pf_df)
+            daily_rows_all.append(fold_daily_df)
+            comp_info_all.append(fold_comp_info)
+            fold_pf_df.to_csv(OUT_DIR / f"portfolio_fold_metrics__{robust.name}__fold{split.fold_id}.csv", index=False)
+            fold_daily_df.to_csv(OUT_DIR / f"portfolio_daily__{robust.name}__fold{split.fold_id}.csv", index=False)
+            fold_comp_info.to_csv(OUT_DIR / f"component_train_info__{robust.name}__fold{split.fold_id}.csv", index=False)
+            for _, row in fold_pf_df.sort_values("portfolio").iterrows():
+                print(f"[{robust.name}][FOLD {split.fold_id}][{row['portfolio']}] sharpe={row['sharpe']:.4f} mean_ic={row['test_mean_ic']:.5f} sign_stability={row['test_sign_stability']:.4f} maxdd={row['max_drawdown']:.4f} turnover={row['avg_turnover']:.4f}")
 
-        fold_pf_df.to_csv(OUT_DIR / f"portfolio_fold_metrics__fold{split.fold_id}.csv", index=False)
-        fold_daily_df.to_csv(OUT_DIR / f"portfolio_daily__fold{split.fold_id}.csv", index=False)
-        if len(fold_contrib_df):
-            fold_contrib_df.to_csv(OUT_DIR / f"portfolio_contrib__fold{split.fold_id}.csv", index=False)
-        fold_comp_info.to_csv(OUT_DIR / f"component_train_info__fold{split.fold_id}.csv", index=False)
-
-        for _, row in fold_pf_df.sort_values("portfolio").iterrows():
-            print(f"[FOLD {split.fold_id}][{row['portfolio']}] sharpe={row['sharpe']:.4f} mean_ic={row['test_mean_ic']:.5f} sign_stability={row['test_sign_stability']:.4f} maxdd={row['max_drawdown']:.4f} turnover={row['avg_turnover']:.4f}")
-
-    portfolio_fold_df = pd.concat(portfolio_fold_rows, ignore_index=True) if portfolio_fold_rows else pd.DataFrame()
-    daily_df = pd.concat(daily_rows, ignore_index=True) if daily_rows else pd.DataFrame()
-    contrib_df = pd.concat(contrib_rows, ignore_index=True) if contrib_rows else pd.DataFrame()
-    comp_info_df = pd.concat(component_info_rows, ignore_index=True) if component_info_rows else pd.DataFrame()
+    portfolio_fold_df = pd.concat(fold_rows_all, ignore_index=True) if fold_rows_all else pd.DataFrame()
+    daily_df = pd.concat(daily_rows_all, ignore_index=True) if daily_rows_all else pd.DataFrame()
+    comp_info_df = pd.concat(comp_info_all, ignore_index=True) if comp_info_all else pd.DataFrame()
     portfolio_summary_df = _summarize_portfolios(portfolio_fold_df)
 
     portfolio_fold_df.to_csv(OUT_DIR / "portfolio_fold_metrics__all_folds.csv", index=False)
     daily_df.to_csv(OUT_DIR / "portfolio_daily__all_folds.csv", index=False)
-    contrib_df.to_csv(OUT_DIR / "portfolio_contrib__all_folds.csv", index=False)
     comp_info_df.to_csv(OUT_DIR / "component_train_info__all_folds.csv", index=False)
     portfolio_summary_df.to_csv(OUT_DIR / "portfolio_summary.csv", index=False)
 
@@ -984,57 +842,32 @@ def main() -> int:
         "feature_v2_file": str(FEATURE_V2_FILE),
         "alpha_lib_file": str(ALPHA_LIB_FILE),
         "target_col": TARGET_COL,
-        "wf": {
-            "train_days": WF_TRAIN_DAYS,
-            "test_days": WF_TEST_DAYS,
-            "step_days": WF_STEP_DAYS,
-            "purge_days": WF_PURGE_DAYS,
-            "embargo_days": WF_EMBARGO_DAYS,
-            "folds": len(splits),
-        },
+        "robustness": [x.__dict__ for x in robust_grid],
         "shell": {
             "enter_pct": ENTER_PCT,
             "exit_pct": EXIT_PCT,
             "weight_cap": WEIGHT_CAP,
             "gross_target": GROSS_TARGET,
-            "max_daily_turnover": MAX_DAILY_TURNOVER,
-            "cost_bps": COST_BPS,
+            "base_cost_bps": BASE_COST_BPS,
+            "base_turnover_cap": BASE_MAX_DAILY_TURNOVER,
         },
         "portfolio_grid": {
             "component_count_limit": COMPONENT_COUNT_LIMIT,
             "equal_weight": int(ENABLE_EQUAL_WEIGHT),
             "ic_weight": int(ENABLE_IC_WEIGHT),
             "sharpe_weight": int(ENABLE_SHARPE_WEIGHT),
-            "trend_gate": int(ENABLE_TREND_GATE),
-            "continuous_regime_scaling": int(ENABLE_CONTINUOUS_REGIME_SCALING),
-            "allocation_only_scaling": int(ENABLE_ALLOCATION_ONLY_SCALING),
-            "regime_strength_clip": REGIME_STRENGTH_CLIP,
-            "regime_strength_power": REGIME_STREND_POWER,
-            "trend_gross_floor": TREND_GROSS_FLOOR,
-            "mr_gross_floor": MR_GROSS_FLOOR,
-            "neutral_gross_floor": NEUTRAL_GROSS_FLOOR,
-            "dynamic_gross": int(ENABLE_DYNAMIC_GROSS),
-            "dyn_gross_trend_hi_mult": DYN_GROSS_TREND_HI_MULT,
-            "dyn_gross_trend_lo_mult": DYN_GROSS_TREND_LO_MULT,
-            "dyn_gross_neutral_mult": DYN_GROSS_NEUTRAL_MULT,
-            "dyn_gross_min": DYN_GROSS_MIN,
-            "dyn_gross_max": DYN_GROSS_MAX,
             "mr_leg": int(ENABLE_MR_LEG),
             "mr_weight": MR_WEIGHT,
             "mr_gross_mult": MR_GROSS_MULT,
             "mr_alpha_override": MR_ALPHA_OVERRIDE,
-            "mr_only_trend_lo": int(MR_ONLY_TREND_LO),
         },
         "modules": {
             "holding_inertia": int(HAS_HOLDING_INERTIA),
             "turnover_control": int(HAS_TURNOVER_CONTROL),
-            "budget_allocation": int(HAS_BUDGET_ALLOCATION),
-            "regime_allocation": int(HAS_REGIME_ALLOCATION),
         },
         "rows": {
             "portfolio_fold_rows": int(len(portfolio_fold_df)),
             "daily_rows": int(len(daily_df)),
-            "contrib_rows": int(len(contrib_df)),
             "component_train_info_rows": int(len(comp_info_df)),
             "portfolio_summary_rows": int(len(portfolio_summary_df)),
         },
@@ -1045,9 +878,9 @@ def main() -> int:
     print(f"[ARTIFACT] {OUT_DIR / 'portfolio_summary.csv'}")
     print(f"[ARTIFACT] {OUT_DIR / 'portfolio_fold_metrics__all_folds.csv'}")
     print(f"[ARTIFACT] {OUT_DIR / 'portfolio_daily__all_folds.csv'}")
-    print(f"[ARTIFACT] {OUT_DIR / 'portfolio_contrib__all_folds.csv'}")
+    print(f"[ARTIFACT] {OUT_DIR / 'component_train_info__all_folds.csv'}")
     print(f"[ARTIFACT] {meta_path}")
-    print("[FINAL] portfolio optimization walk-forward complete")
+    print("[FINAL] portfolio optimization robustness grid complete")
     return 0
 
 
