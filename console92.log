@@ -1,0 +1,61 @@
+[SUMMARY][LOCAL_GRID]
+                             robust_name   portfolio  cost_bps  turnover_cap  mr_weight  train_days  test_days  step_days  folds  oos_sharpe_mean  last_fold_sharpe  last_2_fold_mean_sharpe  test_mean_ic  sign_stability  tail_positive_rate  max_drawdown  turnover_mean  positive_sharpe_fraction  avg_dynamic_gross_target
+wf200_60_60__cost4.0__turn0.200__mrw0.50 n2__ic__mr1       4.0           0.2        0.5         200         60         60      9         1.103497          2.186409                 1.561284      0.015583        0.525647            0.522101     -0.021778       0.165427                  0.777778                  0.522199
+wf200_60_60__cost4.0__turn0.100__mrw0.50 n2__ic__mr1       4.0           0.1        0.5         200         60         60      9         0.562290          2.133101                 1.137543      0.015583        0.525647            0.522101     -0.012064       0.082748                  0.666667                  0.522199
+
+
+
+
+[ARTIFACT] artifacts\portfolio_opt_wf_200_60_60\portfolio_summary.csv
+
+
+robust_name,portfolio,cost_bps,turnover_cap,mr_weight,train_days,test_days,step_days,folds,oos_sharpe_mean,last_fold_sharpe,last_2_fold_mean_sharpe,test_mean_ic,sign_stability,tail_positive_rate,max_drawdown,turnover_mean,positive_sharpe_fraction,avg_dynamic_gross_target
+wf200_60_60__cost4.0__turn0.200__mrw0.50,n2__ic__mr1,4.0,0.2,0.5,200,60,60,9,1.1034974461803801,2.186409247117873,1.561283738502301,0.015582883755129883,0.5256472572423131,0.522101256489846,-0.021777514916272445,0.1654267651770795,0.7777777777777778,0.5221990740740741
+wf200_60_60__cost4.0__turn0.100__mrw0.50,n2__ic__mr1,4.0,0.1,0.5,200,60,60,9,0.5622898988197235,2.133101339692971,1.1375427724634517,0.015582883755129883,0.5256472572423131,0.522101256489846,-0.012064461333457066,0.08274801488375033,0.6666666666666666,0.5221990740740741
+
+
+
+
+[ARTIFACT] artifacts\portfolio_opt_wf_200_60_60\portfolio_opt_meta.json
+
+
+
+
+{
+  "interaction_summary_file": "artifacts\\residual_layer_fs2_interactions\\residual_component_summary.csv",
+  "feature_v2_file": "data\\features\\feature_matrix_v2.parquet",
+  "alpha_lib_file": "data\\alpha_library_fs2_base\\alpha_library_fs2_base.parquet",
+  "target_col": "target_fwd_ret_1d",
+  "local_grid": [
+    {
+      "name": "wf200_60_60__cost4.0__turn0.100__mrw0.50",
+      "train_days": 200,
+      "test_days": 60,
+      "step_days": 60,
+      "cost_bps": 4.0,
+      "turnover_cap": 0.1,
+      "mr_weight": 0.5
+    },
+    {
+      "name": "wf200_60_60__cost4.0__turn0.200__mrw0.50",
+      "train_days": 200,
+      "test_days": 60,
+      "step_days": 60,
+      "cost_bps": 4.0,
+      "turnover_cap": 0.2,
+      "mr_weight": 0.5
+    }
+  ],
+  "fixed_portfolio": {
+    "component_count": 2,
+    "weighting_mode": "ic",
+    "mr_leg": 1,
+    "mr_alpha_override": "alpha_fs2_intraday_strength_rvol_interaction__lag1",
+    "mr_gross_mult": 0.35
+  },
+  "rows": {
+    "portfolio_fold_rows": 18,
+    "daily_rows": 1080,
+    "summary_rows": 2
+  }
+}
