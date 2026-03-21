@@ -558,19 +558,44 @@ def main() -> int:
 
     splits = _build_walkforward_splits(df["date"], FREEZE_TRAIN_DAYS, FREEZE_TEST_DAYS, FREEZE_STEP_DAYS)
     current_split = splits[-1]
-    print(f"[FREEZE] using_last_fold fold_id={current_split.fold_id} train={current_split.train_start.date()}..{current_split.train_end.date()} test={current_split.test_start.date()}..{current_split.test_end.date()}")
+    print(f"[FREEZE] last_completed_fold fold_id={current_split.fold_id} train={current_split.train_start.date()}..{current_split.train_end.date()} test={current_split.test_start.date()}..{current_split.test_end.date()}")
+
+    # Final patch: build live-style snapshot on the LAST AVAILABLE DATE, not on last completed fold end.
+    uniq_dates = pd.Index(sorted(pd.to_datetime(df["date"]).dt.normalize().unique()))
+    last_idx = len(uniq_dates) - 1
+    live_train_end_idx = last_idx - (WF_PURGE_DAYS + WF_EMBARGO_DAYS + 1)
+    if live_train_end_idx < (FREEZE_TRAIN_DAYS - 1):
+        raise RuntimeError("Not enough history for live-style freeze snapshot")
+    live_train_start_idx = live_train_end_idx - FREEZE_TRAIN_DAYS + 1
+    live_train_start = pd.Timestamp(uniq_dates[live_train_start_idx]).normalize()
+    live_train_end = pd.Timestamp(uniq_dates[live_train_end_idx]).normalize()
+    live_current_date = pd.Timestamp(uniq_dates[last_idx]).normalize()
+
+    print(f"[FREEZE] live_snapshot train={live_train_start.date()}..{live_train_end.date()} current_date={live_current_date.date()}")
+
+    train_df_live = df.loc[(df["date"] >= live_train_start) & (df["date"] <= live_train_end)].copy()
+    current_df_live = df.loc[df["date"] == live_current_date].copy()
+    if len(train_df_live) < MIN_TRAIN_ROWS:
+        raise RuntimeError(f"Too few live-style train rows: {len(train_df_live)}")
+    if current_df_live.empty:
+        raise RuntimeError("No rows on live current date")
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    stale_days = int((pd.Timestamp("2026-03-21") - last_date).days)
+    stale_days = int((pd.Timestamp.now(tz="UTC").tz_localize(None).normalize() - last_date).days)
     summary_export: Dict[str, object] = {
         "last_data_date": str(last_date.date()),
         "days_stale_vs_2026_03_21": stale_days,
-        "current_split": {
+        "last_completed_fold": {
             "fold_id": int(current_split.fold_id),
             "train_start": str(current_split.train_start.date()),
             "train_end": str(current_split.train_end.date()),
             "test_start": str(current_split.test_start.date()),
             "test_end": str(current_split.test_end.date()),
+        },
+        "live_snapshot": {
+            "train_start": str(live_train_start.date()),
+            "train_end": str(live_train_end.date()),
+            "current_date": str(live_current_date.date()),
         },
         "frozen_base_config": {
             "train_days": FREEZE_TRAIN_DAYS,
@@ -587,36 +612,71 @@ def main() -> int:
     }
 
     for cfg in FREEZE_CONFIGS:
-        result = _run_freeze_config(df, components_df, current_split, cfg)
+        # Keep replay on last completed fold for diagnostics.
+        replay_result = _run_freeze_config(df, components_df, current_split, cfg)
+
+        # Build live-style current snapshot on last available date.
+        info_rows: List[Dict[str, object]] = []
+        current_signal_cols: Dict[str, pd.Series] = {}
+        for _, rec in components_df.iterrows():
+            candidate = str(rec["candidate"])
+            alpha = str(rec["alpha"])
+            regime = str(rec["regime"])
+            kind = str(rec["kind"])
+            train_signal = _cs_zscore_by_date(train_df_live, _build_candidate_signal(train_df_live, alpha, regime, kind))
+            current_signal = _cs_zscore_by_date(current_df_live, _build_candidate_signal(current_df_live, alpha, regime, kind))
+            train_scored = pd.DataFrame({"date": train_df_live["date"].values, "symbol": train_df_live["symbol"].values, TARGET_COL: _num(train_df_live[TARGET_COL]).values, "score": _num(train_signal).values})
+            train_ic_df = _daily_ic_series(train_scored, "score", TARGET_COL, MIN_DAILY_IC_CS)
+            sign_info = _sign_decision(train_ic_df)
+            info_rows.append({"candidate": candidate, "alpha": alpha, "regime": regime, "kind": kind, **sign_info})
+            current_signal_cols[candidate] = _num(current_signal) * float(sign_info["train_sign_locked"])
+
+        live_comp_info = pd.DataFrame(info_rows).head(FREEZE_COMPONENT_COUNT).copy()
+        live_weights = _portfolio_weights(live_comp_info)
+        live_mr_signal = _build_mr_signal(current_df_live, FREEZE_MR_ALPHA) if FREEZE_MR_ENABLED else None
+        live_scored = _build_portfolio_scores(current_df_live, {cand: current_signal_cols[cand] for cand in live_weights.keys()}, live_weights, cfg, live_mr_signal)
+        live_port = _build_portfolio(live_scored, cfg)
+        live_book = live_port.loc[live_port["date"] == live_current_date].copy().sort_values(["weight", "symbol"], ascending=[False, True])
+        live_book["abs_weight"] = _num(live_book["weight"]).abs()
+        live_book = live_book.loc[live_book["abs_weight"] > 0.0].reset_index(drop=True)
+        live_scores = live_scored.loc[live_scored["date"] == live_current_date].copy()
+        live_scores["score_rank_pct"] = live_scores["score"].rank(method="average", pct=True)
+        live_scores = live_scores.sort_values(["score", "symbol"], ascending=[False, True]).reset_index(drop=True)
+
         cfg_dir = OUT_DIR / cfg.name
         cfg_dir.mkdir(parents=True, exist_ok=True)
-        result["component_info"].to_csv(cfg_dir / "freeze_component_train_info.csv", index=False)
-        result["daily_df"].to_csv(cfg_dir / "freeze_daily_replay_last_fold.csv", index=False)
-        result["scored_df"].to_csv(cfg_dir / "freeze_scored_last_fold.csv", index=False)
-        result["port_df"].to_csv(cfg_dir / "freeze_portfolio_last_fold.csv", index=False)
-        result["current_scores"].head(TOPK_EXPORT).to_csv(cfg_dir / "freeze_current_scores_top.csv", index=False)
-        result["current_book"].to_csv(cfg_dir / "freeze_current_book.csv", index=False)
+        replay_result["component_info"].to_csv(cfg_dir / "freeze_component_train_info.csv", index=False)
+        replay_result["daily_df"].to_csv(cfg_dir / "freeze_daily_replay_last_fold.csv", index=False)
+        replay_result["scored_df"].to_csv(cfg_dir / "freeze_scored_last_fold.csv", index=False)
+        replay_result["port_df"].to_csv(cfg_dir / "freeze_portfolio_last_fold.csv", index=False)
+        live_comp_info.to_csv(cfg_dir / "freeze_component_train_info_live_snapshot.csv", index=False)
+        live_scored.to_csv(cfg_dir / "freeze_scored_live_snapshot.csv", index=False)
+        live_port.to_csv(cfg_dir / "freeze_portfolio_live_snapshot.csv", index=False)
+        live_scores.head(TOPK_EXPORT).to_csv(cfg_dir / "freeze_current_scores_top.csv", index=False)
+        live_book.to_csv(cfg_dir / "freeze_current_book.csv", index=False)
 
         cfg_summary = {
             "cost_bps": cfg.cost_bps,
             "turnover_cap": cfg.turnover_cap,
             "mr_weight": cfg.mr_weight,
-            "current_date": str(result["current_date"].date()),
-            "weights": result["weights"],
-            "evaluation": result["summary"],
-            "active_names": int(len(result["current_book"])),
-            "gross_exposure_current_day": float(_num(result["current_book"]["weight"]).abs().sum()) if len(result["current_book"]) else 0.0,
+            "replay_current_date": str(replay_result["current_date"].date()),
+            "live_current_date": str(live_current_date.date()),
+            "weights": live_weights,
+            "replay_evaluation": replay_result["summary"],
+            "live_active_names": int(len(live_book)),
+            "live_gross_exposure_current_day": float(_num(live_book["weight"]).abs().sum()) if len(live_book) else 0.0,
         }
         (cfg_dir / "freeze_current_summary.json").write_text(json.dumps(cfg_summary, ensure_ascii=False, indent=2), encoding="utf-8")
         summary_export["configs"][cfg.name] = cfg_summary
 
-        print(f"[FREEZE][{cfg.name}] current_date={result['current_date'].date()} active_names={len(result['current_book'])} gross_exposure={cfg_summary['gross_exposure_current_day']:.4f}")
-        print(f"[FREEZE][{cfg.name}] replay_sharpe_last_fold={result['summary']['sharpe']:.4f} replay_maxdd_last_fold={result['summary']['max_drawdown']:.4f} replay_avg_turnover_last_fold={result['summary']['avg_turnover']:.4f}")
-        if len(result["current_book"]):
-            print(f"[FREEZE][{cfg.name}][CURRENT_BOOK_TOP]")
-            print(result["current_book"][["symbol", "weight", "score", "side", "turnover", "dynamic_gross_target", "dynamic_gross_reason"]].head(min(TOPK_EXPORT, len(result["current_book"]))).to_string(index=False))
+        print(f"[FREEZE][{cfg.name}] replay_current_date={replay_result['current_date'].date()} live_current_date={live_current_date.date()}")
+        print(f"[FREEZE][{cfg.name}] live_active_names={len(live_book)} live_gross_exposure={cfg_summary['live_gross_exposure_current_day']:.4f}")
+        print(f"[FREEZE][{cfg.name}] replay_sharpe_last_fold={replay_result['summary']['sharpe']:.4f} replay_maxdd_last_fold={replay_result['summary']['max_drawdown']:.4f} replay_avg_turnover_last_fold={replay_result['summary']['avg_turnover']:.4f}")
+        if len(live_book):
+            print(f"[FREEZE][{cfg.name}][LIVE_BOOK_TOP]")
+            print(live_book[["symbol", "weight", "score", "side", "turnover", "dynamic_gross_target", "dynamic_gross_reason"]].head(min(TOPK_EXPORT, len(live_book))).to_string(index=False))
         else:
-            print(f"[FREEZE][{cfg.name}][CURRENT_BOOK_TOP] no active positions on current date")
+            print(f"[FREEZE][{cfg.name}][LIVE_BOOK_TOP] no active positions on live current date")
 
     (OUT_DIR / "freeze_all_configs_summary.json").write_text(json.dumps(summary_export, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"[ARTIFACT] {OUT_DIR / 'freeze_all_configs_summary.json'}")
@@ -627,6 +687,9 @@ def main() -> int:
         print(f"[ARTIFACT] {cfg_dir / 'freeze_daily_replay_last_fold.csv'}")
         print(f"[ARTIFACT] {cfg_dir / 'freeze_scored_last_fold.csv'}")
         print(f"[ARTIFACT] {cfg_dir / 'freeze_portfolio_last_fold.csv'}")
+        print(f"[ARTIFACT] {cfg_dir / 'freeze_component_train_info_live_snapshot.csv'}")
+        print(f"[ARTIFACT] {cfg_dir / 'freeze_scored_live_snapshot.csv'}")
+        print(f"[ARTIFACT] {cfg_dir / 'freeze_portfolio_live_snapshot.csv'}")
         print(f"[ARTIFACT] {cfg_dir / 'freeze_current_scores_top.csv'}")
         print(f"[ARTIFACT] {cfg_dir / 'freeze_current_book.csv'}")
     print("[FINAL] freeze runner complete")
