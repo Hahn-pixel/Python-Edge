@@ -1,0 +1,143 @@
+[ROOT] C:\Users\Dmytro Govor\Documents\Python-Edge
+[STEP] freeze runner
+[RUN] C:\Users\Dmytro Govor\AppData\Local\Programs\Python\Python313\python.exe C:\Users\Dmytro Govor\Documents\Python-Edge\scripts\run_freeze_runner.py
+[CFG] feature_v2_file=data\features\feature_matrix_v2.parquet
+[CFG] interaction_summary_file=artifacts\residual_layer_fs2_interactions\residual_component_summary.csv
+[CFG] alpha_lib_file=data\alpha_library_v2\alpha_library_v2.parquet
+[CFG] out_dir=artifacts\freeze_runner
+[CFG] frozen wf=200/50/50 components=2 weighting=ic
+[CFG] configs=['optimal', 'aggressive']
+[COMPONENTS][FROZEN]
+                                                                candidate                                              alpha          regime kind  oos_sharpe_mean  last_2_fold_mean_sharpe  test_mean_ic
+gate::alpha_fs2_intraday_strength_rvol_interaction__lag1::regime_trend_hi alpha_fs2_intraday_strength_rvol_interaction__lag1 regime_trend_hi gate         2.255073                 1.559089      0.154429
+ gate::alpha_fs2_intraday_strength_liq_interaction__lag1::regime_trend_hi  alpha_fs2_intraday_strength_liq_interaction__lag1 regime_trend_hi gate         0.940434                 0.459385      0.096051
+[DATA] rows=76727 symbols=97 first_date=2023-01-03 last_date=2026-02-27
+[FREEZE] last_completed_fold fold_id=11 train=2024-12-30..2025-10-16 test=2025-10-31..2026-01-13
+[FREEZE] live_snapshot train=2025-04-28..2026-02-11 current_date=2026-02-27
+[FREEZE][optimal] replay_current_date=2026-01-13 live_current_date=2026-02-27
+[FREEZE][optimal] live_active_names=2 live_gross_exposure=0.1000
+[FREEZE][optimal] replay_sharpe_last_fold=2.0241 replay_maxdd_last_fold=-0.0068 replay_avg_turnover_last_fold=0.0948
+[FREEZE][optimal][LIVE_BOOK_TOP]
+symbol   weight    score  side  turnover  dynamic_gross_target dynamic_gross_reason
+   CRM 0.050125 5.272169   1.0  0.050125                  0.85             trend_hi
+  NFLX 0.049875 3.157260   1.0  0.049875                  0.85             trend_hi
+[FREEZE][aggressive] replay_current_date=2026-01-13 live_current_date=2026-02-27
+[FREEZE][aggressive] live_active_names=4 live_gross_exposure=0.2000
+[FREEZE][aggressive] replay_sharpe_last_fold=2.4413 replay_maxdd_last_fold=-0.0125 replay_avg_turnover_last_fold=0.1885
+[FREEZE][aggressive][LIVE_BOOK_TOP]
+symbol    weight     score  side  turnover  dynamic_gross_target dynamic_gross_reason
+   CRM  0.050125  5.272169   1.0  0.050125                  0.85             trend_hi
+  NFLX  0.050125  3.157260   1.0  0.050125                  0.85             trend_hi
+   SMH -0.049625 -4.152847  -1.0  0.049625                  0.85             trend_hi
+  NVDA -0.050125 -7.220309  -1.0  0.050125                  0.85             trend_hi
+[ARTIFACT] artifacts\freeze_runner\freeze_all_configs_summary.json
+[ARTIFACT] artifacts\freeze_runner\optimal\freeze_current_summary.json
+[ARTIFACT] artifacts\freeze_runner\optimal\freeze_component_train_info.csv
+[ARTIFACT] artifacts\freeze_runner\optimal\freeze_daily_replay_last_fold.csv
+[ARTIFACT] artifacts\freeze_runner\optimal\freeze_scored_last_fold.csv
+[ARTIFACT] artifacts\freeze_runner\optimal\freeze_portfolio_last_fold.csv
+[ARTIFACT] artifacts\freeze_runner\optimal\freeze_component_train_info_live_snapshot.csv
+[ARTIFACT] artifacts\freeze_runner\optimal\freeze_scored_live_snapshot.csv
+[ARTIFACT] artifacts\freeze_runner\optimal\freeze_portfolio_live_snapshot.csv
+[ARTIFACT] artifacts\freeze_runner\optimal\freeze_current_scores_top.csv
+[ARTIFACT] artifacts\freeze_runner\optimal\freeze_current_book.csv
+[ARTIFACT] artifacts\freeze_runner\aggressive\freeze_current_summary.json
+[ARTIFACT] artifacts\freeze_runner\aggressive\freeze_component_train_info.csv
+[ARTIFACT] artifacts\freeze_runner\aggressive\freeze_daily_replay_last_fold.csv
+[ARTIFACT] artifacts\freeze_runner\aggressive\freeze_scored_last_fold.csv
+[ARTIFACT] artifacts\freeze_runner\aggressive\freeze_portfolio_last_fold.csv
+[ARTIFACT] artifacts\freeze_runner\aggressive\freeze_component_train_info_live_snapshot.csv
+[ARTIFACT] artifacts\freeze_runner\aggressive\freeze_scored_live_snapshot.csv
+[ARTIFACT] artifacts\freeze_runner\aggressive\freeze_portfolio_live_snapshot.csv
+[ARTIFACT] artifacts\freeze_runner\aggressive\freeze_current_scores_top.csv
+[ARTIFACT] artifacts\freeze_runner\aggressive\freeze_current_book.csv
+[FINAL] freeze runner complete
+
+[EXIT] code=0
+Press Enter to exit...
+[STEP] execution loop
+[RUN] C:\Users\Dmytro Govor\AppData\Local\Programs\Python\Python313\python.exe C:\Users\Dmytro Govor\Documents\Python-Edge\scripts\run_execution_loop.py
+[CFG] feature_v2_file=data\features\feature_matrix_v2.parquet
+[CFG] freeze_root=artifacts\freeze_runner
+[CFG] execution_root=artifacts\execution_loop
+[CFG] account_nav=100000.0
+[CFG] configs=['optimal', 'aggressive']
+[CFG] allow_fractional_shares=0 min_order_notional=25.0
+[DATA] current_date=2026-02-27 price_col=close symbols=97
+[EXEC][optimal] loading freeze artifacts
+[EXEC][optimal] starting_nav=100000.00 ending_nav=100000.00 order_count=0 active_names=2 gross_target=0.1000
+[EXEC][optimal][ORDERS_TOP]
+symbol order_side  delta_shares  price  order_notional  target_weight skip_reason
+   CRM       HOLD           0.0 194.79             0.0       0.050125
+  NFLX       HOLD           0.0  96.24             0.0       0.049875
+[ARTIFACT] artifacts\execution_loop\optimal\target_book.csv
+[ARTIFACT] artifacts\execution_loop\optimal\orders.csv
+[ARTIFACT] artifacts\execution_loop\optimal\portfolio_state.json
+[ARTIFACT] artifacts\execution_loop\optimal\execution_log.csv
+[EXEC][aggressive] loading freeze artifacts
+[EXEC][aggressive] starting_nav=100000.00 ending_nav=100000.00 order_count=0 active_names=4 gross_target=0.2000
+[EXEC][aggressive][ORDERS_TOP]
+symbol order_side  delta_shares  price  order_notional  target_weight skip_reason
+   CRM       HOLD           0.0 194.79             0.0       0.050125
+  NFLX       HOLD           0.0  96.24             0.0       0.050125
+  NVDA       HOLD           0.0 177.19             0.0      -0.050125
+   SMH       HOLD           0.0 406.37             0.0      -0.049625
+[ARTIFACT] artifacts\execution_loop\aggressive\target_book.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\orders.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\portfolio_state.json
+[ARTIFACT] artifacts\execution_loop\aggressive\execution_log.csv
+
+
+
+
+
+
+
+
+
+optimal
+freeze_current_book.csv
+
+
+date,symbol,target_fwd_ret_1d,regime_trend_hi,regime_trend_lo,trend_score_raw,mr_score_raw,score_raw,score,rank_pct,side,raw_strength,weight,dynamic_gross_target,dynamic_gross_reason,prev_weight,target_weight,trade_delta_target,trade_abs_raw,trade_delta,trade_abs_after,trade_priority,trade_strength,trade_abs_unfilled,raw_turnover,capped_turnover,cap_hit,turnover_budget_left,turnover,gross_ret,cost_ret,net_ret,abs_weight
+2026-02-27,CRM,,1.0,0.0,5.1550520349094615,0.0,5.1550520349094615,5.272169474833751,1.0,1.0,5.272169474833751,0.05012513789266604,0.85,trend_hi,0.0,0.05012513789266604,0.05012513789266604,0.05012513789266604,0.05012513789266604,0.05012513789266604,new_entry,1.0,0.0,0.8499999999999999,0.1,1,0.0,0.05012513789266604,,2.0050055157066417e-05,,0.05012513789266604
+2026-02-27,NFLX,,1.0,0.0,3.0958548869931013,0.0,3.0958548869931013,3.157260135120563,0.9896907216494846,1.0,3.157260135120563,0.04987486210733397,0.85,trend_hi,0.0,0.05012513789266604,0.05012513789266604,0.05012513789266604,0.04987486210733397,0.04987486210733397,new_entry,0.9896907216494846,0.0002502757853320714,0.8499999999999999,0.1,1,0.0,0.04987486210733397,,1.9949944842933586e-05,,0.04987486210733397
+
+
+
+
+aggressive
+freeze_current_book.csv
+
+
+date,symbol,target_fwd_ret_1d,regime_trend_hi,regime_trend_lo,trend_score_raw,mr_score_raw,score_raw,score,rank_pct,side,raw_strength,weight,dynamic_gross_target,dynamic_gross_reason,prev_weight,target_weight,trade_delta_target,trade_abs_raw,trade_delta,trade_abs_after,trade_priority,trade_strength,trade_abs_unfilled,raw_turnover,capped_turnover,cap_hit,turnover_budget_left,turnover,gross_ret,cost_ret,net_ret,abs_weight
+2026-02-27,CRM,,1.0,0.0,5.1550520349094615,0.0,5.1550520349094615,5.272169474833751,1.0,1.0,5.272169474833751,0.05012513789266604,0.85,trend_hi,0.0,0.05012513789266604,0.05012513789266604,0.05012513789266604,0.05012513789266604,0.05012513789266604,new_entry,1.0,0.0,0.8499999999999999,0.2,1,0.0,0.05012513789266604,,2.0050055157066417e-05,,0.05012513789266604
+2026-02-27,NFLX,,1.0,0.0,3.0958548869931013,0.0,3.0958548869931013,3.157260135120563,0.9896907216494846,1.0,3.157260135120563,0.05012513789266604,0.85,trend_hi,0.0,0.05012513789266604,0.05012513789266604,0.05012513789266604,0.05012513789266604,0.05012513789266604,new_entry,0.9896907216494846,0.0,0.8499999999999999,0.2,1,0.0,0.05012513789266604,,2.0050055157066417e-05,,0.05012513789266604
+2026-02-27,SMH,,1.0,0.0,-4.021685044879214,-0.0,-4.021685044879214,-4.1528469582822956,0.020618556701030927,-1.0,4.1528469582822956,-0.049624586322001896,0.85,trend_hi,0.0,-0.05012513789266604,-0.05012513789266604,0.05012513789266604,-0.049624586322001896,0.049624586322001896,new_entry,0.979381443298969,0.0005005515706641428,0.8499999999999999,0.2,1,0.0,0.049624586322001896,,1.984983452880076e-05,,0.049624586322001896
+2026-02-27,NVDA,,1.0,0.0,-7.008342038941965,-0.0,-7.008342038941965,-7.220308846355766,0.010309278350515464,-1.0,7.220308846355766,-0.05012513789266604,0.85,trend_hi,0.0,-0.05012513789266604,-0.05012513789266604,0.05012513789266604,-0.05012513789266604,0.05012513789266604,new_entry,0.9896907216494846,0.0,0.8499999999999999,0.2,1,0.0,0.05012513789266604,,2.0050055157066417e-05,,0.05012513789266604
+
+
+
+
+optimal
+orders.csv
+
+date,symbol,price,target_weight,target_notional,current_shares,target_shares,delta_shares,order_side,order_notional,skip_reason
+2026-02-27,CRM,194.79,0.050125137892666,5012.5137892666,25.0,25.0,0.0,HOLD,0.0,
+2026-02-27,NFLX,96.24,0.0498748621073339,4987.48621073339,51.0,51.0,0.0,HOLD,0.0,
+
+
+
+aggressive
+orders.csv
+
+date,symbol,price,target_weight,target_notional,current_shares,target_shares,delta_shares,order_side,order_notional,skip_reason
+2026-02-27,CRM,194.79,0.050125137892666,5012.5137892666,25.0,25.0,0.0,HOLD,0.0,
+2026-02-27,NFLX,96.24,0.050125137892666,5012.5137892666,52.0,52.0,0.0,HOLD,0.0,
+2026-02-27,NVDA,177.19,-0.050125137892666,-5012.5137892666,-28.0,-28.0,0.0,HOLD,0.0,
+2026-02-27,SMH,406.37,-0.0496245863220018,-4962.45863220018,-12.0,-12.0,0.0,HOLD,0.0,
+
+
+
+
+
