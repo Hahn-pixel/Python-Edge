@@ -1,0 +1,66 @@
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_freeze_runner.py
+[CFG] feature_v2_file=data\features\feature_matrix_v2.parquet
+[CFG] universe_snapshot_file=artifacts\daily_cycle\universe\universe_snapshot.parquet
+[CFG] interaction_summary_file=artifacts\residual_layer_fs2_interactions\residual_component_summary.csv
+[CFG] alpha_lib_file=data\alpha_library_v2\alpha_library_v2.parquet
+[CFG] out_dir=artifacts\freeze_runner
+[CFG] frozen wf=200/50/50 components=2 weighting=ic
+[CFG] fallback_enable_raw_features=1 fallback_max_candidates=200
+[CFG] configs=['optimal', 'aggressive']
+[COMPONENTS][REQUESTED_TOP]
+                                                                candidate                                              alpha          regime kind  oos_sharpe_mean  last_2_fold_mean_sharpe  test_mean_ic
+gate::alpha_fs2_intraday_strength_rvol_interaction__lag1::regime_trend_hi alpha_fs2_intraday_strength_rvol_interaction__lag1 regime_trend_hi gate         2.255073                 1.559089      0.154429
+ gate::alpha_fs2_intraday_strength_liq_interaction__lag1::regime_trend_hi  alpha_fs2_intraday_strength_liq_interaction__lag1 regime_trend_hi gate         0.940434                 0.459385      0.096051
+[UNIVERSE] source=artifacts\daily_cycle\universe\universe_snapshot.parquet
+[UNIVERSE] snapshot_rows=5267 selected_rows=500 selected_symbols_requested=500 feature_symbols_before=97 feature_symbols_after=55 rows_before=76727 rows_after=43505
+[UNIVERSE] missing_in_feature_panel=445
+[UNIVERSE][MISSING_SAMPLE] ['AA', 'AAL', 'AAOI', 'ABNB', 'ABT', 'ACN', 'ADI', 'ADMA', 'ADP', 'ADSK', 'AEIS', 'AEM', 'AEP', 'AES', 'AG', 'AGNC', 'AIG', 'AIR', 'AJG', 'AKAM']
+[ALPHA] available_before_autobuild=0 missing_before_autobuild=3
+[ALPHA][MISSING_BEFORE_AUTOBUILD] ['alpha_fs2_gap_fill_fraction_proxy__lag1', 'alpha_fs2_intraday_strength_liq_interaction__lag1', 'alpha_fs2_intraday_strength_rvol_interaction__lag1']
+[ALPHA] available_after_autobuild=0 missing_after_autobuild=3
+[ALPHA][MISSING_AFTER_AUTOBUILD] ['alpha_fs2_gap_fill_fraction_proxy__lag1', 'alpha_fs2_intraday_strength_liq_interaction__lag1', 'alpha_fs2_intraday_strength_rvol_interaction__lag1']
+[FALLBACK] using raw feature components count=2
+                                 candidate                            alpha regime kind  last_2_fold_mean_sharpe  test_mean_ic
+fallback::fs2_cs_winner_loser_spread_proxy fs2_cs_winner_loser_spread_proxy   none base             1.587451e+13           1.0
+             fallback::fs2_target_rank_pct              fs2_target_rank_pct   none base             1.587451e+13           1.0
+[MR][DISABLED] requested alpha unavailable: alpha_fs2_intraday_strength_rvol_interaction__lag1
+[COMPONENTS][EFFECTIVE] 2
+                                 candidate                            alpha regime kind  last_2_fold_mean_sharpe  test_mean_ic
+fallback::fs2_cs_winner_loser_spread_proxy fs2_cs_winner_loser_spread_proxy   none base             1.587451e+13           1.0
+             fallback::fs2_target_rank_pct              fs2_target_rank_pct   none base             1.587451e+13           1.0
+[MR] requested=alpha_fs2_intraday_strength_rvol_interaction__lag1 effective=None enabled_requested=1 enabled_effective=0
+[DATA] rows=43505 symbols=55 first_date=2023-01-03 last_date=2026-02-27
+[FREEZE] last_completed_fold fold_id=11 train=2024-12-30..2025-10-16 test=2025-10-31..2026-01-13
+[FREEZE] live_snapshot train=2025-04-28..2026-02-11 current_date=2026-02-27
+[FREEZE][optimal] replay_current_date=2026-01-13 live_current_date=2026-02-27
+[FREEZE][optimal] live_active_names=0 live_gross_exposure=0.0000
+[FREEZE][optimal] replay_sharpe_last_fold=11.0360 replay_maxdd_last_fold=-0.0070 replay_avg_turnover_last_fold=0.1000
+[FREEZE][optimal][LIVE_BOOK_TOP] no active positions on live current date
+[FREEZE][aggressive] replay_current_date=2026-01-13 live_current_date=2026-02-27
+[FREEZE][aggressive] live_active_names=0 live_gross_exposure=0.0000
+[FREEZE][aggressive] replay_sharpe_last_fold=12.4618 replay_maxdd_last_fold=-0.0078 replay_avg_turnover_last_fold=0.2000
+[FREEZE][aggressive][LIVE_BOOK_TOP] no active positions on live current date
+[ARTIFACT] artifacts\freeze_runner\freeze_all_configs_summary.json
+[ARTIFACT] artifacts\freeze_runner\optimal\freeze_current_summary.json
+[ARTIFACT] artifacts\freeze_runner\optimal\freeze_component_train_info.csv
+[ARTIFACT] artifacts\freeze_runner\optimal\freeze_daily_replay_last_fold.csv
+[ARTIFACT] artifacts\freeze_runner\optimal\freeze_scored_last_fold.csv
+[ARTIFACT] artifacts\freeze_runner\optimal\freeze_portfolio_last_fold.csv
+[ARTIFACT] artifacts\freeze_runner\optimal\freeze_component_train_info_live_snapshot.csv
+[ARTIFACT] artifacts\freeze_runner\optimal\freeze_scored_live_snapshot.csv
+[ARTIFACT] artifacts\freeze_runner\optimal\freeze_portfolio_live_snapshot.csv
+[ARTIFACT] artifacts\freeze_runner\optimal\freeze_current_scores_top.csv
+[ARTIFACT] artifacts\freeze_runner\optimal\freeze_current_book.csv
+[ARTIFACT] artifacts\freeze_runner\aggressive\freeze_current_summary.json
+[ARTIFACT] artifacts\freeze_runner\aggressive\freeze_component_train_info.csv
+[ARTIFACT] artifacts\freeze_runner\aggressive\freeze_daily_replay_last_fold.csv
+[ARTIFACT] artifacts\freeze_runner\aggressive\freeze_scored_last_fold.csv
+[ARTIFACT] artifacts\freeze_runner\aggressive\freeze_portfolio_last_fold.csv
+[ARTIFACT] artifacts\freeze_runner\aggressive\freeze_component_train_info_live_snapshot.csv
+[ARTIFACT] artifacts\freeze_runner\aggressive\freeze_scored_live_snapshot.csv
+[ARTIFACT] artifacts\freeze_runner\aggressive\freeze_portfolio_live_snapshot.csv
+[ARTIFACT] artifacts\freeze_runner\aggressive\freeze_current_scores_top.csv
+[ARTIFACT] artifacts\freeze_runner\aggressive\freeze_current_book.csv
+[FINAL] freeze runner complete
+
+[EXIT] code=0
