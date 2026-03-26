@@ -24,6 +24,7 @@ FREEZE_ROOT = Path(os.getenv("FREEZE_ROOT", "artifacts/freeze_runner"))
 EXECUTION_ROOT = Path(os.getenv("EXECUTION_ROOT", "artifacts/execution_loop"))
 ACCOUNT_NAV = float(os.getenv("ACCOUNT_NAV", "100000.0"))
 ALLOW_FRACTIONAL_SHARES = str(os.getenv("ALLOW_FRACTIONAL_SHARES", "0")).strip().lower() not in {"0", "false", "no", "off"}
+FRACTIONAL_MODE = str(os.getenv("FRACTIONAL_MODE", "auto")).strip().lower()
 MIN_ORDER_NOTIONAL = float(os.getenv("MIN_ORDER_NOTIONAL", "25.0"))
 DEFAULT_PRICE_FALLBACK = float(os.getenv("DEFAULT_PRICE_FALLBACK", "100.0"))
 TOPK_PRINT = int(os.getenv("TOPK_PRINT", "50"))
@@ -31,6 +32,10 @@ RESET_STATE = str(os.getenv("RESET_STATE", "0")).strip().lower() not in {"0", "f
 CONFIG_NAMES = [x.strip() for x in str(os.getenv("CONFIG_NAMES", "optimal|aggressive")).split("|") if x.strip()]
 SKIP_EMPTY_FREEZE_CONFIGS = str(os.getenv("SKIP_EMPTY_FREEZE_CONFIGS", "1")).strip().lower() not in {"0", "false", "no", "off"}
 REQUIRE_FREEZE_DATE_MATCH_LIVE_PRICES = str(os.getenv("REQUIRE_FREEZE_DATE_MATCH_LIVE_PRICES", "1")).strip().lower() not in {"0", "false", "no", "off"}
+MAX_SINGLE_NAME_WEIGHT = float(os.getenv("MAX_SINGLE_NAME_WEIGHT", "0.05"))
+MAX_SINGLE_NAME_NOTIONAL = float(os.getenv("MAX_SINGLE_NAME_NOTIONAL", "10000.0"))
+MIN_PRICE_TO_TRADE = float(os.getenv("MIN_PRICE_TO_TRADE", "1.0"))
+MAX_PRICE_TO_TRADE = float(os.getenv("MAX_PRICE_TO_TRADE", "1000000.0"))
 
 PRICE_COL_CANDIDATES = [
     "close",
@@ -95,6 +100,14 @@ def _must_exist(path: Path, label: str) -> None:
 
 def _num(series: pd.Series) -> pd.Series:
     return pd.to_numeric(series, errors="coerce").astype("float64")
+
+
+def _fractional_enabled_effective() -> bool:
+    if FRACTIONAL_MODE == "fractional":
+        return True
+    if FRACTIONAL_MODE == "integer":
+        return False
+    return bool(ALLOW_FRACTIONAL_SHARES)
 
 
 def _load_live_feature_frame() -> pd.DataFrame:
@@ -208,24 +221,54 @@ def _current_position_shares(state: dict, symbol: str) -> float:
         return 0.0
 
 
-def _round_shares(target_shares: float) -> float:
-    if ALLOW_FRACTIONAL_SHARES:
+def _round_shares(target_shares: float, fractional_enabled: bool) -> float:
+    if fractional_enabled:
         return float(target_shares)
     if target_shares >= 0.0:
         return float(math.floor(target_shares + 1e-12))
     return float(math.ceil(target_shares - 1e-12))
 
 
-def _build_target_table(book: pd.DataFrame, price_df: pd.DataFrame, price_col: str, nav: float) -> Tuple[pd.DataFrame, int]:
+def _apply_execution_risk_guards(target: pd.DataFrame, price_col: str, nav: float) -> Tuple[pd.DataFrame, Dict[str, int]]:
+    out = target.copy()
+    counters = {
+        "dropped_price_below_min": 0,
+        "dropped_price_above_max": 0,
+        "clipped_weight_cap": 0,
+        "clipped_notional_cap": 0,
+    }
+    price = _num(out[price_col]).fillna(float(DEFAULT_PRICE_FALLBACK))
+    below_min = price < float(MIN_PRICE_TO_TRADE)
+    above_max = price > float(MAX_PRICE_TO_TRADE)
+    counters["dropped_price_below_min"] = int(below_min.sum())
+    counters["dropped_price_above_max"] = int(above_max.sum())
+    out.loc[below_min | above_max, "weight"] = 0.0
+
+    weight_before = _num(out["weight"]).copy()
+    out["weight"] = _num(out["weight"]).clip(lower=-float(MAX_SINGLE_NAME_WEIGHT), upper=float(MAX_SINGLE_NAME_WEIGHT))
+    counters["clipped_weight_cap"] = int((weight_before != _num(out["weight"])).sum())
+
+    if float(MAX_SINGLE_NAME_NOTIONAL) > 0.0:
+        weight_notional_cap = float(MAX_SINGLE_NAME_NOTIONAL) / (float(nav) + 1e-12)
+        weight_after_cap = _num(out["weight"]).clip(lower=-weight_notional_cap, upper=weight_notional_cap)
+        counters["clipped_notional_cap"] = int((_num(out["weight"]) != weight_after_cap).sum())
+        out["weight"] = weight_after_cap
+
+    return out, counters
+
+
+def _build_target_table(book: pd.DataFrame, price_df: pd.DataFrame, price_col: str, nav: float, fractional_enabled: bool) -> Tuple[pd.DataFrame, int, Dict[str, int]]:
     target = book[["symbol", "weight"]].copy()
     target = target.merge(price_df, on="symbol", how="left")
     missing_price_mask = target[price_col].isna()
     merged_missing = int(missing_price_mask.sum())
     target[price_col] = _num(target[price_col]).fillna(float(DEFAULT_PRICE_FALLBACK))
+    target, risk_counters = _apply_execution_risk_guards(target, price_col=price_col, nav=nav)
     target["target_notional"] = _num(target["weight"]) * float(nav)
     target["target_shares_raw"] = target["target_notional"] / (_num(target[price_col]) + 1e-12)
-    target["target_shares"] = target["target_shares_raw"].map(_round_shares)
-    return target, merged_missing
+    target["target_shares"] = target["target_shares_raw"].map(lambda x: _round_shares(float(x), fractional_enabled=fractional_enabled))
+    target["fractional_enabled_effective"] = int(fractional_enabled)
+    return target, merged_missing, risk_counters
 
 
 def _build_orders(target: pd.DataFrame, state: dict, price_col: str, current_date: pd.Timestamp) -> pd.DataFrame:
@@ -237,6 +280,7 @@ def _build_orders(target: pd.DataFrame, state: dict, price_col: str, current_dat
         price = float(row[price_col]) if row is not None else float(DEFAULT_PRICE_FALLBACK)
         target_weight = float(row["weight"]) if row is not None else 0.0
         target_notional = float(row["target_notional"]) if row is not None else 0.0
+        target_shares_raw = float(row["target_shares_raw"]) if row is not None else 0.0
         target_shares = float(row["target_shares"]) if row is not None else 0.0
         current_shares = _current_position_shares(state, symbol)
         delta_shares = float(target_shares - current_shares)
@@ -255,6 +299,7 @@ def _build_orders(target: pd.DataFrame, state: dict, price_col: str, current_dat
                 "price": price,
                 "target_weight": target_weight,
                 "target_notional": target_notional,
+                "target_shares_raw": target_shares_raw,
                 "current_shares": current_shares,
                 "target_shares": target_shares,
                 "delta_shares": delta_shares,
@@ -341,7 +386,7 @@ def _append_execution_log(execution_log_csv: Path, log_row: Dict[str, object]) -
     out.to_csv(execution_log_csv, index=False)
 
 
-def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, current_date: pd.Timestamp) -> None:
+def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, current_date: pd.Timestamp, fractional_enabled: bool) -> None:
     print(f"[EXEC][{paths.name}] loading freeze artifacts")
     book, freeze_summary = _load_freeze_book(paths)
     freeze_live_active_names = int(freeze_summary.get("live_active_names", 0) or 0)
@@ -376,6 +421,11 @@ def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, 
                 "merged_missing_prices": 0,
                 "fallback_price_rows": 0,
                 "mtm_fallback_count": 0,
+                "fractional_enabled_effective": int(fractional_enabled),
+                "risk_dropped_price_below_min": 0,
+                "risk_dropped_price_above_max": 0,
+                "risk_clipped_weight_cap": 0,
+                "risk_clipped_notional_cap": 0,
             },
         )
         print(f"[ARTIFACT] {execution_log_csv}")
@@ -385,7 +435,7 @@ def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, 
     starting_nav = float(state.get("nav", ACCOUNT_NAV))
     starting_cash = float(state.get("cash", ACCOUNT_NAV))
 
-    target, merged_missing = _build_target_table(book, price_df, price_col, starting_nav)
+    target, merged_missing, risk_counters = _build_target_table(book, price_df, price_col, starting_nav, fractional_enabled=fractional_enabled)
     orders = _build_orders(target, state, price_col, current_date)
     next_state, mtm_df, mtm_fallback_count = _apply_orders_to_state(state, orders, paths.name, current_date, price_df, price_col)
 
@@ -423,6 +473,11 @@ def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, 
         "mtm_fallback_count": mtm_fallback_count,
         "nav_recon_error": nav_recon_error,
         "realized_trade_cash_flow": realized_trade_cash_flow,
+        "fractional_enabled_effective": int(fractional_enabled),
+        "risk_dropped_price_below_min": int(risk_counters.get("dropped_price_below_min", 0)),
+        "risk_dropped_price_above_max": int(risk_counters.get("dropped_price_above_max", 0)),
+        "risk_clipped_weight_cap": int(risk_counters.get("clipped_weight_cap", 0)),
+        "risk_clipped_notional_cap": int(risk_counters.get("clipped_notional_cap", 0)),
     }
     _append_execution_log(execution_log_csv, log_row)
 
@@ -430,11 +485,18 @@ def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, 
         f"[EXEC][{paths.name}] starting_nav={starting_nav:.2f} ending_nav={ending_nav:.2f} "
         f"cash_after={cash_after:.2f} market_value_after={market_value_after:.2f} nav_recon_error={nav_recon_error:.6f} "
         f"order_count={order_count} active_names={live_active_names} gross_target={gross_target:.4f} "
-        f"price_col={price_col} merged_missing_prices={merged_missing} fallback_price_rows={fallback_price_rows} mtm_fallback_count={mtm_fallback_count}"
+        f"price_col={price_col} merged_missing_prices={merged_missing} fallback_price_rows={fallback_price_rows} mtm_fallback_count={mtm_fallback_count} "
+        f"fractional_enabled_effective={int(fractional_enabled)}"
+    )
+    print(
+        f"[EXEC][{paths.name}][RISK] dropped_price_below_min={risk_counters.get('dropped_price_below_min', 0)} "
+        f"dropped_price_above_max={risk_counters.get('dropped_price_above_max', 0)} "
+        f"clipped_weight_cap={risk_counters.get('clipped_weight_cap', 0)} "
+        f"clipped_notional_cap={risk_counters.get('clipped_notional_cap', 0)}"
     )
     if len(orders):
         print(f"[EXEC][{paths.name}][ORDERS_TOP]")
-        print(orders[["symbol", "order_side", "delta_shares", "price", "order_notional", "target_weight", "skip_reason"]].head(min(TOPK_PRINT, len(orders))).to_string(index=False))
+        print(orders[["symbol", "order_side", "delta_shares", "price", "order_notional", "target_weight", "target_shares_raw", "target_shares", "skip_reason"]].head(min(TOPK_PRINT, len(orders))).to_string(index=False))
     if len(mtm_df):
         print(f"[EXEC][{paths.name}][POSITIONS_MTM_TOP]")
         print(mtm_df.head(min(TOPK_PRINT, len(mtm_df))).to_string(index=False))
@@ -447,15 +509,20 @@ def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, 
 
 def main() -> int:
     _enable_line_buffering()
+    fractional_enabled = _fractional_enabled_effective()
     print(f"[CFG] live_feature_snapshot_file={LIVE_FEATURE_SNAPSHOT_FILE}")
     print(f"[CFG] freeze_root={FREEZE_ROOT}")
     print(f"[CFG] execution_root={EXECUTION_ROOT}")
     print(f"[CFG] account_nav={ACCOUNT_NAV}")
     print(f"[CFG] configs={CONFIG_NAMES}")
     print(
-        f"[CFG] allow_fractional_shares={int(ALLOW_FRACTIONAL_SHARES)} "
+        f"[CFG] allow_fractional_shares={int(ALLOW_FRACTIONAL_SHARES)} fractional_mode={FRACTIONAL_MODE} fractional_enabled_effective={int(fractional_enabled)} "
         f"min_order_notional={MIN_ORDER_NOTIONAL} skip_empty_freeze_configs={int(SKIP_EMPTY_FREEZE_CONFIGS)} "
         f"require_freeze_date_match_live_prices={int(REQUIRE_FREEZE_DATE_MATCH_LIVE_PRICES)}"
+    )
+    print(
+        f"[CFG] max_single_name_weight={MAX_SINGLE_NAME_WEIGHT} max_single_name_notional={MAX_SINGLE_NAME_NOTIONAL} "
+        f"min_price_to_trade={MIN_PRICE_TO_TRADE} max_price_to_trade={MAX_PRICE_TO_TRADE}"
     )
 
     feature_df = _load_live_feature_frame()
@@ -467,7 +534,7 @@ def main() -> int:
 
     for name in CONFIG_NAMES:
         paths = _config_paths(name)
-        _run_one_config(paths, price_df, price_col, current_date)
+        _run_one_config(paths, price_df, price_col, current_date, fractional_enabled=fractional_enabled)
 
     print("[FINAL] execution loop complete")
     return 0
