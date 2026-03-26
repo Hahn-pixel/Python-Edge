@@ -16,7 +16,6 @@ REQUIRE_ANY_LIVE_ACTIVE_NAMES = str(os.getenv("REQUIRE_ANY_LIVE_ACTIVE_NAMES", "
 REQUIRE_FRESH_FREEZE_DATE_MATCH = str(os.getenv("REQUIRE_FRESH_FREEZE_DATE_MATCH", "1")).strip().lower() not in {"0", "false", "no", "off"}
 
 
-
 def _should_pause() -> bool:
     if PAUSE_ON_EXIT in {"0", "false", "no", "off"}:
         return False
@@ -25,7 +24,6 @@ def _should_pause() -> bool:
     stdin_obj = getattr(sys, "stdin", None)
     stdout_obj = getattr(sys, "stdout", None)
     return bool(stdin_obj and stdout_obj and hasattr(stdin_obj, "isatty") and hasattr(stdout_obj, "isatty") and stdin_obj.isatty() and stdout_obj.isatty())
-
 
 
 def _safe_exit(code: int) -> None:
@@ -39,7 +37,6 @@ def _safe_exit(code: int) -> None:
     raise SystemExit(code)
 
 
-
 def _run_step(script_rel_path: str) -> None:
     script_path = ROOT / script_rel_path
     if not script_path.exists():
@@ -49,7 +46,6 @@ def _run_step(script_rel_path: str) -> None:
     completed = subprocess.run(cmd, cwd=str(ROOT))
     if completed.returncode != 0:
         raise RuntimeError(f"Step failed: {script_rel_path} rc={completed.returncode}")
-
 
 
 def _load_freeze_summaries() -> List[Dict[str, object]]:
@@ -64,7 +60,6 @@ def _load_freeze_summaries() -> List[Dict[str, object]]:
         payload["config"] = name
         rows.append(payload)
     return rows
-
 
 
 def _freeze_gate_allows_execution() -> bool:
@@ -95,11 +90,12 @@ def _freeze_gate_allows_execution() -> bool:
     return True
 
 
-
 def main() -> int:
     print(f"[ROOT] {ROOT}")
     print("[STEP] universe builder")
     _run_step("scripts/run_universe_builder.py")
+    print("[STEP] live alpha snapshot")
+    _run_step("scripts/run_live_alpha_snapshot.py")
     print("[STEP] freeze runner")
     _run_step("scripts/run_freeze_runner.py")
     if _freeze_gate_allows_execution():
