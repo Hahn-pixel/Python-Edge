@@ -14,6 +14,7 @@ FREEZE_ROOT = Path(os.getenv("FREEZE_ROOT", "artifacts/freeze_runner"))
 CONFIG_NAMES = [x.strip() for x in str(os.getenv("CONFIG_NAMES", "optimal|aggressive")).split("|") if x.strip()]
 REQUIRE_ANY_LIVE_ACTIVE_NAMES = str(os.getenv("REQUIRE_ANY_LIVE_ACTIVE_NAMES", "1")).strip().lower() not in {"0", "false", "no", "off"}
 REQUIRE_FRESH_FREEZE_DATE_MATCH = str(os.getenv("REQUIRE_FRESH_FREEZE_DATE_MATCH", "1")).strip().lower() not in {"0", "false", "no", "off"}
+RUN_BROKER_HANDOFF = str(os.getenv("RUN_BROKER_HANDOFF", "1")).strip().lower() not in {"0", "false", "no", "off"}
 
 
 def _should_pause() -> bool:
@@ -101,6 +102,11 @@ def main() -> int:
     if _freeze_gate_allows_execution():
         print("[STEP] execution loop")
         _run_step("scripts/run_execution_loop.py")
+        if RUN_BROKER_HANDOFF:
+            print("[STEP] broker handoff")
+            _run_step("scripts/run_broker_handoff.py")
+        else:
+            print("[STEP] broker handoff skipped by config")
     else:
         print("[STEP] execution loop skipped by gate")
     print("[FINAL] daily cycle complete")

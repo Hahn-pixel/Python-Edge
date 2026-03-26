@@ -36,6 +36,9 @@ MAX_SINGLE_NAME_WEIGHT = float(os.getenv("MAX_SINGLE_NAME_WEIGHT", "0.05"))
 MAX_SINGLE_NAME_NOTIONAL = float(os.getenv("MAX_SINGLE_NAME_NOTIONAL", "10000.0"))
 MIN_PRICE_TO_TRADE = float(os.getenv("MIN_PRICE_TO_TRADE", "1.0"))
 MAX_PRICE_TO_TRADE = float(os.getenv("MAX_PRICE_TO_TRADE", "1000000.0"))
+COMMISSION_BPS = float(os.getenv("COMMISSION_BPS", "0.50"))
+COMMISSION_MIN_PER_ORDER = float(os.getenv("COMMISSION_MIN_PER_ORDER", "0.35"))
+SLIPPAGE_BPS = float(os.getenv("SLIPPAGE_BPS", "1.50"))
 
 PRICE_COL_CANDIDATES = [
     "close",
@@ -108,6 +111,19 @@ def _fractional_enabled_effective() -> bool:
     if FRACTIONAL_MODE == "integer":
         return False
     return bool(ALLOW_FRACTIONAL_SHARES)
+
+
+def _estimate_commission(order_notional_abs: float) -> float:
+    if order_notional_abs <= 0.0:
+        return 0.0
+    pct_fee = float(COMMISSION_BPS) / 10000.0 * float(order_notional_abs)
+    return float(max(float(COMMISSION_MIN_PER_ORDER), pct_fee))
+
+
+def _estimate_slippage(order_notional_abs: float) -> float:
+    if order_notional_abs <= 0.0:
+        return 0.0
+    return float(SLIPPAGE_BPS) / 10000.0 * float(order_notional_abs)
 
 
 def _load_live_feature_frame() -> pd.DataFrame:
@@ -285,13 +301,18 @@ def _build_orders(target: pd.DataFrame, state: dict, price_col: str, current_dat
         current_shares = _current_position_shares(state, symbol)
         delta_shares = float(target_shares - current_shares)
         order_notional = float(delta_shares * price)
+        order_notional_abs = abs(order_notional)
         order_side = "BUY" if delta_shares > 0 else "SELL" if delta_shares < 0 else "HOLD"
         skip_reason = ""
-        if order_side != "HOLD" and abs(order_notional) < float(MIN_ORDER_NOTIONAL):
+        if order_side != "HOLD" and order_notional_abs < float(MIN_ORDER_NOTIONAL):
             skip_reason = "below_min_notional"
             delta_shares = 0.0
             order_notional = 0.0
+            order_notional_abs = 0.0
             order_side = "HOLD"
+        estimated_commission = _estimate_commission(order_notional_abs)
+        estimated_slippage = _estimate_slippage(order_notional_abs)
+        estimated_total_cost = float(estimated_commission + estimated_slippage)
         rows.append(
             {
                 "date": str(current_date.date()),
@@ -305,12 +326,16 @@ def _build_orders(target: pd.DataFrame, state: dict, price_col: str, current_dat
                 "delta_shares": delta_shares,
                 "order_side": order_side,
                 "order_notional": order_notional,
+                "order_notional_abs": order_notional_abs,
+                "estimated_commission": estimated_commission,
+                "estimated_slippage": estimated_slippage,
+                "estimated_total_cost": estimated_total_cost,
                 "skip_reason": skip_reason,
             }
         )
     orders = pd.DataFrame(rows)
     if len(orders):
-        orders = orders.sort_values(["order_side", "order_notional", "symbol"], ascending=[True, False, True]).reset_index(drop=True)
+        orders = orders.sort_values(["order_side", "order_notional_abs", "symbol"], ascending=[True, False, True]).reset_index(drop=True)
     return orders
 
 
@@ -332,12 +357,14 @@ def _mark_positions_to_market(positions: Dict[str, dict], price_df: pd.DataFrame
             "last_price": price,
             "market_value": market_value,
         }
-        rows.append({
-            "symbol": symbol,
-            "shares": shares,
-            "last_price": price,
-            "market_value": market_value,
-        })
+        rows.append(
+            {
+                "symbol": symbol,
+                "shares": shares,
+                "last_price": price,
+                "market_value": market_value,
+            }
+        )
     mtm_df = pd.DataFrame(rows)
     if len(mtm_df):
         mtm_df = mtm_df.sort_values(["market_value", "symbol"], ascending=[False, True]).reset_index(drop=True)
@@ -348,6 +375,7 @@ def _apply_orders_to_state(state: dict, orders: pd.DataFrame, config_name: str, 
     new_state = json.loads(json.dumps(state))
     positions = new_state.setdefault("positions", {})
     cash = float(new_state.get("cash", ACCOUNT_NAV))
+    total_estimated_cost = float(_num(orders.get("estimated_total_cost", pd.Series(dtype="float64"))).sum()) if len(orders) else 0.0
     for _, row in orders.iterrows():
         symbol = str(row["symbol"])
         price = float(row["price"])
@@ -365,6 +393,7 @@ def _apply_orders_to_state(state: dict, orders: pd.DataFrame, config_name: str, 
                 "last_price": price,
                 "market_value": float(next_shares * price),
             }
+    cash -= total_estimated_cost
 
     mtm_positions, mtm_df, mtm_fallback_count = _mark_positions_to_market(positions, price_df, price_col)
     market_value = float(mtm_df["market_value"].sum()) if len(mtm_df) else 0.0
@@ -373,6 +402,7 @@ def _apply_orders_to_state(state: dict, orders: pd.DataFrame, config_name: str, 
     new_state["cash"] = cash
     new_state["nav"] = float(cash + market_value)
     new_state["last_rebalanced_date"] = str(current_date.date())
+    new_state["last_estimated_trading_cost"] = total_estimated_cost
     return new_state, mtm_df, mtm_fallback_count
 
 
@@ -426,6 +456,9 @@ def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, 
                 "risk_dropped_price_above_max": 0,
                 "risk_clipped_weight_cap": 0,
                 "risk_clipped_notional_cap": 0,
+                "estimated_commission_total": 0.0,
+                "estimated_slippage_total": 0.0,
+                "estimated_total_cost": 0.0,
             },
         )
         print(f"[ARTIFACT] {execution_log_csv}")
@@ -453,6 +486,9 @@ def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, 
     market_value_after = float(mtm_df["market_value"].sum()) if len(mtm_df) else 0.0
     nav_recon_error = float(ending_nav - (cash_after + market_value_after))
     realized_trade_cash_flow = float(starting_cash - cash_after)
+    estimated_commission_total = float(_num(orders.get("estimated_commission", pd.Series(dtype="float64"))).sum()) if len(orders) else 0.0
+    estimated_slippage_total = float(_num(orders.get("estimated_slippage", pd.Series(dtype="float64"))).sum()) if len(orders) else 0.0
+    estimated_total_cost = float(_num(orders.get("estimated_total_cost", pd.Series(dtype="float64"))).sum()) if len(orders) else 0.0
 
     log_row = {
         "date": str(current_date.date()),
@@ -478,6 +514,9 @@ def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, 
         "risk_dropped_price_above_max": int(risk_counters.get("dropped_price_above_max", 0)),
         "risk_clipped_weight_cap": int(risk_counters.get("clipped_weight_cap", 0)),
         "risk_clipped_notional_cap": int(risk_counters.get("clipped_notional_cap", 0)),
+        "estimated_commission_total": estimated_commission_total,
+        "estimated_slippage_total": estimated_slippage_total,
+        "estimated_total_cost": estimated_total_cost,
     }
     _append_execution_log(execution_log_csv, log_row)
 
@@ -494,9 +533,19 @@ def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, 
         f"clipped_weight_cap={risk_counters.get('clipped_weight_cap', 0)} "
         f"clipped_notional_cap={risk_counters.get('clipped_notional_cap', 0)}"
     )
+    print(
+        f"[EXEC][{paths.name}][COST] estimated_commission_total={estimated_commission_total:.4f} "
+        f"estimated_slippage_total={estimated_slippage_total:.4f} estimated_total_cost={estimated_total_cost:.4f}"
+    )
     if len(orders):
         print(f"[EXEC][{paths.name}][ORDERS_TOP]")
-        print(orders[["symbol", "order_side", "delta_shares", "price", "order_notional", "target_weight", "target_shares_raw", "target_shares", "skip_reason"]].head(min(TOPK_PRINT, len(orders))).to_string(index=False))
+        print(
+            orders[[
+                "symbol", "order_side", "delta_shares", "price", "order_notional", "target_weight",
+                "target_shares_raw", "target_shares", "estimated_commission", "estimated_slippage",
+                "estimated_total_cost", "skip_reason"
+            ]].head(min(TOPK_PRINT, len(orders))).to_string(index=False)
+        )
     if len(mtm_df):
         print(f"[EXEC][{paths.name}][POSITIONS_MTM_TOP]")
         print(mtm_df.head(min(TOPK_PRINT, len(mtm_df))).to_string(index=False))
@@ -523,6 +572,9 @@ def main() -> int:
     print(
         f"[CFG] max_single_name_weight={MAX_SINGLE_NAME_WEIGHT} max_single_name_notional={MAX_SINGLE_NAME_NOTIONAL} "
         f"min_price_to_trade={MIN_PRICE_TO_TRADE} max_price_to_trade={MAX_PRICE_TO_TRADE}"
+    )
+    print(
+        f"[CFG] commission_bps={COMMISSION_BPS} commission_min_per_order={COMMISSION_MIN_PER_ORDER} slippage_bps={SLIPPAGE_BPS}"
     )
 
     feature_df = _load_live_feature_frame()
