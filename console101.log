@@ -1,0 +1,45 @@
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_execution_loop.py
+[CFG] live_feature_snapshot_file=artifacts\live_alpha\live_feature_snapshot.parquet
+[CFG] freeze_root=artifacts\freeze_runner
+[CFG] execution_root=artifacts\execution_loop
+[CFG] account_nav=100000.0
+[CFG] configs=['optimal', 'aggressive']
+[CFG] allow_fractional_shares=0 min_order_notional=25.0 skip_empty_freeze_configs=1 require_freeze_date_match_live_prices=1
+[DATA] current_date=2026-03-25 price_col=close symbols=500 snapshot_fallback_count=0
+[EXEC][optimal] loading freeze artifacts
+[EXEC][optimal] starting_nav=100000.00 ending_nav=94937.97 order_count=5 active_names=5 gross_target=0.1000 price_col=close merged_missing_prices=0 fallback_price_rows=0
+[EXEC][optimal][ORDERS_TOP]
+symbol order_side  delta_shares  price  order_notional  target_weight skip_reason
+  UGRO        BUY          52.0  36.29         1887.08       0.029694
+  MAZE        BUY          56.0  31.73         1776.88       0.026047
+    VG        BUY          90.0  16.71         1503.90       0.017928
+  DOCN        BUY           3.0  87.00          261.00       0.014959
+  AAOI       SELL          -2.0 114.41         -228.82       0.011372
+[ARTIFACT] artifacts\execution_loop\optimal\target_book.csv
+[ARTIFACT] artifacts\execution_loop\optimal\orders.csv
+[ARTIFACT] artifacts\execution_loop\optimal\portfolio_state.json
+[ARTIFACT] artifacts\execution_loop\optimal\execution_log.csv
+[EXEC][aggressive] loading freeze artifacts
+[EXEC][aggressive] starting_nav=100000.00 ending_nav=102661.45 order_count=15 active_names=15 gross_target=0.2000 price_col=close merged_missing_prices=0 fallback_price_rows=0
+[EXEC][aggressive][ORDERS_TOP]
+symbol order_side  delta_shares  price  order_notional  target_weight skip_reason
+  UGRO        BUY          52.0  36.29         1887.08       0.029694
+  MAZE        BUY          56.0  31.73         1776.88       0.026047
+    VG        BUY          90.0  16.71         1503.90       0.017928
+  LBRT        BUY          31.0  28.80          892.80       0.012503
+  ONON        BUY          16.0  35.16          562.56       0.008773
+   APA        BUY          13.0  41.32          537.16       0.008982
+   JHG        BUY           9.0  51.42          462.78       0.010191
+   OVV        BUY           5.0  60.14          300.70       0.007635
+  DOCN        BUY           3.0  87.00          261.00       0.014959
+   OXY        BUY           4.0  61.85          247.40       0.007318
+  AAOI       SELL          -1.0 114.41         -114.41       0.014908
+    CF       SELL          -2.0 128.11         -256.22       0.009109
+   MPC       SELL          -5.0 241.25        -1206.25       0.008646
+   LNG       SELL          -6.0 284.39        -1706.34       0.009849
+  SNDK       SELL         -12.0 677.86        -8134.32       0.013458
+[ARTIFACT] artifacts\execution_loop\aggressive\target_book.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\orders.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\portfolio_state.json
+[ARTIFACT] artifacts\execution_loop\aggressive\execution_log.csv
+[FINAL] execution loop complete
