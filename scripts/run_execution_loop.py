@@ -160,11 +160,12 @@ def _load_freeze_book(paths: ConfigPaths) -> Tuple[pd.DataFrame, dict]:
     return book, summary
 
 
-def _state_paths(execution_dir: Path) -> Tuple[Path, Path, Path]:
+def _state_paths(execution_dir: Path) -> Tuple[Path, Path, Path, Path]:
     return (
         execution_dir / "portfolio_state.json",
         execution_dir / "orders.csv",
         execution_dir / "execution_log.csv",
+        execution_dir / "positions_mark_to_market.csv",
     )
 
 
@@ -268,7 +269,37 @@ def _build_orders(target: pd.DataFrame, state: dict, price_col: str, current_dat
     return orders
 
 
-def _apply_orders_to_state(state: dict, orders: pd.DataFrame, config_name: str, current_date: pd.Timestamp) -> dict:
+def _mark_positions_to_market(positions: Dict[str, dict], price_df: pd.DataFrame, price_col: str) -> Tuple[Dict[str, dict], pd.DataFrame, int]:
+    price_map = dict(zip(price_df["symbol"].astype(str), _num(price_df[price_col]).fillna(float(DEFAULT_PRICE_FALLBACK))))
+    updated: Dict[str, dict] = {}
+    rows: List[Dict[str, object]] = []
+    fallback_count = 0
+    for symbol, pos in positions.items():
+        shares = float(pos.get("shares", 0.0))
+        if abs(shares) < 1e-12:
+            continue
+        price = float(price_map.get(symbol, float(DEFAULT_PRICE_FALLBACK)))
+        if symbol not in price_map:
+            fallback_count += 1
+        market_value = float(shares * price)
+        updated[symbol] = {
+            "shares": shares,
+            "last_price": price,
+            "market_value": market_value,
+        }
+        rows.append({
+            "symbol": symbol,
+            "shares": shares,
+            "last_price": price,
+            "market_value": market_value,
+        })
+    mtm_df = pd.DataFrame(rows)
+    if len(mtm_df):
+        mtm_df = mtm_df.sort_values(["market_value", "symbol"], ascending=[False, True]).reset_index(drop=True)
+    return updated, mtm_df, fallback_count
+
+
+def _apply_orders_to_state(state: dict, orders: pd.DataFrame, config_name: str, current_date: pd.Timestamp, price_df: pd.DataFrame, price_col: str) -> Tuple[dict, pd.DataFrame, int]:
     new_state = json.loads(json.dumps(state))
     positions = new_state.setdefault("positions", {})
     cash = float(new_state.get("cash", ACCOUNT_NAV))
@@ -289,12 +320,15 @@ def _apply_orders_to_state(state: dict, orders: pd.DataFrame, config_name: str, 
                 "last_price": price,
                 "market_value": float(next_shares * price),
             }
-    market_value = float(sum(float(v.get("market_value", 0.0)) for v in positions.values()))
+
+    mtm_positions, mtm_df, mtm_fallback_count = _mark_positions_to_market(positions, price_df, price_col)
+    market_value = float(mtm_df["market_value"].sum()) if len(mtm_df) else 0.0
+    new_state["positions"] = mtm_positions
     new_state["config"] = config_name
     new_state["cash"] = cash
     new_state["nav"] = float(cash + market_value)
     new_state["last_rebalanced_date"] = str(current_date.date())
-    return new_state
+    return new_state, mtm_df, mtm_fallback_count
 
 
 def _append_execution_log(execution_log_csv: Path, log_row: Dict[str, object]) -> None:
@@ -318,10 +352,11 @@ def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, 
             f"Freeze/live price date mismatch for {paths.name}: freeze_live_current_date={freeze_live_current_date} live_price_date={current_date.date()}"
         )
 
+    paths.execution_dir.mkdir(parents=True, exist_ok=True)
+    state_json, orders_csv, execution_log_csv, mtm_csv = _state_paths(paths.execution_dir)
+
     if SKIP_EMPTY_FREEZE_CONFIGS and freeze_live_active_names <= 0:
         print(f"[EXEC][{paths.name}][SKIP] freeze summary has live_active_names=0")
-        paths.execution_dir.mkdir(parents=True, exist_ok=True)
-        _, _, execution_log_csv = _state_paths(paths.execution_dir)
         _append_execution_log(
             execution_log_csv,
             {
@@ -330,40 +365,52 @@ def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, 
                 "starting_nav": float(ACCOUNT_NAV),
                 "ending_nav": float(ACCOUNT_NAV),
                 "cash_after": float(ACCOUNT_NAV),
+                "market_value_after": 0.0,
                 "live_active_names": 0,
                 "order_count": 0,
                 "gross_target": 0.0,
                 "freeze_live_current_date": freeze_summary.get("live_current_date", ""),
                 "freeze_replay_current_date": freeze_summary.get("replay_current_date", ""),
                 "skip_reason": "freeze_live_active_names_zero",
+                "price_col": price_col,
+                "merged_missing_prices": 0,
+                "fallback_price_rows": 0,
+                "mtm_fallback_count": 0,
             },
         )
         print(f"[ARTIFACT] {execution_log_csv}")
         return
 
-    paths.execution_dir.mkdir(parents=True, exist_ok=True)
-    state_json, orders_csv, execution_log_csv = _state_paths(paths.execution_dir)
     state = _load_state(paths.name, state_json)
+    starting_nav = float(state.get("nav", ACCOUNT_NAV))
+    starting_cash = float(state.get("cash", ACCOUNT_NAV))
 
-    target, merged_missing = _build_target_table(book, price_df, price_col, float(state.get("nav", ACCOUNT_NAV)))
+    target, merged_missing = _build_target_table(book, price_df, price_col, starting_nav)
     orders = _build_orders(target, state, price_col, current_date)
-    next_state = _apply_orders_to_state(state, orders, paths.name, current_date)
+    next_state, mtm_df, mtm_fallback_count = _apply_orders_to_state(state, orders, paths.name, current_date, price_df, price_col)
 
     target.to_csv(paths.execution_dir / "target_book.csv", index=False)
     orders.to_csv(orders_csv, index=False)
+    mtm_df.to_csv(mtm_csv, index=False)
     _save_state(next_state, state_json)
 
     live_active_names = int(len(target.loc[target["target_shares"].abs() > 0.0]))
     order_count = int((orders["order_side"] != "HOLD").sum()) if len(orders) else 0
-    gross_target = float(target["target_notional"].abs().sum() / (float(state.get("nav", ACCOUNT_NAV)) + 1e-12)) if len(target) else 0.0
+    gross_target = float(target["target_notional"].abs().sum() / (starting_nav + 1e-12)) if len(target) else 0.0
     fallback_price_rows = int((_num(target[price_col]) == float(DEFAULT_PRICE_FALLBACK)).sum()) if len(target) else 0
+    ending_nav = float(next_state.get("nav", ACCOUNT_NAV))
+    cash_after = float(next_state.get("cash", ACCOUNT_NAV))
+    market_value_after = float(mtm_df["market_value"].sum()) if len(mtm_df) else 0.0
+    nav_recon_error = float(ending_nav - (cash_after + market_value_after))
+    realized_trade_cash_flow = float(starting_cash - cash_after)
 
     log_row = {
         "date": str(current_date.date()),
         "config": paths.name,
-        "starting_nav": float(state.get("nav", ACCOUNT_NAV)),
-        "ending_nav": float(next_state.get("nav", ACCOUNT_NAV)),
-        "cash_after": float(next_state.get("cash", ACCOUNT_NAV)),
+        "starting_nav": starting_nav,
+        "ending_nav": ending_nav,
+        "cash_after": cash_after,
+        "market_value_after": market_value_after,
         "live_active_names": live_active_names,
         "order_count": order_count,
         "gross_target": gross_target,
@@ -373,20 +420,27 @@ def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, 
         "price_col": price_col,
         "merged_missing_prices": merged_missing,
         "fallback_price_rows": fallback_price_rows,
+        "mtm_fallback_count": mtm_fallback_count,
+        "nav_recon_error": nav_recon_error,
+        "realized_trade_cash_flow": realized_trade_cash_flow,
     }
     _append_execution_log(execution_log_csv, log_row)
 
     print(
-        f"[EXEC][{paths.name}] starting_nav={float(state.get('nav', ACCOUNT_NAV)):.2f} "
-        f"ending_nav={float(next_state.get('nav', ACCOUNT_NAV)):.2f} "
+        f"[EXEC][{paths.name}] starting_nav={starting_nav:.2f} ending_nav={ending_nav:.2f} "
+        f"cash_after={cash_after:.2f} market_value_after={market_value_after:.2f} nav_recon_error={nav_recon_error:.6f} "
         f"order_count={order_count} active_names={live_active_names} gross_target={gross_target:.4f} "
-        f"price_col={price_col} merged_missing_prices={merged_missing} fallback_price_rows={fallback_price_rows}"
+        f"price_col={price_col} merged_missing_prices={merged_missing} fallback_price_rows={fallback_price_rows} mtm_fallback_count={mtm_fallback_count}"
     )
     if len(orders):
         print(f"[EXEC][{paths.name}][ORDERS_TOP]")
         print(orders[["symbol", "order_side", "delta_shares", "price", "order_notional", "target_weight", "skip_reason"]].head(min(TOPK_PRINT, len(orders))).to_string(index=False))
+    if len(mtm_df):
+        print(f"[EXEC][{paths.name}][POSITIONS_MTM_TOP]")
+        print(mtm_df.head(min(TOPK_PRINT, len(mtm_df))).to_string(index=False))
     print(f"[ARTIFACT] {paths.execution_dir / 'target_book.csv'}")
     print(f"[ARTIFACT] {orders_csv}")
+    print(f"[ARTIFACT] {mtm_csv}")
     print(f"[ARTIFACT] {state_json}")
     print(f"[ARTIFACT] {execution_log_csv}")
 
