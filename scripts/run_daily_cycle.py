@@ -40,6 +40,12 @@ DATE_COLUMN_CANDIDATES = [
     "Date",
     "DATE",
 ]
+SELECTED_COLUMN_CANDIDATES = [
+    "selected",
+    "is_selected",
+    "selected_final",
+    "is_selected_final",
+]
 
 
 def _enable_line_buffering() -> None:
@@ -174,7 +180,16 @@ def _extract_normalized_date_series(df: pd.DataFrame, date_col: str | None) -> p
     return pd.to_datetime(df[date_col], errors="coerce").dt.normalize()
 
 
-def _load_universe_snapshot() -> Tuple[pd.DataFrame, Set[str], pd.Timestamp | None, Path, str, str | None]:
+def _coerce_bool_series(series: pd.Series) -> pd.Series:
+    values = series.copy()
+    if pd.api.types.is_bool_dtype(values):
+        return values.fillna(False)
+    normalized = values.astype(str).str.strip().str.lower()
+    truthy = {"1", "true", "yes", "y", "on"}
+    return normalized.isin(truthy)
+
+
+def _load_universe_snapshot() -> Tuple[pd.DataFrame, Set[str], Set[str], pd.Timestamp | None, Path, str, str | None, str | None]:
     path = _must_exist(UNIVERSE_SNAPSHOT_FILE, "Universe snapshot")
     df = pd.read_parquet(path)
     if df.empty:
@@ -182,6 +197,7 @@ def _load_universe_snapshot() -> Tuple[pd.DataFrame, Set[str], pd.Timestamp | No
 
     symbol_col = _find_symbol_column(df, "Universe snapshot")
     date_col = _find_date_column(df)
+    selected_col = _find_first_existing_column(df, SELECTED_COLUMN_CANDIDATES)
     date_series = _extract_normalized_date_series(df, date_col)
 
     latest_date = None
@@ -196,8 +212,15 @@ def _load_universe_snapshot() -> Tuple[pd.DataFrame, Set[str], pd.Timestamp | No
     if date_col is not None:
         df["date"] = pd.to_datetime(df[date_col], errors="coerce").dt.normalize()
 
-    symbols = _normalize_symbol_set(df["symbol"])
-    return df.reset_index(drop=True), symbols, latest_date, path, symbol_col, date_col
+    all_symbols = _normalize_symbol_set(df["symbol"])
+
+    if selected_col is not None:
+        selected_mask = _coerce_bool_series(df[selected_col])
+        selected_symbols = _normalize_symbol_set(df.loc[selected_mask, "symbol"])
+    else:
+        selected_symbols = set(all_symbols)
+
+    return df.reset_index(drop=True), all_symbols, selected_symbols, latest_date, path, symbol_col, date_col, selected_col
 
 
 def _load_live_alpha_snapshot() -> Tuple[pd.DataFrame, Set[str], pd.Timestamp | None, int, Path]:
@@ -243,14 +266,15 @@ def _print_symbol_preview(tag: str, symbols: Sequence[str]) -> None:
 
 def _diagnose_universe_stage() -> Dict[str, Any]:
     summary = _read_json(UNIVERSE_SUMMARY_FILE, "Universe summary")
-    universe_df, universe_symbols, universe_date, universe_path, symbol_col, date_col = _load_universe_snapshot()
+    universe_df, universe_all_symbols, universe_selected_symbols, universe_date, universe_path, symbol_col, date_col, selected_col = _load_universe_snapshot()
     print(
         "[DIAG][UNIVERSE] "
         f"snapshot={universe_path} "
         f"summary={_resolve(UNIVERSE_SUMMARY_FILE)} "
-        f"rows_current={len(universe_df)} symbols_current={len(universe_symbols)} "
+        f"rows_current={len(universe_df)} all_symbols_current={len(universe_all_symbols)} selected_symbols_current={len(universe_selected_symbols)} "
         f"symbol_col={symbol_col} "
         f"date_col={(date_col if date_col is not None else 'NA')} "
+        f"selected_col={(selected_col if selected_col is not None else 'NA')} "
         f"current_date={(universe_date.date().isoformat() if universe_date is not None else 'NA')}"
     )
 
@@ -267,35 +291,44 @@ def _diagnose_universe_stage() -> Dict[str, Any]:
         f"industry_unknown_selected={summary.get('industry_unknown_selected')}"
     )
 
-    if summary_target is not None and summary_target != len(universe_symbols):
+    if summary_target is not None and summary_target != len(universe_selected_symbols):
         print(
             "[DIAG][UNIVERSE][WARN] "
-            f"summary selected_total={summary_target} but current snapshot symbols={len(universe_symbols)}"
+            f"summary selected_total={summary_target} but current selected symbols={len(universe_selected_symbols)}"
         )
+
+    if selected_col is None:
+        print("[DIAG][UNIVERSE][WARN] no selected-like column found -> diagnostics fallback uses all symbols")
 
     return {
         "summary": summary,
         "df": universe_df,
-        "symbols": universe_symbols,
+        "symbols": universe_selected_symbols,
+        "all_symbols": universe_all_symbols,
+        "selected_symbols": universe_selected_symbols,
         "date": universe_date,
         "symbol_col": symbol_col,
         "date_col": date_col,
+        "selected_col": selected_col,
     }
 
 
 def _diagnose_live_alpha_against_universe(universe_diag: Dict[str, Any]) -> Dict[str, Any]:
     live_df, live_symbols, live_date, alpha_col_count, live_path = _load_live_alpha_snapshot()
-    universe_symbols = set(universe_diag["symbols"])
+    universe_symbols = set(universe_diag["selected_symbols"])
+    universe_all_symbols = set(universe_diag["all_symbols"])
     universe_date = universe_diag["date"]
 
     present = sorted(universe_symbols & live_symbols)
     missing = sorted(universe_symbols - live_symbols)
-    extra = sorted(live_symbols - universe_symbols)
+    extra_vs_selected = sorted(live_symbols - universe_symbols)
+    extra_vs_all = sorted(live_symbols - universe_all_symbols)
 
     requested = len(universe_symbols)
     present_count = len(present)
     missing_count = len(missing)
-    extra_count = len(extra)
+    extra_selected_count = len(extra_vs_selected)
+    extra_all_count = len(extra_vs_all)
     survival_ratio = (present_count / requested) if requested > 0 else 0.0
 
     print(
@@ -305,11 +338,13 @@ def _diagnose_live_alpha_against_universe(universe_diag: Dict[str, Any]) -> Dict
     )
     print(
         "[DIAG][SURVIVAL] "
-        f"universe_requested={requested} "
+        f"universe_requested_selected={requested} "
+        f"universe_all_symbols_current={len(universe_all_symbols)} "
         f"live_symbols_current={len(live_symbols)} "
         f"present_in_live_alpha={present_count} "
         f"missing_in_live_alpha={missing_count} "
-        f"extra_live_alpha_symbols={extra_count} "
+        f"extra_live_alpha_vs_selected={extra_selected_count} "
+        f"extra_live_alpha_vs_all={extra_all_count} "
         f"survival_ratio={survival_ratio:.4f}"
     )
 
@@ -321,22 +356,27 @@ def _diagnose_live_alpha_against_universe(universe_diag: Dict[str, Any]) -> Dict
         )
 
     _print_symbol_preview("[DIAG][SURVIVAL][MISSING_TOP]", missing)
-    _print_symbol_preview("[DIAG][SURVIVAL][EXTRA_TOP]", extra)
+    _print_symbol_preview("[DIAG][SURVIVAL][EXTRA_VS_SELECTED_TOP]", extra_vs_selected)
+    _print_symbol_preview("[DIAG][SURVIVAL][EXTRA_VS_ALL_TOP]", extra_vs_all)
 
     payload = {
-        "universe_requested": requested,
+        "universe_requested_selected": requested,
+        "universe_all_symbols_current": len(universe_all_symbols),
         "live_symbols_current": len(live_symbols),
         "present_in_live_alpha": present_count,
         "missing_in_live_alpha": missing_count,
-        "extra_live_alpha_symbols": extra_count,
+        "extra_live_alpha_vs_selected": extra_selected_count,
+        "extra_live_alpha_vs_all": extra_all_count,
         "survival_ratio": survival_ratio,
         "universe_current_date": universe_date.date().isoformat() if universe_date is not None else None,
         "live_alpha_current_date": live_date.date().isoformat() if live_date is not None else None,
         "universe_symbol_col": str(universe_diag.get("symbol_col")),
         "universe_date_col": universe_diag.get("date_col"),
+        "universe_selected_col": universe_diag.get("selected_col"),
         "alpha_col_count": alpha_col_count,
         "missing_symbols_top": missing[:TOP_MISSING_SYMBOLS],
-        "extra_symbols_top": extra[:TOP_MISSING_SYMBOLS],
+        "extra_vs_selected_top": extra_vs_selected[:TOP_MISSING_SYMBOLS],
+        "extra_vs_all_top": extra_vs_all[:TOP_MISSING_SYMBOLS],
     }
     out_path = _resolve(Path("artifacts/daily_cycle") / "universe_live_alpha_diagnostics.json")
     out_path.parent.mkdir(parents=True, exist_ok=True)
