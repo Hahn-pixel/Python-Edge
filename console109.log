@@ -17,9 +17,8 @@ PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_daily_cycle
 
 [EXIT] code=0
 Press Enter to exit...
-[DIAG][UNIVERSE] snapshot=C:\Users\Dmytro Govor\Documents\Python-Edge\artifacts\daily_cycle\universe\universe_snapshot.parquet summary=C:\Users\Dmytro Govor\Documents\Python-Edge\artifacts\daily_cycle\universe\universe_summary.json rows_current=1200 symbols_current=1200 symbol_col=ticker date_col=trade_date current_date=2026-03-25
+[DIAG][UNIVERSE] snapshot=C:\Users\Dmytro Govor\Documents\Python-Edge\artifacts\daily_cycle\universe\universe_snapshot.parquet summary=C:\Users\Dmytro Govor\Documents\Python-Edge\artifacts\daily_cycle\universe\universe_summary.json rows_current=1200 all_symbols_current=1200 selected_symbols_current=175 symbol_col=ticker date_col=trade_date selected_col=selected current_date=2026-03-25
 [DIAG][UNIVERSE][SUMMARY] candidates_total=1200 eligible_total=1169 selected_total=175 overview_missing_sic_total=None sector_unknown_selected=175 industry_unknown_selected=None
-[DIAG][UNIVERSE][WARN] summary selected_total=175 but current snapshot symbols=1200
 [STEP] live alpha snapshot
 [RUN] C:\Users\Dmytro Govor\AppData\Local\Programs\Python\Python313\python.exe C:\Users\Dmytro Govor\Documents\Python-Edge\scripts\run_live_alpha_snapshot.py
 [CFG] universe_snapshot_file=artifacts\daily_cycle\universe\universe_snapshot.parquet
@@ -45,9 +44,10 @@ Press Enter to exit...
 [EXIT] code=0
 Press Enter to exit...
 [DIAG][LIVE_ALPHA] snapshot=C:\Users\Dmytro Govor\Documents\Python-Edge\artifacts\live_alpha\live_alpha_snapshot.parquet current_date=2026-03-25 rows_current=175 symbols_current=175 alpha_cols=1163
-[DIAG][SURVIVAL] universe_requested=1200 live_symbols_current=175 present_in_live_alpha=175 missing_in_live_alpha=1025 extra_live_alpha_symbols=0 survival_ratio=0.1458
-[DIAG][SURVIVAL][MISSING_TOP] A, AA, AAON, AAP, ABNB, ACGL, ACHC, ACHR, ACI, ACLX, ACM, ADC, ADM, ADMA, ADSK, ADT, AEE, AEIS, AEM, AEO, AEP, AER, AES, AFG, AFL ... (+1000 more)
-[DIAG][SURVIVAL][EXTRA_TOP] none
+[DIAG][SURVIVAL] universe_requested_selected=175 universe_all_symbols_current=1200 live_symbols_current=175 present_in_live_alpha=175 missing_in_live_alpha=0 extra_live_alpha_vs_selected=0 extra_live_alpha_vs_all=0 survival_ratio=1.0000
+[DIAG][SURVIVAL][MISSING_TOP] none
+[DIAG][SURVIVAL][EXTRA_VS_SELECTED_TOP] none
+[DIAG][SURVIVAL][EXTRA_VS_ALL_TOP] none
 [ARTIFACT] C:\Users\Dmytro Govor\Documents\Python-Edge\artifacts\daily_cycle\universe_live_alpha_diagnostics.json
 [STEP] freeze runner
 [RUN] C:\Users\Dmytro Govor\AppData\Local\Programs\Python\Python313\python.exe C:\Users\Dmytro Govor\Documents\Python-Edge\scripts\run_freeze_runner.py
@@ -98,13 +98,13 @@ Press Enter to exit...
 [CFG] commission_bps=0.5 commission_min_per_order=0.35 slippage_bps=1.5
 [DATA] current_date=2026-03-25 price_col=close symbols=175 snapshot_fallback_count=0
 [EXEC][optimal] loading freeze artifacts
-[EXEC][optimal] starting_nav=100000.00 ending_nav=99997.81 cash_after=90038.05 market_value_after=9959.76 nav_recon_error=0.000000 order_count=2 active_names=2 gross_target=0.1000 price_col=close merged_missing_prices=0 fallback_price_rows=0 mtm_fallback_count=0 fractional_enabled_effective=0
+[EXEC][optimal] starting_nav=99997.81 ending_nav=99997.81 cash_after=90038.05 market_value_after=9959.76 nav_recon_error=0.000000 order_count=0 active_names=2 gross_target=0.1000 price_col=close merged_missing_prices=0 fallback_price_rows=0 mtm_fallback_count=0 fractional_enabled_effective=0
 [EXEC][optimal][RISK] dropped_price_below_min=0 dropped_price_above_max=0 clipped_weight_cap=0 clipped_notional_cap=0
-[EXEC][optimal][COST] estimated_commission_total=0.7000 estimated_slippage_total=1.4940 estimated_total_cost=2.1940
+[EXEC][optimal][COST] estimated_commission_total=0.0000 estimated_slippage_total=0.0000 estimated_total_cost=0.0000
 [EXEC][optimal][ORDERS_TOP]
 symbol order_side  delta_shares  price  order_notional  target_weight  target_shares_raw  target_shares  estimated_commission  estimated_slippage  estimated_total_cost skip_reason
-  CRCL        BUY          48.0 103.86         4985.28           0.05          48.141729           48.0                  0.35            0.747792              1.097792
-   NEM        BUY          49.0 101.52         4974.48           0.05          49.251379           49.0                  0.35            0.746172              1.096172
+  CRCL       HOLD           0.0 103.86             0.0           0.05          48.140673           48.0                   0.0                 0.0                   0.0
+   NEM       HOLD           0.0 101.52             0.0           0.05          49.250298           49.0                   0.0                 0.0                   0.0
 [EXEC][optimal][POSITIONS_MTM_TOP]
 symbol  shares  last_price  market_value
   CRCL    48.0      103.86       4985.28
@@ -115,17 +115,17 @@ symbol  shares  last_price  market_value
 [ARTIFACT] artifacts\execution_loop\optimal\portfolio_state.json
 [ARTIFACT] artifacts\execution_loop\optimal\execution_log.csv
 [EXEC][aggressive] loading freeze artifacts
-[EXEC][aggressive] starting_nav=100000.00 ending_nav=99994.93 cash_after=80186.65 market_value_after=19808.28 nav_recon_error=0.000000 order_count=6 active_names=6 gross_target=0.2000 price_col=close merged_missing_prices=0 fallback_price_rows=0 mtm_fallback_count=0 fractional_enabled_effective=0
+[EXEC][aggressive] starting_nav=99994.93 ending_nav=99994.93 cash_after=80186.65 market_value_after=19808.28 nav_recon_error=0.000000 order_count=0 active_names=6 gross_target=0.2000 price_col=close merged_missing_prices=0 fallback_price_rows=0 mtm_fallback_count=0 fractional_enabled_effective=0
 [EXEC][aggressive][RISK] dropped_price_below_min=0 dropped_price_above_max=0 clipped_weight_cap=0 clipped_notional_cap=0
-[EXEC][aggressive][COST] estimated_commission_total=2.1000 estimated_slippage_total=2.9712 estimated_total_cost=5.0712
+[EXEC][aggressive][COST] estimated_commission_total=0.0000 estimated_slippage_total=0.0000 estimated_total_cost=0.0000
 [EXEC][aggressive][ORDERS_TOP]
 symbol order_side  delta_shares  price  order_notional  target_weight  target_shares_raw  target_shares  estimated_commission  estimated_slippage  estimated_total_cost skip_reason
-  CRCL        BUY          48.0 103.86         4985.28       0.050000          48.141729           48.0                  0.35            0.747792              1.097792
-   NEM        BUY          49.0 101.52         4974.48       0.050000          49.251379           49.0                  0.35            0.746172              1.096172
-  RKLB        BUY          52.0  72.88         3789.76       0.038247          52.479865           52.0                  0.35            0.568464              0.918464
-  INTC        BUY          64.0  47.18         3019.52       0.030551          64.755031           64.0                  0.35            0.452928              0.802928
-  HOOD        BUY          37.0  72.54         2683.98       0.027034          37.267503           37.0                  0.35            0.402597              0.752597
-  SHOP        BUY           3.0 118.42          355.26       0.004167           3.519172            3.0                  0.35            0.053289              0.403289
+  CRCL       HOLD           0.0 103.86             0.0       0.050000          48.139288           48.0                   0.0                 0.0                   0.0
+  HOOD       HOLD           0.0  72.54             0.0       0.027034          37.265613           37.0                   0.0                 0.0                   0.0
+  INTC       HOLD           0.0  47.18             0.0       0.030551          64.751747           64.0                   0.0                 0.0                   0.0
+   NEM       HOLD           0.0 101.52             0.0       0.050000          49.248881           49.0                   0.0                 0.0                   0.0
+  RKLB       HOLD           0.0  72.88             0.0       0.038247          52.477204           52.0                   0.0                 0.0                   0.0
+  SHOP       HOLD           0.0 118.42             0.0       0.004167           3.518994            3.0                   0.0                 0.0                   0.0
 [EXEC][aggressive][POSITIONS_MTM_TOP]
 symbol  shares  last_price  market_value
   CRCL    48.0      103.86       4985.28
@@ -152,24 +152,13 @@ Press Enter to exit...
 [CFG] allow_fractional_broker=1 round_fractional_for_broker=0 allow_shorts=1 min_order_notional=25.0 max_order_notional=25000.0
 [CFG] max_total_orders=100 max_orders_per_config=50 max_position_notional=10000.0
 [CFG] commission_bps=0.5 commission_min_per_order=0.35 slippage_bps=1.5
-[HANDOFF][optimal] rows_total=2 rows_ready=2 rows_hold=0 skip_min_notional=0 skip_shorts=0 skip_max_notional=0 skip_zero_after_rounding=0
-[HANDOFF][optimal][COST] broker_estimated_commission_total=0.7000 broker_estimated_slippage_total=1.4940 broker_estimated_total_cost=2.1940
-[HANDOFF][optimal][TOP]
-      date  config broker_name broker_platform broker_account_id handoff_mode symbol broker_side  broker_qty broker_qty_mode  price_reference  broker_order_notional  raw_delta_shares  raw_order_notional  target_weight  target_position_notional  capped_target_position_notional  exec_estimated_commission  exec_estimated_slippage  exec_estimated_total_cost  broker_estimated_commission  broker_estimated_slippage  broker_estimated_total_cost  ready skip_reason
-2026-03-25 optimal       MEXEM            IBKR                        preview   CRCL         BUY        48.0      fractional           103.86                4985.28              48.0             4985.28           0.05                    5000.0                           5000.0                       0.35                 0.747792                   1.097792                         0.35                   0.747792                     1.097792      1
-2026-03-25 optimal       MEXEM            IBKR                        preview    NEM         BUY        49.0      fractional           101.52                4974.48              49.0             4974.48           0.05                    5000.0                           5000.0                       0.35                 0.746172                   1.096172                         0.35                   0.746172                     1.096172      1
-[HANDOFF][aggressive] rows_total=6 rows_ready=6 rows_hold=0 skip_min_notional=0 skip_shorts=0 skip_max_notional=0 skip_zero_after_rounding=0
-[HANDOFF][aggressive][COST] broker_estimated_commission_total=2.1000 broker_estimated_slippage_total=2.9712 broker_estimated_total_cost=5.0712
-[HANDOFF][aggressive][TOP]
-      date     config broker_name broker_platform broker_account_id handoff_mode symbol broker_side  broker_qty broker_qty_mode  price_reference  broker_order_notional  raw_delta_shares  raw_order_notional  target_weight  target_position_notional  capped_target_position_notional  exec_estimated_commission  exec_estimated_slippage  exec_estimated_total_cost  broker_estimated_commission  broker_estimated_slippage  broker_estimated_total_cost  ready skip_reason
-2026-03-25 aggressive       MEXEM            IBKR                        preview   CRCL         BUY        48.0      fractional           103.86                4985.28              48.0             4985.28       0.050000               5000.000000                      5000.000000                       0.35                 0.747792                   1.097792                         0.35                   0.747792                     1.097792      1
-2026-03-25 aggressive       MEXEM            IBKR                        preview    NEM         BUY        49.0      fractional           101.52                4974.48              49.0             4974.48       0.050000               5000.000000                      5000.000000                       0.35                 0.746172                   1.096172                         0.35                   0.746172                     1.096172      1
-2026-03-25 aggressive       MEXEM            IBKR                        preview   RKLB         BUY        52.0      fractional            72.88                3789.76              52.0             3789.76       0.038247               3824.732573                      3824.732573                       0.35                 0.568464                   0.918464                         0.35                   0.568464                     0.918464      1
-2026-03-25 aggressive       MEXEM            IBKR                        preview   INTC         BUY        64.0      fractional            47.18                3019.52              64.0             3019.52       0.030551               3055.142369                      3055.142369                       0.35                 0.452928                   0.802928                         0.35                   0.452928                     0.802928      1
-2026-03-25 aggressive       MEXEM            IBKR                        preview   HOOD         BUY        37.0      fractional            72.54                2683.98              37.0             2683.98       0.027034               2703.384698                      2703.384698                       0.35                 0.402597                   0.752597                         0.35                   0.402597                     0.752597      1
-2026-03-25 aggressive       MEXEM            IBKR                        preview   SHOP         BUY         3.0      fractional           118.42                 355.26               3.0              355.26       0.004167                416.740360                       416.740360                       0.35                 0.053289                   0.403289                         0.35                   0.053289                     0.403289      1
-[PREFLIGHT] passes=1 ready_orders=8 blocked_orders=0 total_broker_notional=29768.04 max_broker_order_notional=4985.28
-[PREFLIGHT][COST] total_broker_estimated_commission=2.8000 total_broker_estimated_slippage=4.4652 total_broker_estimated_cost=7.2652
+[HANDOFF][optimal] rows_total=2 rows_ready=0 rows_hold=2 skip_min_notional=0 skip_shorts=0 skip_max_notional=0 skip_zero_after_rounding=0
+[HANDOFF][optimal][COST] broker_estimated_commission_total=0.0000 broker_estimated_slippage_total=0.0000 broker_estimated_total_cost=0.0000
+[HANDOFF][aggressive] rows_total=6 rows_ready=0 rows_hold=6 skip_min_notional=0 skip_shorts=0 skip_max_notional=0 skip_zero_after_rounding=0
+[HANDOFF][aggressive][COST] broker_estimated_commission_total=0.0000 broker_estimated_slippage_total=0.0000 broker_estimated_total_cost=0.0000
+[PREFLIGHT] passes=0 ready_orders=0 blocked_orders=0 total_broker_notional=0.00 max_broker_order_notional=0.00
+[PREFLIGHT][COST] total_broker_estimated_commission=0.0000 total_broker_estimated_slippage=0.0000 total_broker_estimated_cost=0.0000
+[PREFLIGHT][REASONS] ['empty_handoff']
 [ARTIFACT] artifacts\broker_handoff\broker_order_blotter.csv
 [ARTIFACT] artifacts\broker_handoff\broker_order_blotter_ready.csv
 [ARTIFACT] artifacts\broker_handoff\broker_order_blotter_blocked.csv
