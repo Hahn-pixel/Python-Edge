@@ -4,8 +4,8 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/.gitattributes
 .gitignore
 https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/.gitignore
 
-console96.log
-https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console96.log
+console105.log
+https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console105.log
 
 deps_edges.txt
 https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/deps_edges.txt
@@ -16,32 +16,11 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/pyproject.toml
 repo_map.txt
 https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/repo_map.txt
 
-  scripts/alpha_age_surface.py
-  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/alpha_age_surface.py
-
-  scripts/build_feature_matrix_v1.py
-  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/build_feature_matrix_v1.py
-
-  scripts/build_feature_matrix_v2.py
-  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/build_feature_matrix_v2.py
-
-  scripts/diagnose_alpha_library_v2.py
-  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/diagnose_alpha_library_v2.py
-
   scripts/download_massive_aggs.py
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/download_massive_aggs.py
 
-  scripts/generate_alpha_library_v2.py
-  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/generate_alpha_library_v2.py
-
-  scripts/generate_fs2_base_alpha_library.py
-  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/generate_fs2_base_alpha_library.py
-
-  scripts/generate_survivor_local_alpha_library.py
-  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/generate_survivor_local_alpha_library.py
-
-  scripts/run_alpha_decay_surface.py
-  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_alpha_decay_surface.py
+  scripts/run_broker_handoff.py
+  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_broker_handoff.py
 
   scripts/run_daily_cycle.py
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_daily_cycle.py
@@ -49,62 +28,17 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/repo_map.txt
   scripts/run_execution_loop.py
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_execution_loop.py
 
-  scripts/run_factor_interaction_scan.py
-  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_factor_interaction_scan.py
-
   scripts/run_freeze_runner.py
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_freeze_runner.py
 
-  scripts/run_portfolio_opt_wf.py
-  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_portfolio_opt_wf.py
+  scripts/run_live_alpha_snapshot.py
+  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_live_alpha_snapshot.py
 
-  scripts/run_production_regime_alpha_pack.py
-  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_production_regime_alpha_pack.py
-
-  scripts/run_ranker_hold_sim.py
-  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_ranker_hold_sim.py
-
-  scripts/run_ranker_multi_alpha_wf.py
-  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_ranker_multi_alpha_wf.py
-
-  scripts/run_ranker_regime_pack_wf.py
-  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_ranker_regime_pack_wf.py
-
-  scripts/run_ranker_wf.py
-  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_ranker_wf.py
-
-  scripts/run_regime_interaction_scan.py
-  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_regime_interaction_scan.py
-
-  scripts/run_residual_alpha_diagnostics.py
-  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_residual_alpha_diagnostics.py
-
-  scripts/run_residual_edge_analyzer.py
-  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_residual_edge_analyzer.py
-
-  scripts/run_residual_layer_wf.py
-  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_residual_layer_wf.py
-
-  scripts/run_residual_portfolio_sim.py
-  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_residual_portfolio_sim.py
-
-  scripts/run_single_alpha_audit_wf.py
-  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_single_alpha_audit_wf.py
-
-  scripts/run_wf_diag_suite.py
-  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_wf_diag_suite.py
-
-  scripts/run_wf_diagnostics.py
-  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_wf_diagnostics.py
+  scripts/run_universe_builder.py
+  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_universe_builder.py
 
     src/python_edge/__init__.py
     https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/__init__.py
-
-      src/python_edge/analysis/__init__.py
-      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/analysis/__init__.py
-
-      src/python_edge/analysis/alpha_decay.py
-      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/analysis/alpha_decay.py
 
     src/python_edge/config.py
     https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/config.py
@@ -205,9 +139,6 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/repo_map.txt
       src/python_edge/portfolio/holding_inertia.py
       https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/portfolio/holding_inertia.py
 
-      src/python_edge/portfolio/portfolio_overlay.py
-      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/portfolio/portfolio_overlay.py
-
       src/python_edge/portfolio/position_limits.py
       https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/portfolio/position_limits.py
 
@@ -223,12 +154,9 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/repo_map.txt
       src/python_edge/reports/report_text.py
       https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/reports/report_text.py
 
-      src/python_edge/wf/__init__.py
-      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/wf/__init__.py
+      src/python_edge/universe/__init__.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/universe/__init__.py
 
-      src/python_edge/wf/evaluate_ranker.py
-      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/wf/evaluate_ranker.py
-
-      src/python_edge/wf/splits.py
-      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/wf/splits.py
+      src/python_edge/universe/universe_builder.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/universe/universe_builder.py
 

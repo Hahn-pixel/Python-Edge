@@ -1,15 +1,13 @@
 from __future__ import annotations
 
 import json
-import math
 import os
 import sys
 import time
 import traceback
 from dataclasses import dataclass
-from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -38,6 +36,54 @@ UNIVERSE_MAX_MISSING_DAYS_20D = int(os.getenv("UNIVERSE_MAX_MISSING_DAYS_20D", "
 UNIVERSE_REQUEST_TIMEOUT_SEC = int(os.getenv("UNIVERSE_REQUEST_TIMEOUT_SEC", "30"))
 UNIVERSE_SECTOR_CAP = int(os.getenv("UNIVERSE_SECTOR_CAP", "18"))
 UNIVERSE_MAX_CANDIDATES_STAGE2 = int(os.getenv("UNIVERSE_MAX_CANDIDATES_STAGE2", "1200"))
+OVERVIEW_ENRICHMENT_ENABLED = str(os.getenv("OVERVIEW_ENRICHMENT_ENABLED", "1")).strip().lower() not in {"0", "false", "no", "off"}
+OVERVIEW_ENRICHMENT_MAX = int(os.getenv("OVERVIEW_ENRICHMENT_MAX", "1200"))
+OVERVIEW_SLEEP_MS = int(os.getenv("OVERVIEW_SLEEP_MS", "25"))
+OVERVIEW_CACHE_FILE = Path(os.getenv("OVERVIEW_CACHE_FILE", "artifacts/daily_cycle/universe/universe_overview_cache.parquet"))
+
+SIC_SECTOR_RULES: List[Tuple[str, List[str]]] = [
+    ("Technology", [
+        "software", "semiconductor", "comput", "electronics", "communication equipment", "communications equipment",
+        "data processing", "programming", "internet", "digital", "micro", "chip", "network", "telecom equipment",
+    ]),
+    ("Financials", [
+        "bank", "banks", "financial", "insurance", "asset", "capital", "credit", "investment", "brokerage",
+        "consumer lending", "mortgage", "trust", "finance",
+    ]),
+    ("Healthcare", [
+        "pharmaceutical", "biotech", "biological", "medical", "health", "surgical", "diagnostic", "therapeutic",
+        "laborator", "drug", "hospital", "care services",
+    ]),
+    ("Energy", [
+        "oil", "gas", "petroleum", "drilling", "exploration", "pipeline", "energy", "coal", "refining",
+    ]),
+    ("Utilities", [
+        "electric", "water supply", "water", "utility", "utilities", "power generation", "natural gas distribution",
+    ]),
+    ("Industrials", [
+        "industrial", "machinery", "aerospace", "defense", "railroad", "transportation", "trucking", "air freight",
+        "shipping", "construction", "engineering", "manufacturing", "equipment", "metal fabricat", "tools",
+    ]),
+    ("Consumer Discretionary", [
+        "retail", "apparel", "restaurants", "restaurant", "entertainment", "hotel", "hotels", "leisure", "automotive",
+        "auto", "consumer goods", "specialty stores", "internet retail", "travel", "gaming",
+    ]),
+    ("Consumer Staples", [
+        "food", "beverage", "beverages", "tobacco", "household", "personal products", "grocery", "packaged goods",
+        "consumer staples",
+    ]),
+    ("Materials", [
+        "chemical", "chemicals", "metal", "metals", "mining", "paper", "forest products", "packaging", "plastic",
+        "materials", "steel", "aluminum", "copper", "gold", "silver",
+    ]),
+    ("Real Estate", [
+        "real estate", "property", "lessor", "rental", "warehouse", "office buildings",
+    ]),
+    ("Communication Services", [
+        "telecommunication", "telecommunications", "media", "broadcast", "publishing", "advertising", "streaming",
+        "social network", "content",
+    ]),
+]
 
 
 @dataclass(frozen=True)
@@ -107,9 +153,7 @@ class MassiveClient:
         url = f"{self.base_url}/v2/aggs/grouped/locale/us/market/stocks/{day}"
         payload = self._request_json(url, params={"adjusted": "true"})
         rows = payload.get("results", [])
-        if not isinstance(rows, list):
-            return pd.DataFrame(columns=["ticker", "date", "open", "high", "low", "close", "volume"])
-        if not rows:
+        if not isinstance(rows, list) or not rows:
             return pd.DataFrame(columns=["ticker", "date", "open", "high", "low", "close", "volume"])
         df = pd.DataFrame(rows).rename(columns={"T": "ticker", "o": "open", "h": "high", "l": "low", "c": "close", "v": "volume"})
         for col in ["ticker", "open", "high", "low", "close", "volume"]:
@@ -117,8 +161,15 @@ class MassiveClient:
                 raise RuntimeError(f"Grouped daily payload for {day} missing column: {col}")
         df["ticker"] = df["ticker"].astype(str).str.upper()
         df["date"] = pd.Timestamp(day)
-        keep = df[["ticker", "date", "open", "high", "low", "close", "volume"]].copy()
-        return keep.sort_values(["ticker"]).reset_index(drop=True)
+        return df[["ticker", "date", "open", "high", "low", "close", "volume"]].copy().sort_values(["ticker"]).reset_index(drop=True)
+
+    def get_ticker_overview(self, ticker: str) -> Dict[str, object]:
+        url = f"{self.base_url}/v3/reference/tickers/{ticker}"
+        payload = self._request_json(url)
+        result = payload.get("results", {})
+        if not isinstance(result, dict):
+            return {}
+        return result
 
 
 def _should_pause() -> bool:
@@ -163,7 +214,7 @@ def _policy_from_profile(profile: str) -> UniversePolicy:
             min_median_dollar_vol_20d=max(10000000.0, base.min_median_dollar_vol_20d * 0.5),
             min_history_days=max(20, base.min_history_days),
             max_nan_ratio=min(0.05, base.max_nan_ratio * 2.0),
-            max_missing_days_20d=max(2, base.max_missing_days_20d),
+            max_missing_days_20d=max(2, base.max_missing_days_20D),
             sector_cap=max(base.sector_cap, 25),
             stricter_trading_thresholds=False,
         )
@@ -193,9 +244,7 @@ def _is_rebalance_day(as_of_date: pd.Timestamp) -> bool:
 def _reuse_previous_snapshot_if_allowed(as_of_date: pd.Timestamp) -> Optional[Tuple[pd.DataFrame, Dict[str, object]]]:
     snapshot_path = OUT_DIR / "universe_snapshot.parquet"
     summary_path = OUT_DIR / "universe_summary.json"
-    if not UNIVERSE_REUSE_LAST:
-        return None
-    if _is_rebalance_day(as_of_date):
+    if not UNIVERSE_REUSE_LAST or _is_rebalance_day(as_of_date):
         return None
     if not snapshot_path.exists() or not summary_path.exists():
         return None
@@ -232,14 +281,15 @@ def _fetch_grouped_history(client: MassiveClient, end_date: pd.Timestamp, n_days
     for idx, dt in enumerate(days, start=1):
         day_str = str(dt.date())
         day_df = client.get_grouped_daily(day_str)
-        frames.append(day_df)
+        if len(day_df):
+            frames.append(day_df)
         if idx % 5 == 0 or idx == len(days):
             rows = int(sum(len(x) for x in frames))
             print(f"[GROUPED] {idx}/{len(days)} days fetched rows={rows}")
         time.sleep(0.05)
-    panel = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame(columns=["ticker", "date", "open", "high", "low", "close", "volume"])
-    if panel.empty:
+    if not frames:
         raise RuntimeError("Grouped daily history is empty")
+    panel = pd.concat(frames, ignore_index=True)
     panel = panel.sort_values(["ticker", "date"]).reset_index(drop=True)
     panel["dollar_vol"] = pd.to_numeric(panel["close"], errors="coerce") * pd.to_numeric(panel["volume"], errors="coerce")
     return panel
@@ -247,7 +297,7 @@ def _fetch_grouped_history(client: MassiveClient, end_date: pd.Timestamp, n_days
 
 def _core_reference_filter(ref: pd.DataFrame) -> pd.DataFrame:
     out = ref.copy()
-    for col in ["locale", "market", "type", "name", "primary_exchange", "currency_name"]:
+    for col in ["locale", "market", "type", "name", "primary_exchange", "currency_name", "sic_code", "sic_description"]:
         if col not in out.columns:
             out[col] = None
     out["locale"] = out["locale"].astype(str).str.lower()
@@ -274,16 +324,14 @@ def _core_reference_filter(ref: pd.DataFrame) -> pd.DataFrame:
 
 
 def _compute_symbol_metrics(core_ref: pd.DataFrame, panel: pd.DataFrame, policy: UniversePolicy) -> pd.DataFrame:
-    metrics = core_ref[[c for c in core_ref.columns if c in ["ticker", "name", "sic_code", "sic_description", "market", "locale", "type", "primary_exchange"]]].copy()
-    metrics = metrics.drop_duplicates(subset=["ticker"]).reset_index(drop=True)
+    keep_cols = [c for c in ["ticker", "name", "sic_code", "sic_description", "market", "locale", "type", "primary_exchange"] if c in core_ref.columns]
+    metrics = core_ref[keep_cols].copy().drop_duplicates(subset=["ticker"]).reset_index(drop=True)
 
     p = panel.copy()
     p["ret_1d"] = p.groupby("ticker", sort=False)["close"].pct_change(1)
     g = p.groupby("ticker", sort=False)
 
-    agg = pd.DataFrame({
-        "ticker": sorted(p["ticker"].dropna().astype(str).unique().tolist())
-    })
+    agg = pd.DataFrame({"ticker": sorted(p["ticker"].dropna().astype(str).unique().tolist())})
     agg = agg.merge(g["date"].count().rename("history_days").reset_index(), on="ticker", how="left")
     agg = agg.merge(g["close"].last().rename("last_close").reset_index(), on="ticker", how="left")
     agg = agg.merge(g["dollar_vol"].apply(lambda s: float(pd.to_numeric(s, errors="coerce").tail(20).median())).rename("median_dollar_vol_20d").reset_index(), on="ticker", how="left")
@@ -313,6 +361,98 @@ def _compute_symbol_metrics(core_ref: pd.DataFrame, panel: pd.DataFrame, policy:
     return out.sort_values(["median_dollar_vol_20d", "ticker"], ascending=[False, True]).reset_index(drop=True)
 
 
+def _load_overview_cache() -> pd.DataFrame:
+    if not OVERVIEW_CACHE_FILE.exists():
+        return pd.DataFrame(columns=["ticker", "sic_code", "sic_description", "overview_name"])
+    df = pd.read_parquet(OVERVIEW_CACHE_FILE)
+    if df.empty:
+        return pd.DataFrame(columns=["ticker", "sic_code", "sic_description", "overview_name"])
+    df["ticker"] = df["ticker"].astype(str).str.upper()
+    return df.drop_duplicates(subset=["ticker"], keep="last").reset_index(drop=True)
+
+
+def _write_overview_cache(df: pd.DataFrame) -> None:
+    OVERVIEW_CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    df.to_parquet(OVERVIEW_CACHE_FILE, index=False)
+
+
+def _extract_overview_fields(ticker: str, payload: Dict[str, object]) -> Dict[str, object]:
+    return {
+        "ticker": str(ticker).upper(),
+        "sic_code": payload.get("sic_code"),
+        "sic_description": payload.get("sic_description"),
+        "overview_name": payload.get("name"),
+    }
+
+
+def _enrich_with_overview(client: MassiveClient, classified: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, object]]:
+    if not OVERVIEW_ENRICHMENT_ENABLED:
+        return classified, {
+            "overview_enriched_total": 0,
+            "overview_cache_hits": 0,
+            "overview_api_calls": 0,
+            "overview_missing_sic_total": int(len(classified)),
+            "overview_enrichment_enabled": 0,
+        }
+
+    capped = classified.sort_values(["median_dollar_vol_20d", "ticker"], ascending=[False, True]).head(int(OVERVIEW_ENRICHMENT_MAX)).copy().reset_index(drop=True)
+    cache = _load_overview_cache()
+    cache_map = cache.set_index("ticker", drop=False).to_dict(orient="index") if len(cache) else {}
+
+    rows: List[Dict[str, object]] = []
+    cache_hits = 0
+    api_calls = 0
+    for idx, row in capped.iterrows():
+        ticker = str(row["ticker"]).upper()
+        cached = cache_map.get(ticker)
+        if cached is not None and ((pd.notna(cached.get("sic_code")) and str(cached.get("sic_code")).strip() != "") or (pd.notna(cached.get("sic_description")) and str(cached.get("sic_description")).strip() != "")):
+            rows.append(dict(cached))
+            cache_hits += 1
+        else:
+            payload = client.get_ticker_overview(ticker)
+            rows.append(_extract_overview_fields(ticker, payload))
+            api_calls += 1
+            time.sleep(max(0.0, float(OVERVIEW_SLEEP_MS) / 1000.0))
+        if (idx + 1) % 100 == 0 or (idx + 1) == len(capped):
+            print(f"[OVERVIEW] {idx + 1}/{len(capped)} processed cache_hits={cache_hits} api_calls={api_calls}")
+
+    overview_df = pd.DataFrame(rows)
+    if len(overview_df):
+        merged_cache = pd.concat([cache, overview_df], ignore_index=True) if len(cache) else overview_df.copy()
+        merged_cache = merged_cache.drop_duplicates(subset=["ticker"], keep="last").reset_index(drop=True)
+        _write_overview_cache(merged_cache)
+
+    out = classified.merge(overview_df[["ticker", "sic_code", "sic_description", "overview_name"]], on="ticker", how="left", suffixes=("", "_ov"))
+    out["sic_code"] = out["sic_code_ov"].where(out["sic_code_ov"].notna(), out.get("sic_code"))
+    out["sic_description"] = out["sic_description_ov"].where(out["sic_description_ov"].notna(), out.get("sic_description"))
+    if "name" in out.columns and "overview_name" in out.columns:
+        out["name"] = out["overview_name"].where(out["overview_name"].notna(), out["name"])
+    drop_cols = [c for c in ["sic_code_ov", "sic_description_ov", "overview_name"] if c in out.columns]
+    if drop_cols:
+        out = out.drop(columns=drop_cols)
+
+    missing_sic_total = int(
+        (
+            (
+                out["sic_description"].isna()
+                | out["sic_description"].astype(str).str.strip().eq("")
+            )
+            & (
+                out["sic_code"].isna()
+                | out["sic_code"].astype(str).str.strip().eq("")
+            )
+        ).sum()
+    )
+
+    return out, {
+        "overview_enriched_total": int(len(overview_df)),
+        "overview_cache_hits": int(cache_hits),
+        "overview_api_calls": int(api_calls),
+        "overview_missing_sic_total": missing_sic_total,
+        "overview_enrichment_enabled": 1,
+    }
+
+
 def _bucketize_ranked(series: pd.Series, labels: List[str]) -> pd.Series:
     x = pd.to_numeric(series, errors="coerce")
     if x.notna().sum() < len(labels):
@@ -323,11 +463,62 @@ def _bucketize_ranked(series: pd.Series, labels: List[str]) -> pd.Series:
     return out.astype("object").fillna("UNKNOWN")
 
 
+def _normalize_text(x: object) -> str:
+    return " ".join(str(x or "").strip().lower().split())
+
+
+def _map_sector_from_sic(sic_description: object, sic_code: object) -> str:
+    desc = _normalize_text(sic_description)
+    if desc:
+        for sector, tokens in SIC_SECTOR_RULES:
+            if any(token in desc for token in tokens):
+                return sector
+    code_str = str(sic_code or "").strip()
+    code_int: Optional[int] = None
+    if code_str.isdigit():
+        try:
+            code_int = int(code_str)
+        except Exception:
+            code_int = None
+    if code_int is not None:
+        if 100 <= code_int <= 999:
+            return "Materials"
+        if 1000 <= code_int <= 1499:
+            return "Energy"
+        if 1500 <= code_int <= 1799:
+            return "Industrials"
+        if 2000 <= code_int <= 3999:
+            return "Industrials"
+        if 4000 <= code_int <= 4799:
+            return "Industrials"
+        if 4800 <= code_int <= 4899:
+            return "Communication Services"
+        if 4900 <= code_int <= 4999:
+            return "Utilities"
+        if 5000 <= code_int <= 5999:
+            return "Consumer Discretionary"
+        if 6000 <= code_int <= 6799:
+            return "Financials"
+        if 7000 <= code_int <= 7999:
+            return "Consumer Discretionary"
+        if 8000 <= code_int <= 8999:
+            return "Healthcare"
+    return "UNKNOWN"
+
+
+def _clean_industry(sic_description: object) -> str:
+    s = str(sic_description or "").strip()
+    if s and s.lower() not in {"nan", "none"}:
+        return s
+    return "UNKNOWN"
+
+
 def _classify(metrics: pd.DataFrame) -> pd.DataFrame:
     out = metrics.copy()
-    out["industry"] = out.get("sic_description", pd.Series(index=out.index, dtype="object")).astype(str).replace({"nan": "UNKNOWN", "None": "UNKNOWN"})
-    out["sector"] = out["industry"].str.split(",").str[0].str.strip().replace({"": "UNKNOWN"})
-    out.loc[out["sector"].isin(["nan", "None"]), "sector"] = "UNKNOWN"
+    sic_desc = out["sic_description"] if "sic_description" in out.columns else pd.Series([None] * len(out), index=out.index)
+    sic_code = out["sic_code"] if "sic_code" in out.columns else pd.Series([None] * len(out), index=out.index)
+    out["industry"] = pd.Series([_clean_industry(sd) for sd in sic_desc.tolist()], index=out.index, dtype="object")
+    out["sector"] = pd.Series([_map_sector_from_sic(sd, sc) for sd, sc in zip(sic_desc.tolist(), sic_code.tolist())], index=out.index, dtype="object")
     out["liquidity_bucket"] = _bucketize_ranked(out["median_dollar_vol_20d"], ["LOW", "MID", "HIGH"])
     out["volatility_bucket"] = _bucketize_ranked(out["volatility_20d"], ["LOW", "MID", "HIGH"])
     out["price_bucket"] = _bucketize_ranked(out["last_close"], ["LOW", "MID", "HIGH"])
@@ -351,7 +542,7 @@ def _policy_select(classified: pd.DataFrame, policy: UniversePolicy) -> pd.DataF
     for _, row in eligible.iterrows():
         sector = str(row.get("sector", "UNKNOWN") or "UNKNOWN")
         current = int(sector_counts.get(sector, 0))
-        if current >= int(policy.sector_cap):
+        if sector != "UNKNOWN" and current >= int(policy.sector_cap):
             continue
         selected_parts.append(pd.DataFrame([row]))
         sector_counts[sector] = current + 1
@@ -373,8 +564,7 @@ def _build_snapshot(classified: pd.DataFrame, selected: pd.DataFrame, as_of_date
     out["trade_date"] = str(as_of_date.date())
     out["universe_profile"] = policy.profile
     out["selected"] = out["ticker"].astype(str).isin(selected_set)
-    out = out.sort_values(["selected", "median_dollar_vol_20d", "ticker"], ascending=[False, False, True]).reset_index(drop=True)
-    return out
+    return out.sort_values(["selected", "median_dollar_vol_20d", "ticker"], ascending=[False, False, True]).reset_index(drop=True)
 
 
 def _write_outputs(snapshot: pd.DataFrame, summary: Dict[str, object]) -> None:
@@ -391,7 +581,7 @@ def main() -> int:
     api_key = str(os.getenv("MASSIVE_API_KEY", "")).strip()
     client = MassiveClient(api_key=api_key, base_url=DEFAULT_BASE_URL, timeout_sec=UNIVERSE_REQUEST_TIMEOUT_SEC)
     policy = _policy_from_profile(UNIVERSE_PROFILE)
-    as_of_date = pd.Timestamp.utcnow().tz_localize(None).normalize() - pd.Timedelta(days=1)
+    as_of_date = pd.Timestamp.now("UTC").tz_localize(None).normalize() - pd.Timedelta(days=1)
     while int(as_of_date.weekday()) >= 5:
         as_of_date = as_of_date - pd.Timedelta(days=1)
 
@@ -401,6 +591,7 @@ def main() -> int:
     print(f"[CFG] min_price={policy.min_price:.2f} min_median_dollar_vol_20d={policy.min_median_dollar_vol_20d:.2f}")
     print(f"[CFG] min_history_days={policy.min_history_days} max_nan_ratio={policy.max_nan_ratio:.4f} max_missing_days_20d={policy.max_missing_days_20d}")
     print(f"[CFG] rebalance_freq={UNIVERSE_REBALANCE_FREQ} reuse_last={int(UNIVERSE_REUSE_LAST)}")
+    print(f"[CFG] overview_enrichment_enabled={int(OVERVIEW_ENRICHMENT_ENABLED)} overview_enrichment_max={OVERVIEW_ENRICHMENT_MAX}")
     print(f"[DATA] as_of_date={as_of_date.date()}")
 
     reused = _reuse_previous_snapshot_if_allowed(as_of_date)
@@ -414,6 +605,7 @@ def main() -> int:
     core_ref = _core_reference_filter(ref)
     print(f"[UNIVERSE] reference_total={candidates_total}")
     print(f"[UNIVERSE] core_candidates_after_reference_filter={len(core_ref)}")
+    print(f"[UNIVERSE] reference_columns={sorted(ref.columns.astype(str).tolist())[:30]}")
 
     panel = _fetch_grouped_history(client, as_of_date, UNIVERSE_LOOKBACK_DAYS)
     panel = panel.loc[panel["ticker"].astype(str).isin(set(core_ref["ticker"].astype(str).tolist()))].copy()
@@ -426,9 +618,14 @@ def main() -> int:
         classified = classified.sort_values(["median_dollar_vol_20d", "ticker"], ascending=[False, True]).head(int(UNIVERSE_MAX_CANDIDATES_STAGE2)).reset_index(drop=True)
         print(f"[UNIVERSE] stage2 candidate cap applied -> {len(classified)}")
 
+    classified, overview_summary = _enrich_with_overview(client, classified)
+    classified = _classify(classified)
     selected = _policy_select(classified, policy)
     snapshot = _build_snapshot(classified, selected, as_of_date, policy)
 
+    sector_counts_selected = selected.groupby("sector", sort=False).size().to_dict() if len(selected) else {}
+    sector_unknown_selected = int(selected["sector"].astype(str).eq("UNKNOWN").sum()) if len(selected) else 0
+    industry_unknown_selected = int(selected["industry"].astype(str).eq("UNKNOWN").sum()) if len(selected) else 0
     summary = {
         "trade_date": str(as_of_date.date()),
         "universe_profile": policy.profile,
@@ -441,10 +638,13 @@ def main() -> int:
         "dropped_data_quality": int((classified["eligible_price"] & classified["eligible_liquidity"] & classified["eligible_history"] & (~classified["eligible_data_quality"])).sum()),
         "eligible_total": int(classified["eligible"].sum()),
         "selected_total": int(len(selected)),
-        "sector_counts_selected": selected.groupby("sector", sort=False).size().to_dict() if len(selected) else {},
+        "sector_counts_selected": sector_counts_selected,
+        "sector_unknown_selected": sector_unknown_selected,
+        "industry_unknown_selected": industry_unknown_selected,
         "liquidity_bucket_counts_selected": selected.groupby("liquidity_bucket", sort=False).size().to_dict() if len(selected) else {},
         "volatility_bucket_counts_selected": selected.groupby("volatility_bucket", sort=False).size().to_dict() if len(selected) else {},
         "price_bucket_counts_selected": selected.groupby("price_bucket", sort=False).size().to_dict() if len(selected) else {},
+        **overview_summary,
     }
 
     print(f"[UNIVERSE] dropped_price={summary['dropped_price']}")
@@ -453,11 +653,15 @@ def main() -> int:
     print(f"[UNIVERSE] dropped_data_quality={summary['dropped_data_quality']}")
     print(f"[UNIVERSE] eligible_total={summary['eligible_total']}")
     print(f"[UNIVERSE] selected_total={summary['selected_total']}")
+    print(f"[UNIVERSE] overview_enriched_total={summary['overview_enriched_total']} overview_cache_hits={summary['overview_cache_hits']} overview_api_calls={summary['overview_api_calls']} overview_missing_sic_total={summary['overview_missing_sic_total']}")
+    print(f"[UNIVERSE] sector_unknown_selected={summary['sector_unknown_selected']}")
+    print(f"[UNIVERSE] industry_unknown_selected={summary['industry_unknown_selected']}")
+    print(f"[UNIVERSE] sector_counts_selected={summary['sector_counts_selected']}")
 
     if len(selected):
         print("[UNIVERSE][TOP_SELECTED]")
         print(
-            selected[["ticker", "sector", "last_close", "median_dollar_vol_20d", "liquidity_bucket", "volatility_bucket", "price_bucket"]]
+            selected[["ticker", "sector", "industry", "sic_code", "sic_description", "last_close", "median_dollar_vol_20d", "liquidity_bucket", "volatility_bucket", "price_bucket"]]
             .head(min(25, len(selected)))
             .to_string(index=False)
         )
