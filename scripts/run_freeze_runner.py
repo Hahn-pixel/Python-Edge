@@ -65,6 +65,30 @@ except Exception:
         out["cap_hit"] = (day_turn > max_daily_turnover).astype(int)
         return out
 
+try:
+    from python_edge.portfolio.budget_allocation import attach_dynamic_side_budgets, apply_side_budgets
+except Exception:
+    def attach_dynamic_side_budgets(df: pd.DataFrame, min_long_budget: float = 0.35, max_long_budget: float = 0.75, input_lag_days: int = 1) -> pd.DataFrame:
+        out = df.copy()
+        out["long_budget"] = 0.50
+        out["short_budget"] = 0.50
+        out["budget_signal_lag_days"] = int(input_lag_days)
+        return out
+
+    def apply_side_budgets(df: pd.DataFrame, weight_col: str = "weight") -> pd.DataFrame:
+        return df.copy()
+
+try:
+    from python_edge.portfolio.regime_allocation import attach_regime_multipliers
+except Exception:
+    def attach_regime_multipliers(df: pd.DataFrame) -> pd.DataFrame:
+        out = df.copy()
+        out["regime_long_mult"] = 1.0
+        out["regime_short_mult"] = 1.0
+        out["regime_top_pct"] = 0.10
+        out["market_regime"] = "neutral"
+        return out
+
 EPS = 1e-12
 PAUSE_ON_EXIT = str(os.getenv("PAUSE_ON_EXIT", "auto")).strip().lower()
 LIVE_ALPHA_SNAPSHOT_FILE = Path(os.getenv("LIVE_ALPHA_SNAPSHOT_FILE", "artifacts/live_alpha/live_alpha_snapshot.parquet"))
@@ -87,6 +111,9 @@ WF_PURGE_DAYS = int(os.getenv("WF_PURGE_DAYS", "5"))
 WF_EMBARGO_DAYS = int(os.getenv("WF_EMBARGO_DAYS", "5"))
 TOPK_EXPORT = int(os.getenv("TOPK_EXPORT", "50"))
 
+FEATURE_BUDGET_COLS = ["market_breadth", "intraday_rs", "volume_shock", "intraday_pressure"]
+FEATURE_REGIME_COLS = ["market_breadth"]
+
 
 @dataclass(frozen=True)
 class WFSplit:
@@ -102,11 +129,52 @@ class FreezeConfig:
     name: str
     cost_bps: float
     turnover_cap: float
+    enter_pct: float
+    exit_pct: float
+    gross_target: float
+    weight_cap: float
+    weighting_mode: str
+    component_count: int
+    use_regime_overlay: bool
+    use_dynamic_side_budgets: bool
+    budget_input_lag_days: int
+    min_long_budget: float
+    max_long_budget: float
 
 
 FREEZE_CONFIGS: List[FreezeConfig] = [
-    FreezeConfig(name="optimal", cost_bps=4.0, turnover_cap=0.10),
-    FreezeConfig(name="aggressive", cost_bps=4.0, turnover_cap=0.20),
+    FreezeConfig(
+        name="optimal",
+        cost_bps=4.0,
+        turnover_cap=0.10,
+        enter_pct=ENTER_PCT,
+        exit_pct=EXIT_PCT,
+        gross_target=GROSS_TARGET,
+        weight_cap=WEIGHT_CAP,
+        weighting_mode=FREEZE_WEIGHTING_MODE,
+        component_count=FREEZE_COMPONENT_COUNT,
+        use_regime_overlay=False,
+        use_dynamic_side_budgets=False,
+        budget_input_lag_days=1,
+        min_long_budget=0.35,
+        max_long_budget=0.75,
+    ),
+    FreezeConfig(
+        name="aggressive",
+        cost_bps=4.0,
+        turnover_cap=0.12,
+        enter_pct=0.08,
+        exit_pct=0.18,
+        gross_target=1.00,
+        weight_cap=0.05,
+        weighting_mode="ic",
+        component_count=max(3, FREEZE_COMPONENT_COUNT),
+        use_regime_overlay=True,
+        use_dynamic_side_budgets=True,
+        budget_input_lag_days=1,
+        min_long_budget=0.45,
+        max_long_budget=0.90,
+    ),
 ]
 
 
@@ -286,11 +354,11 @@ def _select_components(df: pd.DataFrame, alpha_cols: Sequence[str], train_start:
     if comp.empty:
         raise RuntimeError("No valid factory alpha components survived train-window IC screening")
     comp = comp.sort_values(["train_abs_mean_ic", "proxy_train_sharpe", "alpha"], ascending=[False, False, True]).reset_index(drop=True)
-    return comp.head(FREEZE_COMPONENT_COUNT).copy()
+    return comp.copy()
 
 
-def _weight_from_train_info(train_info_df: pd.DataFrame) -> pd.Series:
-    if FREEZE_WEIGHTING_MODE == "sharpe":
+def _weight_from_train_info(train_info_df: pd.DataFrame, weighting_mode: str) -> pd.Series:
+    if weighting_mode == "sharpe":
         w = _num(train_info_df["proxy_train_sharpe"]).abs().clip(lower=0.0)
     else:
         w = _num(train_info_df["train_abs_mean_ic"]).clip(lower=0.0)
@@ -299,18 +367,20 @@ def _weight_from_train_info(train_info_df: pd.DataFrame) -> pd.Series:
     return w / float(w.sum())
 
 
-def _portfolio_weights(train_info_df: pd.DataFrame) -> Dict[str, float]:
-    w = _weight_from_train_info(train_info_df)
+def _portfolio_weights(train_info_df: pd.DataFrame, weighting_mode: str) -> Dict[str, float]:
+    w = _weight_from_train_info(train_info_df, weighting_mode=weighting_mode)
     out: Dict[str, float] = {}
     for idx, row in train_info_df.reset_index(drop=True).iterrows():
         out[str(row["candidate"])] = float(w.iloc[idx])
     return out
 
 
-def _build_portfolio_scores(test_df: pd.DataFrame, component_info: pd.DataFrame) -> pd.DataFrame:
-    out = test_df[["date", "symbol", TARGET_COL]].copy()
+def _build_portfolio_scores(test_df: pd.DataFrame, component_info: pd.DataFrame, weighting_mode: str) -> pd.DataFrame:
+    passthrough_cols = [c for c in FEATURE_BUDGET_COLS if c in test_df.columns]
+    base_cols = ["date", "symbol", TARGET_COL] + passthrough_cols
+    out = test_df[base_cols].copy()
     score = pd.Series(0.0, index=out.index, dtype="float64")
-    weights = _portfolio_weights(component_info)
+    weights = _portfolio_weights(component_info, weighting_mode=weighting_mode)
     for _, row in component_info.iterrows():
         alpha = str(row["alpha"])
         candidate = str(row["candidate"])
@@ -338,17 +408,79 @@ def _normalize_weights_with_caps(book: pd.DataFrame, gross_target: float, weight
     return out
 
 
+def _apply_regime_overlay(day: pd.DataFrame) -> pd.DataFrame:
+    if not all(col in day.columns for col in FEATURE_REGIME_COLS):
+        out = day.copy()
+        out["market_regime"] = "na"
+        out["regime_long_mult"] = 1.0
+        out["regime_short_mult"] = 1.0
+        out["regime_top_pct"] = 0.10
+        out["score_after_regime"] = _num(out["active_score"]).fillna(0.0)
+        return out
+    out = attach_regime_multipliers(day.copy())
+    active = _num(out["active_score"]).fillna(0.0)
+    long_mult = _num(out.get("regime_long_mult", pd.Series(1.0, index=out.index))).fillna(1.0)
+    short_mult = _num(out.get("regime_short_mult", pd.Series(1.0, index=out.index))).fillna(1.0)
+    out["score_after_regime"] = np.where(active > 0.0, active * long_mult, np.where(active < 0.0, active * short_mult, active))
+    return out
+
+
+def _apply_side_budget_overlay(book: pd.DataFrame, cfg: FreezeConfig) -> Tuple[pd.DataFrame, int]:
+    if not cfg.use_dynamic_side_budgets:
+        out = book.copy()
+        out["long_budget"] = 0.50
+        out["short_budget"] = 0.50
+        out["budget_signal_lag_days"] = cfg.budget_input_lag_days
+        return out, 0
+    if not all(col in book.columns for col in FEATURE_BUDGET_COLS):
+        out = book.copy()
+        out["long_budget"] = 0.50
+        out["short_budget"] = 0.50
+        out["budget_signal_lag_days"] = cfg.budget_input_lag_days
+        return out, 0
+    out = attach_dynamic_side_budgets(
+        book.copy(),
+        min_long_budget=cfg.min_long_budget,
+        max_long_budget=cfg.max_long_budget,
+        input_lag_days=cfg.budget_input_lag_days,
+    )
+    out = apply_side_budgets(out, weight_col="weight")
+    return out, 1
+
+
 def _build_portfolio(scored_df: pd.DataFrame, cfg: FreezeConfig) -> pd.DataFrame:
     pieces: List[pd.DataFrame] = []
+    regime_days_used = 0
+    budget_days_used = 0
     for dt, g in scored_df.groupby("date", sort=False):
-        day = g[["date", "symbol", "score", TARGET_COL]].copy()
+        day = g.copy()
+        day = day[[c for c in day.columns if c in (["date", "symbol", "score", TARGET_COL] + FEATURE_BUDGET_COLS)]].copy()
         inertia_input = day[["date", "symbol", "score"]].copy()
-        inertia_out = apply_holding_inertia(inertia_input, enter_pct=ENTER_PCT, exit_pct=EXIT_PCT)
+        inertia_out = apply_holding_inertia(inertia_input, enter_pct=cfg.enter_pct, exit_pct=cfg.exit_pct)
         day = day.merge(inertia_out[["date", "symbol", "rank_pct", "side"]], on=["date", "symbol"], how="left")
         day["active_score"] = _num(day["score"]).fillna(0.0) * _num(day["side"]).fillna(0.0)
-        book_input = day[["date", "symbol", "active_score", TARGET_COL, "rank_pct", "side"]].rename(columns={"active_score": "score"})
-        book = _normalize_weights_with_caps(book_input, gross_target=GROSS_TARGET, weight_cap=WEIGHT_CAP)
+
+        if cfg.use_regime_overlay:
+            day = _apply_regime_overlay(day)
+            regime_days_used += 1 if "market_regime" in day.columns and (day["market_regime"] != "na").any() else 0
+            score_for_book = _num(day["score_after_regime"]).fillna(0.0)
+        else:
+            day["market_regime"] = "disabled"
+            day["regime_long_mult"] = 1.0
+            day["regime_short_mult"] = 1.0
+            day["regime_top_pct"] = 0.10
+            day["score_after_regime"] = _num(day["active_score"]).fillna(0.0)
+            score_for_book = _num(day["active_score"]).fillna(0.0)
+
+        book_input = day.copy()
+        book_input["score"] = score_for_book
+        book = _normalize_weights_with_caps(book_input, gross_target=cfg.gross_target, weight_cap=cfg.weight_cap)
+        book, budget_used = _apply_side_budget_overlay(book, cfg)
+        budget_days_used += int(budget_used)
+        book["regime_overlay_used"] = int(cfg.use_regime_overlay)
+        book["side_budget_overlay_used"] = int(budget_used)
         pieces.append(book)
+
     out = pd.concat(pieces, ignore_index=True).sort_values(["date", "symbol"]).reset_index(drop=True)
     out = cap_daily_turnover(out, weight_col="weight", max_daily_turnover=cfg.turnover_cap)
     if "trade_abs_after" not in out.columns:
@@ -360,6 +492,14 @@ def _build_portfolio(scored_df: pd.DataFrame, cfg: FreezeConfig) -> pd.DataFrame
     out["pnl_gross"] = _num(out["weight"]) * _num(out[TARGET_COL])
     out["cost"] = (cfg.cost_bps / 10000.0) * _num(out["trade_abs_after"])
     out["pnl_net"] = _num(out["pnl_gross"]) - _num(out["cost"])
+    out["config_turnover_cap"] = cfg.turnover_cap
+    out["config_gross_target"] = cfg.gross_target
+    out["config_weight_cap"] = cfg.weight_cap
+    out["config_enter_pct"] = cfg.enter_pct
+    out["config_exit_pct"] = cfg.exit_pct
+    out["config_weighting_mode"] = cfg.weighting_mode
+    out["diag_regime_days_used"] = regime_days_used
+    out["diag_budget_days_used"] = budget_days_used
     return out
 
 
@@ -370,6 +510,8 @@ def _summarize_daily(port_df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, flo
         turnover=("turnover", "max"),
         gross_exposure=("weight", lambda s: float(_num(pd.Series(s)).abs().sum())),
         cap_hit=("cap_hit", "max"),
+        regime_overlay_used=("regime_overlay_used", "max"),
+        side_budget_overlay_used=("side_budget_overlay_used", "max"),
     ).reset_index()
     daily["equity"] = (1.0 + _num(daily["pnl_net"])).cumprod()
     running_max = _num(daily["equity"]).cummax()
@@ -387,8 +529,18 @@ def _summarize_daily(port_df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, flo
         "avg_turnover": float(_num(daily["turnover"]).mean()) if len(daily) else float("nan"),
         "avg_gross_exposure": float(_num(daily["gross_exposure"]).mean()) if len(daily) else float("nan"),
         "cap_hit_rate": float((_num(daily["cap_hit"]) > 0.0).mean()) if len(daily) else float("nan"),
+        "regime_overlay_used_rate": float((_num(daily["regime_overlay_used"]) > 0.0).mean()) if len(daily) else float("nan"),
+        "side_budget_overlay_used_rate": float((_num(daily["side_budget_overlay_used"]) > 0.0).mean()) if len(daily) else float("nan"),
     }
     return daily, summary
+
+
+def _select_components_for_config(component_info_all: pd.DataFrame, cfg: FreezeConfig) -> pd.DataFrame:
+    comp = component_info_all.copy()
+    sort_cols = ["train_abs_mean_ic", "proxy_train_sharpe", "alpha"]
+    ascending = [False, False, True] if cfg.weighting_mode != "sharpe" else [False, False, True]
+    comp = comp.sort_values(sort_cols, ascending=ascending).reset_index(drop=True)
+    return comp.head(cfg.component_count).copy()
 
 
 def main() -> int:
@@ -404,12 +556,11 @@ def main() -> int:
     current_split = splits[-1]
     print(f"[FREEZE] last_completed_fold fold_id={current_split.fold_id} train={current_split.train_start.date()}..{current_split.train_end.date()} test={current_split.test_start.date()}..{current_split.test_end.date()}")
 
-    component_info = _select_components(df, alpha_cols, current_split.train_start, current_split.train_end)
-    print("[COMPONENTS][EFFECTIVE]")
-    print(component_info[["alpha", "train_abs_mean_ic", "proxy_train_sharpe", "train_sign_locked"]].to_string(index=False))
+    component_info_all = _select_components(df, alpha_cols, current_split.train_start, current_split.train_end)
+    print("[COMPONENTS][ALL_CANDIDATES_TOP]")
+    print(component_info_all[["alpha", "train_abs_mean_ic", "proxy_train_sharpe", "train_sign_locked"]].head(max(FREEZE_COMPONENT_COUNT, 10)).to_string(index=False))
 
     replay_df = df.loc[(df["date"] >= current_split.test_start) & (df["date"] <= current_split.test_end)].copy()
-    replay_scored = _build_portfolio_scores(replay_df, component_info)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
     summary_export: Dict[str, object] = {
@@ -421,7 +572,7 @@ def main() -> int:
             "test_start": str(current_split.test_start.date()),
             "test_end": str(current_split.test_end.date()),
         },
-        "component_selection": component_info.to_dict(orient="records"),
+        "component_selection_all": component_info_all.to_dict(orient="records"),
         "configs": {},
     }
 
@@ -431,10 +582,15 @@ def main() -> int:
         raise RuntimeError("No rows on live current date")
 
     for cfg in FREEZE_CONFIGS:
+        component_info = _select_components_for_config(component_info_all, cfg)
+        print(f"[COMPONENTS][{cfg.name}] weighting_mode={cfg.weighting_mode} component_count={cfg.component_count}")
+        print(component_info[["alpha", "train_abs_mean_ic", "proxy_train_sharpe", "train_sign_locked"]].to_string(index=False))
+
+        replay_scored = _build_portfolio_scores(replay_df, component_info, weighting_mode=cfg.weighting_mode)
         replay_port = _build_portfolio(replay_scored, cfg)
         replay_daily, replay_summary = _summarize_daily(replay_port)
 
-        live_scored = _build_portfolio_scores(live_df, component_info)
+        live_scored = _build_portfolio_scores(live_df, component_info, weighting_mode=cfg.weighting_mode)
         live_port = _build_portfolio(live_scored, cfg)
         live_book = live_port.loc[live_port["date"] == live_current_date].copy().sort_values(["weight", "symbol"], ascending=[False, True])
         live_book["abs_weight"] = _num(live_book["weight"]).abs()
@@ -455,10 +611,21 @@ def main() -> int:
         live_scores.head(TOPK_EXPORT).to_csv(cfg_dir / "freeze_current_scores_top.csv", index=False)
         live_book.to_csv(cfg_dir / "freeze_current_book.csv", index=False)
 
-        weight_series = _weight_from_train_info(component_info).reset_index(drop=True)
+        weight_series = _weight_from_train_info(component_info, weighting_mode=cfg.weighting_mode).reset_index(drop=True)
         cfg_summary = {
             "cost_bps": cfg.cost_bps,
             "turnover_cap": cfg.turnover_cap,
+            "enter_pct": cfg.enter_pct,
+            "exit_pct": cfg.exit_pct,
+            "gross_target": cfg.gross_target,
+            "weight_cap": cfg.weight_cap,
+            "weighting_mode": cfg.weighting_mode,
+            "component_count": cfg.component_count,
+            "use_regime_overlay": int(cfg.use_regime_overlay),
+            "use_dynamic_side_budgets": int(cfg.use_dynamic_side_budgets),
+            "budget_input_lag_days": cfg.budget_input_lag_days,
+            "min_long_budget": cfg.min_long_budget,
+            "max_long_budget": cfg.max_long_budget,
             "replay_current_date": str(pd.Timestamp(replay_df["date"].max()).date()),
             "live_current_date": str(live_current_date.date()),
             "weights": {str(component_info.iloc[i]["alpha"]): float(weight_series.iloc[i]) for i in range(len(component_info))},
@@ -471,10 +638,18 @@ def main() -> int:
         (cfg_dir / "freeze_current_summary.json").write_text(json.dumps(cfg_summary, ensure_ascii=False, indent=2), encoding="utf-8")
         summary_export["configs"][cfg.name] = cfg_summary
 
-        print(f"[FREEZE][{cfg.name}] live_active_names={len(live_book)} live_gross_exposure={cfg_summary['live_gross_exposure_current_day']:.4f} replay_sharpe_last_fold={replay_summary['sharpe']:.4f}")
+        print(
+            f"[FREEZE][{cfg.name}] live_active_names={len(live_book)} live_gross_exposure={cfg_summary['live_gross_exposure_current_day']:.4f} "
+            f"replay_sharpe_last_fold={replay_summary['sharpe']:.4f} avg_turnover={replay_summary['avg_turnover']:.4f} avg_gross={replay_summary['avg_gross_exposure']:.4f}"
+        )
+        print(
+            f"[FREEZE][{cfg.name}][DIAG] use_regime_overlay={int(cfg.use_regime_overlay)} use_dynamic_side_budgets={int(cfg.use_dynamic_side_budgets)} "
+            f"enter_pct={cfg.enter_pct:.4f} exit_pct={cfg.exit_pct:.4f} gross_target={cfg.gross_target:.4f} weight_cap={cfg.weight_cap:.4f} turnover_cap={cfg.turnover_cap:.4f}"
+        )
         if len(live_book):
             print(f"[FREEZE][{cfg.name}][LIVE_BOOK_TOP]")
-            print(live_book[["symbol", "weight", "score", "side", "turnover"]].head(min(TOPK_EXPORT, len(live_book))).to_string(index=False))
+            show_cols = [c for c in ["symbol", "weight", "score", "side", "market_regime", "long_budget", "short_budget", "turnover"] if c in live_book.columns]
+            print(live_book[show_cols].head(min(TOPK_EXPORT, len(live_book))).to_string(index=False))
         else:
             print(f"[FREEZE][{cfg.name}][LIVE_BOOK_TOP] no active positions on live current date")
 

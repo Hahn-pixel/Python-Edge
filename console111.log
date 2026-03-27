@@ -1,0 +1,65 @@
+
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_broker_adapter_ibkr.py
+[CFG] execution_root=artifacts\execution_loop
+[CFG] broker_name=MEXEM broker_platform=IBKR
+[CFG] configs=['optimal']
+[CFG] ib_host=127.0.0.1 ib_port=4002 ib_client_id=41
+[CFG] ib_account_code=DUP561175
+[CFG] ib_order_type=MKT ib_time_in_force=DAY ib_outside_rth=0
+[CFG] ib_exchange=SMART ib_primary_exchange= ib_currency=USD ib_security_type=STK
+[CFG] ib_allow_fractional=1
+[CFG] symbol_map_entries=0
+[IB] connecting host=127.0.0.1 port=4002 client_id=41
+[IB] connectAck received
+[IB] managedAccounts=DUP561175
+[IB] nextValidId=1
+[IB] connected next_valid_id=1 managed_accounts=DUP561175
+[IB][ERROR] reqId=-1 code=2104 msg=Market data farm connection is OK:usfarm
+[IB][ERROR] reqId=-1 code=2107 msg=HMDS data farm connection is inactive but should be available upon demand.ushmds
+[IB][ERROR] reqId=-1 code=2158 msg=Sec-def data farm connection is OK:secdefil
+[IB] openOrderEnd
+[IB] positionEnd
+[BROKER][optimal] orders=artifacts\execution_loop\optimal\orders.csv
+[BROKER][optimal] total_rows=4 live_orders=4 prepared_orders=4
+[BROKER][optimal][PREVIEW]
+symbol broker_symbol side  qty  order_notional                  client_tag
+  AAPL          AAPL  BUY 0.37           81.22 pe-aa38da5f52f99e46a119cb01
+  MSFT          MSFT  BUY 0.24          102.74 pe-9e83348cd2a2945e348170be
+  NVDA          NVDA SELL 0.41           48.54 pe-cde030811a0585642732ee96
+  AMZN          AMZN SELL 0.33           66.56 pe-189e402b7dbe6e5487e94794
+[IB][ERROR] reqId=1 code=10243 msg=Fractional-sized order cannot be placed via API. Please use desktop version to place this order.
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][optimal][SEND] symbol=AAPL broker_symbol=AAPL side=BUY qty=0.37000000 status=unknown ib_order_id=
+[IB][ERROR] reqId=2 code=10243 msg=Fractional-sized order cannot be placed via API. Please use desktop version to place this order.
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][optimal][SEND] symbol=MSFT broker_symbol=MSFT side=BUY qty=0.24000000 status=unknown ib_order_id=
+[IB][ERROR] reqId=3 code=10243 msg=Fractional-sized order cannot be placed via API. Please use desktop version to place this order.
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][optimal][SEND] symbol=NVDA broker_symbol=NVDA side=SELL qty=0.41000000 status=unknown ib_order_id=
+[IB][ERROR] reqId=4 code=10243 msg=Fractional-sized order cannot be placed via API. Please use desktop version to place this order.
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][optimal][SEND] symbol=AMZN broker_symbol=AMZN side=SELL qty=0.33000000 status=unknown ib_order_id=
+[BROKER][optimal][SUMMARY] sent=4 duplicate_skipped=0 errors=0 fills_csv=artifacts\execution_loop\optimal\fills.csv broker_log_json=artifacts\execution_loop\optimal\broker_log.json
+[FINAL] IBKR broker adapter complete
+
+[EXIT] code=0
