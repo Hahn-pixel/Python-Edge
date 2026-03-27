@@ -43,7 +43,7 @@ IB_ACCOUNT_CODE = str(os.getenv("IB_ACCOUNT_CODE", BROKER_ACCOUNT_ID)).strip()
 IB_ORDER_TYPE = str(os.getenv("IB_ORDER_TYPE", "MKT")).strip().upper()
 IB_TIME_IN_FORCE = str(os.getenv("IB_TIME_IN_FORCE", "DAY")).strip().upper()
 IB_OUTSIDE_RTH = str(os.getenv("IB_OUTSIDE_RTH", "0")).strip().lower() not in {"0", "false", "no", "off"}
-IB_ALLOW_FRACTIONAL = str(os.getenv("IB_ALLOW_FRACTIONAL", "1")).strip().lower() not in {"0", "false", "no", "off"}
+IB_ALLOW_FRACTIONAL = str(os.getenv("IB_ALLOW_FRACTIONAL", "0")).strip().lower() not in {"0", "false", "no", "off"}
 IB_POLL_AFTER_SUBMIT = str(os.getenv("IB_POLL_AFTER_SUBMIT", "1")).strip().lower() not in {"0", "false", "no", "off"}
 IB_POLL_ATTEMPTS = int(os.getenv("IB_POLL_ATTEMPTS", "6"))
 IB_POLL_SLEEP_SEC = float(os.getenv("IB_POLL_SLEEP_SEC", "1.5"))
@@ -576,15 +576,31 @@ def _prepare_orders(config_name: str, df: pd.DataFrame, symbol_map: Dict[str, st
         row_dict = {str(k): row[k] for k in df.columns}
         symbol = _normalize_symbol(str(row_dict.get("symbol", "")))
         order_side = _normalize_order_side(str(row_dict.get("order_side", "HOLD")))
-        qty = abs(_to_float(row_dict.get("delta_shares", 0.0)))
-        if qty <= 1e-12:
+        raw_qty = abs(_to_float(row_dict.get("delta_shares", 0.0)))
+        if raw_qty <= 1e-12:
             continue
-        if (not IB_ALLOW_FRACTIONAL) and abs(qty - round(qty)) > 1e-9:
-            qty = float(int(qty))
+
+        qty = raw_qty
+        if not IB_ALLOW_FRACTIONAL:
+            rounded_qty = float(int(raw_qty))
+            if abs(raw_qty - rounded_qty) > 1e-9:
+                print(
+                    f"[FRACTIONAL_BLOCKED] config={config_name} symbol={symbol} side={order_side} "
+                    f"raw_qty={raw_qty:.8f} rounded_qty={rounded_qty:.8f}"
+                )
+            qty = rounded_qty
+
         if qty <= 1e-12:
+            print(
+                f"[SKIP_ZERO_QTY] config={config_name} symbol={symbol} side={order_side} "
+                f"raw_qty={raw_qty:.8f}"
+            )
             continue
+
         broker_symbol = _resolve_broker_symbol(symbol, symbol_map)
-        idempotency_key = _make_idempotency_key(config_name, row_dict, broker_symbol)
+        row_for_key = dict(row_dict)
+        row_for_key["delta_shares"] = qty if order_side == "BUY" else -qty
+        idempotency_key = _make_idempotency_key(config_name, row_for_key, broker_symbol)
         prepared.append(
             PreparedOrder(
                 config=config_name,
