@@ -642,6 +642,12 @@ def _build_order(prepared: PreparedOrder) -> Order:
         order.account = IB_ACCOUNT_CODE
     order.orderRef = prepared.client_tag
     order.transmit = True
+
+    # IBKR/MEXEM paper may reject legacy order attributes if they are left enabled.
+    # Make them explicit to avoid code=10268 ('EtradeOnly' not supported).
+    order.eTradeOnly = False
+    order.firmQuoteOnly = False
+
     if order.orderType != "MKT":
         raise RuntimeError("Minimal IBKR adapter currently supports only IB_ORDER_TYPE=MKT")
     return order

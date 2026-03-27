@@ -287,29 +287,74 @@ def _build_target_table(book: pd.DataFrame, price_df: pd.DataFrame, price_col: s
     return target, merged_missing, risk_counters
 
 
-def _build_orders(target: pd.DataFrame, state: dict, price_col: str, current_date: pd.Timestamp) -> pd.DataFrame:
+def _empty_order_diag() -> Dict[str, int]:
+    return {
+        "already_at_target": 0,
+        "below_min_notional": 0,
+        "rounded_to_zero_from_nonzero_target": 0,
+        "entered_new_position": 0,
+        "exited_position": 0,
+        "increased_existing_position": 0,
+        "decreased_existing_position": 0,
+        "symbol_only_in_state": 0,
+        "symbol_only_in_target": 0,
+    }
+
+
+def _build_orders(target: pd.DataFrame, state: dict, price_col: str, current_date: pd.Timestamp) -> Tuple[pd.DataFrame, Dict[str, int]]:
     rows: List[Dict[str, object]] = []
-    symbols = sorted(set(target["symbol"].astype(str).tolist()) | set(state.get("positions", {}).keys()))
+    diag = _empty_order_diag()
+    target_symbol_set = set(target["symbol"].astype(str).tolist())
+    state_symbol_set = set(state.get("positions", {}).keys())
+    symbols = sorted(target_symbol_set | state_symbol_set)
     target_map = {str(row["symbol"]): row for _, row in target.iterrows()}
+
     for symbol in symbols:
         row = target_map.get(symbol)
+        if row is None:
+            diag["symbol_only_in_state"] += 1
+        elif symbol not in state_symbol_set:
+            diag["symbol_only_in_target"] += 1
+
         price = float(row[price_col]) if row is not None else float(DEFAULT_PRICE_FALLBACK)
         target_weight = float(row["weight"]) if row is not None else 0.0
         target_notional = float(row["target_notional"]) if row is not None else 0.0
         target_shares_raw = float(row["target_shares_raw"]) if row is not None else 0.0
         target_shares = float(row["target_shares"]) if row is not None else 0.0
         current_shares = _current_position_shares(state, symbol)
-        delta_shares = float(target_shares - current_shares)
+        raw_delta_shares = float(target_shares - current_shares)
+        delta_shares = raw_delta_shares
         order_notional = float(delta_shares * price)
         order_notional_abs = abs(order_notional)
         order_side = "BUY" if delta_shares > 0 else "SELL" if delta_shares < 0 else "HOLD"
         skip_reason = ""
-        if order_side != "HOLD" and order_notional_abs < float(MIN_ORDER_NOTIONAL):
+
+        if abs(target_shares_raw) > 1e-12 and abs(target_shares) <= 1e-12 and abs(current_shares) <= 1e-12:
+            diag["rounded_to_zero_from_nonzero_target"] += 1
+            if not skip_reason:
+                skip_reason = "rounded_to_zero"
+
+        if order_side == "HOLD":
+            diag["already_at_target"] += 1
+            if not skip_reason:
+                skip_reason = "already_at_target"
+        elif order_notional_abs < float(MIN_ORDER_NOTIONAL):
+            diag["below_min_notional"] += 1
             skip_reason = "below_min_notional"
             delta_shares = 0.0
             order_notional = 0.0
             order_notional_abs = 0.0
             order_side = "HOLD"
+        else:
+            if abs(current_shares) <= 1e-12 and abs(target_shares) > 1e-12:
+                diag["entered_new_position"] += 1
+            elif abs(current_shares) > 1e-12 and abs(target_shares) <= 1e-12:
+                diag["exited_position"] += 1
+            elif abs(target_shares) > abs(current_shares):
+                diag["increased_existing_position"] += 1
+            else:
+                diag["decreased_existing_position"] += 1
+
         estimated_commission = _estimate_commission(order_notional_abs)
         estimated_slippage = _estimate_slippage(order_notional_abs)
         estimated_total_cost = float(estimated_commission + estimated_slippage)
@@ -323,6 +368,7 @@ def _build_orders(target: pd.DataFrame, state: dict, price_col: str, current_dat
                 "target_shares_raw": target_shares_raw,
                 "current_shares": current_shares,
                 "target_shares": target_shares,
+                "raw_delta_shares": raw_delta_shares,
                 "delta_shares": delta_shares,
                 "order_side": order_side,
                 "order_notional": order_notional,
@@ -336,7 +382,7 @@ def _build_orders(target: pd.DataFrame, state: dict, price_col: str, current_dat
     orders = pd.DataFrame(rows)
     if len(orders):
         orders = orders.sort_values(["order_side", "order_notional_abs", "symbol"], ascending=[True, False, True]).reset_index(drop=True)
-    return orders
+    return orders, diag
 
 
 def _mark_positions_to_market(positions: Dict[str, dict], price_df: pd.DataFrame, price_col: str) -> Tuple[Dict[str, dict], pd.DataFrame, int]:
@@ -456,6 +502,15 @@ def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, 
                 "risk_dropped_price_above_max": 0,
                 "risk_clipped_weight_cap": 0,
                 "risk_clipped_notional_cap": 0,
+                "diag_already_at_target": 0,
+                "diag_below_min_notional": 0,
+                "diag_rounded_to_zero_from_nonzero_target": 0,
+                "diag_entered_new_position": 0,
+                "diag_exited_position": 0,
+                "diag_increased_existing_position": 0,
+                "diag_decreased_existing_position": 0,
+                "diag_symbol_only_in_state": 0,
+                "diag_symbol_only_in_target": 0,
                 "estimated_commission_total": 0.0,
                 "estimated_slippage_total": 0.0,
                 "estimated_total_cost": 0.0,
@@ -469,7 +524,7 @@ def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, 
     starting_cash = float(state.get("cash", ACCOUNT_NAV))
 
     target, merged_missing, risk_counters = _build_target_table(book, price_df, price_col, starting_nav, fractional_enabled=fractional_enabled)
-    orders = _build_orders(target, state, price_col, current_date)
+    orders, order_diag = _build_orders(target, state, price_col, current_date)
     next_state, mtm_df, mtm_fallback_count = _apply_orders_to_state(state, orders, paths.name, current_date, price_df, price_col)
 
     target.to_csv(paths.execution_dir / "target_book.csv", index=False)
@@ -514,6 +569,15 @@ def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, 
         "risk_dropped_price_above_max": int(risk_counters.get("dropped_price_above_max", 0)),
         "risk_clipped_weight_cap": int(risk_counters.get("clipped_weight_cap", 0)),
         "risk_clipped_notional_cap": int(risk_counters.get("clipped_notional_cap", 0)),
+        "diag_already_at_target": int(order_diag.get("already_at_target", 0)),
+        "diag_below_min_notional": int(order_diag.get("below_min_notional", 0)),
+        "diag_rounded_to_zero_from_nonzero_target": int(order_diag.get("rounded_to_zero_from_nonzero_target", 0)),
+        "diag_entered_new_position": int(order_diag.get("entered_new_position", 0)),
+        "diag_exited_position": int(order_diag.get("exited_position", 0)),
+        "diag_increased_existing_position": int(order_diag.get("increased_existing_position", 0)),
+        "diag_decreased_existing_position": int(order_diag.get("decreased_existing_position", 0)),
+        "diag_symbol_only_in_state": int(order_diag.get("symbol_only_in_state", 0)),
+        "diag_symbol_only_in_target": int(order_diag.get("symbol_only_in_target", 0)),
         "estimated_commission_total": estimated_commission_total,
         "estimated_slippage_total": estimated_slippage_total,
         "estimated_total_cost": estimated_total_cost,
@@ -534,6 +598,17 @@ def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, 
         f"clipped_notional_cap={risk_counters.get('clipped_notional_cap', 0)}"
     )
     print(
+        f"[EXEC][{paths.name}][DIAG] already_at_target={order_diag.get('already_at_target', 0)} "
+        f"below_min_notional={order_diag.get('below_min_notional', 0)} "
+        f"rounded_to_zero_from_nonzero_target={order_diag.get('rounded_to_zero_from_nonzero_target', 0)} "
+        f"entered_new_position={order_diag.get('entered_new_position', 0)} "
+        f"exited_position={order_diag.get('exited_position', 0)} "
+        f"increased_existing_position={order_diag.get('increased_existing_position', 0)} "
+        f"decreased_existing_position={order_diag.get('decreased_existing_position', 0)} "
+        f"symbol_only_in_state={order_diag.get('symbol_only_in_state', 0)} "
+        f"symbol_only_in_target={order_diag.get('symbol_only_in_target', 0)}"
+    )
+    print(
         f"[EXEC][{paths.name}][COST] estimated_commission_total={estimated_commission_total:.4f} "
         f"estimated_slippage_total={estimated_slippage_total:.4f} estimated_total_cost={estimated_total_cost:.4f}"
     )
@@ -541,9 +616,9 @@ def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, 
         print(f"[EXEC][{paths.name}][ORDERS_TOP]")
         print(
             orders[[
-                "symbol", "order_side", "delta_shares", "price", "order_notional", "target_weight",
-                "target_shares_raw", "target_shares", "estimated_commission", "estimated_slippage",
-                "estimated_total_cost", "skip_reason"
+                "symbol", "order_side", "current_shares", "target_shares_raw", "target_shares",
+                "raw_delta_shares", "delta_shares", "price", "order_notional", "target_weight",
+                "estimated_commission", "estimated_slippage", "estimated_total_cost", "skip_reason"
             ]].head(min(TOPK_PRINT, len(orders))).to_string(index=False)
         )
     if len(mtm_df):

@@ -1,0 +1,57 @@
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_execution_loop.py
+[CFG] live_feature_snapshot_file=artifacts\live_alpha\live_feature_snapshot.parquet
+[CFG] freeze_root=artifacts\freeze_runner
+[CFG] execution_root=artifacts\execution_loop
+[CFG] account_nav=100000.0
+[CFG] configs=['optimal', 'aggressive']
+[CFG] allow_fractional_shares=0 fractional_mode=auto fractional_enabled_effective=0 min_order_notional=25.0 skip_empty_freeze_configs=1 require_freeze_date_match_live_prices=1
+[CFG] max_single_name_weight=0.05 max_single_name_notional=10000.0 min_price_to_trade=1.0 max_price_to_trade=1000000.0
+[CFG] commission_bps=0.5 commission_min_per_order=0.35 slippage_bps=1.5
+[DATA] current_date=2026-03-25 price_col=close symbols=175 snapshot_fallback_count=0
+[EXEC][optimal] loading freeze artifacts
+[EXEC][optimal] starting_nav=99997.81 ending_nav=99997.81 cash_after=90038.05 market_value_after=9959.76 nav_recon_error=0.000000 order_count=0 active_names=2 gross_target=0.1000 price_col=close merged_missing_prices=0 fallback_price_rows=0 mtm_fallback_count=0 fractional_enabled_effective=0
+[EXEC][optimal][RISK] dropped_price_below_min=0 dropped_price_above_max=0 clipped_weight_cap=0 clipped_notional_cap=0
+[EXEC][optimal][DIAG] already_at_target=2 below_min_notional=0 rounded_to_zero_from_nonzero_target=0 entered_new_position=0 exited_position=0 increased_existing_position=0 decreased_existing_position=0 symbol_only_in_state=0 symbol_only_in_target=0
+[EXEC][optimal][COST] estimated_commission_total=0.0000 estimated_slippage_total=0.0000 estimated_total_cost=0.0000
+[EXEC][optimal][ORDERS_TOP]
+symbol order_side  current_shares  target_shares_raw  target_shares  raw_delta_shares  delta_shares  price  order_notional  target_weight  estimated_commission  estimated_slippage  estimated_total_cost       skip_reason
+  CRCL       HOLD            48.0          48.140673           48.0               0.0           0.0 103.86             0.0           0.05                   0.0                 0.0                   0.0 already_at_target
+   NEM       HOLD            49.0          49.250298           49.0               0.0           0.0 101.52             0.0           0.05                   0.0                 0.0                   0.0 already_at_target
+[EXEC][optimal][POSITIONS_MTM_TOP]
+symbol  shares  last_price  market_value
+  CRCL    48.0      103.86       4985.28
+   NEM    49.0      101.52       4974.48
+[ARTIFACT] artifacts\execution_loop\optimal\target_book.csv
+[ARTIFACT] artifacts\execution_loop\optimal\orders.csv
+[ARTIFACT] artifacts\execution_loop\optimal\positions_mark_to_market.csv
+[ARTIFACT] artifacts\execution_loop\optimal\portfolio_state.json
+[ARTIFACT] artifacts\execution_loop\optimal\execution_log.csv
+[EXEC][aggressive] loading freeze artifacts
+[EXEC][aggressive] starting_nav=99994.93 ending_nav=99994.93 cash_after=80186.65 market_value_after=19808.28 nav_recon_error=0.000000 order_count=0 active_names=6 gross_target=0.2000 price_col=close merged_missing_prices=0 fallback_price_rows=0 mtm_fallback_count=0 fractional_enabled_effective=0
+[EXEC][aggressive][RISK] dropped_price_below_min=0 dropped_price_above_max=0 clipped_weight_cap=0 clipped_notional_cap=0
+[EXEC][aggressive][DIAG] already_at_target=6 below_min_notional=0 rounded_to_zero_from_nonzero_target=0 entered_new_position=0 exited_position=0 increased_existing_position=0 decreased_existing_position=0 symbol_only_in_state=0 symbol_only_in_target=0
+[EXEC][aggressive][COST] estimated_commission_total=0.0000 estimated_slippage_total=0.0000 estimated_total_cost=0.0000
+[EXEC][aggressive][ORDERS_TOP]
+symbol order_side  current_shares  target_shares_raw  target_shares  raw_delta_shares  delta_shares  price  order_notional  target_weight  estimated_commission  estimated_slippage  estimated_total_cost       skip_reason
+  CRCL       HOLD            48.0          48.139288           48.0               0.0           0.0 103.86             0.0       0.050000                   0.0                 0.0                   0.0 already_at_target
+  HOOD       HOLD            37.0          37.265613           37.0               0.0           0.0  72.54             0.0       0.027034                   0.0                 0.0                   0.0 already_at_target
+  INTC       HOLD            64.0          64.751747           64.0               0.0           0.0  47.18             0.0       0.030551                   0.0                 0.0                   0.0 already_at_target
+   NEM       HOLD            49.0          49.248881           49.0               0.0           0.0 101.52             0.0       0.050000                   0.0                 0.0                   0.0 already_at_target
+  RKLB       HOLD            52.0          52.477204           52.0               0.0           0.0  72.88             0.0       0.038247                   0.0                 0.0                   0.0 already_at_target
+  SHOP       HOLD             3.0           3.518994            3.0               0.0           0.0 118.42             0.0       0.004167                   0.0                 0.0                   0.0 already_at_target
+[EXEC][aggressive][POSITIONS_MTM_TOP]
+symbol  shares  last_price  market_value
+  CRCL    48.0      103.86       4985.28
+   NEM    49.0      101.52       4974.48
+  RKLB    52.0       72.88       3789.76
+  INTC    64.0       47.18       3019.52
+  HOOD    37.0       72.54       2683.98
+  SHOP     3.0      118.42        355.26
+[ARTIFACT] artifacts\execution_loop\aggressive\target_book.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\orders.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\positions_mark_to_market.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\portfolio_state.json
+[ARTIFACT] artifacts\execution_loop\aggressive\execution_log.csv
+[FINAL] execution loop complete
+
+[EXIT] code=0
