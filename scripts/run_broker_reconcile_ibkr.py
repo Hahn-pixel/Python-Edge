@@ -679,8 +679,7 @@ def _build_reconcile_diff(local_source: LocalExpectedSource, broker_positions: p
 
     merged = pd.merge(local_df, broker_positions_agg, on="symbol", how="outer")
     merged = pd.merge(merged, open_orders_agg, on="symbol", how="outer")
-
-        if "expected_shares" not in merged.columns:
+    if "expected_shares" not in merged.columns:
         merged["expected_shares"] = 0.0
     if "broker_position" not in merged.columns:
         merged["broker_position"] = 0.0

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import queue
 import sys
@@ -38,10 +39,10 @@ IB_PORT = int(os.getenv("IB_PORT", "4002"))
 IB_CLIENT_ID = int(os.getenv("IB_CLIENT_ID", "41"))
 IB_TIMEOUT_SEC = float(os.getenv("IB_TIMEOUT_SEC", "20.0"))
 IB_ACCOUNT_CODE = str(os.getenv("IB_ACCOUNT_CODE", BROKER_ACCOUNT_ID)).strip()
-IB_ORDER_TYPE = str(os.getenv("IB_ORDER_TYPE", "MKT")).strip().upper()
+IB_ORDER_TYPE = str(os.getenv("IB_ORDER_TYPE", "LMT")).strip().upper()
 IB_TIME_IN_FORCE = str(os.getenv("IB_TIME_IN_FORCE", "DAY")).strip().upper()
-IB_OUTSIDE_RTH = str(os.getenv("IB_OUTSIDE_RTH", "0")).strip().lower() not in {"0", "false", "no", "off"}
-IB_ALLOW_FRACTIONAL = str(os.getenv("IB_ALLOW_FRACTIONAL", "0")).strip().lower() not in {"0", "false", "no", "off"}
+IB_OUTSIDE_RTH = str(os.getenv("IB_OUTSIDE_RTH", "1")).strip().lower() not in {"0", "false", "no", "off"}
+IB_ALLOW_FRACTIONAL = str(os.getenv("IB_ALLOW_FRACTIONAL", "1")).strip().lower() not in {"0", "false", "no", "off"}
 IB_POLL_AFTER_SUBMIT = str(os.getenv("IB_POLL_AFTER_SUBMIT", "1")).strip().lower() not in {"0", "false", "no", "off"}
 IB_POLL_ATTEMPTS = int(os.getenv("IB_POLL_ATTEMPTS", "6"))
 IB_POLL_SLEEP_SEC = float(os.getenv("IB_POLL_SLEEP_SEC", "1.5"))
@@ -63,6 +64,15 @@ IB_REFRESH_POSITIONS_ON_CONNECT = str(os.getenv("IB_REFRESH_POSITIONS_ON_CONNECT
 IB_REQUIRE_POSITIONS_ON_CONNECT = str(os.getenv("IB_REQUIRE_POSITIONS_ON_CONNECT", "0")).strip().lower() not in {"0", "false", "no", "off"}
 IB_POSITIONS_TIMEOUT_SEC = float(os.getenv("IB_POSITIONS_TIMEOUT_SEC", str(IB_TIMEOUT_SEC)))
 IB_OPEN_ORDERS_TIMEOUT_SEC = float(os.getenv("IB_OPEN_ORDERS_TIMEOUT_SEC", str(IB_TIMEOUT_SEC)))
+IB_LMT_PRICE_BPS = float(os.getenv("IB_LMT_PRICE_BPS", "25.0"))
+IB_LMT_PRICE_MIN_ABS = float(os.getenv("IB_LMT_PRICE_MIN_ABS", "0.01"))
+IB_EXTENDED_HOURS_FORCE_LMT = str(os.getenv("IB_EXTENDED_HOURS_FORCE_LMT", "1")).strip().lower() not in {"0", "false", "no", "off"}
+IB_FORCE_TEST_FRACTIONAL_QTY = str(os.getenv("IB_FORCE_TEST_FRACTIONAL_QTY", "")).strip()
+IB_FORCE_TEST_FRACTIONAL_SYMBOL = str(os.getenv("IB_FORCE_TEST_FRACTIONAL_SYMBOL", "")).strip().upper()
+IB_FORCE_TEST_FRACTIONAL_SIDE = str(os.getenv("IB_FORCE_TEST_FRACTIONAL_SIDE", "BUY")).strip().upper() or "BUY"
+IB_FORCE_TEST_FRACTIONAL_CONFIG = str(os.getenv("IB_FORCE_TEST_FRACTIONAL_CONFIG", "aggressive")).strip() or "aggressive"
+IB_FORCE_TEST_FRACTIONAL_PRICE = float(os.getenv("IB_FORCE_TEST_FRACTIONAL_PRICE", "0.0"))
+IB_FORCE_TEST_FRACTIONAL_ALLOW_DUPLICATE = str(os.getenv("IB_FORCE_TEST_FRACTIONAL_ALLOW_DUPLICATE", "0")).strip().lower() not in {"0", "false", "no", "off"}
 
 REQUIRED_ORDER_COLUMNS = ["symbol", "order_side", "delta_shares"]
 FINAL_DUPLICATE_STATUSES = {
@@ -120,6 +130,7 @@ class PreparedOrder:
     source_row: Dict[str, Any]
     idempotency_key: str
     client_tag: str
+    is_fractional_probe: bool = False
 
 
 class IBKRApp(EWrapper, EClient):
@@ -375,183 +386,11 @@ class IBKRApp(EWrapper, EClient):
                 "apicancelled",
                 "pendingcancel",
                 "pendingsubmit",
-                "presubmitted",
                 "api_pending",
             }:
                 return entry
             time.sleep(0.1)
         return self.orders_by_ib_id.get(int(order_id), {})
-
-
-def _is_fractional_qty(qty: float) -> bool:
-    return abs(float(qty) - float(round(float(qty)))) > 1e-9
-
-
-def _fractional_error_code_set() -> set[int]:
-    return {int(x) for x in IB_FRACTIONAL_REJECT_CODES}
-
-
-def _collect_app_errors(app: IBKRApp, start_idx: int, req_ids: Sequence[int]) -> List[BrokerErrorInfo]:
-    req_id_set = {int(x) for x in req_ids}
-    out: List[BrokerErrorInfo] = []
-    for payload in app._errors[start_idx:]:
-        try:
-            req_id = int(payload.get("reqId", 0) or 0)
-        except Exception:
-            req_id = 0
-        if req_id_set and req_id not in req_id_set:
-            continue
-        out.append(
-            BrokerErrorInfo(
-                req_id=req_id,
-                error_code=int(payload.get("errorCode", 0) or 0),
-                error_string=str(payload.get("errorString", "") or ""),
-                advanced_order_reject_json=str(payload.get("advancedOrderRejectJson", "") or ""),
-                ts_utc=str(payload.get("ts_utc", "") or _utc_now_iso()),
-            )
-        )
-    return out
-
-
-def _first_fractional_issue(prepared: PreparedOrder, broker_errors: Sequence[BrokerErrorInfo]) -> OrderIssue | None:
-    if not _is_fractional_qty(prepared.qty):
-        return None
-    code_set = _fractional_error_code_set()
-    for err in broker_errors:
-        if int(err.error_code) in code_set:
-            return OrderIssue(
-                kind="fractional_api_reject",
-                status="rejected_fractional_api",
-                broker_error=err,
-                message=f"IBKR API rejected fractional order code={err.error_code}: {err.error_string}",
-            )
-    return None
-
-
-def _first_generic_issue(broker_errors: Sequence[BrokerErrorInfo]) -> OrderIssue | None:
-    if not broker_errors:
-        return None
-    err = broker_errors[-1]
-    return OrderIssue(
-        kind="broker_api_error",
-        status=f"error_api_{int(err.error_code)}",
-        broker_error=err,
-        message=f"IBKR API error code={err.error_code}: {err.error_string}",
-    )
-
-
-def _issue_entry(prepared: PreparedOrder, issue: OrderIssue, source_path: Path) -> dict:
-    broker_error = issue.broker_error
-    response_payload = {"error": issue.message}
-    if broker_error is not None:
-        response_payload.update(
-            {
-                "error_code": int(broker_error.error_code),
-                "error_string": str(broker_error.error_string),
-                "advanced_order_reject_json": str(broker_error.advanced_order_reject_json),
-                "error_ts_utc": str(broker_error.ts_utc),
-            }
-        )
-    return {
-        "idempotency_key": prepared.idempotency_key,
-        "client_order_id": prepared.client_tag,
-        "broker_order_id": "",
-        "perm_id": 0,
-        "config": prepared.config,
-        "source_order_path": str(source_path),
-        "date": prepared.order_date,
-        "symbol": prepared.symbol,
-        "broker_symbol": prepared.broker_symbol,
-        "side": prepared.order_side,
-        "qty": float(prepared.qty),
-        "filled_qty": 0.0,
-        "remaining_qty": float(prepared.qty),
-        "price_hint": float(prepared.price),
-        "filled_avg_price": 0.0,
-        "order_notional": float(prepared.order_notional),
-        "fill_notional": 0.0,
-        "status": str(issue.status),
-        "submitted_at": _utc_now_iso(),
-        "filled_at": "",
-        "mode": "ibkr_gateway",
-        "request": {
-            "account": IB_ACCOUNT_CODE,
-            "host": IB_HOST,
-            "port": IB_PORT,
-            "client_id": IB_CLIENT_ID,
-            "order_type": IB_ORDER_TYPE,
-            "tif": IB_TIME_IN_FORCE,
-            "outside_rth": int(IB_OUTSIDE_RTH),
-            "exchange": IB_EXCHANGE,
-            "primary_exchange": IB_PRIMARY_EXCHANGE,
-            "allow_fractional": int(IB_ALLOW_FRACTIONAL),
-        },
-        "response": response_payload,
-    }
-
-
-def _manual_review_entry(prepared: PreparedOrder, issue: OrderIssue, source_path: Path) -> dict:
-    broker_error = issue.broker_error
-    return {
-        "date": prepared.order_date,
-        "config": prepared.config,
-        "symbol": prepared.symbol,
-        "broker_symbol": prepared.broker_symbol,
-        "side": prepared.order_side,
-        "qty": float(prepared.qty),
-        "price_hint": float(prepared.price),
-        "order_notional": float(prepared.order_notional),
-        "target_weight": float(prepared.target_weight),
-        "current_shares": float(prepared.current_shares),
-        "target_shares": float(prepared.target_shares),
-        "delta_shares": float(prepared.delta_shares),
-        "idempotency_key": prepared.idempotency_key,
-        "client_order_id": prepared.client_tag,
-        "issue_kind": issue.kind,
-        "issue_status": issue.status,
-        "issue_message": issue.message,
-        "broker_error_code": int(broker_error.error_code) if broker_error is not None else 0,
-        "broker_error_string": str(broker_error.error_string) if broker_error is not None else "",
-        "advanced_order_reject_json": str(broker_error.advanced_order_reject_json) if broker_error is not None else "",
-        "source_order_path": str(source_path),
-        "ib_exchange": IB_EXCHANGE,
-        "ib_primary_exchange": IB_PRIMARY_EXCHANGE,
-        "ib_order_type": IB_ORDER_TYPE,
-        "ib_time_in_force": IB_TIME_IN_FORCE,
-        "ib_outside_rth": int(IB_OUTSIDE_RTH),
-        "ib_allow_fractional": int(IB_ALLOW_FRACTIONAL),
-    }
-
-
-def _append_manual_review_csv(path: Path, entries: List[dict]) -> None:
-    cols = [
-        "date", "config", "symbol", "broker_symbol", "side", "qty", "price_hint", "order_notional",
-        "target_weight", "current_shares", "target_shares", "delta_shares", "idempotency_key",
-        "client_order_id", "issue_kind", "issue_status", "issue_message", "broker_error_code",
-        "broker_error_string", "advanced_order_reject_json", "source_order_path", "ib_exchange",
-        "ib_primary_exchange", "ib_order_type", "ib_time_in_force", "ib_outside_rth", "ib_allow_fractional",
-    ]
-    new_df = pd.DataFrame(entries)
-    if new_df.empty:
-        if not path.exists():
-            pd.DataFrame(columns=cols).to_csv(path, index=False)
-        return
-    for col in cols:
-        if col not in new_df.columns:
-            new_df[col] = ""
-    new_df = new_df[cols].copy()
-    if path.exists():
-        prev = pd.read_csv(path)
-        for col in cols:
-            if col not in prev.columns:
-                prev[col] = ""
-        prev = prev[cols].copy()
-        out = pd.concat([prev, new_df], ignore_index=True)
-        out = out.drop_duplicates(subset=["idempotency_key"], keep="last")
-    else:
-        out = new_df
-    out = out.sort_values(["date", "config", "symbol", "side", "idempotency_key"]).reset_index(drop=True)
-    out.to_csv(path, index=False)
 
 
 def _enable_line_buffering() -> None:
@@ -574,14 +413,7 @@ def _should_pause() -> bool:
         return True
     stdin_obj = getattr(sys, "stdin", None)
     stdout_obj = getattr(sys, "stdout", None)
-    return bool(
-        stdin_obj
-        and stdout_obj
-        and hasattr(stdin_obj, "isatty")
-        and hasattr(stdout_obj, "isatty")
-        and stdin_obj.isatty()
-        and stdout_obj.isatty()
-    )
+    return bool(stdin_obj and stdout_obj and hasattr(stdin_obj, "isatty") and hasattr(stdout_obj, "isatty") and stdin_obj.isatty() and stdout_obj.isatty())
 
 
 def _safe_exit(code: int) -> None:
@@ -624,15 +456,17 @@ def _normalize_order_side(side: str) -> str:
     return out
 
 
+def _is_fractional_qty(qty: float) -> bool:
+    return abs(float(qty) - float(round(float(qty)))) > 1e-9
+
+
+def _fractional_error_code_set() -> set[int]:
+    return {int(x) for x in IB_FRACTIONAL_REJECT_CODES}
+
+
 def _cfg_paths(name: str) -> ConfigPaths:
     execution_dir = EXECUTION_ROOT / name
-    return ConfigPaths(
-        name=name,
-        execution_dir=execution_dir,
-        orders_csv=execution_dir / "orders.csv",
-        fills_csv=execution_dir / "fills.csv",
-        broker_log_json=execution_dir / "broker_log.json",
-    )
+    return ConfigPaths(name=name, execution_dir=execution_dir, orders_csv=execution_dir / "orders.csv", fills_csv=execution_dir / "fills.csv", broker_log_json=execution_dir / "broker_log.json")
 
 
 def _load_symbol_map() -> Dict[str, str]:
@@ -657,15 +491,7 @@ def _load_symbol_map() -> Dict[str, str]:
 
 def _load_broker_log(path: Path, config_name: str) -> dict:
     if RESET_BROKER_LOG or not path.exists():
-        return {
-            "config": config_name,
-            "broker_name": BROKER_NAME,
-            "broker_platform": BROKER_PLATFORM,
-            "broker_account_id": BROKER_ACCOUNT_ID,
-            "created_at_utc": _utc_now_iso(),
-            "updated_at_utc": _utc_now_iso(),
-            "orders": {},
-        }
+        return {"config": config_name, "broker_name": BROKER_NAME, "broker_platform": BROKER_PLATFORM, "broker_account_id": BROKER_ACCOUNT_ID, "created_at_utc": _utc_now_iso(), "updated_at_utc": _utc_now_iso(), "orders": {}}
     with path.open("r", encoding="utf-8") as fh:
         payload = json.load(fh)
     if not isinstance(payload, dict):
@@ -704,8 +530,7 @@ def _select_live_orders(df: pd.DataFrame) -> pd.DataFrame:
         return df.copy()
     out = df.loc[df["order_side"].astype(str).str.upper() != "HOLD"].copy()
     out = out.loc[out["delta_shares"].abs() > 1e-12].copy()
-    out = out.reset_index(drop=True)
-    return out
+    return out.reset_index(drop=True)
 
 
 def _resolve_broker_symbol(symbol: str, symbol_map: Dict[str, str]) -> str:
@@ -722,6 +547,7 @@ def _make_idempotency_key(config: str, row: Dict[str, Any], broker_symbol: str) 
         "delta_shares": round(_to_float(row.get("delta_shares", 0.0)), 8),
         "order_notional": round(_to_float(row.get("order_notional", 0.0)), 8),
         "target_weight": round(_to_float(row.get("target_weight", 0.0)), 8),
+        "fractional_probe": int(bool(row.get("fractional_probe", False))),
     }
     payload = json.dumps(raw, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
@@ -729,6 +555,63 @@ def _make_idempotency_key(config: str, row: Dict[str, Any], broker_symbol: str) 
 
 def _make_client_tag(idempotency_key: str) -> str:
     return f"pe-{idempotency_key[:24]}"
+
+
+def _append_fractional_probe(prepared_orders: List[PreparedOrder], config_name: str, symbol_map: Dict[str, str]) -> List[PreparedOrder]:
+    if not IB_FORCE_TEST_FRACTIONAL_QTY:
+        return prepared_orders
+    qty = _to_float(IB_FORCE_TEST_FRACTIONAL_QTY)
+    if qty <= 0.0 or not _is_fractional_qty(qty):
+        raise RuntimeError("IB_FORCE_TEST_FRACTIONAL_QTY must be a positive fractional number, e.g. 0.37")
+    symbol = _normalize_symbol(IB_FORCE_TEST_FRACTIONAL_SYMBOL)
+    if not symbol:
+        base = prepared_orders[0].symbol if prepared_orders else "AAPL"
+        symbol = _normalize_symbol(base)
+    side = _normalize_order_side(IB_FORCE_TEST_FRACTIONAL_SIDE)
+    price_hint = float(IB_FORCE_TEST_FRACTIONAL_PRICE)
+    if price_hint <= 0.0:
+        for item in prepared_orders:
+            if item.symbol == symbol:
+                price_hint = float(item.price)
+                break
+    if price_hint <= 0.0:
+        price_hint = 100.0
+    broker_symbol = _resolve_broker_symbol(symbol, symbol_map)
+    row_dict: Dict[str, Any] = {
+        "date": datetime.now().date().isoformat(),
+        "symbol": symbol,
+        "order_side": side,
+        "delta_shares": qty if side == "BUY" else -qty,
+        "order_notional": abs(qty * price_hint),
+        "target_weight": 0.0,
+        "current_shares": 0.0,
+        "target_shares": qty if side == "BUY" else -qty,
+        "fractional_probe": True,
+    }
+    idempotency_key = _make_idempotency_key(config_name, row_dict, broker_symbol)
+    probe = PreparedOrder(
+        config=config_name,
+        order_date=str(row_dict["date"]),
+        symbol=symbol,
+        broker_symbol=broker_symbol,
+        order_side=side,
+        qty=qty,
+        price=price_hint,
+        order_notional=abs(qty * price_hint),
+        target_weight=0.0,
+        current_shares=0.0,
+        target_shares=row_dict["target_shares"],
+        delta_shares=row_dict["delta_shares"],
+        source_row=row_dict,
+        idempotency_key=idempotency_key,
+        client_tag=_make_client_tag(idempotency_key),
+        is_fractional_probe=True,
+    )
+    if not IB_FORCE_TEST_FRACTIONAL_ALLOW_DUPLICATE:
+        prepared_orders = [x for x in prepared_orders if x.idempotency_key != probe.idempotency_key]
+    prepared_orders.append(probe)
+    print(f"[FRACTIONAL_PROBE] enabled config={config_name} symbol={symbol} side={side} qty={qty:.8f} price_hint={price_hint:.4f}")
+    return prepared_orders
 
 
 def _prepare_orders(config_name: str, df: pd.DataFrame, symbol_map: Dict[str, str]) -> List[PreparedOrder]:
@@ -740,23 +623,19 @@ def _prepare_orders(config_name: str, df: pd.DataFrame, symbol_map: Dict[str, st
         raw_qty = abs(_to_float(row_dict.get("delta_shares", 0.0)))
         if raw_qty <= 1e-12:
             continue
-
         qty = raw_qty
         if not IB_ALLOW_FRACTIONAL:
             rounded_qty = float(int(raw_qty))
             if abs(raw_qty - rounded_qty) > 1e-9:
-                print(
-                    f"[FRACTIONAL_BLOCKED] config={config_name} symbol={symbol} side={order_side} raw_qty={raw_qty:.8f} rounded_qty={rounded_qty:.8f}"
-                )
+                print(f"[FRACTIONAL_BLOCKED] config={config_name} symbol={symbol} side={order_side} raw_qty={raw_qty:.8f} rounded_qty={rounded_qty:.8f}")
             qty = rounded_qty
-
         if qty <= 1e-12:
             print(f"[SKIP_ZERO_QTY] config={config_name} symbol={symbol} side={order_side} raw_qty={raw_qty:.8f}")
             continue
-
         broker_symbol = _resolve_broker_symbol(symbol, symbol_map)
         row_for_key = dict(row_dict)
         row_for_key["delta_shares"] = qty if order_side == "BUY" else -qty
+        row_for_key["fractional_probe"] = False
         idempotency_key = _make_idempotency_key(config_name, row_for_key, broker_symbol)
         prepared.append(
             PreparedOrder(
@@ -775,8 +654,11 @@ def _prepare_orders(config_name: str, df: pd.DataFrame, symbol_map: Dict[str, st
                 source_row=row_dict,
                 idempotency_key=idempotency_key,
                 client_tag=_make_client_tag(idempotency_key),
+                is_fractional_probe=False,
             )
         )
+    if config_name == IB_FORCE_TEST_FRACTIONAL_CONFIG:
+        prepared = _append_fractional_probe(prepared, config_name=config_name, symbol_map=symbol_map)
     return prepared
 
 
@@ -788,6 +670,28 @@ def _existing_duplicate_status(broker_log: dict, idempotency_key: str) -> Option
     if status in FINAL_DUPLICATE_STATUSES:
         return status
     return None
+
+
+def _effective_order_type(prepared: PreparedOrder) -> str:
+    if IB_EXTENDED_HOURS_FORCE_LMT and IB_OUTSIDE_RTH and IB_ORDER_TYPE == "MKT":
+        return "LMT"
+    return IB_ORDER_TYPE
+
+
+def _compute_limit_price(prepared: PreparedOrder) -> float:
+    price_hint = float(prepared.price)
+    if price_hint <= 0.0:
+        price_hint = abs(float(prepared.order_notional) / max(abs(float(prepared.qty)), 1e-12))
+    if price_hint <= 0.0:
+        price_hint = 100.0
+    bump = max(float(IB_LMT_PRICE_MIN_ABS), price_hint * float(IB_LMT_PRICE_BPS) / 10000.0)
+    if prepared.order_side == "BUY":
+        limit_price = price_hint + bump
+    elif prepared.order_side == "SELL":
+        limit_price = max(IB_LMT_PRICE_MIN_ABS, price_hint - bump)
+    else:
+        limit_price = price_hint
+    return round(limit_price, 4)
 
 
 def _build_contract(prepared: PreparedOrder) -> Contract:
@@ -803,8 +707,9 @@ def _build_contract(prepared: PreparedOrder) -> Contract:
 
 def _build_order(prepared: PreparedOrder) -> Order:
     order = Order()
+    order_type = _effective_order_type(prepared)
     order.action = prepared.order_side
-    order.orderType = IB_ORDER_TYPE
+    order.orderType = order_type
     order.totalQuantity = float(prepared.qty)
     order.tif = IB_TIME_IN_FORCE
     order.outsideRth = bool(IB_OUTSIDE_RTH)
@@ -814,9 +719,240 @@ def _build_order(prepared: PreparedOrder) -> Order:
     order.transmit = True
     order.eTradeOnly = False
     order.firmQuoteOnly = False
-    if order.orderType != "MKT":
-        raise RuntimeError("Minimal IBKR adapter currently supports only IB_ORDER_TYPE=MKT")
+    if order_type == "LMT":
+        order.lmtPrice = _compute_limit_price(prepared)
+    elif order_type != "MKT":
+        raise RuntimeError("Supported IB order types in this adapter are MKT and LMT")
     return order
+
+
+def _collect_app_errors(app: IBKRApp, start_idx: int, req_ids: Sequence[int]) -> List[BrokerErrorInfo]:
+    req_id_set = {int(x) for x in req_ids}
+    out: List[BrokerErrorInfo] = []
+    for payload in app._errors[start_idx:]:
+        try:
+            req_id = int(payload.get("reqId", 0) or 0)
+        except Exception:
+            req_id = 0
+        if req_id_set and req_id not in req_id_set:
+            continue
+        out.append(BrokerErrorInfo(req_id=req_id, error_code=int(payload.get("errorCode", 0) or 0), error_string=str(payload.get("errorString", "") or ""), advanced_order_reject_json=str(payload.get("advancedOrderRejectJson", "") or ""), ts_utc=str(payload.get("ts_utc", "") or _utc_now_iso())))
+    return out
+
+
+def _first_fractional_issue(prepared: PreparedOrder, broker_errors: Sequence[BrokerErrorInfo]) -> OrderIssue | None:
+    if not _is_fractional_qty(prepared.qty):
+        return None
+    code_set = _fractional_error_code_set()
+    for err in broker_errors:
+        if int(err.error_code) in code_set:
+            return OrderIssue(kind="fractional_api_reject", status="rejected_fractional_api", broker_error=err, message=f"IBKR API rejected fractional order code={err.error_code}: {err.error_string}")
+    return None
+
+
+def _first_generic_issue(broker_errors: Sequence[BrokerErrorInfo]) -> OrderIssue | None:
+    if not broker_errors:
+        return None
+    err = broker_errors[-1]
+    return OrderIssue(kind="broker_api_error", status=f"error_api_{int(err.error_code)}", broker_error=err, message=f"IBKR API error code={err.error_code}: {err.error_string}")
+
+
+def _issue_entry(prepared: PreparedOrder, issue: OrderIssue, source_path: Path) -> dict:
+    broker_error = issue.broker_error
+    response_payload = {"error": issue.message}
+    if broker_error is not None:
+        response_payload.update({"error_code": int(broker_error.error_code), "error_string": str(broker_error.error_string), "advanced_order_reject_json": str(broker_error.advanced_order_reject_json), "error_ts_utc": str(broker_error.ts_utc)})
+    return {
+        "idempotency_key": prepared.idempotency_key,
+        "client_order_id": prepared.client_tag,
+        "broker_order_id": "",
+        "perm_id": 0,
+        "config": prepared.config,
+        "source_order_path": str(source_path),
+        "date": prepared.order_date,
+        "symbol": prepared.symbol,
+        "broker_symbol": prepared.broker_symbol,
+        "side": prepared.order_side,
+        "qty": float(prepared.qty),
+        "filled_qty": 0.0,
+        "remaining_qty": float(prepared.qty),
+        "price_hint": float(prepared.price),
+        "filled_avg_price": 0.0,
+        "order_notional": float(prepared.order_notional),
+        "fill_notional": 0.0,
+        "status": str(issue.status),
+        "submitted_at": _utc_now_iso(),
+        "filled_at": "",
+        "mode": "ibkr_gateway",
+        "request": {"account": IB_ACCOUNT_CODE, "host": IB_HOST, "port": IB_PORT, "client_id": IB_CLIENT_ID, "order_type": _effective_order_type(prepared), "tif": IB_TIME_IN_FORCE, "outside_rth": int(IB_OUTSIDE_RTH), "exchange": IB_EXCHANGE, "primary_exchange": IB_PRIMARY_EXCHANGE, "allow_fractional": int(IB_ALLOW_FRACTIONAL), "fractional_probe": int(prepared.is_fractional_probe)},
+        "response": response_payload,
+    }
+
+
+def _manual_review_entry(prepared: PreparedOrder, issue: OrderIssue, source_path: Path) -> dict:
+    broker_error = issue.broker_error
+    return {
+        "date": prepared.order_date,
+        "config": prepared.config,
+        "symbol": prepared.symbol,
+        "broker_symbol": prepared.broker_symbol,
+        "side": prepared.order_side,
+        "qty": float(prepared.qty),
+        "price_hint": float(prepared.price),
+        "order_notional": float(prepared.order_notional),
+        "target_weight": float(prepared.target_weight),
+        "current_shares": float(prepared.current_shares),
+        "target_shares": float(prepared.target_shares),
+        "delta_shares": float(prepared.delta_shares),
+        "idempotency_key": prepared.idempotency_key,
+        "client_order_id": prepared.client_tag,
+        "issue_kind": issue.kind,
+        "issue_status": issue.status,
+        "issue_message": issue.message,
+        "broker_error_code": int(broker_error.error_code) if broker_error is not None else 0,
+        "broker_error_string": str(broker_error.error_string) if broker_error is not None else "",
+        "advanced_order_reject_json": str(broker_error.advanced_order_reject_json) if broker_error is not None else "",
+        "source_order_path": str(source_path),
+        "ib_exchange": IB_EXCHANGE,
+        "ib_primary_exchange": IB_PRIMARY_EXCHANGE,
+        "ib_order_type": _effective_order_type(prepared),
+        "ib_time_in_force": IB_TIME_IN_FORCE,
+        "ib_outside_rth": int(IB_OUTSIDE_RTH),
+        "ib_allow_fractional": int(IB_ALLOW_FRACTIONAL),
+        "fractional_probe": int(prepared.is_fractional_probe),
+    }
+
+
+def _append_manual_review_csv(path: Path, entries: List[dict]) -> None:
+    cols = ["date", "config", "symbol", "broker_symbol", "side", "qty", "price_hint", "order_notional", "target_weight", "current_shares", "target_shares", "delta_shares", "idempotency_key", "client_order_id", "issue_kind", "issue_status", "issue_message", "broker_error_code", "broker_error_string", "advanced_order_reject_json", "source_order_path", "ib_exchange", "ib_primary_exchange", "ib_order_type", "ib_time_in_force", "ib_outside_rth", "ib_allow_fractional", "fractional_probe"]
+    new_df = pd.DataFrame(entries)
+    if new_df.empty:
+        if not path.exists():
+            pd.DataFrame(columns=cols).to_csv(path, index=False)
+        return
+    for col in cols:
+        if col not in new_df.columns:
+            new_df[col] = ""
+    new_df = new_df[cols].copy()
+    if path.exists():
+        prev = pd.read_csv(path)
+        for col in cols:
+            if col not in prev.columns:
+                prev[col] = ""
+        prev = prev[cols].copy()
+        out = pd.concat([prev, new_df], ignore_index=True).drop_duplicates(subset=["idempotency_key"], keep="last")
+    else:
+        out = new_df
+    out.sort_values(["date", "config", "symbol", "side", "idempotency_key"]).reset_index(drop=True).to_csv(path, index=False)
+
+
+def _entry_from_ib(prepared: PreparedOrder, ib_entry: dict, source_path: Path) -> dict:
+    status = str(ib_entry.get("status", "")).strip().lower() or "unknown"
+    avg_fill_price = _to_float(ib_entry.get("avg_fill_price", prepared.price))
+    if avg_fill_price <= 1e-12:
+        avg_fill_price = float(prepared.price)
+    filled_qty = _to_float(ib_entry.get("filled_qty", 0.0))
+    remaining_qty = _to_float(ib_entry.get("remaining_qty", max(0.0, prepared.qty - filled_qty)))
+    fill_notional = abs(filled_qty * avg_fill_price)
+    return {
+        "idempotency_key": prepared.idempotency_key,
+        "client_order_id": prepared.client_tag,
+        "broker_order_id": str(ib_entry.get("ib_order_id", "")),
+        "perm_id": int(ib_entry.get("perm_id", 0) or 0),
+        "config": prepared.config,
+        "source_order_path": str(source_path),
+        "date": prepared.order_date,
+        "symbol": prepared.symbol,
+        "broker_symbol": prepared.broker_symbol,
+        "side": prepared.order_side,
+        "qty": float(prepared.qty),
+        "filled_qty": float(filled_qty),
+        "remaining_qty": float(remaining_qty),
+        "price_hint": float(prepared.price),
+        "filled_avg_price": float(avg_fill_price),
+        "order_notional": float(prepared.order_notional),
+        "fill_notional": float(fill_notional),
+        "status": status,
+        "submitted_at": str(ib_entry.get("submitted_at_utc", _utc_now_iso())),
+        "filled_at": _utc_now_iso() if status in {"filled", "partiallyfilled"} else "",
+        "mode": "ibkr_gateway",
+        "request": {"account": IB_ACCOUNT_CODE, "host": IB_HOST, "port": IB_PORT, "client_id": IB_CLIENT_ID, "order_type": _effective_order_type(prepared), "tif": IB_TIME_IN_FORCE, "outside_rth": int(IB_OUTSIDE_RTH), "fractional_probe": int(prepared.is_fractional_probe)},
+        "response": {"ib_order_id": ib_entry.get("ib_order_id", ""), "perm_id": ib_entry.get("perm_id", 0), "status": ib_entry.get("status", ""), "avg_fill_price": ib_entry.get("avg_fill_price", 0.0), "last_fill_price": ib_entry.get("last_fill_price", 0.0), "fills": ib_entry.get("fills", [])},
+    }
+
+
+def _upsert_broker_log_entry(broker_log: dict, entry: dict) -> None:
+    broker_log.setdefault("orders", {})[entry["idempotency_key"]] = {
+        "status": entry["status"],
+        "client_order_id": entry["client_order_id"],
+        "broker_order_id": entry["broker_order_id"],
+        "perm_id": entry.get("perm_id", 0),
+        "config": entry["config"],
+        "date": entry["date"],
+        "symbol": entry["symbol"],
+        "broker_symbol": entry["broker_symbol"],
+        "side": entry["side"],
+        "qty": entry["qty"],
+        "filled_qty": entry["filled_qty"],
+        "remaining_qty": entry.get("remaining_qty", 0.0),
+        "filled_avg_price": entry["filled_avg_price"],
+        "order_notional": entry["order_notional"],
+        "fill_notional": entry["fill_notional"],
+        "submitted_at": entry["submitted_at"],
+        "filled_at": entry["filled_at"],
+        "mode": entry["mode"],
+        "source_order_path": entry["source_order_path"],
+        "request": entry.get("request", {}),
+        "response": entry.get("response", {}),
+        "updated_at_utc": _utc_now_iso(),
+    }
+
+
+def _append_or_replace_fills(fills_csv: Path, entries: List[dict]) -> None:
+    cols = ["idempotency_key", "client_order_id", "broker_order_id", "perm_id", "config", "source_order_path", "date", "symbol", "broker_symbol", "side", "qty", "filled_qty", "remaining_qty", "price_hint", "filled_avg_price", "order_notional", "fill_notional", "status", "submitted_at", "filled_at", "mode"]
+    new_df = pd.DataFrame(entries)
+    if new_df.empty:
+        if not fills_csv.exists():
+            pd.DataFrame(columns=cols).to_csv(fills_csv, index=False)
+        return
+    new_df = new_df[cols].copy()
+    if fills_csv.exists():
+        prev = pd.read_csv(fills_csv)
+        for col in cols:
+            if col not in prev.columns:
+                prev[col] = ""
+        prev = prev[cols].copy()
+        out = pd.concat([prev, new_df], ignore_index=True).drop_duplicates(subset=["idempotency_key"], keep="last")
+    else:
+        out = new_df
+    out.sort_values(["date", "symbol", "side", "idempotency_key"]).reset_index(drop=True).to_csv(fills_csv, index=False)
+
+
+def _duplicate_fill_entry(prepared: PreparedOrder, duplicate_status: str, source_path: Path, broker_log: dict) -> dict:
+    existing = broker_log.get("orders", {}).get(prepared.idempotency_key, {})
+    return {
+        "idempotency_key": prepared.idempotency_key,
+        "client_order_id": str(existing.get("client_order_id", prepared.client_tag)),
+        "broker_order_id": str(existing.get("broker_order_id", "")),
+        "perm_id": int(existing.get("perm_id", 0) or 0),
+        "config": prepared.config,
+        "source_order_path": str(source_path),
+        "date": prepared.order_date,
+        "symbol": prepared.symbol,
+        "broker_symbol": prepared.broker_symbol,
+        "side": prepared.order_side,
+        "qty": float(prepared.qty),
+        "filled_qty": _to_float(existing.get("filled_qty", 0.0)),
+        "remaining_qty": _to_float(existing.get("remaining_qty", 0.0)),
+        "price_hint": float(prepared.price),
+        "filled_avg_price": _to_float(existing.get("filled_avg_price", prepared.price)),
+        "order_notional": float(prepared.order_notional),
+        "fill_notional": _to_float(existing.get("fill_notional", 0.0)),
+        "status": f"duplicate_skipped:{duplicate_status}",
+        "submitted_at": str(existing.get("submitted_at", "")),
+        "filled_at": str(existing.get("filled_at", "")),
+        "mode": "ibkr_gateway",
+    }
 
 
 def _refresh_open_orders(app: IBKRApp) -> None:
@@ -852,136 +988,6 @@ def _query_contract_details(app: IBKRApp, prepared: PreparedOrder, req_id: int) 
     return app.wait_for_contract_details(int(req_id), timeout_sec=IB_TIMEOUT_SEC)
 
 
-def _entry_from_ib(prepared: PreparedOrder, ib_entry: dict, source_path: Path) -> dict:
-    status = str(ib_entry.get("status", "")).strip().lower() or "unknown"
-    avg_fill_price = _to_float(ib_entry.get("avg_fill_price", prepared.price))
-    if avg_fill_price <= 1e-12:
-        avg_fill_price = float(prepared.price)
-    filled_qty = _to_float(ib_entry.get("filled_qty", 0.0))
-    remaining_qty = _to_float(ib_entry.get("remaining_qty", max(0.0, prepared.qty - filled_qty)))
-    fill_notional = abs(filled_qty * avg_fill_price)
-    return {
-        "idempotency_key": prepared.idempotency_key,
-        "client_order_id": prepared.client_tag,
-        "broker_order_id": str(ib_entry.get("ib_order_id", "")),
-        "perm_id": int(ib_entry.get("perm_id", 0) or 0),
-        "config": prepared.config,
-        "source_order_path": str(source_path),
-        "date": prepared.order_date,
-        "symbol": prepared.symbol,
-        "broker_symbol": prepared.broker_symbol,
-        "side": prepared.order_side,
-        "qty": float(prepared.qty),
-        "filled_qty": float(filled_qty),
-        "remaining_qty": float(remaining_qty),
-        "price_hint": float(prepared.price),
-        "filled_avg_price": float(avg_fill_price),
-        "order_notional": float(prepared.order_notional),
-        "fill_notional": float(fill_notional),
-        "status": status,
-        "submitted_at": str(ib_entry.get("submitted_at_utc", _utc_now_iso())),
-        "filled_at": _utc_now_iso() if status in {"filled", "partiallyfilled"} else "",
-        "mode": "ibkr_gateway",
-        "request": {
-            "account": IB_ACCOUNT_CODE,
-            "host": IB_HOST,
-            "port": IB_PORT,
-            "client_id": IB_CLIENT_ID,
-            "order_type": IB_ORDER_TYPE,
-            "tif": IB_TIME_IN_FORCE,
-            "outside_rth": int(IB_OUTSIDE_RTH),
-        },
-        "response": {
-            "ib_order_id": ib_entry.get("ib_order_id", ""),
-            "perm_id": ib_entry.get("perm_id", 0),
-            "status": ib_entry.get("status", ""),
-            "avg_fill_price": ib_entry.get("avg_fill_price", 0.0),
-            "last_fill_price": ib_entry.get("last_fill_price", 0.0),
-            "fills": ib_entry.get("fills", []),
-        },
-    }
-
-
-def _upsert_broker_log_entry(broker_log: dict, entry: dict) -> None:
-    broker_log.setdefault("orders", {})[entry["idempotency_key"]] = {
-        "status": entry["status"],
-        "client_order_id": entry["client_order_id"],
-        "broker_order_id": entry["broker_order_id"],
-        "perm_id": entry.get("perm_id", 0),
-        "config": entry["config"],
-        "date": entry["date"],
-        "symbol": entry["symbol"],
-        "broker_symbol": entry["broker_symbol"],
-        "side": entry["side"],
-        "qty": entry["qty"],
-        "filled_qty": entry["filled_qty"],
-        "remaining_qty": entry.get("remaining_qty", 0.0),
-        "filled_avg_price": entry["filled_avg_price"],
-        "order_notional": entry["order_notional"],
-        "fill_notional": entry["fill_notional"],
-        "submitted_at": entry["submitted_at"],
-        "filled_at": entry["filled_at"],
-        "mode": entry["mode"],
-        "source_order_path": entry["source_order_path"],
-        "request": entry.get("request", {}),
-        "response": entry.get("response", {}),
-        "updated_at_utc": _utc_now_iso(),
-    }
-
-
-def _append_or_replace_fills(fills_csv: Path, entries: List[dict]) -> None:
-    cols = [
-        "idempotency_key", "client_order_id", "broker_order_id", "perm_id", "config", "source_order_path",
-        "date", "symbol", "broker_symbol", "side", "qty", "filled_qty", "remaining_qty", "price_hint",
-        "filled_avg_price", "order_notional", "fill_notional", "status", "submitted_at", "filled_at", "mode",
-    ]
-    new_df = pd.DataFrame(entries)
-    if new_df.empty:
-        if not fills_csv.exists():
-            pd.DataFrame(columns=cols).to_csv(fills_csv, index=False)
-        return
-    new_df = new_df[cols].copy()
-    if fills_csv.exists():
-        prev = pd.read_csv(fills_csv)
-        for col in cols:
-            if col not in prev.columns:
-                prev[col] = ""
-        prev = prev[cols].copy()
-        out = pd.concat([prev, new_df], ignore_index=True)
-        out = out.drop_duplicates(subset=["idempotency_key"], keep="last")
-    else:
-        out = new_df
-    out = out.sort_values(["date", "symbol", "side", "idempotency_key"]).reset_index(drop=True)
-    out.to_csv(fills_csv, index=False)
-
-
-def _duplicate_fill_entry(prepared: PreparedOrder, duplicate_status: str, source_path: Path, broker_log: dict) -> dict:
-    existing = broker_log.get("orders", {}).get(prepared.idempotency_key, {})
-    return {
-        "idempotency_key": prepared.idempotency_key,
-        "client_order_id": str(existing.get("client_order_id", prepared.client_tag)),
-        "broker_order_id": str(existing.get("broker_order_id", "")),
-        "perm_id": int(existing.get("perm_id", 0) or 0),
-        "config": prepared.config,
-        "source_order_path": str(source_path),
-        "date": prepared.order_date,
-        "symbol": prepared.symbol,
-        "broker_symbol": prepared.broker_symbol,
-        "side": prepared.order_side,
-        "qty": float(prepared.qty),
-        "filled_qty": _to_float(existing.get("filled_qty", 0.0)),
-        "remaining_qty": _to_float(existing.get("remaining_qty", 0.0)),
-        "price_hint": float(prepared.price),
-        "filled_avg_price": _to_float(existing.get("filled_avg_price", prepared.price)),
-        "order_notional": float(prepared.order_notional),
-        "fill_notional": _to_float(existing.get("fill_notional", 0.0)),
-        "status": f"duplicate_skipped:{duplicate_status}",
-        "submitted_at": str(existing.get("submitted_at", "")),
-        "filled_at": str(existing.get("filled_at", "")),
-        "mode": "ibkr_gateway",
-    }
-
-
 def _bootstrap_connection() -> IBKRApp:
     app = IBKRApp()
     print(f"[IB] connecting host={IB_HOST} port={IB_PORT} client_id={IB_CLIENT_ID}")
@@ -997,9 +1003,7 @@ def _bootstrap_connection() -> IBKRApp:
     _refresh_open_orders(app)
     if IB_REFRESH_POSITIONS_ON_CONNECT or IB_REQUIRE_POSITIONS_ON_CONNECT:
         got_positions = _refresh_positions(app, required=IB_REQUIRE_POSITIONS_ON_CONNECT)
-        print(
-            f"[IB] initial positions refresh enabled={int(IB_REFRESH_POSITIONS_ON_CONNECT or IB_REQUIRE_POSITIONS_ON_CONNECT)} success={int(got_positions)}"
-        )
+        print(f"[IB] initial positions refresh enabled={int(IB_REFRESH_POSITIONS_ON_CONNECT or IB_REQUIRE_POSITIONS_ON_CONNECT)} success={int(got_positions)}")
     else:
         print("[IB] initial positions refresh skipped by config")
     return app
@@ -1025,14 +1029,7 @@ def _run_one_config(app: IBKRApp, paths: ConfigPaths, symbol_map: Dict[str, str]
     print(f"[BROKER][{paths.name}] total_rows={len(orders_df)} live_orders={len(live_orders_df)} prepared_orders={len(prepared_orders)}")
     if len(prepared_orders):
         preview_df = pd.DataFrame([
-            {
-                "symbol": x.symbol,
-                "broker_symbol": x.broker_symbol,
-                "side": x.order_side,
-                "qty": x.qty,
-                "order_notional": x.order_notional,
-                "client_tag": x.client_tag,
-            }
+            {"symbol": x.symbol, "broker_symbol": x.broker_symbol, "side": x.order_side, "qty": x.qty, "order_notional": x.order_notional, "client_tag": x.client_tag, "fractional_probe": int(x.is_fractional_probe), "fractional_qty": int(_is_fractional_qty(x.qty))}
             for x in prepared_orders
         ])
         print(f"[BROKER][{paths.name}][PREVIEW]")
@@ -1049,12 +1046,11 @@ def _run_one_config(app: IBKRApp, paths: ConfigPaths, symbol_map: Dict[str, str]
 
     for prepared in prepared_orders:
         duplicate_status = _existing_duplicate_status(broker_log, prepared.idempotency_key)
-        if duplicate_status is not None:
+        if duplicate_status is not None and not prepared.is_fractional_probe:
             dup_count += 1
             fill_entries.append(_duplicate_fill_entry(prepared, duplicate_status, paths.orders_csv, broker_log))
             print(f"[BROKER][{paths.name}][SKIP] symbol={prepared.symbol} side={prepared.order_side} qty={prepared.qty:.8f} duplicate_status={duplicate_status}")
             continue
-
         try:
             req_cursor += 1
             contract_meta = _query_contract_details(app, prepared, req_cursor)
@@ -1068,7 +1064,6 @@ def _run_one_config(app: IBKRApp, paths: ConfigPaths, symbol_map: Dict[str, str]
             error_cursor_before_submit = len(app._errors)
             app.placeOrder(ib_order_id, contract, order)
             ib_entry = app.wait_for_order_terminalish(ib_order_id, timeout_sec=IB_TIMEOUT_SEC)
-
             if IB_POLL_AFTER_SUBMIT:
                 for _ in range(max(0, IB_POLL_ATTEMPTS)):
                     time.sleep(IB_POLL_SLEEP_SEC)
@@ -1078,7 +1073,6 @@ def _run_one_config(app: IBKRApp, paths: ConfigPaths, symbol_map: Dict[str, str]
                     ib_entry = latest
                     if status in {"filled", "submitted", "presubmitted", "partiallyfilled", "inactive", "cancelled"}:
                         break
-
             broker_errors = _collect_app_errors(app, error_cursor_before_submit, [int(ib_order_id), int(req_cursor)])
             fractional_issue = _first_fractional_issue(prepared, broker_errors)
             if fractional_issue is not None:
@@ -1088,11 +1082,8 @@ def _run_one_config(app: IBKRApp, paths: ConfigPaths, symbol_map: Dict[str, str]
                 _upsert_broker_log_entry(broker_log, issue_entry)
                 fill_entries.append(issue_entry)
                 manual_review_entries.append(_manual_review_entry(prepared, fractional_issue, paths.orders_csv))
-                print(
-                    f"[BROKER][{paths.name}][FRACTIONAL_REJECT] symbol={prepared.symbol} broker_symbol={prepared.broker_symbol} side={prepared.order_side} qty={prepared.qty:.8f} code={fractional_issue.broker_error.error_code if fractional_issue.broker_error else 0} msg={fractional_issue.broker_error.error_string if fractional_issue.broker_error else fractional_issue.message}"
-                )
+                print(f"[BROKER][{paths.name}][FRACTIONAL_REJECT] symbol={prepared.symbol} broker_symbol={prepared.broker_symbol} side={prepared.order_side} qty={prepared.qty:.8f} code={fractional_issue.broker_error.error_code if fractional_issue.broker_error else 0} msg={fractional_issue.broker_error.error_string if fractional_issue.broker_error else fractional_issue.message}")
                 continue
-
             latest = app.orders_by_ib_id.get(int(ib_order_id), ib_entry)
             latest.setdefault("submitted_at_utc", _utc_now_iso())
             generic_issue = _first_generic_issue(broker_errors)
@@ -1102,45 +1093,16 @@ def _run_one_config(app: IBKRApp, paths: ConfigPaths, symbol_map: Dict[str, str]
                 issue_entry = _issue_entry(prepared, generic_issue, paths.orders_csv)
                 _upsert_broker_log_entry(broker_log, issue_entry)
                 fill_entries.append(issue_entry)
-                print(
-                    f"[BROKER][{paths.name}][API_ERROR] symbol={prepared.symbol} broker_symbol={prepared.broker_symbol} side={prepared.order_side} qty={prepared.qty:.8f} code={generic_issue.broker_error.error_code if generic_issue.broker_error else 0} msg={generic_issue.broker_error.error_string if generic_issue.broker_error else generic_issue.message}"
-                )
+                print(f"[BROKER][{paths.name}][API_ERROR] symbol={prepared.symbol} broker_symbol={prepared.broker_symbol} side={prepared.order_side} qty={prepared.qty:.8f} code={generic_issue.broker_error.error_code if generic_issue.broker_error else 0} msg={generic_issue.broker_error.error_string if generic_issue.broker_error else generic_issue.message}")
                 continue
-
             entry = _entry_from_ib(prepared, latest, paths.orders_csv)
             _upsert_broker_log_entry(broker_log, entry)
             fill_entries.append(entry)
             sent_count += 1
-            print(
-                f"[BROKER][{paths.name}][SEND] symbol={prepared.symbol} broker_symbol={prepared.broker_symbol} side={prepared.order_side} qty={prepared.qty:.8f} status={entry['status']} ib_order_id={entry['broker_order_id']}"
-            )
+            print(f"[BROKER][{paths.name}][SEND] symbol={prepared.symbol} broker_symbol={prepared.broker_symbol} side={prepared.order_side} qty={prepared.qty:.8f} status={entry['status']} ib_order_id={entry['broker_order_id']} order_type={_effective_order_type(prepared)} outside_rth={int(IB_OUTSIDE_RTH)} fractional_probe={int(prepared.is_fractional_probe)}")
         except Exception as exc:
             err_count += 1
-            error_entry = {
-                "idempotency_key": prepared.idempotency_key,
-                "client_order_id": prepared.client_tag,
-                "broker_order_id": "",
-                "perm_id": 0,
-                "config": prepared.config,
-                "source_order_path": str(paths.orders_csv),
-                "date": prepared.order_date,
-                "symbol": prepared.symbol,
-                "broker_symbol": prepared.broker_symbol,
-                "side": prepared.order_side,
-                "qty": float(prepared.qty),
-                "filled_qty": 0.0,
-                "remaining_qty": float(prepared.qty),
-                "price_hint": float(prepared.price),
-                "filled_avg_price": 0.0,
-                "order_notional": float(prepared.order_notional),
-                "fill_notional": 0.0,
-                "status": f"error:{type(exc).__name__}",
-                "submitted_at": _utc_now_iso(),
-                "filled_at": "",
-                "mode": "ibkr_gateway",
-                "request": {"account": IB_ACCOUNT_CODE, "host": IB_HOST, "port": IB_PORT, "client_id": IB_CLIENT_ID},
-                "response": {"error": str(exc)},
-            }
+            error_entry = {"idempotency_key": prepared.idempotency_key, "client_order_id": prepared.client_tag, "broker_order_id": "", "perm_id": 0, "config": prepared.config, "source_order_path": str(paths.orders_csv), "date": prepared.order_date, "symbol": prepared.symbol, "broker_symbol": prepared.broker_symbol, "side": prepared.order_side, "qty": float(prepared.qty), "filled_qty": 0.0, "remaining_qty": float(prepared.qty), "price_hint": float(prepared.price), "filled_avg_price": 0.0, "order_notional": float(prepared.order_notional), "fill_notional": 0.0, "status": f"error:{type(exc).__name__}", "submitted_at": _utc_now_iso(), "filled_at": "", "mode": "ibkr_gateway", "request": {"account": IB_ACCOUNT_CODE, "host": IB_HOST, "port": IB_PORT, "client_id": IB_CLIENT_ID, "order_type": _effective_order_type(prepared), "outside_rth": int(IB_OUTSIDE_RTH), "fractional_probe": int(prepared.is_fractional_probe)}, "response": {"error": str(exc)}}
             _upsert_broker_log_entry(broker_log, error_entry)
             fill_entries.append(error_entry)
             print(f"[BROKER][{paths.name}][ERROR] symbol={prepared.symbol} side={prepared.order_side} qty={prepared.qty:.8f} error={exc}")
@@ -1148,10 +1110,7 @@ def _run_one_config(app: IBKRApp, paths: ConfigPaths, symbol_map: Dict[str, str]
     _append_or_replace_fills(paths.fills_csv, fill_entries)
     _append_manual_review_csv(manual_review_csv, manual_review_entries)
     _save_broker_log(paths.broker_log_json, broker_log)
-
-    print(
-        f"[BROKER][{paths.name}][SUMMARY] sent={sent_count} duplicate_skipped={dup_count} errors={err_count} fractional_rejected={fractional_reject_count} fills_csv={paths.fills_csv} broker_log_json={paths.broker_log_json} manual_review_csv={manual_review_csv}"
-    )
+    print(f"[BROKER][{paths.name}][SUMMARY] sent={sent_count} duplicate_skipped={dup_count} errors={err_count} fractional_rejected={fractional_reject_count} fills_csv={paths.fills_csv} broker_log_json={paths.broker_log_json} manual_review_csv={manual_review_csv}")
     return req_cursor
 
 
@@ -1167,13 +1126,14 @@ def main() -> int:
     print(f"[CFG] ib_exchange={IB_EXCHANGE} ib_primary_exchange={IB_PRIMARY_EXCHANGE} ib_currency={IB_CURRENCY} ib_security_type={IB_SECURITY_TYPE}")
     print(f"[CFG] ib_allow_fractional={int(IB_ALLOW_FRACTIONAL)}")
     print(f"[CFG] ib_fractional_reject_codes={IB_FRACTIONAL_REJECT_CODES} ib_fractional_failure_mode={IB_FRACTIONAL_FAILURE_MODE}")
-    print(
-        f"[CFG] ib_refresh_positions_on_connect={int(IB_REFRESH_POSITIONS_ON_CONNECT)} ib_require_positions_on_connect={int(IB_REQUIRE_POSITIONS_ON_CONNECT)} ib_positions_timeout_sec={IB_POSITIONS_TIMEOUT_SEC}"
-    )
+    print(f"[CFG] ib_refresh_positions_on_connect={int(IB_REFRESH_POSITIONS_ON_CONNECT)} ib_require_positions_on_connect={int(IB_REQUIRE_POSITIONS_ON_CONNECT)} ib_positions_timeout_sec={IB_POSITIONS_TIMEOUT_SEC}")
+    print(f"[CFG] ib_extended_hours_force_lmt={int(IB_EXTENDED_HOURS_FORCE_LMT)} ib_lmt_price_bps={IB_LMT_PRICE_BPS} ib_lmt_price_min_abs={IB_LMT_PRICE_MIN_ABS}")
+    print(f"[CFG] fractional_probe_qty={IB_FORCE_TEST_FRACTIONAL_QTY} fractional_probe_symbol={IB_FORCE_TEST_FRACTIONAL_SYMBOL} fractional_probe_side={IB_FORCE_TEST_FRACTIONAL_SIDE} fractional_probe_config={IB_FORCE_TEST_FRACTIONAL_CONFIG}")
     if IB_ALLOW_FRACTIONAL and IB_EXCHANGE != "SMART":
         print(f"[CFG][WARN] IB_ALLOW_FRACTIONAL=1 but IB_EXCHANGE={IB_EXCHANGE}; IBKR fractional routing often requires SMART routing.")
+    if IB_OUTSIDE_RTH and _effective_order_type(PreparedOrder(config="cfg", order_date="", symbol="X", broker_symbol="X", order_side="BUY", qty=1.0, price=1.0, order_notional=1.0, target_weight=0.0, current_shares=0.0, target_shares=1.0, delta_shares=1.0, source_row={}, idempotency_key="k", client_tag="t")) == "LMT":
+        print("[CFG] extended-hours path will use limit orders")
     print(f"[CFG] symbol_map_entries={len(symbol_map)}")
-
     app = _bootstrap_connection()
     req_cursor = 100000
     try:
@@ -1182,7 +1142,6 @@ def main() -> int:
             req_cursor = _run_one_config(app, paths, symbol_map, req_cursor)
     finally:
         _teardown_connection(app)
-
     print("[FINAL] IBKR broker adapter complete")
     return 0
 
