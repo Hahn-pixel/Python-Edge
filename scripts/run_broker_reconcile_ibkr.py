@@ -10,7 +10,7 @@ import traceback
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
@@ -89,10 +89,6 @@ def _norm_symbol(value: Any) -> str:
     return str(value or "").strip().upper()
 
 
-def _is_zero(value: float, tol: float = 1e-9) -> bool:
-    return abs(float(value)) <= tol
-
-
 def _safe_write_text(path: Path, text: str, encoding: str = "utf-8") -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + f".{os.getpid()}.tmp")
@@ -116,6 +112,9 @@ IB_HOST = str(os.getenv("IB_HOST", "127.0.0.1")).strip()
 IB_PORT = int(os.getenv("IB_PORT", "4002"))
 IB_CLIENT_ID = int(os.getenv("RECONCILE_IB_CLIENT_ID", os.getenv("IB_CLIENT_ID", "42")))
 IB_TIMEOUT_SEC = float(os.getenv("IB_TIMEOUT_SEC", "20.0"))
+IB_POSITIONS_TIMEOUT_SEC = float(os.getenv("IB_POSITIONS_TIMEOUT_SEC", str(max(IB_TIMEOUT_SEC, 45.0))))
+IB_POSITIONS_RETRIES = int(os.getenv("IB_POSITIONS_RETRIES", "2"))
+IB_POSITIONS_SETTLE_SEC = float(os.getenv("IB_POSITIONS_SETTLE_SEC", "2.0"))
 BROKER_ACCOUNT_ID = str(os.getenv("BROKER_ACCOUNT_ID", "")).strip()
 IB_ACCOUNT_CODE = str(os.getenv("IB_ACCOUNT_CODE", BROKER_ACCOUNT_ID)).strip()
 TOPK_PRINT = int(os.getenv("TOPK_PRINT", "50"))
@@ -149,6 +148,9 @@ class IBKRReconApp(EWrapper, EClient):
         self._errors: List[Dict[str, Any]] = []
         self.done_open_orders = False
         self.done_positions = False
+        self.positions_request_started_at: Optional[float] = None
+        self.positions_last_callback_at: Optional[float] = None
+        self.open_orders_last_callback_at: Optional[float] = None
         self.orders_by_ib_id: Dict[int, Dict[str, Any]] = {}
         self.position_rows: List[Dict[str, Any]] = []
 
@@ -187,6 +189,7 @@ class IBKRReconApp(EWrapper, EClient):
         print(f"[IB] managedAccounts={accountsList}")
 
     def openOrder(self, orderId: OrderId, contract: Contract, order: Order, orderState) -> None:
+        self.open_orders_last_callback_at = time.time()
         entry = self.orders_by_ib_id.setdefault(
             int(orderId),
             {
@@ -287,6 +290,7 @@ class IBKRReconApp(EWrapper, EClient):
         entry["perm_id"] = int(permId or entry.get("perm_id", 0) or 0)
 
     def position(self, account: str, contract: Contract, position: float, avgCost: float) -> None:
+        self.positions_last_callback_at = time.time()
         self.position_rows.append(
             {
                 "account": str(account or ""),
@@ -303,6 +307,7 @@ class IBKRReconApp(EWrapper, EClient):
 
     def positionEnd(self) -> None:
         self.done_positions = True
+        self.positions_last_callback_at = time.time()
         print("[IB] positionEnd")
 
     def wait_for_next_valid_id(self, timeout_sec: float) -> int:
@@ -319,11 +324,20 @@ class IBKRReconApp(EWrapper, EClient):
             time.sleep(0.1)
         raise TimeoutError("Timed out waiting for openOrderEnd")
 
-    def wait_until_positions_end(self, timeout_sec: float) -> None:
+    def wait_until_positions_end(self, timeout_sec: float, settle_sec: float) -> None:
         deadline = time.time() + timeout_sec
         while time.time() < deadline:
             if self.done_positions:
                 return
+            if self.positions_request_started_at is not None and self.positions_last_callback_at is not None:
+                if self.positions_last_callback_at >= self.positions_request_started_at:
+                    idle_sec = time.time() - self.positions_last_callback_at
+                    if idle_sec >= settle_sec:
+                        print(
+                            "[IB][WARN] positionEnd not received; using settled position snapshot "
+                            f"rows={len(self.position_rows)} idle_sec={idle_sec:.2f}"
+                        )
+                        return
             time.sleep(0.1)
         raise TimeoutError("Timed out waiting for positionEnd")
 
@@ -363,6 +377,7 @@ def _bootstrap_connection() -> IBKRReconApp:
 
 def _refresh_open_orders(app: IBKRReconApp) -> pd.DataFrame:
     app.done_open_orders = False
+    app.open_orders_last_callback_at = None
     if REQ_OPEN_ORDERS_MODE == "all":
         app.reqAllOpenOrders()
     else:
@@ -388,12 +403,18 @@ def _refresh_open_orders(app: IBKRReconApp) -> pd.DataFrame:
 
 
 
-def _refresh_positions(app: IBKRReconApp) -> pd.DataFrame:
+def _refresh_positions_once(app: IBKRReconApp) -> pd.DataFrame:
     app.done_positions = False
     app.position_rows = []
+    app.positions_request_started_at = time.time()
+    app.positions_last_callback_at = None
     app.reqPositions()
-    app.wait_until_positions_end(timeout_sec=IB_TIMEOUT_SEC)
-    app.cancelPositions()
+    app.wait_until_positions_end(timeout_sec=IB_POSITIONS_TIMEOUT_SEC, settle_sec=IB_POSITIONS_SETTLE_SEC)
+    try:
+        app.cancelPositions()
+    except Exception:
+        pass
+
     df = pd.DataFrame(app.position_rows)
     if not len(df):
         return pd.DataFrame(
@@ -415,6 +436,61 @@ def _refresh_positions(app: IBKRReconApp) -> pd.DataFrame:
         .reset_index(drop=True)
     )
     return df
+
+
+
+def _refresh_positions(app: IBKRReconApp) -> pd.DataFrame:
+    last_exc: Optional[Exception] = None
+    for attempt in range(1, IB_POSITIONS_RETRIES + 1):
+        try:
+            print(
+                f"[IB][POSITIONS] attempt={attempt}/{IB_POSITIONS_RETRIES} "
+                f"timeout_sec={IB_POSITIONS_TIMEOUT_SEC} settle_sec={IB_POSITIONS_SETTLE_SEC}"
+            )
+            df = _refresh_positions_once(app)
+            print(f"[IB][POSITIONS] rows={len(df)}")
+            return df
+        except TimeoutError as exc:
+            last_exc = exc
+            try:
+                app.cancelPositions()
+            except Exception:
+                pass
+            received_rows = len(app.position_rows)
+            print(
+                f"[IB][WARN] reqPositions timeout attempt={attempt}/{IB_POSITIONS_RETRIES} "
+                f"received_rows={received_rows}"
+            )
+            if received_rows > 0:
+                print("[IB][WARN] Using partial position snapshot because at least one position callback was received.")
+                df = pd.DataFrame(app.position_rows)
+                if IB_ACCOUNT_CODE and "account" in df.columns:
+                    df = df[df["account"].astype(str).str.strip() == IB_ACCOUNT_CODE].copy()
+                if len(df):
+                    df["symbol"] = df.get("symbol", pd.Series(dtype="object")).astype(str).str.upper()
+                    df["broker_symbol"] = df.get("broker_symbol", pd.Series(dtype="object")).astype(str)
+                    df["position"] = pd.to_numeric(df.get("position", 0.0), errors="coerce").fillna(0.0)
+                    df["avg_cost"] = pd.to_numeric(df.get("avg_cost", 0.0), errors="coerce").fillna(0.0)
+                    df = (
+                        df.groupby(["account", "symbol", "broker_symbol", "sec_type", "currency", "exchange", "primary_exchange"], dropna=False, as_index=False)
+                        .agg(position=("position", "sum"), avg_cost=("avg_cost", "last"))
+                        .sort_values(["symbol", "broker_symbol"], ascending=[True, True])
+                        .reset_index(drop=True)
+                    )
+                else:
+                    df = pd.DataFrame(
+                        columns=[
+                            "account", "symbol", "broker_symbol", "sec_type", "currency", "exchange",
+                            "primary_exchange", "position", "avg_cost",
+                        ]
+                    )
+                return df
+            if attempt < IB_POSITIONS_RETRIES:
+                time.sleep(1.5)
+                continue
+    if last_exc is not None:
+        raise last_exc
+    raise RuntimeError("Unexpected positions refresh failure")
 
 
 
@@ -604,13 +680,26 @@ def _build_reconcile_diff(local_source: LocalExpectedSource, broker_positions: p
     merged = pd.merge(local_df, broker_positions_agg, on="symbol", how="outer")
     merged = pd.merge(merged, open_orders_agg, on="symbol", how="outer")
 
-    merged["expected_shares"] = pd.to_numeric(merged.get("expected_shares", 0.0), errors="coerce").fillna(0.0)
-    merged["broker_position"] = pd.to_numeric(merged.get("broker_position", 0.0), errors="coerce").fillna(0.0)
-    merged["broker_open_order_count"] = pd.to_numeric(merged.get("broker_open_order_count", 0), errors="coerce").fillna(0).astype(int)
-    merged["broker_open_order_net_qty"] = pd.to_numeric(merged.get("broker_open_order_net_qty", 0.0), errors="coerce").fillna(0.0)
-    merged["broker_open_order_remaining_qty"] = pd.to_numeric(merged.get("broker_open_order_remaining_qty", 0.0), errors="coerce").fillna(0.0)
+        if "expected_shares" not in merged.columns:
+        merged["expected_shares"] = 0.0
+    if "broker_position" not in merged.columns:
+        merged["broker_position"] = 0.0
+    if "broker_open_order_count" not in merged.columns:
+        merged["broker_open_order_count"] = 0
+    if "broker_open_order_net_qty" not in merged.columns:
+        merged["broker_open_order_net_qty"] = 0.0
+    if "broker_open_order_remaining_qty" not in merged.columns:
+        merged["broker_open_order_remaining_qty"] = 0.0
+    if "source" not in merged.columns:
+        merged["source"] = local_source.source
 
-    merged["source"] = merged.get("source", pd.Series(dtype="object")).fillna(local_source.source).astype(str)
+    merged["expected_shares"] = pd.to_numeric(merged["expected_shares"], errors="coerce").fillna(0.0)
+    merged["broker_position"] = pd.to_numeric(merged["broker_position"], errors="coerce").fillna(0.0)
+    merged["broker_open_order_count"] = pd.to_numeric(merged["broker_open_order_count"], errors="coerce").fillna(0).astype(int)
+    merged["broker_open_order_net_qty"] = pd.to_numeric(merged["broker_open_order_net_qty"], errors="coerce").fillna(0.0)
+    merged["broker_open_order_remaining_qty"] = pd.to_numeric(merged["broker_open_order_remaining_qty"], errors="coerce").fillna(0.0)
+
+    merged["source"] = merged["source"].fillna(local_source.source).astype(str)
     merged["drift_shares"] = merged["broker_position"] - merged["expected_shares"]
     merged["abs_drift_shares"] = merged["drift_shares"].abs()
     merged["positions_match"] = merged["abs_drift_shares"] <= 1e-9
@@ -702,6 +791,9 @@ def _build_report(paths: ConfigPaths, local_source: LocalExpectedSource, broker_
             "client_id": IB_CLIENT_ID,
             "account_code": IB_ACCOUNT_CODE,
             "open_orders_mode": REQ_OPEN_ORDERS_MODE,
+            "positions_timeout_sec": IB_POSITIONS_TIMEOUT_SEC,
+            "positions_retries": IB_POSITIONS_RETRIES,
+            "positions_settle_sec": IB_POSITIONS_SETTLE_SEC,
         },
         "local_source": {
             "source": local_source.source,
@@ -791,6 +883,7 @@ def main() -> int:
     print(f"[CFG] execution_root={EXECUTION_ROOT}")
     print(f"[CFG] reconcile_config_names={RECONCILE_CONFIG_NAMES}")
     print(f"[CFG] ib_host={IB_HOST} ib_port={IB_PORT} ib_client_id={IB_CLIENT_ID} ib_timeout_sec={IB_TIMEOUT_SEC}")
+    print(f"[CFG] ib_positions_timeout_sec={IB_POSITIONS_TIMEOUT_SEC} ib_positions_retries={IB_POSITIONS_RETRIES} ib_positions_settle_sec={IB_POSITIONS_SETTLE_SEC}")
     print(f"[CFG] ib_account_code={IB_ACCOUNT_CODE}")
     print(f"[CFG] reconcile_open_orders_mode={REQ_OPEN_ORDERS_MODE}")
 
