@@ -1,0 +1,66 @@
+[CFG] execution_root=artifacts\execution_loop
+[CFG] broker_name=MEXEM broker_platform=IBKR
+[CFG] configs=['optimal', 'aggressive']
+[CFG] ib_host=127.0.0.1 ib_port=4002 ib_client_id=41
+[CFG] ib_account_code=
+[CFG] ib_order_type=MKT ib_time_in_force=DAY ib_outside_rth=0
+[CFG] ib_exchange=SMART ib_primary_exchange= ib_currency=USD ib_security_type=STK
+[CFG] ib_allow_fractional=1
+[CFG] ib_fractional_reject_codes=[10243, 10247, 10248, 10249, 10250] ib_fractional_failure_mode=review
+[CFG] ib_refresh_positions_on_connect=0 ib_require_positions_on_connect=0 ib_positions_timeout_sec=8.0
+[CFG] symbol_map_entries=0
+[IB] connecting host=127.0.0.1 port=4002 client_id=41
+[IB] connectAck received
+[IB] managedAccounts=DUP561175
+[IB] nextValidId=13
+[IB] connected next_valid_id=13 managed_accounts=DUP561175
+[IB][ERROR] reqId=-1 code=2104 msg=Market data farm connection is OK:usfarm
+[IB][ERROR] reqId=-1 code=2107 msg=HMDS data farm connection is inactive but should be available upon demand.ushmds
+[IB][ERROR] reqId=-1 code=2158 msg=Sec-def data farm connection is OK:secdefil
+[IB] openOrderEnd
+[IB] initial positions refresh skipped by config
+[BROKER][optimal] orders=artifacts\execution_loop\optimal\orders.csv
+[BROKER][optimal] total_rows=4 live_orders=4 prepared_orders=4
+[BROKER][optimal][PREVIEW]
+symbol broker_symbol side  qty  order_notional                  client_tag
+  AAPL          AAPL  BUY  1.0           219.5 pe-8da82c599802e250b50499b0
+  MSFT          MSFT  BUY  1.0           428.1 pe-d8f1f793174cedbf2eeba1e3
+  NVDA          NVDA SELL  1.0           118.4 pe-45228bea7200d998cae3eeef
+  AMZN          AMZN SELL  1.0           201.7 pe-b88591f05813660c0f31d4d4
+[BROKER][optimal][SKIP] symbol=AAPL side=BUY qty=1.00000000 duplicate_status=filled
+[BROKER][optimal][SKIP] symbol=MSFT side=BUY qty=1.00000000 duplicate_status=filled
+[BROKER][optimal][SKIP] symbol=NVDA side=SELL qty=1.00000000 duplicate_status=filled
+[BROKER][optimal][SKIP] symbol=AMZN side=SELL qty=1.00000000 duplicate_status=filled
+[BROKER][optimal][SUMMARY] sent=0 duplicate_skipped=4 errors=0 fractional_rejected=0 fills_csv=artifacts\execution_loop\optimal\fills.csv broker_log_json=artifacts\execution_loop\optimal\broker_log.json manual_review_csv=artifacts\execution_loop\optimal\broker_fractional_manual_review.csv
+[BROKER][aggressive] orders=artifacts\execution_loop\aggressive\orders.csv
+[BROKER][aggressive] total_rows=6 live_orders=6 prepared_orders=6
+[BROKER][aggressive][PREVIEW]
+symbol broker_symbol side  qty  order_notional                  client_tag
+  HOOD          HOOD SELL 37.0         3700.00 pe-31ea9aae8b10588ee51c8dc5
+  CRCL          CRCL SELL 16.0         1661.76 pe-cd80eff9db5e57bd8af7e012
+   NEM           NEM SELL 16.0         1624.32 pe-636c46d7e21f1758c51d9422
+  INTC          INTC SELL 25.0         1179.50 pe-25fe3f2b9ed68e136f00566f
+  RKLB          RKLB SELL  6.0          437.28 pe-b9b60a162cc9e44f96fb9e67
+  SHOP          SHOP SELL  3.0          300.00 pe-a93cad7d2b2704038acd0599
+[IB][ERROR] reqId=13 code=399 msg=Order Message: SELL 37 HOOD NASDAQ.NMS Your order will not be placed at the exchange until 2026-03-30 09:30:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute "Fill/Trigger Outside RTH."
+[IB] openOrderEnd
+[BROKER][aggressive][SEND] symbol=HOOD broker_symbol=HOOD side=SELL qty=37.00000000 status=presubmitted ib_order_id=13
+[IB][ERROR] reqId=14 code=399 msg=Order Message: SELL 16 CRCL NYSE Your order will not be placed at the exchange until 2026-03-30 09:30:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute "Fill/Trigger Outside RTH."
+[IB] openOrderEnd
+[BROKER][aggressive][SEND] symbol=CRCL broker_symbol=CRCL side=SELL qty=16.00000000 status=presubmitted ib_order_id=14
+[IB][ERROR] reqId=15 code=399 msg=Order Message: SELL 16 NEM NYSE Your order will not be placed at the exchange until 2026-03-30 09:30:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute "Fill/Trigger Outside RTH."
+[IB] openOrderEnd
+[BROKER][aggressive][SEND] symbol=NEM broker_symbol=NEM side=SELL qty=16.00000000 status=presubmitted ib_order_id=15
+[IB][ERROR] reqId=16 code=399 msg=Order Message: SELL 25 INTC NASDAQ.NMS Your order will not be placed at the exchange until 2026-03-30 09:30:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute "Fill/Trigger Outside RTH."
+[IB] openOrderEnd
+[BROKER][aggressive][SEND] symbol=INTC broker_symbol=INTC side=SELL qty=25.00000000 status=presubmitted ib_order_id=16
+[IB][ERROR] reqId=17 code=399 msg=Order Message: SELL 6 RKLB NASDAQ.SCM Your order will not be placed at the exchange until 2026-03-30 09:30:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute "Fill/Trigger Outside RTH."
+[IB] openOrderEnd
+[BROKER][aggressive][SEND] symbol=RKLB broker_symbol=RKLB side=SELL qty=6.00000000 status=presubmitted ib_order_id=17
+[IB][ERROR] reqId=18 code=399 msg=Order Message: SELL 3 SHOP NASDAQ.NMS Your order will not be placed at the exchange until 2026-03-30 09:30:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute "Fill/Trigger Outside RTH."
+[IB] openOrderEnd
+[BROKER][aggressive][SEND] symbol=SHOP broker_symbol=SHOP side=SELL qty=3.00000000 status=presubmitted ib_order_id=18
+[BROKER][aggressive][SUMMARY] sent=6 duplicate_skipped=0 errors=0 fractional_rejected=0 fills_csv=artifacts\execution_loop\aggressive\fills.csv broker_log_json=artifacts\execution_loop\aggressive\broker_log.json manual_review_csv=artifacts\execution_loop\aggressive\broker_fractional_manual_review.csv
+[FINAL] IBKR broker adapter complete
+
+[EXIT] code=0
