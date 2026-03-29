@@ -65,6 +65,8 @@ IB_REQUIRE_POSITIONS_ON_CONNECT = str(os.getenv("IB_REQUIRE_POSITIONS_ON_CONNECT
 IB_POSITIONS_TIMEOUT_SEC = float(os.getenv("IB_POSITIONS_TIMEOUT_SEC", str(IB_TIMEOUT_SEC)))
 IB_OPEN_ORDERS_TIMEOUT_SEC = float(os.getenv("IB_OPEN_ORDERS_TIMEOUT_SEC", str(IB_TIMEOUT_SEC)))
 IB_LMT_PRICE_BPS = float(os.getenv("IB_LMT_PRICE_BPS", "25.0"))
+IB_LMT_PRICE_BUY_BPS = float(os.getenv("IB_LMT_PRICE_BUY_BPS", str(IB_LMT_PRICE_BPS)))
+IB_LMT_PRICE_SELL_BPS = float(os.getenv("IB_LMT_PRICE_SELL_BPS", str(IB_LMT_PRICE_BPS)))
 IB_LMT_PRICE_MIN_ABS = float(os.getenv("IB_LMT_PRICE_MIN_ABS", "0.01"))
 IB_EXTENDED_HOURS_FORCE_LMT = str(os.getenv("IB_EXTENDED_HOURS_FORCE_LMT", "1")).strip().lower() not in {"0", "false", "no", "off"}
 IB_FORCE_TEST_FRACTIONAL_QTY = str(os.getenv("IB_FORCE_TEST_FRACTIONAL_QTY", "")).strip()
@@ -131,6 +133,7 @@ class PreparedOrder:
     idempotency_key: str
     client_tag: str
     is_fractional_probe: bool = False
+    min_tick: float = 0.0
 
 
 class IBKRApp(EWrapper, EClient):
@@ -335,6 +338,9 @@ class IBKRApp(EWrapper, EClient):
 
     def wait_for_next_valid_id(self, timeout_sec: float) -> int:
         return int(self._next_valid_id_queue.get(timeout=timeout_sec))
+
+    def wait_for_managedAccounts(self, timeout_sec: float) -> str:
+        return str(self._managed_accounts_queue.get(timeout=timeout_sec))
 
     def wait_for_managed_accounts(self, timeout_sec: float) -> str:
         return str(self._managed_accounts_queue.get(timeout=timeout_sec))
@@ -678,20 +684,55 @@ def _effective_order_type(prepared: PreparedOrder) -> str:
     return IB_ORDER_TYPE
 
 
-def _compute_limit_price(prepared: PreparedOrder) -> float:
+def _normalize_min_tick(value: float) -> float:
+    tick = _to_float(value)
+    if tick <= 0.0 or not math.isfinite(tick):
+        return float(IB_LMT_PRICE_MIN_ABS)
+    return tick
+
+
+def _round_to_valid_tick(price: float, min_tick: float, side: str) -> float:
+    tick = _normalize_min_tick(min_tick)
+    px = max(float(IB_LMT_PRICE_MIN_ABS), float(price))
+    steps = px / tick
+    if str(side).upper() == "BUY":
+        rounded_steps = math.ceil(steps - 1e-12)
+    elif str(side).upper() == "SELL":
+        rounded_steps = math.floor(steps + 1e-12)
+    else:
+        rounded_steps = round(steps)
+    rounded = rounded_steps * tick
+    decimals = max(0, int(round(-math.log10(tick))) + 2) if tick < 1.0 else 4
+    return round(max(float(IB_LMT_PRICE_MIN_ABS), rounded), min(decimals, 8))
+
+
+def _limit_price_debug_payload(prepared: PreparedOrder, raw_limit_price: float, rounded_limit_price: float) -> dict:
+    return {
+        "price_hint": float(prepared.price),
+        "order_notional": float(prepared.order_notional),
+        "qty": float(prepared.qty),
+        "min_tick": float(prepared.min_tick),
+        "raw_limit_price": float(raw_limit_price),
+        "rounded_limit_price": float(rounded_limit_price),
+    }
+
+
+def _compute_limit_price(prepared: PreparedOrder) -> tuple[float, float]:
     price_hint = float(prepared.price)
     if price_hint <= 0.0:
         price_hint = abs(float(prepared.order_notional) / max(abs(float(prepared.qty)), 1e-12))
     if price_hint <= 0.0:
         price_hint = 100.0
-    bump = max(float(IB_LMT_PRICE_MIN_ABS), price_hint * float(IB_LMT_PRICE_BPS) / 10000.0)
+    side_bps = float(IB_LMT_PRICE_BUY_BPS) if prepared.order_side == "BUY" else float(IB_LMT_PRICE_SELL_BPS)
+    bump = max(float(IB_LMT_PRICE_MIN_ABS), price_hint * side_bps / 10000.0)
     if prepared.order_side == "BUY":
-        limit_price = price_hint + bump
+        raw_limit_price = price_hint + bump
     elif prepared.order_side == "SELL":
-        limit_price = max(IB_LMT_PRICE_MIN_ABS, price_hint - bump)
+        raw_limit_price = max(float(IB_LMT_PRICE_MIN_ABS), price_hint - bump)
     else:
-        limit_price = price_hint
-    return round(limit_price, 4)
+        raw_limit_price = price_hint
+    rounded_limit_price = _round_to_valid_tick(raw_limit_price, prepared.min_tick, prepared.order_side)
+    return float(raw_limit_price), float(rounded_limit_price)
 
 
 def _build_contract(prepared: PreparedOrder) -> Contract:
@@ -720,7 +761,8 @@ def _build_order(prepared: PreparedOrder) -> Order:
     order.eTradeOnly = False
     order.firmQuoteOnly = False
     if order_type == "LMT":
-        order.lmtPrice = _compute_limit_price(prepared)
+        _, rounded_limit_price = _compute_limit_price(prepared)
+        order.lmtPrice = float(rounded_limit_price)
     elif order_type != "MKT":
         raise RuntimeError("Supported IB order types in this adapter are MKT and LMT")
     return order
@@ -784,7 +826,20 @@ def _issue_entry(prepared: PreparedOrder, issue: OrderIssue, source_path: Path) 
         "submitted_at": _utc_now_iso(),
         "filled_at": "",
         "mode": "ibkr_gateway",
-        "request": {"account": IB_ACCOUNT_CODE, "host": IB_HOST, "port": IB_PORT, "client_id": IB_CLIENT_ID, "order_type": _effective_order_type(prepared), "tif": IB_TIME_IN_FORCE, "outside_rth": int(IB_OUTSIDE_RTH), "exchange": IB_EXCHANGE, "primary_exchange": IB_PRIMARY_EXCHANGE, "allow_fractional": int(IB_ALLOW_FRACTIONAL), "fractional_probe": int(prepared.is_fractional_probe)},
+        "request": {
+            "account": IB_ACCOUNT_CODE,
+            "host": IB_HOST,
+            "port": IB_PORT,
+            "client_id": IB_CLIENT_ID,
+            "order_type": _effective_order_type(prepared),
+            "tif": IB_TIME_IN_FORCE,
+            "outside_rth": int(IB_OUTSIDE_RTH),
+            "exchange": IB_EXCHANGE,
+            "primary_exchange": IB_PRIMARY_EXCHANGE,
+            "allow_fractional": int(IB_ALLOW_FRACTIONAL),
+            "fractional_probe": int(prepared.is_fractional_probe),
+            **(_limit_price_debug_payload(prepared, *_compute_limit_price(prepared)) if _effective_order_type(prepared) == "LMT" else {}),
+        },
         "response": response_payload,
     }
 
@@ -820,11 +875,13 @@ def _manual_review_entry(prepared: PreparedOrder, issue: OrderIssue, source_path
         "ib_outside_rth": int(IB_OUTSIDE_RTH),
         "ib_allow_fractional": int(IB_ALLOW_FRACTIONAL),
         "fractional_probe": int(prepared.is_fractional_probe),
+        "min_tick": float(prepared.min_tick),
+        **(_limit_price_debug_payload(prepared, *_compute_limit_price(prepared)) if _effective_order_type(prepared) == "LMT" else {}),
     }
 
 
 def _append_manual_review_csv(path: Path, entries: List[dict]) -> None:
-    cols = ["date", "config", "symbol", "broker_symbol", "side", "qty", "price_hint", "order_notional", "target_weight", "current_shares", "target_shares", "delta_shares", "idempotency_key", "client_order_id", "issue_kind", "issue_status", "issue_message", "broker_error_code", "broker_error_string", "advanced_order_reject_json", "source_order_path", "ib_exchange", "ib_primary_exchange", "ib_order_type", "ib_time_in_force", "ib_outside_rth", "ib_allow_fractional", "fractional_probe"]
+    cols = ["date", "config", "symbol", "broker_symbol", "side", "qty", "price_hint", "order_notional", "target_weight", "current_shares", "target_shares", "delta_shares", "idempotency_key", "client_order_id", "issue_kind", "issue_status", "issue_message", "broker_error_code", "broker_error_string", "advanced_order_reject_json", "source_order_path", "ib_exchange", "ib_primary_exchange", "ib_order_type", "ib_time_in_force", "ib_outside_rth", "ib_allow_fractional", "fractional_probe", "min_tick", "raw_limit_price", "rounded_limit_price"]
     new_df = pd.DataFrame(entries)
     if new_df.empty:
         if not path.exists():
@@ -876,7 +933,17 @@ def _entry_from_ib(prepared: PreparedOrder, ib_entry: dict, source_path: Path) -
         "submitted_at": str(ib_entry.get("submitted_at_utc", _utc_now_iso())),
         "filled_at": _utc_now_iso() if status in {"filled", "partiallyfilled"} else "",
         "mode": "ibkr_gateway",
-        "request": {"account": IB_ACCOUNT_CODE, "host": IB_HOST, "port": IB_PORT, "client_id": IB_CLIENT_ID, "order_type": _effective_order_type(prepared), "tif": IB_TIME_IN_FORCE, "outside_rth": int(IB_OUTSIDE_RTH), "fractional_probe": int(prepared.is_fractional_probe)},
+        "request": {
+            "account": IB_ACCOUNT_CODE,
+            "host": IB_HOST,
+            "port": IB_PORT,
+            "client_id": IB_CLIENT_ID,
+            "order_type": _effective_order_type(prepared),
+            "tif": IB_TIME_IN_FORCE,
+            "outside_rth": int(IB_OUTSIDE_RTH),
+            "fractional_probe": int(prepared.is_fractional_probe),
+            **(_limit_price_debug_payload(prepared, *_compute_limit_price(prepared)) if _effective_order_type(prepared) == "LMT" else {}),
+        },
         "response": {"ib_order_id": ib_entry.get("ib_order_id", ""), "perm_id": ib_entry.get("perm_id", 0), "status": ib_entry.get("status", ""), "avg_fill_price": ib_entry.get("avg_fill_price", 0.0), "last_fill_price": ib_entry.get("last_fill_price", 0.0), "fills": ib_entry.get("fills", [])},
     }
 
@@ -1056,6 +1123,7 @@ def _run_one_config(app: IBKRApp, paths: ConfigPaths, symbol_map: Dict[str, str]
             contract_meta = _query_contract_details(app, prepared, req_cursor)
             if not contract_meta:
                 raise RuntimeError(f"No contract details returned for symbol={prepared.broker_symbol}")
+            prepared = PreparedOrder(**{**prepared.__dict__, "min_tick": _normalize_min_tick(_to_float(contract_meta.get("minTick", 0.0)))})
             contract = _build_contract(prepared)
             if contract_meta.get("primaryExchange") and not IB_PRIMARY_EXCHANGE:
                 contract.primaryExchange = str(contract_meta.get("primaryExchange", ""))
@@ -1099,10 +1167,23 @@ def _run_one_config(app: IBKRApp, paths: ConfigPaths, symbol_map: Dict[str, str]
             _upsert_broker_log_entry(broker_log, entry)
             fill_entries.append(entry)
             sent_count += 1
-            print(f"[BROKER][{paths.name}][SEND] symbol={prepared.symbol} broker_symbol={prepared.broker_symbol} side={prepared.order_side} qty={prepared.qty:.8f} status={entry['status']} ib_order_id={entry['broker_order_id']} order_type={_effective_order_type(prepared)} outside_rth={int(IB_OUTSIDE_RTH)} fractional_probe={int(prepared.is_fractional_probe)}")
+            if _effective_order_type(prepared) == "LMT":
+                raw_limit_price, rounded_limit_price = _compute_limit_price(prepared)
+                print(
+                    f"[BROKER][{paths.name}][SEND] symbol={prepared.symbol} broker_symbol={prepared.broker_symbol} "
+                    f"side={prepared.order_side} qty={prepared.qty:.8f} status={entry['status']} ib_order_id={entry['broker_order_id']} "
+                    f"order_type={_effective_order_type(prepared)} outside_rth={int(IB_OUTSIDE_RTH)} fractional_probe={int(prepared.is_fractional_probe)} "
+                    f"price_hint={prepared.price:.4f} raw_limit_price={raw_limit_price:.4f} rounded_limit_price={rounded_limit_price:.4f} min_tick={prepared.min_tick:.6f}"
+                )
+            else:
+                print(
+                    f"[BROKER][{paths.name}][SEND] symbol={prepared.symbol} broker_symbol={prepared.broker_symbol} "
+                    f"side={prepared.order_side} qty={prepared.qty:.8f} status={entry['status']} ib_order_id={entry['broker_order_id']} "
+                    f"order_type={_effective_order_type(prepared)} outside_rth={int(IB_OUTSIDE_RTH)} fractional_probe={int(prepared.is_fractional_probe)}"
+                )
         except Exception as exc:
             err_count += 1
-            error_entry = {"idempotency_key": prepared.idempotency_key, "client_order_id": prepared.client_tag, "broker_order_id": "", "perm_id": 0, "config": prepared.config, "source_order_path": str(paths.orders_csv), "date": prepared.order_date, "symbol": prepared.symbol, "broker_symbol": prepared.broker_symbol, "side": prepared.order_side, "qty": float(prepared.qty), "filled_qty": 0.0, "remaining_qty": float(prepared.qty), "price_hint": float(prepared.price), "filled_avg_price": 0.0, "order_notional": float(prepared.order_notional), "fill_notional": 0.0, "status": f"error:{type(exc).__name__}", "submitted_at": _utc_now_iso(), "filled_at": "", "mode": "ibkr_gateway", "request": {"account": IB_ACCOUNT_CODE, "host": IB_HOST, "port": IB_PORT, "client_id": IB_CLIENT_ID, "order_type": _effective_order_type(prepared), "outside_rth": int(IB_OUTSIDE_RTH), "fractional_probe": int(prepared.is_fractional_probe)}, "response": {"error": str(exc)}}
+            error_entry = {"idempotency_key": prepared.idempotency_key, "client_order_id": prepared.client_tag, "broker_order_id": "", "perm_id": 0, "config": prepared.config, "source_order_path": str(paths.orders_csv), "date": prepared.order_date, "symbol": prepared.symbol, "broker_symbol": prepared.broker_symbol, "side": prepared.order_side, "qty": float(prepared.qty), "filled_qty": 0.0, "remaining_qty": float(prepared.qty), "price_hint": float(prepared.price), "filled_avg_price": 0.0, "order_notional": float(prepared.order_notional), "fill_notional": 0.0, "status": f"error:{type(exc).__name__}", "submitted_at": _utc_now_iso(), "filled_at": "", "mode": "ibkr_gateway", "request": {"account": IB_ACCOUNT_CODE, "host": IB_HOST, "port": IB_PORT, "client_id": IB_CLIENT_ID, "order_type": _effective_order_type(prepared), "outside_rth": int(IB_OUTSIDE_RTH), "fractional_probe": int(prepared.is_fractional_probe), **(_limit_price_debug_payload(prepared, *_compute_limit_price(prepared)) if _effective_order_type(prepared) == "LMT" else {})}, "response": {"error": str(exc)}}
             _upsert_broker_log_entry(broker_log, error_entry)
             fill_entries.append(error_entry)
             print(f"[BROKER][{paths.name}][ERROR] symbol={prepared.symbol} side={prepared.order_side} qty={prepared.qty:.8f} error={exc}")
@@ -1127,7 +1208,7 @@ def main() -> int:
     print(f"[CFG] ib_allow_fractional={int(IB_ALLOW_FRACTIONAL)}")
     print(f"[CFG] ib_fractional_reject_codes={IB_FRACTIONAL_REJECT_CODES} ib_fractional_failure_mode={IB_FRACTIONAL_FAILURE_MODE}")
     print(f"[CFG] ib_refresh_positions_on_connect={int(IB_REFRESH_POSITIONS_ON_CONNECT)} ib_require_positions_on_connect={int(IB_REQUIRE_POSITIONS_ON_CONNECT)} ib_positions_timeout_sec={IB_POSITIONS_TIMEOUT_SEC}")
-    print(f"[CFG] ib_extended_hours_force_lmt={int(IB_EXTENDED_HOURS_FORCE_LMT)} ib_lmt_price_bps={IB_LMT_PRICE_BPS} ib_lmt_price_min_abs={IB_LMT_PRICE_MIN_ABS}")
+    print(f"[CFG] ib_extended_hours_force_lmt={int(IB_EXTENDED_HOURS_FORCE_LMT)} ib_lmt_price_bps={IB_LMT_PRICE_BPS} ib_lmt_price_buy_bps={IB_LMT_PRICE_BUY_BPS} ib_lmt_price_sell_bps={IB_LMT_PRICE_SELL_BPS} ib_lmt_price_min_abs={IB_LMT_PRICE_MIN_ABS}")
     print(f"[CFG] fractional_probe_qty={IB_FORCE_TEST_FRACTIONAL_QTY} fractional_probe_symbol={IB_FORCE_TEST_FRACTIONAL_SYMBOL} fractional_probe_side={IB_FORCE_TEST_FRACTIONAL_SIDE} fractional_probe_config={IB_FORCE_TEST_FRACTIONAL_CONFIG}")
     if IB_ALLOW_FRACTIONAL and IB_EXCHANGE != "SMART":
         print(f"[CFG][WARN] IB_ALLOW_FRACTIONAL=1 but IB_EXCHANGE={IB_EXCHANGE}; IBKR fractional routing often requires SMART routing.")

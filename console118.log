@@ -1,0 +1,119 @@
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> Set-StrictMode -Version Latest
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $ErrorActionPreference = "Stop"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> Set-Location "C:\Users\Dmytro Govor\Documents\Python-Edge"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:PYTHONPATH = ".\src"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:PAUSE_ON_EXIT = "1"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> # TWS / IBKR
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:IB_HOST = "127.0.0.1"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:IB_PORT = "4002"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:IB_CLIENT_ID = "42"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> # Extended hours
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:IB_EXCHANGE = "SMART"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:IB_ORDER_TYPE = "LMT"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:IB_TIME_IN_FORCE = "DAY"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:IB_OUTSIDE_RTH = "1"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:IB_EXTENDED_HOURS_FORCE_LMT = "1"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> # LMT pricing
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:IB_LMT_PRICE_BPS = "10"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:IB_LMT_PRICE_BUY_BPS = "10"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:IB_LMT_PRICE_SELL_BPS = "10"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:IB_LMT_PRICE_MIN_ABS = "0.01"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> # positions bootstrap
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:IB_REFRESH_POSITIONS_ON_CONNECT = "0"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:IB_REQUIRE_POSITIONS_ON_CONNECT = "0"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:IB_POSITIONS_TIMEOUT_SEC = "8"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:IB_OPEN_ORDERS_TIMEOUT_SEC = "20"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> # fractional поки не чіпаємо
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:IB_ALLOW_FRACTIONAL = "0"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:IB_FORCE_TEST_FRACTIONAL_QTY = ""
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:IB_FORCE_TEST_FRACTIONAL_SYMBOL = ""
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $env:IB_FORCE_TEST_FRACTIONAL_ALLOW_DUPLICATE = "0"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python -c "import ast; ast.parse(open(r'.\scripts\run_broker_adapter_ibkr.py','rb').read())"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> if ($LASTEXITCODE -ne 0) {
+>>     throw "AST parse failed"
+>> }
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_broker_adapter_ibkr.py
+[CFG] execution_root=artifacts\execution_loop
+[CFG] broker_name=MEXEM broker_platform=IBKR
+[CFG] configs=['optimal', 'aggressive']
+[CFG] ib_host=127.0.0.1 ib_port=4002 ib_client_id=42
+[CFG] ib_account_code=
+[CFG] ib_order_type=LMT ib_time_in_force=DAY ib_outside_rth=1
+[CFG] ib_exchange=SMART ib_primary_exchange= ib_currency=USD ib_security_type=STK
+[CFG] ib_allow_fractional=0
+[CFG] ib_fractional_reject_codes=[10243, 10247, 10248, 10249, 10250] ib_fractional_failure_mode=review
+[CFG] ib_refresh_positions_on_connect=0 ib_require_positions_on_connect=0 ib_positions_timeout_sec=8.0
+[CFG] ib_extended_hours_force_lmt=1 ib_lmt_price_bps=10.0 ib_lmt_price_buy_bps=10.0 ib_lmt_price_sell_bps=10.0 ib_lmt_price_min_abs=0.01
+[CFG] fractional_probe_qty= fractional_probe_symbol= fractional_probe_side=BUY fractional_probe_config=aggressive
+[CFG] extended-hours path will use limit orders
+[CFG] symbol_map_entries=0
+[IB] connecting host=127.0.0.1 port=4002 client_id=42
+[IB] connectAck received
+[IB] managedAccounts=DUP561175
+[IB] nextValidId=1
+[IB] connected next_valid_id=1 managed_accounts=DUP561175
+[IB][ERROR] reqId=-1 code=2104 msg=Market data farm connection is OK:usfarm
+[IB][ERROR] reqId=-1 code=2106 msg=HMDS data farm connection is OK:ushmds
+[IB][ERROR] reqId=-1 code=2158 msg=Sec-def data farm connection is OK:secdefil
+[IB] openOrderEnd
+[IB] initial positions refresh skipped by config
+[BROKER][optimal] orders=artifacts\execution_loop\optimal\orders.csv
+[BROKER][optimal] total_rows=4 live_orders=4 prepared_orders=4
+[BROKER][optimal][PREVIEW]
+symbol broker_symbol side  qty  order_notional                  client_tag  fractional_probe  fractional_qty
+  AAPL          AAPL  BUY  1.0           219.5 pe-f8517c89ebfe574b2eb7427b                 0               0
+  MSFT          MSFT  BUY  1.0           428.1 pe-d76595b188fb79242d649e8c                 0               0
+  NVDA          NVDA SELL  1.0           118.4 pe-0b229f2ecccf0a990f12771e                 0               0
+  AMZN          AMZN SELL  1.0           201.7 pe-f6f1585ea949ed84617cb29a                 0               0
+[IB][ERROR] reqId=1 code=399 msg=Order Message: BUY 1 AAPL NASDAQ.NMS Your order will not be placed at the exchange until 2026-03-30 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute "Fill/Trigger Outside RTH."
+[IB] openOrderEnd
+[BROKER][optimal][SEND] symbol=AAPL broker_symbol=AAPL side=BUY qty=1.00000000 status=submitted ib_order_id=1 order_type=LMT outside_rth=1 fractional_probe=0 price_hint=219.5000 raw_limit_price=219.7195 rounded_limit_price=219.7200 min_tick=0.010000
+[IB][ERROR] reqId=2 code=399 msg=Order Message: BUY 1 MSFT NASDAQ.NMS Your order will not be placed at the exchange until 2026-03-30 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute "Fill/Trigger Outside RTH."
+[IB][ERROR] reqId=2 code=2161 msg=BUY 1 MSFT NASDAQ.NMS @ 428.53  In accordance with our regulatory obligations as a broker, we will initially cap (or limit) the price of your Limit Order to 377.10 or a more aggressive price still within your specified limit price.  If your order is not immediately executable, our systems may, depending on market conditions, cap your order to a limit price that is no more than the allowed amount away from the reference price at that time. If this happens, you will not receive a fill. This is a control designed to ensure that we comply with our regulatory obligations to avoid submitting disruptive orders to the marketplace. Please note that in some circumstances this may result in you receiving a less favorable fill or not receiving a fill.  In the future, please submit your order using a limit price that is closer to the current market price or submit an algorithmic Market Order (IBALGO).  If you would like to cancel your order, please use cancel order action.
+[IB] openOrderEnd
+[BROKER][optimal][SEND] symbol=MSFT broker_symbol=MSFT side=BUY qty=1.00000000 status=submitted ib_order_id=2 order_type=LMT outside_rth=1 fractional_probe=0 price_hint=428.1000 raw_limit_price=428.5281 rounded_limit_price=428.5300 min_tick=0.010000
+[IB][ERROR] reqId=3 code=399 msg=Order Message: SELL 1 NVDA NASDAQ.NMS Your order will not be placed at the exchange until 2026-03-30 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute "Fill/Trigger Outside RTH."
+[IB][ERROR] reqId=3 code=2161 msg=SELL 1 NVDA NASDAQ.NMS @ 118.28  In accordance with our regulatory obligations as a broker, we will initially cap (or limit) the price of your Limit Order to 156.79 or a more aggressive price still within your specified limit price.  If your order is not immediately executable, our systems may, depending on market conditions, cap your order to a limit price that is no more than the allowed amount away from the reference price at that time. If this happens, you will not receive a fill. This is a control designed to ensure that we comply with our regulatory obligations to avoid submitting disruptive orders to the marketplace. Please note that in some circumstances this may result in you receiving a less favorable fill or not receiving a fill.  In the future, please submit your order using a limit price that is closer to the current market price or submit an algorithmic Market Order (IBALGO).  If you would like to cancel your order, please use cancel order action.
+[IB] openOrderEnd
+[BROKER][optimal][SEND] symbol=NVDA broker_symbol=NVDA side=SELL qty=1.00000000 status=submitted ib_order_id=3 order_type=LMT outside_rth=1 fractional_probe=0 price_hint=118.4000 raw_limit_price=118.2816 rounded_limit_price=118.2800 min_tick=0.010000
+[IB][ERROR] reqId=4 code=399 msg=Order Message: SELL 1 AMZN NASDAQ.NMS Your order will not be placed at the exchange until 2026-03-30 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute "Fill/Trigger Outside RTH."
+[IB] openOrderEnd
+[BROKER][optimal][SEND] symbol=AMZN broker_symbol=AMZN side=SELL qty=1.00000000 status=submitted ib_order_id=4 order_type=LMT outside_rth=1 fractional_probe=0 price_hint=201.7000 raw_limit_price=201.4983 rounded_limit_price=201.4900 min_tick=0.010000
+[BROKER][optimal][SUMMARY] sent=4 duplicate_skipped=0 errors=0 fractional_rejected=0 fills_csv=artifacts\execution_loop\optimal\fills.csv broker_log_json=artifacts\execution_loop\optimal\broker_log.json manual_review_csv=artifacts\execution_loop\optimal\broker_fractional_manual_review.csv
+[BROKER][aggressive] orders=artifacts\execution_loop\aggressive\orders.csv
+[BROKER][aggressive] total_rows=6 live_orders=6 prepared_orders=6
+[BROKER][aggressive][PREVIEW]
+symbol broker_symbol side  qty  order_notional                  client_tag  fractional_probe  fractional_qty
+  HOOD          HOOD SELL 37.0         3700.00 pe-f6fe8284951d8f4b2780141f                 0               0
+  CRCL          CRCL SELL 16.0         1661.76 pe-0a0774038f4a27349478f3ef                 0               0
+   NEM           NEM SELL 16.0         1624.32 pe-7663d388df6740364bd75150                 0               0
+  INTC          INTC SELL 25.0         1179.50 pe-2a0e6e622510b8e9cde02cc1                 0               0
+  RKLB          RKLB SELL  6.0          437.28 pe-4db0336251102d6f29705380                 0               0
+  SHOP          SHOP SELL  3.0          300.00 pe-ffb822532496ef239190a2b8                 0               0
+[BROKER][aggressive][SKIP] symbol=HOOD side=SELL qty=37.00000000 duplicate_status=submitted
+[IB][ERROR] reqId=5 code=399 msg=Order Message: SELL 16 CRCL NYSE Your order will not be placed at the exchange until 2026-03-30 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute "Fill/Trigger Outside RTH."
+[IB] openOrderEnd
+[BROKER][aggressive][SEND] symbol=CRCL broker_symbol=CRCL side=SELL qty=16.00000000 status=submitted ib_order_id=5 order_type=LMT outside_rth=1 fractional_probe=0 price_hint=103.8600 raw_limit_price=103.7561 rounded_limit_price=103.7500 min_tick=0.010000
+[IB][ERROR] reqId=6 code=399 msg=Order Message: SELL 16 NEM NYSE Your order will not be placed at the exchange until 2026-03-30 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute "Fill/Trigger Outside RTH."
+[IB] openOrderEnd
+[BROKER][aggressive][SEND] symbol=NEM broker_symbol=NEM side=SELL qty=16.00000000 status=submitted ib_order_id=6 order_type=LMT outside_rth=1 fractional_probe=0 price_hint=101.5200 raw_limit_price=101.4185 rounded_limit_price=101.4100 min_tick=0.010000
+[IB][ERROR] reqId=7 code=399 msg=Order Message: SELL 25 INTC NASDAQ.NMS Your order will not be placed at the exchange until 2026-03-30 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute "Fill/Trigger Outside RTH."
+[IB] openOrderEnd
+[BROKER][aggressive][SEND] symbol=INTC broker_symbol=INTC side=SELL qty=25.00000000 status=submitted ib_order_id=7 order_type=LMT outside_rth=1 fractional_probe=0 price_hint=47.1800 raw_limit_price=47.1328 rounded_limit_price=47.1300 min_tick=0.010000
+[IB][ERROR] reqId=8 code=399 msg=Order Message: SELL 6 RKLB NASDAQ.SCM Your order will not be placed at the exchange until 2026-03-30 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute "Fill/Trigger Outside RTH."
+[IB] openOrderEnd
+[BROKER][aggressive][SEND] symbol=RKLB broker_symbol=RKLB side=SELL qty=6.00000000 status=submitted ib_order_id=8 order_type=LMT outside_rth=1 fractional_probe=0 price_hint=72.8800 raw_limit_price=72.8071 rounded_limit_price=72.8000 min_tick=0.010000
+[BROKER][aggressive][SKIP] symbol=SHOP side=SELL qty=3.00000000 duplicate_status=submitted
+[BROKER][aggressive][SUMMARY] sent=4 duplicate_skipped=2 errors=0 fractional_rejected=0 fills_csv=artifacts\execution_loop\aggressive\fills.csv broker_log_json=artifacts\execution_loop\aggressive\broker_log.json manual_review_csv=artifacts\execution_loop\aggressive\broker_fractional_manual_review.csv
+[FINAL] IBKR broker adapter complete
+
+[EXIT] code=0
