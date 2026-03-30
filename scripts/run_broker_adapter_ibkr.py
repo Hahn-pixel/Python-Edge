@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import sys
 import time
 import traceback
@@ -74,11 +75,13 @@ IB_RETRY_202_MAX_RETRIES = int(os.getenv("IB_RETRY_202_MAX_RETRIES", "2"))
 IB_RETRY_202_SLEEP_SEC = float(os.getenv("IB_RETRY_202_SLEEP_SEC", "0.75"))
 IB_RETRY_202_BUY_BPS_STEPS = [float(x.strip()) for x in str(os.getenv("IB_RETRY_202_BUY_BPS_STEPS", "7|5|3")).split("|") if x.strip()]
 IB_RETRY_202_SELL_BPS_STEPS = [float(x.strip()) for x in str(os.getenv("IB_RETRY_202_SELL_BPS_STEPS", "7|5|3")).split("|") if x.strip()]
+IB_RETRY_202_CLIP_TICKS = int(os.getenv("IB_RETRY_202_CLIP_TICKS", "2"))
 
 REQUIRED_ORDER_COLUMNS = ["symbol", "order_side", "delta_shares"]
 ACCEPTED_STATUSES = {"filled", "submitted", "presubmitted", "partiallyfilled"}
 
 
+# ---------- small helpers ----------
 def enable_line_buffering() -> None:
     for stream_name in ["stdout", "stderr"]:
         stream = getattr(sys, stream_name, None)
@@ -232,23 +235,25 @@ def prepare_orders(config_name: str, df: pd.DataFrame, symbol_map: Dict[str, str
         row_for_key = dict(row_dict)
         row_for_key["delta_shares"] = qty if order_side == "BUY" else -qty
         idempotency_key = make_idempotency_key(config_name, row_for_key, broker_symbol)
-        prepared.append(PreparedOrder(
-            config=config_name,
-            order_date=str(row_dict.get("date", "")).strip(),
-            symbol=symbol,
-            broker_symbol=broker_symbol,
-            order_side=order_side,
-            qty=qty,
-            price=to_float(row_dict.get("price", 0.0)),
-            order_notional=abs(to_float(row_dict.get("order_notional", 0.0))),
-            target_weight=to_float(row_dict.get("target_weight", 0.0)),
-            current_shares=to_float(row_dict.get("current_shares", 0.0)),
-            target_shares=to_float(row_dict.get("target_shares", 0.0)),
-            delta_shares=to_float(row_dict.get("delta_shares", 0.0)),
-            source_row=row_dict,
-            idempotency_key=idempotency_key,
-            client_tag=make_client_tag(idempotency_key),
-        ))
+        prepared.append(
+            PreparedOrder(
+                config=config_name,
+                order_date=str(row_dict.get("date", "")).strip(),
+                symbol=symbol,
+                broker_symbol=broker_symbol,
+                order_side=order_side,
+                qty=qty,
+                price=to_float(row_dict.get("price", 0.0)),
+                order_notional=abs(to_float(row_dict.get("order_notional", 0.0))),
+                target_weight=to_float(row_dict.get("target_weight", 0.0)),
+                current_shares=to_float(row_dict.get("current_shares", 0.0)),
+                target_shares=to_float(row_dict.get("target_shares", 0.0)),
+                delta_shares=to_float(row_dict.get("delta_shares", 0.0)),
+                source_row=row_dict,
+                idempotency_key=idempotency_key,
+                client_tag=make_client_tag(idempotency_key),
+            )
+        )
     return prepared
 
 
@@ -302,13 +307,15 @@ def collect_app_errors(app: IBKRApp, start_idx: int, req_ids: Sequence[int]) -> 
             req_id = 0
         if req_id_set and req_id not in req_id_set:
             continue
-        out.append(BrokerErrorInfo(
-            req_id=req_id,
-            error_code=int(payload.get("errorCode", 0) or 0),
-            error_string=str(payload.get("errorString", "") or ""),
-            advanced_order_reject_json=str(payload.get("advancedOrderRejectJson", "") or ""),
-            ts_utc=str(payload.get("ts_utc", "") or utc_now_iso()),
-        ))
+        out.append(
+            BrokerErrorInfo(
+                req_id=req_id,
+                error_code=int(payload.get("errorCode", 0) or 0),
+                error_string=str(payload.get("errorString", "") or ""),
+                advanced_order_reject_json=str(payload.get("advancedOrderRejectJson", "") or ""),
+                ts_utc=str(payload.get("ts_utc", "") or utc_now_iso()),
+            )
+        )
     return out
 
 
@@ -336,6 +343,47 @@ def find_error_code(broker_errors: Sequence[BrokerErrorInfo], code: int) -> Brok
     return None
 
 
+# ---------- 202 parsing / clipping ----------
+RE_202_AGGR = re.compile(r"at or more aggressive than\s+([0-9]+(?:\.[0-9]+)?)", re.IGNORECASE)
+RE_202_MARKET = re.compile(r"current market price of\s+([0-9]+(?:\.[0-9]+)?)", re.IGNORECASE)
+
+
+def parse_202_limits(error_string: str) -> Tuple[float | None, float | None]:
+    s = str(error_string or "")
+    m1 = RE_202_AGGR.search(s)
+    m2 = RE_202_MARKET.search(s)
+    aggressive_cutoff = float(m1.group(1)) if m1 else None
+    market_price = float(m2.group(1)) if m2 else None
+    return aggressive_cutoff, market_price
+
+
+def clip_limit_from_202(prepared: PreparedOrder, current_raw: float | None, current_rounded: float | None, err202: BrokerErrorInfo | None) -> Tuple[float | None, float | None]:
+    if current_raw is None or current_rounded is None or err202 is None or effective_order_type() != "LMT":
+        return None, None
+    cutoff, market_px = parse_202_limits(err202.error_string)
+    if cutoff is None:
+        return None, None
+    tick = max(float(prepared.min_tick), float(IB_LMT_PRICE_MIN_ABS))
+    pad = max(1, int(IB_RETRY_202_CLIP_TICKS)) * tick
+    side = prepared.order_side.upper()
+    if side == "BUY":
+        clipped = max(float(IB_LMT_PRICE_MIN_ABS), cutoff - pad)
+        if market_px is not None:
+            clipped = min(clipped, market_px + pad)
+        clipped = min(clipped, current_rounded)
+    elif side == "SELL":
+        clipped = cutoff + pad
+        if market_px is not None:
+            clipped = max(clipped, market_px - pad)
+        clipped = max(clipped, current_rounded)
+    else:
+        return None, None
+    # ensure valid tick
+    prepared_clip = PreparedOrder(**{**prepared.__dict__, "price": float(clipped)})
+    raw2, rounded2 = compute_limit_price(prepared_clip, 0.0, 0.0, IB_LMT_PRICE_MIN_ABS)
+    return raw2, rounded2
+
+
 def retry_buy_sell_bps(attempt_idx: int) -> Tuple[float, float]:
     if attempt_idx <= 0:
         return float(IB_LMT_PRICE_BUY_BPS), float(IB_LMT_PRICE_SELL_BPS)
@@ -346,6 +394,28 @@ def retry_buy_sell_bps(attempt_idx: int) -> Tuple[float, float]:
     return buy_bps, sell_bps
 
 
+def build_retry_order_from_202(prepared: PreparedOrder, current_raw: float | None, current_rounded: float | None, err202: BrokerErrorInfo | None, buy_bps: float, sell_bps: float) -> Tuple[Order, float | None, float | None, float, float, str]:
+    clipped_raw, clipped_rounded = clip_limit_from_202(prepared, current_raw, current_rounded, err202)
+    if clipped_raw is not None and clipped_rounded is not None:
+        order = Order()
+        order.action = prepared.order_side
+        order.orderType = "LMT"
+        order.totalQuantity = float(prepared.qty)
+        order.tif = IB_TIME_IN_FORCE
+        order.outsideRth = bool(IB_OUTSIDE_RTH)
+        if IB_ACCOUNT_CODE:
+            order.account = IB_ACCOUNT_CODE
+        order.orderRef = prepared.client_tag
+        order.transmit = True
+        order.eTradeOnly = False
+        order.firmQuoteOnly = False
+        order.lmtPrice = float(clipped_rounded)
+        return order, clipped_raw, clipped_rounded, 0.0, 0.0, "parsed_202_clip"
+    next_buy_bps, next_sell_bps = buy_bps, sell_bps
+    return (*build_order(prepared, next_buy_bps, next_sell_bps), next_buy_bps, next_sell_bps, "bps_fallback")
+
+
+# ---------- API plumbing ----------
 def refresh_open_orders(app: IBKRApp) -> None:
     app.done_open_orders = False
     app.reqOpenOrders()
@@ -408,7 +478,7 @@ def teardown_connection(app: IBKRApp) -> None:
     time.sleep(0.25)
 
 
-def entry_from_ib(prepared: PreparedOrder, ib_entry: dict, source_path: Path, buy_bps: float, sell_bps: float, raw_limit_price: float | None, rounded_limit_price: float | None, retry_count: int) -> dict:
+def entry_from_ib(prepared: PreparedOrder, ib_entry: dict, source_path: Path, buy_bps: float, sell_bps: float, raw_limit_price: float | None, rounded_limit_price: float | None, retry_count: int, retry_mode: str) -> dict:
     status = str(ib_entry.get("status", "")).strip().lower() or "unknown"
     avg_fill_price = to_float(ib_entry.get("avg_fill_price", prepared.price)) or float(prepared.price)
     filled_qty = to_float(ib_entry.get("filled_qty", 0.0))
@@ -422,6 +492,7 @@ def entry_from_ib(prepared: PreparedOrder, ib_entry: dict, source_path: Path, bu
         "tif": IB_TIME_IN_FORCE,
         "outside_rth": int(IB_OUTSIDE_RTH),
         "retry_count_202": int(retry_count),
+        "retry_mode_202": str(retry_mode),
         "buy_bps_used": float(buy_bps),
         "sell_bps_used": float(sell_bps),
     }
@@ -461,7 +532,7 @@ def entry_from_ib(prepared: PreparedOrder, ib_entry: dict, source_path: Path, bu
     }
 
 
-def build_error_entry(prepared: PreparedOrder, paths: ConfigPaths, issue: OrderIssue, buy_bps: float, sell_bps: float, raw_limit_price: float | None, rounded_limit_price: float | None, retry_count: int) -> dict:
+def build_error_entry(prepared: PreparedOrder, paths: ConfigPaths, issue: OrderIssue, buy_bps: float, sell_bps: float, raw_limit_price: float | None, rounded_limit_price: float | None, retry_count: int, retry_mode: str) -> dict:
     request = {
         "account": IB_ACCOUNT_CODE,
         "host": IB_HOST,
@@ -470,6 +541,7 @@ def build_error_entry(prepared: PreparedOrder, paths: ConfigPaths, issue: OrderI
         "order_type": effective_order_type(),
         "outside_rth": int(IB_OUTSIDE_RTH),
         "retry_count_202": int(retry_count),
+        "retry_mode_202": str(retry_mode),
         "buy_bps_used": float(buy_bps),
         "sell_bps_used": float(sell_bps),
     }
@@ -540,11 +612,13 @@ def run_one_config(app: IBKRApp, paths: ConfigPaths, symbol_map: Dict[str, str],
             final_raw_limit_price: float | None = None
             final_rounded_limit_price: float | None = None
             final_retry_count = 0
+            final_retry_mode = "none"
 
             max_attempts = 1 + max(0, IB_RETRY_202_MAX_RETRIES if IB_RETRY_202_ENABLED else 0)
             for attempt_idx in range(max_attempts):
                 buy_bps, sell_bps = retry_buy_sell_bps(attempt_idx)
                 order, raw_limit_price, rounded_limit_price = build_order(prepared, buy_bps=buy_bps, sell_bps=sell_bps)
+                retry_mode = "base_bps" if attempt_idx == 0 else "bps_fallback"
                 error_cursor_before_submit = len(app._errors)
                 ib_order_id = app.allocate_order_id()
                 app.placeOrder(ib_order_id, contract, order)
@@ -565,23 +639,33 @@ def run_one_config(app: IBKRApp, paths: ConfigPaths, symbol_map: Dict[str, str],
                 retryable_202 = find_error_code(broker_errors, 202)
 
                 if issue is None or status_lower in ACCEPTED_STATUSES:
-                    final_entry = entry_from_ib(prepared, ib_entry, paths.orders_csv, buy_bps, sell_bps, raw_limit_price, rounded_limit_price, attempt_idx)
+                    final_entry = entry_from_ib(prepared, ib_entry, paths.orders_csv, buy_bps, sell_bps, raw_limit_price, rounded_limit_price, attempt_idx, retry_mode)
                     final_buy_bps = buy_bps
                     final_sell_bps = sell_bps
                     final_raw_limit_price = raw_limit_price
                     final_rounded_limit_price = rounded_limit_price
                     final_retry_count = attempt_idx
+                    final_retry_mode = retry_mode
                     final_issue = None
                     break
 
                 if retryable_202 is not None and attempt_idx + 1 < max_attempts:
                     retry_202_count += 1
-                    print(
-                        f"[BROKER][{paths.name}][RETRY_202_CLOSER] symbol={prepared.symbol} side={prepared.order_side} qty={prepared.qty:.8f} "
-                        f"attempt={attempt_idx + 1}/{max_attempts - 1} code=202 msg={retryable_202.error_string} "
-                        f"next_buy_bps={retry_buy_sell_bps(attempt_idx + 1)[0]:.2f} next_sell_bps={retry_buy_sell_bps(attempt_idx + 1)[1]:.2f} "
-                        f"raw_limit_price={(raw_limit_price if raw_limit_price is not None else 0.0):.4f} rounded_limit_price={(rounded_limit_price if rounded_limit_price is not None else 0.0):.4f} min_tick={prepared.min_tick:.6f}"
-                    )
+                    clip_raw, clip_rounded = clip_limit_from_202(prepared, raw_limit_price, rounded_limit_price, retryable_202)
+                    if clip_raw is not None and clip_rounded is not None:
+                        print(
+                            f"[BROKER][{paths.name}][RETRY_202_CLIP] symbol={prepared.symbol} side={prepared.order_side} qty={prepared.qty:.8f} "
+                            f"attempt={attempt_idx + 1}/{max_attempts - 1} code=202 raw_limit_price={(raw_limit_price if raw_limit_price is not None else 0.0):.4f} "
+                            f"rounded_limit_price={(rounded_limit_price if rounded_limit_price is not None else 0.0):.4f} next_raw_limit_price={clip_raw:.4f} next_rounded_limit_price={clip_rounded:.4f} min_tick={prepared.min_tick:.6f}"
+                        )
+                        # override prepared.price so next build_order with 0 bps centers on clipped level
+                        prepared = PreparedOrder(**{**prepared.__dict__, "price": float(clip_rounded)})
+                    else:
+                        print(
+                            f"[BROKER][{paths.name}][RETRY_202_CLOSER] symbol={prepared.symbol} side={prepared.order_side} qty={prepared.qty:.8f} "
+                            f"attempt={attempt_idx + 1}/{max_attempts - 1} code=202 next_buy_bps={retry_buy_sell_bps(attempt_idx + 1)[0]:.2f} next_sell_bps={retry_buy_sell_bps(attempt_idx + 1)[1]:.2f} "
+                            f"raw_limit_price={(raw_limit_price if raw_limit_price is not None else 0.0):.4f} rounded_limit_price={(rounded_limit_price if rounded_limit_price is not None else 0.0):.4f} min_tick={prepared.min_tick:.6f}"
+                        )
                     time.sleep(IB_RETRY_202_SLEEP_SEC)
                     continue
 
@@ -591,6 +675,7 @@ def run_one_config(app: IBKRApp, paths: ConfigPaths, symbol_map: Dict[str, str],
                 final_raw_limit_price = raw_limit_price
                 final_rounded_limit_price = rounded_limit_price
                 final_retry_count = attempt_idx
+                final_retry_mode = retry_mode
                 break
 
             if final_entry is not None:
@@ -601,15 +686,14 @@ def run_one_config(app: IBKRApp, paths: ConfigPaths, symbol_map: Dict[str, str],
                     print(
                         f"[BROKER][{paths.name}][SEND] symbol={prepared.symbol} broker_symbol={prepared.broker_symbol} side={prepared.order_side} qty={prepared.qty:.8f} "
                         f"status={final_entry['status']} ib_order_id={final_entry['broker_order_id']} order_type={effective_order_type()} outside_rth={int(IB_OUTSIDE_RTH)} "
-                        f"price_hint={prepared.price:.4f} raw_limit_price={(final_raw_limit_price if final_raw_limit_price is not None else 0.0):.4f} "
-                        f"rounded_limit_price={(final_rounded_limit_price if final_rounded_limit_price is not None else 0.0):.4f} min_tick={prepared.min_tick:.6f} retry_count_202={final_retry_count}"
+                        f"price_hint={prepared.price:.4f} raw_limit_price={(final_raw_limit_price if final_raw_limit_price is not None else 0.0):.4f} rounded_limit_price={(final_rounded_limit_price if final_rounded_limit_price is not None else 0.0):.4f} min_tick={prepared.min_tick:.6f} retry_count_202={final_retry_count} retry_mode_202={final_retry_mode}"
                     )
                 continue
 
             if final_issue is None:
                 final_issue = OrderIssue(kind="broker_api_error", status="error_api_unknown", broker_error=None, message="IBKR API returned no accepted status and no explicit error")
             err_count += 1
-            error_entry = build_error_entry(prepared, paths, final_issue, final_buy_bps, final_sell_bps, final_raw_limit_price, final_rounded_limit_price, final_retry_count)
+            error_entry = build_error_entry(prepared, paths, final_issue, final_buy_bps, final_sell_bps, final_raw_limit_price, final_rounded_limit_price, final_retry_count, final_retry_mode)
             upsert_broker_log_entry(broker_log, error_entry, utc_now_iso)
             fill_entries.append(error_entry)
         except Exception as exc:
@@ -618,9 +702,7 @@ def run_one_config(app: IBKRApp, paths: ConfigPaths, symbol_map: Dict[str, str],
 
     append_or_replace_fills(paths.fills_csv, fill_entries)
     save_broker_log(paths.broker_log_json, broker_log, utc_now_iso)
-    print(
-        f"[BROKER][{paths.name}][SUMMARY] sent={sent_count} duplicate_skipped={dup_count} errors={err_count} retry_202={retry_202_count} fills_csv={paths.fills_csv} broker_log_json={paths.broker_log_json}"
-    )
+    print(f"[BROKER][{paths.name}][SUMMARY] sent={sent_count} duplicate_skipped={dup_count} errors={err_count} retry_202={retry_202_count} fills_csv={paths.fills_csv} broker_log_json={paths.broker_log_json}")
     return req_cursor
 
 
@@ -631,7 +713,7 @@ def main() -> int:
     print(f"[CFG] ib_exchange={IB_EXCHANGE} ib_order_type={IB_ORDER_TYPE} ib_outside_rth={int(IB_OUTSIDE_RTH)}")
     print(
         f"[CFG] ib_lmt_price_buy_bps={IB_LMT_PRICE_BUY_BPS} ib_lmt_price_sell_bps={IB_LMT_PRICE_SELL_BPS} ib_lmt_price_min_abs={IB_LMT_PRICE_MIN_ABS} "
-        f"retry_202_enabled={int(IB_RETRY_202_ENABLED)} retry_202_max_retries={IB_RETRY_202_MAX_RETRIES} "
+        f"retry_202_enabled={int(IB_RETRY_202_ENABLED)} retry_202_max_retries={IB_RETRY_202_MAX_RETRIES} retry_202_clip_ticks={IB_RETRY_202_CLIP_TICKS} "
         f"retry_202_buy_steps={IB_RETRY_202_BUY_BPS_STEPS} retry_202_sell_steps={IB_RETRY_202_SELL_BPS_STEPS}"
     )
     app = bootstrap_connection()

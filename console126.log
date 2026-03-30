@@ -1,0 +1,49 @@
+[CFG] ib_host=127.0.0.1 ib_port=4002 ib_client_id=41
+[CFG] ib_exchange=SMART ib_order_type=LMT ib_outside_rth=1
+[CFG] ib_lmt_price_buy_bps=10.0 ib_lmt_price_sell_bps=10.0 ib_lmt_price_min_abs=0.01 retry_202_enabled=1 retry_202_max_retries=2 retry_202_clip_ticks=2 retry_202_buy_steps=[7.0, 5.0, 3.0] retry_202_sell_steps=[7.0, 5.0, 3.0]
+[IB] connecting host=127.0.0.1 port=4002 client_id=41
+[IB] openOrderEnd
+[IB] managedAccounts=DUP561175
+[IB] nextValidId=66
+[IB] connected next_valid_id=66 managed_accounts=DUP561175
+[IB][ERROR] reqId=-1 code=2104 msg=Market data farm connection is OK:usfarm
+[IB][ERROR] reqId=-1 code=2107 msg=HMDS data farm connection is inactive but should be available upon demand.ushmds
+[IB][ERROR] reqId=-1 code=2158 msg=Sec-def data farm connection is OK:secdefil
+[IB] openOrderEnd
+[IB] initial positions refresh skipped by config
+[BROKER][optimal] orders=artifacts\execution_loop\optimal\orders.csv
+[IB] openOrderEnd
+[BROKER][optimal][SEND] symbol=AAPL broker_symbol=AAPL side=BUY qty=1.00000000 status=submitted ib_order_id=66 order_type=LMT outside_rth=1 price_hint=219.5000 raw_limit_price=219.7195 rounded_limit_price=219.7200 min_tick=0.010000 retry_count_202=0 retry_mode_202=base_bps
+[IB][ERROR] reqId=67 code=202 msg=Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 369.729598. Please submit your order <br>using a limit price that is closer to the current market price of 359.17.
+[IB] openOrderEnd
+[BROKER][optimal][RETRY_202_CLIP] symbol=MSFT side=BUY qty=1.00000000 attempt=1/2 code=202 raw_limit_price=428.5281 rounded_limit_price=428.5300 next_raw_limit_price=359.2000 next_rounded_limit_price=359.2000 min_tick=0.010000
+[IB] openOrderEnd
+[BROKER][optimal][SEND] symbol=MSFT broker_symbol=MSFT side=BUY qty=1.00000000 status=filled ib_order_id=68 order_type=LMT outside_rth=1 price_hint=359.2000 raw_limit_price=359.4514 rounded_limit_price=359.4600 min_tick=0.010000 retry_count_202=1 retry_mode_202=bps_fallback
+[IB][ERROR] reqId=69 code=202 msg=Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 160.711948. Please submit your order <br>using a limit price that is closer to the current market price of 165.58.
+[IB] openOrderEnd
+[BROKER][optimal][RETRY_202_CLIP] symbol=NVDA side=SELL qty=1.00000000 attempt=1/2 code=202 raw_limit_price=118.2816 rounded_limit_price=118.2800 next_raw_limit_price=165.5500 next_rounded_limit_price=165.5500 min_tick=0.010000
+[IB] openOrderEnd
+[BROKER][optimal][SEND] symbol=NVDA broker_symbol=NVDA side=SELL qty=1.00000000 status=filled ib_order_id=70 order_type=LMT outside_rth=1 price_hint=165.5500 raw_limit_price=165.4341 rounded_limit_price=165.4300 min_tick=0.010000 retry_count_202=1 retry_mode_202=bps_fallback
+[IB] openOrderEnd
+[BROKER][optimal][SEND] symbol=AMZN broker_symbol=AMZN side=SELL qty=1.00000000 status=submitted ib_order_id=71 order_type=LMT outside_rth=1 price_hint=201.7000 raw_limit_price=201.4983 rounded_limit_price=201.4900 min_tick=0.010000 retry_count_202=0 retry_mode_202=base_bps
+[BROKER][optimal][SUMMARY] sent=4 duplicate_skipped=0 errors=0 retry_202=2 fills_csv=artifacts\execution_loop\optimal\fills.csv broker_log_json=artifacts\execution_loop\optimal\broker_log.json
+[BROKER][aggressive] orders=artifacts\execution_loop\aggressive\orders.csv
+[IB] openOrderEnd
+[BROKER][aggressive][SEND] symbol=HOOD broker_symbol=HOOD side=SELL qty=37.00000000 status=submitted ib_order_id=72 order_type=LMT outside_rth=1 price_hint=100.0000 raw_limit_price=99.9000 rounded_limit_price=99.9000 min_tick=0.010000 retry_count_202=0 retry_mode_202=base_bps
+[IB] openOrderEnd
+[BROKER][aggressive][SEND] symbol=CRCL broker_symbol=CRCL side=SELL qty=16.00000000 status=submitted ib_order_id=73 order_type=LMT outside_rth=1 price_hint=103.8600 raw_limit_price=103.7561 rounded_limit_price=103.7500 min_tick=0.010000 retry_count_202=0 retry_mode_202=base_bps
+[IB] openOrderEnd
+[BROKER][aggressive][SEND] symbol=NEM broker_symbol=NEM side=SELL qty=16.00000000 status=filled ib_order_id=74 order_type=LMT outside_rth=1 price_hint=101.5200 raw_limit_price=101.4185 rounded_limit_price=101.4100 min_tick=0.010000 retry_count_202=0 retry_mode_202=base_bps
+[IB] openOrderEnd
+[BROKER][aggressive][SEND] symbol=INTC broker_symbol=INTC side=SELL qty=25.00000000 status=submitted ib_order_id=75 order_type=LMT outside_rth=1 price_hint=47.1800 raw_limit_price=47.1328 rounded_limit_price=47.1300 min_tick=0.010000 retry_count_202=0 retry_mode_202=base_bps
+[IB] openOrderEnd
+[BROKER][aggressive][SEND] symbol=RKLB broker_symbol=RKLB side=SELL qty=6.00000000 status=submitted ib_order_id=76 order_type=LMT outside_rth=1 price_hint=72.8800 raw_limit_price=72.8071 rounded_limit_price=72.8000 min_tick=0.010000 retry_count_202=0 retry_mode_202=base_bps
+[IB][ERROR] reqId=77 code=202 msg=Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 108.134546. Please submit your order <br>using a limit price that is closer to the current market price of 111.41.
+[IB] openOrderEnd
+[BROKER][aggressive][RETRY_202_CLIP] symbol=SHOP side=SELL qty=3.00000000 attempt=1/2 code=202 raw_limit_price=99.9000 rounded_limit_price=99.9000 next_raw_limit_price=111.3800 next_rounded_limit_price=111.3800 min_tick=0.010000
+[IB] openOrderEnd
+[BROKER][aggressive][SEND] symbol=SHOP broker_symbol=SHOP side=SELL qty=3.00000000 status=submitted ib_order_id=78 order_type=LMT outside_rth=1 price_hint=111.3800 raw_limit_price=111.3020 rounded_limit_price=111.3000 min_tick=0.010000 retry_count_202=1 retry_mode_202=bps_fallback
+[BROKER][aggressive][SUMMARY] sent=6 duplicate_skipped=0 errors=0 retry_202=1 fills_csv=artifacts\execution_loop\aggressive\fills.csv broker_log_json=artifacts\execution_loop\aggressive\broker_log.json
+[FINAL] IBKR broker adapter complete
+
+[EXIT] code=0
