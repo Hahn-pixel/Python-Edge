@@ -1,0 +1,334 @@
+PS C:\Users\Dmytro Govor\Desktop> Set-StrictMode -Version Latest
+PS C:\Users\Dmytro Govor\Desktop> $ErrorActionPreference = "Stop"
+PS C:\Users\Dmytro Govor\Desktop>
+PS C:\Users\Dmytro Govor\Desktop> $response = Invoke-RestMethod `
+>>     -Uri "https://localhost:5000/v1/api/iserver/marketdata/snapshot?conids=265598&fields=31,84,86,6509" `
+>>     -Method Get `
+>>     -SkipCertificateCheck
+PS C:\Users\Dmytro Govor\Desktop>
+PS C:\Users\Dmytro Govor\Desktop> $response | ConvertTo-Json -Depth 20
+{
+  "conidEx": "265598",
+  "conid": 265598
+}
+PS C:\Users\Dmytro Govor\Desktop> Read-Host "Press Enter to continue"
+Press Enter to continue:
+
+PS C:\Users\Dmytro Govor\Desktop> Set-StrictMode -Version Latest
+PS C:\Users\Dmytro Govor\Desktop> $ErrorActionPreference = "Stop"
+PS C:\Users\Dmytro Govor\Desktop>
+PS C:\Users\Dmytro Govor\Desktop> $AccountId = "DUP561175"
+PS C:\Users\Dmytro Govor\Desktop>
+PS C:\Users\Dmytro Govor\Desktop> $body = @{
+>>     orders = @(
+>>         @{
+>>             conid = 265598
+>>             orderType = "MKT"
+>>             side = "BUY"
+>>             tif = "DAY"
+>>             quantity = 0.37
+>>         }
+>>     )
+>> } | ConvertTo-Json -Depth 10
+PS C:\Users\Dmytro Govor\Desktop>
+PS C:\Users\Dmytro Govor\Desktop> $response = Invoke-RestMethod `
+>>     -Uri "https://localhost:5000/v1/api/iserver/account/$AccountId/orders" `
+>>     -Method Post `
+>>     -Body $body `
+>>     -ContentType "application/json" `
+>>     -SkipCertificateCheck
+PS C:\Users\Dmytro Govor\Desktop>
+PS C:\Users\Dmytro Govor\Desktop> Write-Host "=== INITIAL RESPONSE ==="
+=== INITIAL RESPONSE ===
+PS C:\Users\Dmytro Govor\Desktop> $response | ConvertTo-Json -Depth 20
+{
+  "id": "ae7e8b11-c92d-417c-89c8-f96ec8389522",
+  "message": [
+    "You are submitting an order without market data. We strongly recommend against this as it may result in erroneous and unexpected trades.\nAre you sure you want to submit this order?"
+  ],
+  "isSuppressed": false,
+  "messageIds": [
+    "o354"
+  ],
+  "messageOptions": [
+    "Yes",
+    "No"
+  ]
+}
+PS C:\Users\Dmytro Govor\Desktop>
+PS C:\Users\Dmytro Govor\Desktop> if ($null -ne $response.PSObject.Properties["id"]) {
+>>     $confirmResponse = Invoke-RestMethod `
+>>         -Uri "https://localhost:5000/v1/api/iserver/reply/$($response.id)" `
+>>         -Method Post `
+>>         -Body '{"confirmed":true}' `
+>>         -ContentType "application/json" `
+>>         -SkipCertificateCheck
+>>
+>>     Write-Host "=== CONFIRM RESPONSE ==="
+>>     $confirmResponse | ConvertTo-Json -Depth 20
+>> }
+PS C:\Users\Dmytro Govor\Desktop>
+PS C:\Users\Dmytro Govor\Desktop> Read-Host "Press Enter after order submitted"
+Press Enter after order submitted:
+
+PS C:\Users\Dmytro Govor\Desktop> Set-StrictMode -Version Latest
+PS C:\Users\Dmytro Govor\Desktop> $ErrorActionPreference = "Stop"
+PS C:\Users\Dmytro Govor\Desktop>
+PS C:\Users\Dmytro Govor\Desktop> $response = Invoke-RestMethod `
+>>     -Uri "https://localhost:5000/v1/api/iserver/account/trades" `
+>>     -Method Get `
+>>     -SkipCertificateCheck
+PS C:\Users\Dmytro Govor\Desktop>
+PS C:\Users\Dmytro Govor\Desktop> $response | ConvertTo-Json -Depth 20
+PS C:\Users\Dmytro Govor\Desktop>
+PS C:\Users\Dmytro Govor\Desktop> Read-Host "Press Enter to continue"
+Press Enter to continue:
+
+PS C:\Users\Dmytro Govor\Desktop> Set-StrictMode -Version Latest
+PS C:\Users\Dmytro Govor\Desktop> $ErrorActionPreference = "Stop"
+PS C:\Users\Dmytro Govor\Desktop>
+PS C:\Users\Dmytro Govor\Desktop> $AccountId = "DUP561175"
+PS C:\Users\Dmytro Govor\Desktop>
+PS C:\Users\Dmytro Govor\Desktop> $response = Invoke-RestMethod `
+>>     -Uri "https://localhost:5000/v1/api/portfolio/$AccountId/positions/0" `
+>>     -Method Get `
+>>     -SkipCertificateCheck
+PS C:\Users\Dmytro Govor\Desktop>
+PS C:\Users\Dmytro Govor\Desktop> $response | ConvertTo-Json -Depth 20
+[
+  {
+    "acctId": "DUP561175",
+    "conid": 504546674,
+    "contractDesc": "HOOD",
+    "position": -37.0,
+    "mktPrice": 66.18600465,
+    "mktValue": -2448.88,
+    "currency": "USD",
+    "avgCost": 66.69277795,
+    "avgPrice": 66.69277795,
+    "realizedPnl": 0.0,
+    "unrealizedPnl": 18.75,
+    "exchs": null,
+    "expiry": null,
+    "putOrCall": null,
+    "multiplier": null,
+    "strike": 0.0,
+    "exerciseStyle": null,
+    "conExchMap": [],
+    "assetClass": "STK",
+    "undConid": 0,
+    "model": ""
+  },
+  {
+    "acctId": "DUP561175",
+    "conid": 3691937,
+    "contractDesc": "AMZN",
+    "position": -3.0,
+    "mktPrice": 201.20770265,
+    "mktValue": -603.62,
+    "currency": "USD",
+    "avgCost": 199.94646835,
+    "avgPrice": 199.94646835,
+    "realizedPnl": 0.0,
+    "unrealizedPnl": -3.78,
+    "exchs": null,
+    "expiry": null,
+    "putOrCall": null,
+    "multiplier": null,
+    "strike": 0.0,
+    "exerciseStyle": null,
+    "conExchMap": [],
+    "assetClass": "STK",
+    "undConid": 0,
+    "model": ""
+  },
+  {
+    "acctId": "DUP561175",
+    "conid": 272093,
+    "contractDesc": "MSFT",
+    "position": 3.0,
+    "mktPrice": 363.0917969,
+    "mktValue": 1089.28,
+    "currency": "USD",
+    "avgCost": 367.74333335,
+    "avgPrice": 367.74333335,
+    "realizedPnl": 0.0,
+    "unrealizedPnl": -13.95,
+    "exchs": null,
+    "expiry": null,
+    "putOrCall": null,
+    "multiplier": null,
+    "strike": 0.0,
+    "exerciseStyle": null,
+    "conExchMap": [],
+    "assetClass": "STK",
+    "undConid": 0,
+    "model": ""
+  },
+  {
+    "acctId": "DUP561175",
+    "conid": 265598,
+    "contractDesc": "AAPL",
+    "position": 2.53,
+    "mktPrice": 247.04371645,
+    "mktValue": 625.02,
+    "currency": "USD",
+    "avgCost": 252.50122015,
+    "avgPrice": 252.50122015,
+    "realizedPnl": -2.83,
+    "unrealizedPnl": -13.81,
+    "exchs": null,
+    "expiry": null,
+    "putOrCall": null,
+    "multiplier": null,
+    "strike": 0.0,
+    "exerciseStyle": null,
+    "conExchMap": [],
+    "assetClass": "STK",
+    "undConid": 0,
+    "model": ""
+  },
+  {
+    "acctId": "DUP561175",
+    "conid": 4815747,
+    "contractDesc": "NVDA",
+    "position": -3.0,
+    "mktPrice": 166.9339905,
+    "mktValue": -500.8,
+    "currency": "USD",
+    "avgCost": 163.56646835,
+    "avgPrice": 163.56646835,
+    "realizedPnl": 0.0,
+    "unrealizedPnl": -10.1,
+    "exchs": null,
+    "expiry": null,
+    "putOrCall": null,
+    "multiplier": null,
+    "strike": 0.0,
+    "exerciseStyle": null,
+    "conExchMap": [],
+    "assetClass": "STK",
+    "undConid": 0,
+    "model": ""
+  },
+  {
+    "acctId": "DUP561175",
+    "conid": 270639,
+    "contractDesc": "INTC",
+    "position": -25.0,
+    "mktPrice": 41.70399855,
+    "mktValue": -1042.6,
+    "currency": "USD",
+    "avgCost": 43.269805,
+    "avgPrice": 43.269805,
+    "realizedPnl": 0.0,
+    "unrealizedPnl": 39.15,
+    "exchs": null,
+    "expiry": null,
+    "putOrCall": null,
+    "multiplier": null,
+    "strike": 0.0,
+    "exerciseStyle": null,
+    "conExchMap": [],
+    "assetClass": "STK",
+    "undConid": 0,
+    "model": ""
+  },
+  {
+    "acctId": "DUP561175",
+    "conid": 787273575,
+    "contractDesc": "RKLB",
+    "position": -6.0,
+    "mktPrice": 58.30018615,
+    "mktValue": -349.8,
+    "currency": "USD",
+    "avgCost": 59.93313835,
+    "avgPrice": 59.93313835,
+    "realizedPnl": 0.0,
+    "unrealizedPnl": 9.8,
+    "exchs": null,
+    "expiry": null,
+    "putOrCall": null,
+    "multiplier": null,
+    "strike": 0.0,
+    "exerciseStyle": null,
+    "conExchMap": [],
+    "assetClass": "STK",
+    "undConid": 0,
+    "model": ""
+  },
+  {
+    "acctId": "DUP561175",
+    "conid": 195014116,
+    "contractDesc": "SHOP",
+    "position": -6.0,
+    "mktPrice": 112.349823,
+    "mktValue": -674.1,
+    "currency": "USD",
+    "avgCost": 111.32647165,
+    "avgPrice": 111.32647165,
+    "realizedPnl": 0.0,
+    "unrealizedPnl": -6.14,
+    "exchs": null,
+    "expiry": null,
+    "putOrCall": null,
+    "multiplier": null,
+    "strike": 0.0,
+    "exerciseStyle": null,
+    "conExchMap": [],
+    "assetClass": "STK",
+    "undConid": 0,
+    "model": ""
+  },
+  {
+    "acctId": "DUP561175",
+    "conid": 789044667,
+    "contractDesc": "CRCL",
+    "position": -16.0,
+    "mktPrice": 91.01389315,
+    "mktValue": -1456.22,
+    "currency": "USD",
+    "avgCost": 95.137305,
+    "avgPrice": 95.137305,
+    "realizedPnl": 0.0,
+    "unrealizedPnl": 65.97,
+    "exchs": null,
+    "expiry": null,
+    "putOrCall": null,
+    "multiplier": null,
+    "strike": 0.0,
+    "exerciseStyle": null,
+    "conExchMap": [],
+    "assetClass": "STK",
+    "undConid": 0,
+    "model": ""
+  },
+  {
+    "acctId": "DUP561175",
+    "conid": 10174,
+    "contractDesc": "NEM",
+    "position": -32.0,
+    "mktPrice": 104.8603134,
+    "mktValue": -3355.53,
+    "currency": "USD",
+    "avgCost": 104.092305,
+    "avgPrice": 104.092305,
+    "realizedPnl": 0.0,
+    "unrealizedPnl": -24.58,
+    "exchs": null,
+    "expiry": null,
+    "putOrCall": null,
+    "multiplier": null,
+    "strike": 0.0,
+    "exerciseStyle": null,
+    "conExchMap": [],
+    "assetClass": "STK",
+    "undConid": 0,
+    "model": ""
+  }
+]
+PS C:\Users\Dmytro Govor\Desktop>
+PS C:\Users\Dmytro Govor\Desktop> Read-Host "Press Enter to exit"
+Press Enter to exit:
+
+PS C:\Users\Dmytro Govor\Desktop>
