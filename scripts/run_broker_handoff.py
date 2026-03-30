@@ -1,15 +1,22 @@
 from __future__ import annotations
 
 import json
-import math
 import os
+import queue
 import sys
+import threading
+import time
 import traceback
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
+from ibapi.client import EClient
+from ibapi.contract import Contract
+from ibapi.ticktype import TickTypeEnum
+from ibapi.wrapper import EWrapper
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = ROOT / "src"
@@ -20,37 +27,154 @@ for p in [ROOT, SRC_DIR]:
 
 PAUSE_ON_EXIT = str(os.getenv("PAUSE_ON_EXIT", "auto")).strip().lower()
 EXECUTION_ROOT = Path(os.getenv("EXECUTION_ROOT", "artifacts/execution_loop"))
-BROKER_HANDOFF_ROOT = Path(os.getenv("BROKER_HANDOFF_ROOT", "artifacts/broker_handoff"))
 CONFIG_NAMES = [x.strip() for x in str(os.getenv("CONFIG_NAMES", "optimal|aggressive")).split("|") if x.strip()]
-BROKER_NAME = str(os.getenv("BROKER_NAME", "MEXEM")).strip() or "MEXEM"
-BROKER_PLATFORM = str(os.getenv("BROKER_PLATFORM", "IBKR")).strip() or "IBKR"
-BROKER_ACCOUNT_ID = str(os.getenv("BROKER_ACCOUNT_ID", "")).strip()
-HANDOFF_MODE = str(os.getenv("HANDOFF_MODE", "preview")).strip().lower()
-MIN_ORDER_NOTIONAL = float(os.getenv("MIN_ORDER_NOTIONAL", "25.0"))
-MAX_ORDER_NOTIONAL = float(os.getenv("MAX_ORDER_NOTIONAL", "25000.0"))
-MAX_TOTAL_ORDERS = int(os.getenv("MAX_TOTAL_ORDERS", "100"))
-MAX_ORDERS_PER_CONFIG = int(os.getenv("MAX_ORDERS_PER_CONFIG", "50"))
-MAX_POSITION_NOTIONAL = float(os.getenv("MAX_POSITION_NOTIONAL", "10000.0"))
-ALLOW_SHORTS = str(os.getenv("ALLOW_SHORTS", "1")).strip().lower() not in {"0", "false", "no", "off"}
-ALLOW_FRACTIONAL_BROKER = str(os.getenv("ALLOW_FRACTIONAL_BROKER", "1")).strip().lower() not in {"0", "false", "no", "off"}
-ROUND_FRACTIONAL_FOR_BROKER = str(os.getenv("ROUND_FRACTIONAL_FOR_BROKER", "0")).strip().lower() not in {"0", "false", "no", "off"}
+IB_HOST = str(os.getenv("IB_HOST", "127.0.0.1")).strip()
+IB_PORT = int(os.getenv("IB_PORT", "4002"))
+IB_CLIENT_ID = int(os.getenv("IB_CLIENT_ID", "51"))
+IB_TIMEOUT_SEC = float(os.getenv("IB_TIMEOUT_SEC", "20.0"))
+IB_MKT_TIMEOUT_SEC = float(os.getenv("IB_MKT_TIMEOUT_SEC", "8.0"))
+IB_EXCHANGE = str(os.getenv("IB_EXCHANGE", "SMART")).strip().upper() or "SMART"
+IB_PRIMARY_EXCHANGE = str(os.getenv("IB_PRIMARY_EXCHANGE", "")).strip().upper()
+IB_CURRENCY = str(os.getenv("IB_CURRENCY", "USD")).strip().upper() or "USD"
+IB_SECURITY_TYPE = str(os.getenv("IB_SECURITY_TYPE", "STK")).strip().upper() or "STK"
+PRICE_MAX_AGE_SEC = float(os.getenv("PRICE_MAX_AGE_SEC", "15.0"))
+MAX_PRICE_DEVIATION_PCT = float(os.getenv("MAX_PRICE_DEVIATION_PCT", "8.0"))
 TOPK_PRINT = int(os.getenv("TOPK_PRINT", "50"))
-COMMISSION_BPS = float(os.getenv("COMMISSION_BPS", "0.50"))
-COMMISSION_MIN_PER_ORDER = float(os.getenv("COMMISSION_MIN_PER_ORDER", "0.35"))
-SLIPPAGE_BPS = float(os.getenv("SLIPPAGE_BPS", "1.50"))
+ALLOW_LAST_FALLBACK = str(os.getenv("ALLOW_LAST_FALLBACK", "1")).strip().lower() not in {"0", "false", "no", "off"}
+
+REQUIRED_ORDER_COLUMNS = ["symbol", "order_side", "delta_shares"]
 
 
 @dataclass(frozen=True)
-class ConfigArtifacts:
+class ConfigPaths:
     name: str
     execution_dir: Path
     orders_csv: Path
-    target_book_csv: Path
-    execution_log_csv: Path
-    state_json: Path
+    handoff_summary_json: Path
 
 
-def _enable_line_buffering() -> None:
+@dataclass
+class QuoteState:
+    req_id: int
+    symbol: str
+    bid: float = 0.0
+    ask: float = 0.0
+    last: float = 0.0
+    close: float = 0.0
+    bid_size: float = 0.0
+    ask_size: float = 0.0
+    last_size: float = 0.0
+    done: bool = False
+    ts_utc: str = ""
+
+
+class QuoteApp(EWrapper, EClient):
+    def __init__(self) -> None:
+        EClient.__init__(self, self)
+        self._next_valid_id_queue: queue.Queue[int] = queue.Queue()
+        self._managed_accounts_queue: queue.Queue[str] = queue.Queue()
+        self._network_thread: Optional[threading.Thread] = None
+        self.quotes: Dict[int, QuoteState] = {}
+        self.errors: List[dict] = []
+
+    def error(self, reqId: int, errorCode: int, errorString: str, advancedOrderRejectJson: str = "") -> None:
+        payload = {
+            "ts_utc": utc_now_iso(),
+            "reqId": int(reqId),
+            "errorCode": int(errorCode),
+            "errorString": str(errorString),
+            "advancedOrderRejectJson": str(advancedOrderRejectJson or ""),
+        }
+        self.errors.append(payload)
+        print(f"[IB][ERROR] reqId={reqId} code={errorCode} msg={errorString}")
+
+    def nextValidId(self, orderId: int) -> None:
+        self._next_valid_id_queue.put_nowait(int(orderId))
+        print(f"[IB] nextValidId={orderId}")
+
+    def managedAccounts(self, accountsList: str) -> None:
+        self._managed_accounts_queue.put_nowait(str(accountsList))
+        print(f"[IB] managedAccounts={accountsList}")
+
+    def tickPrice(self, reqId: int, tickType: int, price: float, attrib) -> None:
+        q = self.quotes.get(int(reqId))
+        if q is None:
+            return
+        q.ts_utc = utc_now_iso()
+        if tickType == TickTypeEnum.BID:
+            q.bid = to_float(price)
+        elif tickType == TickTypeEnum.ASK:
+            q.ask = to_float(price)
+        elif tickType == TickTypeEnum.LAST:
+            q.last = to_float(price)
+        elif tickType == TickTypeEnum.CLOSE:
+            q.close = to_float(price)
+
+    def tickSize(self, reqId: int, tickType: int, size: float) -> None:
+        q = self.quotes.get(int(reqId))
+        if q is None:
+            return
+        if tickType == TickTypeEnum.BID_SIZE:
+            q.bid_size = to_float(size)
+        elif tickType == TickTypeEnum.ASK_SIZE:
+            q.ask_size = to_float(size)
+        elif tickType == TickTypeEnum.LAST_SIZE:
+            q.last_size = to_float(size)
+
+    def tickSnapshotEnd(self, reqId: int) -> None:
+        q = self.quotes.get(int(reqId))
+        if q is not None:
+            q.done = True
+            q.ts_utc = utc_now_iso()
+
+    def start_network_loop(self) -> None:
+        if self._network_thread is not None and self._network_thread.is_alive():
+            return
+        self._network_thread = threading.Thread(target=self.run, name="ibapi-network", daemon=True)
+        self._network_thread.start()
+
+    def wait_for_next_valid_id(self, timeout_sec: float) -> int:
+        return int(self._next_valid_id_queue.get(timeout=timeout_sec))
+
+    def wait_for_managed_accounts(self, timeout_sec: float) -> str:
+        return str(self._managed_accounts_queue.get(timeout=timeout_sec))
+
+
+def utc_now_iso() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def to_float(value: Any) -> float:
+    try:
+        if value is None:
+            return 0.0
+        return float(value)
+    except Exception:
+        return 0.0
+
+
+def normalize_symbol(symbol: str) -> str:
+    return str(symbol or "").strip().upper()
+
+
+def normalize_order_side(side: str) -> str:
+    out = str(side or "").strip().upper()
+    if out not in {"BUY", "SELL", "HOLD"}:
+        raise RuntimeError(f"Unsupported order_side: {side!r}")
+    return out
+
+
+def cfg_paths(name: str) -> ConfigPaths:
+    execution_dir = EXECUTION_ROOT / name
+    return ConfigPaths(
+        name=name,
+        execution_dir=execution_dir,
+        orders_csv=execution_dir / "orders.csv",
+        handoff_summary_json=execution_dir / "broker_handoff_summary.json",
+    )
+
+
+def enable_line_buffering() -> None:
     for stream_name in ["stdout", "stderr"]:
         stream = getattr(sys, stream_name, None)
         if stream is None:
@@ -63,7 +187,7 @@ def _enable_line_buffering() -> None:
                 pass
 
 
-def _should_pause() -> bool:
+def should_pause() -> bool:
     if PAUSE_ON_EXIT in {"0", "false", "no", "off"}:
         return False
     if PAUSE_ON_EXIT in {"1", "true", "yes", "on"}:
@@ -73,8 +197,8 @@ def _should_pause() -> bool:
     return bool(stdin_obj and stdout_obj and hasattr(stdin_obj, "isatty") and hasattr(stdout_obj, "isatty") and stdin_obj.isatty() and stdout_obj.isatty())
 
 
-def _safe_exit(code: int) -> None:
-    if _should_pause():
+def safe_exit(code: int) -> None:
+    if should_pause():
         try:
             print("")
             print(f"[EXIT] code={code}")
@@ -84,317 +208,228 @@ def _safe_exit(code: int) -> None:
     raise SystemExit(code)
 
 
-def _must_exist(path: Path, label: str) -> None:
+def build_contract(symbol: str) -> Contract:
+    contract = Contract()
+    contract.symbol = normalize_symbol(symbol)
+    contract.secType = IB_SECURITY_TYPE
+    contract.exchange = IB_EXCHANGE
+    contract.currency = IB_CURRENCY
+    if IB_PRIMARY_EXCHANGE:
+        contract.primaryExchange = IB_PRIMARY_EXCHANGE
+    return contract
+
+
+def load_orders_df(path: Path) -> pd.DataFrame:
     if not path.exists():
-        raise FileNotFoundError(f"{label} not found: {path}")
+        raise FileNotFoundError(f"orders.csv not found: {path}")
+    df = pd.read_csv(path)
+    if df.empty:
+        return pd.DataFrame(columns=REQUIRED_ORDER_COLUMNS)
+    missing = [c for c in REQUIRED_ORDER_COLUMNS if c not in df.columns]
+    if missing:
+        raise RuntimeError(f"orders.csv missing required columns: {missing}")
+    return df.copy()
 
 
-def _num(series: pd.Series) -> pd.Series:
-    return pd.to_numeric(series, errors="coerce").astype("float64")
+def select_live_orders(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df.copy()
+    out = df.loc[df["order_side"].astype(str).str.upper() != "HOLD"].copy()
+    out = out.loc[out["delta_shares"].abs() > 1e-12].copy()
+    return out.reset_index(drop=True)
 
 
-def _estimate_commission(order_notional_abs: float) -> float:
-    if order_notional_abs <= 0.0:
-        return 0.0
-    pct_fee = float(COMMISSION_BPS) / 10000.0 * float(order_notional_abs)
-    return float(max(float(COMMISSION_MIN_PER_ORDER), pct_fee))
+def connect_quote_app() -> QuoteApp:
+    app = QuoteApp()
+    print(f"[IB] connecting host={IB_HOST} port={IB_PORT} client_id={IB_CLIENT_ID}")
+    app.connect(IB_HOST, IB_PORT, clientId=IB_CLIENT_ID)
+    app.start_network_loop()
+    next_id = app.wait_for_next_valid_id(timeout_sec=IB_TIMEOUT_SEC)
+    managed = app.wait_for_managed_accounts(timeout_sec=IB_TIMEOUT_SEC)
+    print(f"[IB] connected next_valid_id={next_id} managed_accounts={managed}")
+    return app
 
 
-def _estimate_slippage(order_notional_abs: float) -> float:
-    if order_notional_abs <= 0.0:
-        return 0.0
-    return float(SLIPPAGE_BPS) / 10000.0 * float(order_notional_abs)
+def disconnect_quote_app(app: QuoteApp) -> None:
+    try:
+        if app.isConnected():
+            app.disconnect()
+    except Exception:
+        pass
+    time.sleep(0.25)
 
 
-def _cfg_paths(name: str) -> ConfigArtifacts:
-    execution_dir = EXECUTION_ROOT / name
-    return ConfigArtifacts(
-        name=name,
-        execution_dir=execution_dir,
-        orders_csv=execution_dir / "orders.csv",
-        target_book_csv=execution_dir / "target_book.csv",
-        execution_log_csv=execution_dir / "execution_log.csv",
-        state_json=execution_dir / "portfolio_state.json",
+def request_quotes(app: QuoteApp, symbols: List[str]) -> Dict[str, QuoteState]:
+    states: Dict[str, QuoteState] = {}
+    for idx, symbol in enumerate(symbols, start=1):
+        req_id = 900000 + idx
+        state = QuoteState(req_id=req_id, symbol=symbol)
+        app.quotes[req_id] = state
+        states[symbol] = state
+        app.reqMktData(req_id, build_contract(symbol), "", True, False, [])
+    deadline = time.time() + IB_MKT_TIMEOUT_SEC
+    while time.time() < deadline:
+        if all(q.done for q in states.values()):
+            break
+        time.sleep(0.1)
+    for q in states.values():
+        try:
+            app.cancelMktData(q.req_id)
+        except Exception:
+            pass
+    return states
+
+
+def pick_execution_price(side: str, quote: QuoteState) -> Tuple[float, str]:
+    side_up = normalize_order_side(side)
+    bid = to_float(quote.bid)
+    ask = to_float(quote.ask)
+    last = to_float(quote.last)
+    close = to_float(quote.close)
+    mid = (bid + ask) / 2.0 if bid > 0.0 and ask > 0.0 else 0.0
+
+    if side_up == "BUY":
+        if ask > 0.0:
+            return float(ask), "ask"
+        if mid > 0.0:
+            return float(mid), "mid"
+        if ALLOW_LAST_FALLBACK and last > 0.0:
+            return float(last), "last"
+        if close > 0.0:
+            return float(close), "close"
+    elif side_up == "SELL":
+        if bid > 0.0:
+            return float(bid), "bid"
+        if mid > 0.0:
+            return float(mid), "mid"
+        if ALLOW_LAST_FALLBACK and last > 0.0:
+            return float(last), "last"
+        if close > 0.0:
+            return float(close), "close"
+    raise RuntimeError(f"No usable live price for symbol={quote.symbol} side={side_up}")
+
+
+def enrich_orders_with_live_prices(df: pd.DataFrame, quotes: Dict[str, QuoteState]) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    if df.empty:
+        return df.copy(), {"rows": 0, "updated": 0, "price_sanity_fail": 0}
+
+    out = df.copy()
+    if "price" not in out.columns:
+        out["price"] = 0.0
+    out["model_price_reference"] = out["price"].astype(float)
+    out["price_hint_source"] = ""
+    out["quote_ts_utc"] = ""
+    out["bid_price"] = 0.0
+    out["ask_price"] = 0.0
+    out["mid_price"] = 0.0
+    out["last_price"] = 0.0
+    out["close_price"] = 0.0
+    out["spread_abs"] = 0.0
+    out["spread_bps"] = 0.0
+    out["price_sanity_ok"] = 0
+    out["price_deviation_pct"] = 0.0
+
+    updated = 0
+    sanity_fail = 0
+    for idx in out.index:
+        symbol = normalize_symbol(str(out.at[idx, "symbol"]))
+        side = normalize_order_side(str(out.at[idx, "order_side"]))
+        q = quotes.get(symbol)
+        if q is None:
+            raise RuntimeError(f"Missing live quote for symbol={symbol}")
+        bid = to_float(q.bid)
+        ask = to_float(q.ask)
+        last = to_float(q.last)
+        close = to_float(q.close)
+        mid = (bid + ask) / 2.0 if bid > 0.0 and ask > 0.0 else 0.0
+        live_price, src = pick_execution_price(side, q)
+        model_price = to_float(out.at[idx, "model_price_reference"])
+        deviation_pct = 0.0
+        sanity_ok = 1
+        if model_price > 0.0:
+            deviation_pct = abs(live_price - model_price) / model_price * 100.0
+            if deviation_pct > MAX_PRICE_DEVIATION_PCT:
+                sanity_ok = 0
+                sanity_fail += 1
+                print(
+                    f"[PRICE_SANITY_WARN] symbol={symbol} side={side} model_price={model_price:.4f} live_price={live_price:.4f} deviation_pct={deviation_pct:.2f} src={src}"
+                )
+        out.at[idx, "price"] = float(live_price)
+        out.at[idx, "price_hint_source"] = src
+        out.at[idx, "quote_ts_utc"] = q.ts_utc or utc_now_iso()
+        out.at[idx, "bid_price"] = float(bid)
+        out.at[idx, "ask_price"] = float(ask)
+        out.at[idx, "mid_price"] = float(mid)
+        out.at[idx, "last_price"] = float(last)
+        out.at[idx, "close_price"] = float(close)
+        out.at[idx, "spread_abs"] = float(max(0.0, ask - bid)) if bid > 0.0 and ask > 0.0 else 0.0
+        out.at[idx, "spread_bps"] = float(((ask - bid) / mid) * 10000.0) if bid > 0.0 and ask > 0.0 and mid > 0.0 else 0.0
+        out.at[idx, "price_sanity_ok"] = int(sanity_ok)
+        out.at[idx, "price_deviation_pct"] = float(deviation_pct)
+        if "order_notional" in out.columns:
+            out.at[idx, "order_notional"] = abs(to_float(out.at[idx, "delta_shares"]) * live_price)
+        updated += 1
+
+    summary = {
+        "rows": int(len(out)),
+        "updated": int(updated),
+        "price_sanity_fail": int(sanity_fail),
+    }
+    return out, summary
+
+
+def run_one_config(app: QuoteApp, paths: ConfigPaths) -> None:
+    print(f"[HANDOFF][{paths.name}] orders_csv={paths.orders_csv}")
+    paths.execution_dir.mkdir(parents=True, exist_ok=True)
+    df = load_orders_df(paths.orders_csv)
+    live_df = select_live_orders(df)
+    symbols = sorted({normalize_symbol(str(x)) for x in live_df.get("symbol", []) if str(x).strip()})
+    print(f"[HANDOFF][{paths.name}] total_rows={len(df)} live_rows={len(live_df)} symbols={len(symbols)}")
+    if not symbols:
+        summary = {"config": paths.name, "rows": int(len(df)), "live_rows": int(len(live_df)), "symbols": 0, "updated": 0, "price_sanity_fail": 0}
+        paths.handoff_summary_json.write_text(json.dumps(summary, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
+        print(f"[HANDOFF][{paths.name}][SUMMARY] updated=0 price_sanity_fail=0 summary_json={paths.handoff_summary_json}")
+        return
+
+    quotes = request_quotes(app, symbols)
+    updated_df, enrich_summary = enrich_orders_with_live_prices(df, quotes)
+    updated_df.to_csv(paths.orders_csv, index=False)
+
+    summary = {
+        "config": paths.name,
+        "rows": int(len(df)),
+        "live_rows": int(len(live_df)),
+        "symbols": int(len(symbols)),
+        **enrich_summary,
+    }
+    paths.handoff_summary_json.write_text(json.dumps(summary, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
+
+    preview_cols = [c for c in [
+        "symbol", "order_side", "delta_shares", "model_price_reference", "price", "price_hint_source",
+        "bid_price", "ask_price", "mid_price", "last_price", "spread_bps", "price_deviation_pct"
+    ] if c in updated_df.columns]
+    if preview_cols:
+        print(f"[HANDOFF][{paths.name}][PREVIEW]")
+        print(updated_df[preview_cols].head(min(TOPK_PRINT, len(updated_df))).to_string(index=False))
+
+    print(
+        f"[HANDOFF][{paths.name}][SUMMARY] updated={summary['updated']} price_sanity_fail={summary['price_sanity_fail']} orders_csv={paths.orders_csv} summary_json={paths.handoff_summary_json}"
     )
-
-
-def _load_execution_artifacts(cfg: ConfigArtifacts) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict]:
-    _must_exist(cfg.orders_csv, f"Orders csv for {cfg.name}")
-    _must_exist(cfg.target_book_csv, f"Target book csv for {cfg.name}")
-    _must_exist(cfg.execution_log_csv, f"Execution log csv for {cfg.name}")
-    _must_exist(cfg.state_json, f"Portfolio state json for {cfg.name}")
-
-    orders = pd.read_csv(cfg.orders_csv)
-    target = pd.read_csv(cfg.target_book_csv)
-    exec_log = pd.read_csv(cfg.execution_log_csv)
-    with cfg.state_json.open("r", encoding="utf-8") as fh:
-        state = json.load(fh)
-
-    if orders.empty:
-        orders = pd.DataFrame(columns=[
-            "date", "symbol", "price", "target_weight", "target_notional", "target_shares_raw",
-            "current_shares", "target_shares", "delta_shares", "order_side", "order_notional",
-            "order_notional_abs", "estimated_commission", "estimated_slippage", "estimated_total_cost", "skip_reason"
-        ])
-    if target.empty:
-        target = pd.DataFrame(columns=["symbol", "weight", "target_notional", "target_shares"])
-    if exec_log.empty:
-        raise RuntimeError(f"Execution log is empty for {cfg.name}")
-
-    return orders, target, exec_log, state
-
-
-def _normalize_broker_quantity(qty: float) -> Tuple[float, str]:
-    if ALLOW_FRACTIONAL_BROKER and not ROUND_FRACTIONAL_FOR_BROKER:
-        return float(qty), "fractional"
-    rounded = float(math.floor(qty + 1e-12))
-    return rounded, "integer"
-
-
-def _build_handoff_rows(cfg: ConfigArtifacts, orders: pd.DataFrame, target: pd.DataFrame, exec_log: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, int]]:
-    latest_log = exec_log.tail(1).copy()
-    exec_date = str(latest_log.iloc[0]["date"])
-    target_map = target.set_index("symbol", drop=False).to_dict(orient="index") if len(target) else {}
-
-    rows: List[Dict[str, object]] = []
-    counters = {
-        "rows_total": 0,
-        "rows_hold": 0,
-        "rows_skipped_min_notional": 0,
-        "rows_skipped_short_not_allowed": 0,
-        "rows_skipped_max_notional": 0,
-        "rows_skipped_zero_after_rounding": 0,
-        "rows_ready": 0,
-    }
-
-    for _, row in orders.iterrows():
-        counters["rows_total"] += 1
-        symbol = str(row.get("symbol", "")).upper()
-        side = str(row.get("order_side", "HOLD")).upper()
-        skip_reason = str(row.get("skip_reason", "") or "")
-        price = float(row.get("price", 0.0) or 0.0)
-        delta_shares = float(row.get("delta_shares", 0.0) or 0.0)
-        target_weight = float(row.get("target_weight", 0.0) or 0.0)
-        target_notional = float(row.get("target_notional", 0.0) or 0.0)
-        raw_order_notional = float(row.get("order_notional", 0.0) or 0.0)
-        exec_estimated_commission = float(row.get("estimated_commission", 0.0) or 0.0)
-        exec_estimated_slippage = float(row.get("estimated_slippage", 0.0) or 0.0)
-        exec_estimated_total_cost = float(row.get("estimated_total_cost", 0.0) or 0.0)
-
-        if side == "HOLD":
-            counters["rows_hold"] += 1
-            if skip_reason == "below_min_notional":
-                counters["rows_skipped_min_notional"] += 1
-            continue
-
-        broker_qty, broker_qty_mode = _normalize_broker_quantity(abs(delta_shares))
-        broker_order_notional = float(broker_qty * price)
-        broker_side = side
-        broker_skip_reason = ""
-
-        if broker_side == "SELL" and not ALLOW_SHORTS:
-            current_shares = float(row.get("current_shares", 0.0) or 0.0)
-            if abs(delta_shares) > abs(current_shares) + 1e-12:
-                broker_skip_reason = "shorts_not_allowed"
-                counters["rows_skipped_short_not_allowed"] += 1
-
-        if broker_order_notional > float(MAX_ORDER_NOTIONAL):
-            broker_skip_reason = "max_order_notional_exceeded"
-            counters["rows_skipped_max_notional"] += 1
-
-        if broker_qty <= 0.0:
-            broker_skip_reason = "zero_after_rounding"
-            counters["rows_skipped_zero_after_rounding"] += 1
-
-        symbol_target = target_map.get(symbol, {})
-        target_position_notional = float(symbol_target.get("target_notional", target_notional) or target_notional)
-        capped_target_position_notional = max(-float(MAX_POSITION_NOTIONAL), min(float(MAX_POSITION_NOTIONAL), target_position_notional))
-
-        broker_estimated_commission = _estimate_commission(abs(broker_order_notional))
-        broker_estimated_slippage = _estimate_slippage(abs(broker_order_notional))
-        broker_estimated_total_cost = float(broker_estimated_commission + broker_estimated_slippage)
-
-        ready = broker_skip_reason == ""
-        if ready:
-            counters["rows_ready"] += 1
-
-        rows.append(
-            {
-                "date": exec_date,
-                "config": cfg.name,
-                "broker_name": BROKER_NAME,
-                "broker_platform": BROKER_PLATFORM,
-                "broker_account_id": BROKER_ACCOUNT_ID,
-                "handoff_mode": HANDOFF_MODE,
-                "symbol": symbol,
-                "broker_side": broker_side,
-                "broker_qty": broker_qty,
-                "broker_qty_mode": broker_qty_mode,
-                "price_reference": price,
-                "broker_order_notional": broker_order_notional,
-                "raw_delta_shares": delta_shares,
-                "raw_order_notional": raw_order_notional,
-                "target_weight": target_weight,
-                "target_position_notional": target_position_notional,
-                "capped_target_position_notional": capped_target_position_notional,
-                "exec_estimated_commission": exec_estimated_commission,
-                "exec_estimated_slippage": exec_estimated_slippage,
-                "exec_estimated_total_cost": exec_estimated_total_cost,
-                "broker_estimated_commission": broker_estimated_commission,
-                "broker_estimated_slippage": broker_estimated_slippage,
-                "broker_estimated_total_cost": broker_estimated_total_cost,
-                "ready": int(ready),
-                "skip_reason": broker_skip_reason,
-            }
-        )
-
-    handoff = pd.DataFrame(rows)
-    if len(handoff):
-        handoff = handoff.sort_values(["ready", "broker_order_notional", "symbol"], ascending=[False, False, True]).reset_index(drop=True)
-    return handoff, counters
-
-
-def _run_preflight(handoff: pd.DataFrame) -> Dict[str, object]:
-    if handoff.empty:
-        return {
-            "ready_orders": 0,
-            "blocked_orders": 0,
-            "total_broker_notional": 0.0,
-            "max_broker_order_notional": 0.0,
-            "total_broker_estimated_commission": 0.0,
-            "total_broker_estimated_slippage": 0.0,
-            "total_broker_estimated_cost": 0.0,
-            "configs_present": [],
-            "passes": False,
-            "reasons": ["empty_handoff"],
-        }
-
-    ready = handoff.loc[handoff["ready"] == 1].copy()
-    blocked = handoff.loc[handoff["ready"] != 1].copy()
-    reasons: List[str] = []
-
-    if len(ready) == 0:
-        reasons.append("no_ready_orders")
-    if len(ready) > int(MAX_TOTAL_ORDERS):
-        reasons.append("max_total_orders_exceeded")
-    per_cfg = ready.groupby("config", sort=False).size().to_dict() if len(ready) else {}
-    for cfg_name, cnt in per_cfg.items():
-        if int(cnt) > int(MAX_ORDERS_PER_CONFIG):
-            reasons.append(f"max_orders_per_config_exceeded:{cfg_name}")
-    if len(ready) and float(_num(ready["broker_order_notional"]).max()) > float(MAX_ORDER_NOTIONAL):
-        reasons.append("ready_order_above_max_order_notional")
-
-    return {
-        "ready_orders": int(len(ready)),
-        "blocked_orders": int(len(blocked)),
-        "total_broker_notional": float(_num(ready["broker_order_notional"]).sum()) if len(ready) else 0.0,
-        "max_broker_order_notional": float(_num(ready["broker_order_notional"]).max()) if len(ready) else 0.0,
-        "total_broker_estimated_commission": float(_num(ready["broker_estimated_commission"]).sum()) if len(ready) else 0.0,
-        "total_broker_estimated_slippage": float(_num(ready["broker_estimated_slippage"]).sum()) if len(ready) else 0.0,
-        "total_broker_estimated_cost": float(_num(ready["broker_estimated_total_cost"]).sum()) if len(ready) else 0.0,
-        "configs_present": sorted(ready["config"].astype(str).unique().tolist()) if len(ready) else [],
-        "passes": len(reasons) == 0,
-        "reasons": reasons,
-    }
 
 
 def main() -> int:
-    _enable_line_buffering()
+    enable_line_buffering()
     print(f"[CFG] execution_root={EXECUTION_ROOT}")
-    print(f"[CFG] broker_handoff_root={BROKER_HANDOFF_ROOT}")
-    print(f"[CFG] broker_name={BROKER_NAME} broker_platform={BROKER_PLATFORM} handoff_mode={HANDOFF_MODE}")
     print(f"[CFG] configs={CONFIG_NAMES}")
-    print(
-        f"[CFG] allow_fractional_broker={int(ALLOW_FRACTIONAL_BROKER)} round_fractional_for_broker={int(ROUND_FRACTIONAL_FOR_BROKER)} "
-        f"allow_shorts={int(ALLOW_SHORTS)} min_order_notional={MIN_ORDER_NOTIONAL} max_order_notional={MAX_ORDER_NOTIONAL}"
-    )
-    print(
-        f"[CFG] max_total_orders={MAX_TOTAL_ORDERS} max_orders_per_config={MAX_ORDERS_PER_CONFIG} "
-        f"max_position_notional={MAX_POSITION_NOTIONAL}"
-    )
-    print(
-        f"[CFG] commission_bps={COMMISSION_BPS} commission_min_per_order={COMMISSION_MIN_PER_ORDER} slippage_bps={SLIPPAGE_BPS}"
-    )
-
-    all_rows: List[pd.DataFrame] = []
-    cfg_summaries: Dict[str, object] = {}
-
-    for name in CONFIG_NAMES:
-        cfg = _cfg_paths(name)
-        orders, target, exec_log, state = _load_execution_artifacts(cfg)
-        handoff_df, counters = _build_handoff_rows(cfg, orders, target, exec_log)
-        cfg_summaries[name] = {
-            "rows_total": int(counters["rows_total"]),
-            "rows_hold": int(counters["rows_hold"]),
-            "rows_ready": int(counters["rows_ready"]),
-            "rows_skipped_min_notional": int(counters["rows_skipped_min_notional"]),
-            "rows_skipped_short_not_allowed": int(counters["rows_skipped_short_not_allowed"]),
-            "rows_skipped_max_notional": int(counters["rows_skipped_max_notional"]),
-            "rows_skipped_zero_after_rounding": int(counters["rows_skipped_zero_after_rounding"]),
-            "state_nav": float(state.get("nav", 0.0) or 0.0),
-            "state_cash": float(state.get("cash", 0.0) or 0.0),
-            "broker_estimated_commission_total": float(_num(handoff_df.get("broker_estimated_commission", pd.Series(dtype="float64"))).sum()) if len(handoff_df) else 0.0,
-            "broker_estimated_slippage_total": float(_num(handoff_df.get("broker_estimated_slippage", pd.Series(dtype="float64"))).sum()) if len(handoff_df) else 0.0,
-            "broker_estimated_total_cost": float(_num(handoff_df.get("broker_estimated_total_cost", pd.Series(dtype="float64"))).sum()) if len(handoff_df) else 0.0,
-        }
-        print(
-            f"[HANDOFF][{name}] rows_total={counters['rows_total']} rows_ready={counters['rows_ready']} rows_hold={counters['rows_hold']} "
-            f"skip_min_notional={counters['rows_skipped_min_notional']} skip_shorts={counters['rows_skipped_short_not_allowed']} "
-            f"skip_max_notional={counters['rows_skipped_max_notional']} skip_zero_after_rounding={counters['rows_skipped_zero_after_rounding']}"
-        )
-        print(
-            f"[HANDOFF][{name}][COST] broker_estimated_commission_total={cfg_summaries[name]['broker_estimated_commission_total']:.4f} "
-            f"broker_estimated_slippage_total={cfg_summaries[name]['broker_estimated_slippage_total']:.4f} "
-            f"broker_estimated_total_cost={cfg_summaries[name]['broker_estimated_total_cost']:.4f}"
-        )
-        if len(handoff_df):
-            print(f"[HANDOFF][{name}][TOP]")
-            print(handoff_df.head(min(TOPK_PRINT, len(handoff_df))).to_string(index=False))
-        all_rows.append(handoff_df)
-
-    combined = pd.concat(all_rows, ignore_index=True) if all_rows else pd.DataFrame()
-    preflight = _run_preflight(combined)
-
-    BROKER_HANDOFF_ROOT.mkdir(parents=True, exist_ok=True)
-    blotter_csv = BROKER_HANDOFF_ROOT / "broker_order_blotter.csv"
-    ready_csv = BROKER_HANDOFF_ROOT / "broker_order_blotter_ready.csv"
-    blocked_csv = BROKER_HANDOFF_ROOT / "broker_order_blotter_blocked.csv"
-    preflight_json = BROKER_HANDOFF_ROOT / "broker_preflight_summary.json"
-
-    combined.to_csv(blotter_csv, index=False)
-    if len(combined):
-        combined.loc[combined["ready"] == 1].to_csv(ready_csv, index=False)
-        combined.loc[combined["ready"] != 1].to_csv(blocked_csv, index=False)
-    else:
-        pd.DataFrame().to_csv(ready_csv, index=False)
-        pd.DataFrame().to_csv(blocked_csv, index=False)
-
-    summary_payload = {
-        "broker_name": BROKER_NAME,
-        "broker_platform": BROKER_PLATFORM,
-        "broker_account_id": BROKER_ACCOUNT_ID,
-        "handoff_mode": HANDOFF_MODE,
-        "config_summaries": cfg_summaries,
-        "preflight": preflight,
-    }
-    preflight_json.write_text(json.dumps(summary_payload, ensure_ascii=False, indent=2), encoding="utf-8")
-
-    print(
-        f"[PREFLIGHT] passes={int(preflight['passes'])} ready_orders={preflight['ready_orders']} blocked_orders={preflight['blocked_orders']} "
-        f"total_broker_notional={preflight['total_broker_notional']:.2f} max_broker_order_notional={preflight['max_broker_order_notional']:.2f}"
-    )
-    print(
-        f"[PREFLIGHT][COST] total_broker_estimated_commission={preflight['total_broker_estimated_commission']:.4f} "
-        f"total_broker_estimated_slippage={preflight['total_broker_estimated_slippage']:.4f} "
-        f"total_broker_estimated_cost={preflight['total_broker_estimated_cost']:.4f}"
-    )
-    if preflight["reasons"]:
-        print(f"[PREFLIGHT][REASONS] {preflight['reasons']}")
-
-    print(f"[ARTIFACT] {blotter_csv}")
-    print(f"[ARTIFACT] {ready_csv}")
-    print(f"[ARTIFACT] {blocked_csv}")
-    print(f"[ARTIFACT] {preflight_json}")
+    print(f"[CFG] ib_host={IB_HOST} ib_port={IB_PORT} ib_client_id={IB_CLIENT_ID}")
+    print(f"[CFG] exchange={IB_EXCHANGE} primary_exchange={IB_PRIMARY_EXCHANGE} currency={IB_CURRENCY} sec_type={IB_SECURITY_TYPE}")
+    print(f"[CFG] ib_mkt_timeout_sec={IB_MKT_TIMEOUT_SEC} max_price_deviation_pct={MAX_PRICE_DEVIATION_PCT} allow_last_fallback={int(ALLOW_LAST_FALLBACK)}")
+    app = connect_quote_app()
+    try:
+        for config_name in CONFIG_NAMES:
+            run_one_config(app, cfg_paths(config_name))
+    finally:
+        disconnect_quote_app(app)
     print("[FINAL] broker handoff complete")
     return 0
 
@@ -406,4 +441,4 @@ if __name__ == "__main__":
     except Exception:
         traceback.print_exc()
         rc = 1
-    _safe_exit(rc)
+    safe_exit(rc)
