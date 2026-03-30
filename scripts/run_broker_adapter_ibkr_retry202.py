@@ -1,0 +1,653 @@
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import sys
+import time
+import traceback
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, List, Sequence, Tuple
+
+import pandas as pd
+from ibapi.contract import Contract
+from ibapi.order import Order
+
+ROOT = Path(__file__).resolve().parents[1]
+SRC_DIR = ROOT / "src"
+for p in [ROOT, SRC_DIR]:
+    ps = str(p)
+    if ps not in sys.path:
+        sys.path.insert(0, ps)
+
+from python_edge.broker.ibkr_client import IBKRApp
+from python_edge.broker.ibkr_models import BrokerErrorInfo, ConfigPaths, OrderIssue, PreparedOrder
+from python_edge.broker.ibkr_pricing import compute_limit_price, limit_price_debug_payload, normalize_min_tick
+from python_edge.broker.ibkr_storage import (
+    append_or_replace_fills,
+    duplicate_fill_entry,
+    existing_duplicate_status,
+    load_broker_log,
+    save_broker_log,
+    upsert_broker_log_entry,
+)
+
+PAUSE_ON_EXIT = str(os.getenv("PAUSE_ON_EXIT", "auto")).strip().lower()
+EXECUTION_ROOT = Path(os.getenv("EXECUTION_ROOT", "artifacts/execution_loop"))
+CONFIG_NAMES = [x.strip() for x in str(os.getenv("CONFIG_NAMES", "optimal|aggressive")).split("|") if x.strip()]
+BROKER_NAME = str(os.getenv("BROKER_NAME", "MEXEM")).strip() or "MEXEM"
+BROKER_PLATFORM = str(os.getenv("BROKER_PLATFORM", "IBKR")).strip() or "IBKR"
+BROKER_ACCOUNT_ID = str(os.getenv("BROKER_ACCOUNT_ID", "")).strip()
+IB_HOST = str(os.getenv("IB_HOST", "127.0.0.1")).strip()
+IB_PORT = int(os.getenv("IB_PORT", "4002"))
+IB_CLIENT_ID = int(os.getenv("IB_CLIENT_ID", "41"))
+IB_TIMEOUT_SEC = float(os.getenv("IB_TIMEOUT_SEC", "20.0"))
+IB_ACCOUNT_CODE = str(os.getenv("IB_ACCOUNT_CODE", BROKER_ACCOUNT_ID)).strip()
+IB_ORDER_TYPE = str(os.getenv("IB_ORDER_TYPE", "LMT")).strip().upper()
+IB_TIME_IN_FORCE = str(os.getenv("IB_TIME_IN_FORCE", "DAY")).strip().upper()
+IB_OUTSIDE_RTH = str(os.getenv("IB_OUTSIDE_RTH", "1")).strip().lower() not in {"0", "false", "no", "off"}
+IB_ALLOW_FRACTIONAL = str(os.getenv("IB_ALLOW_FRACTIONAL", "0")).strip().lower() not in {"0", "false", "no", "off"}
+IB_POLL_AFTER_SUBMIT = str(os.getenv("IB_POLL_AFTER_SUBMIT", "1")).strip().lower() not in {"0", "false", "no", "off"}
+IB_POLL_ATTEMPTS = int(os.getenv("IB_POLL_ATTEMPTS", "6"))
+IB_POLL_SLEEP_SEC = float(os.getenv("IB_POLL_SLEEP_SEC", "1.5"))
+IB_EXCHANGE = str(os.getenv("IB_EXCHANGE", "SMART")).strip().upper() or "SMART"
+IB_PRIMARY_EXCHANGE = str(os.getenv("IB_PRIMARY_EXCHANGE", "")).strip().upper()
+IB_CURRENCY = str(os.getenv("IB_CURRENCY", "USD")).strip().upper() or "USD"
+IB_SECURITY_TYPE = str(os.getenv("IB_SECURITY_TYPE", "STK")).strip().upper() or "STK"
+RESET_BROKER_LOG = str(os.getenv("RESET_BROKER_LOG", "0")).strip().lower() not in {"0", "false", "no", "off"}
+SYMBOL_MAP_FILE = str(os.getenv("BROKER_SYMBOL_MAP_FILE", "")).strip()
+SYMBOL_MAP_JSON = str(os.getenv("BROKER_SYMBOL_MAP_JSON", "")).strip()
+TOPK_PRINT = int(os.getenv("TOPK_PRINT", "50"))
+IB_FRACTIONAL_REJECT_CODES = [int(x.strip()) for x in str(os.getenv("IB_FRACTIONAL_REJECT_CODES", "10243|10247|10248|10249|10250")).split("|") if x.strip()]
+IB_REFRESH_POSITIONS_ON_CONNECT = str(os.getenv("IB_REFRESH_POSITIONS_ON_CONNECT", "0")).strip().lower() not in {"0", "false", "no", "off"}
+IB_REQUIRE_POSITIONS_ON_CONNECT = str(os.getenv("IB_REQUIRE_POSITIONS_ON_CONNECT", "0")).strip().lower() not in {"0", "false", "no", "off"}
+IB_POSITIONS_TIMEOUT_SEC = float(os.getenv("IB_POSITIONS_TIMEOUT_SEC", str(IB_TIMEOUT_SEC)))
+IB_OPEN_ORDERS_TIMEOUT_SEC = float(os.getenv("IB_OPEN_ORDERS_TIMEOUT_SEC", str(IB_TIMEOUT_SEC)))
+IB_LMT_PRICE_BPS = float(os.getenv("IB_LMT_PRICE_BPS", "10.0"))
+IB_LMT_PRICE_BUY_BPS = float(os.getenv("IB_LMT_PRICE_BUY_BPS", str(IB_LMT_PRICE_BPS)))
+IB_LMT_PRICE_SELL_BPS = float(os.getenv("IB_LMT_PRICE_SELL_BPS", str(IB_LMT_PRICE_BPS)))
+IB_LMT_PRICE_MIN_ABS = float(os.getenv("IB_LMT_PRICE_MIN_ABS", "0.01"))
+IB_EXTENDED_HOURS_FORCE_LMT = str(os.getenv("IB_EXTENDED_HOURS_FORCE_LMT", "1")).strip().lower() not in {"0", "false", "no", "off"}
+IB_RETRY_202_ENABLED = str(os.getenv("IB_RETRY_202_ENABLED", "1")).strip().lower() not in {"0", "false", "no", "off"}
+IB_RETRY_202_MAX_RETRIES = int(os.getenv("IB_RETRY_202_MAX_RETRIES", "2"))
+IB_RETRY_202_SLEEP_SEC = float(os.getenv("IB_RETRY_202_SLEEP_SEC", "0.75"))
+IB_RETRY_202_BUY_BPS_STEPS = [float(x.strip()) for x in str(os.getenv("IB_RETRY_202_BUY_BPS_STEPS", "15|25|40")).split("|") if x.strip()]
+IB_RETRY_202_SELL_BPS_STEPS = [float(x.strip()) for x in str(os.getenv("IB_RETRY_202_SELL_BPS_STEPS", "15|25|40")).split("|") if x.strip()]
+
+REQUIRED_ORDER_COLUMNS = ["symbol", "order_side", "delta_shares"]
+ACCEPTED_STATUSES = {"filled", "submitted", "presubmitted", "partiallyfilled"}
+
+
+def enable_line_buffering() -> None:
+    for stream_name in ["stdout", "stderr"]:
+        stream = getattr(sys, stream_name, None)
+        if stream is None:
+            continue
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            try:
+                reconfigure(line_buffering=True)
+            except Exception:
+                pass
+
+
+def should_pause() -> bool:
+    if PAUSE_ON_EXIT in {"0", "false", "no", "off"}:
+        return False
+    if PAUSE_ON_EXIT in {"1", "true", "yes", "on"}:
+        return True
+    stdin_obj = getattr(sys, "stdin", None)
+    stdout_obj = getattr(sys, "stdout", None)
+    return bool(stdin_obj and stdout_obj and hasattr(stdin_obj, "isatty") and hasattr(stdout_obj, "isatty") and stdin_obj.isatty() and stdout_obj.isatty())
+
+
+def safe_exit(code: int) -> None:
+    if should_pause():
+        try:
+            print("")
+            print(f"[EXIT] code={code}")
+            input("Press Enter to exit...")
+        except Exception:
+            pass
+    raise SystemExit(code)
+
+
+def utc_now_iso() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def must_exist(path: Path, label: str) -> None:
+    if not path.exists():
+        raise FileNotFoundError(f"{label} not found: {path}")
+
+
+def to_float(value: Any) -> float:
+    try:
+        if value is None:
+            return 0.0
+        return float(value)
+    except Exception:
+        return 0.0
+
+
+def normalize_symbol(symbol: str) -> str:
+    return str(symbol or "").strip().upper()
+
+
+def normalize_order_side(side: str) -> str:
+    out = str(side or "").strip().upper()
+    if out not in {"BUY", "SELL", "HOLD"}:
+        raise RuntimeError(f"Unsupported order_side: {side!r}")
+    return out
+
+
+def is_fractional_qty(qty: float) -> bool:
+    return abs(float(qty) - float(round(float(qty)))) > 1e-9
+
+
+def fractional_error_code_set() -> set[int]:
+    return {int(x) for x in IB_FRACTIONAL_REJECT_CODES}
+
+
+def cfg_paths(name: str) -> ConfigPaths:
+    execution_dir = EXECUTION_ROOT / name
+    return ConfigPaths(name=name, execution_dir=execution_dir, orders_csv=execution_dir / "orders.csv", fills_csv=execution_dir / "fills.csv", broker_log_json=execution_dir / "broker_log.json")
+
+
+def load_symbol_map() -> Dict[str, str]:
+    mapping: Dict[str, str] = {}
+    if SYMBOL_MAP_FILE:
+        path = Path(SYMBOL_MAP_FILE)
+        must_exist(path, "BROKER_SYMBOL_MAP_FILE")
+        with path.open("r", encoding="utf-8") as fh:
+            payload = json.load(fh)
+        if not isinstance(payload, dict):
+            raise RuntimeError("BROKER_SYMBOL_MAP_FILE must contain a JSON object")
+        for k, v in payload.items():
+            mapping[normalize_symbol(str(k))] = normalize_symbol(str(v))
+    if SYMBOL_MAP_JSON:
+        payload = json.loads(SYMBOL_MAP_JSON)
+        if not isinstance(payload, dict):
+            raise RuntimeError("BROKER_SYMBOL_MAP_JSON must decode to a JSON object")
+        for k, v in payload.items():
+            mapping[normalize_symbol(str(k))] = normalize_symbol(str(v))
+    return mapping
+
+
+def load_orders_df(path: Path) -> pd.DataFrame:
+    must_exist(path, "orders.csv")
+    df = pd.read_csv(path)
+    if df.empty:
+        return pd.DataFrame(columns=REQUIRED_ORDER_COLUMNS)
+    missing = [c for c in REQUIRED_ORDER_COLUMNS if c not in df.columns]
+    if missing:
+        raise RuntimeError(f"orders.csv missing required columns: {missing}")
+    return df.copy()
+
+
+def select_live_orders(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df.copy()
+    out = df.loc[df["order_side"].astype(str).str.upper() != "HOLD"].copy()
+    out = out.loc[out["delta_shares"].abs() > 1e-12].copy()
+    return out.reset_index(drop=True)
+
+
+def resolve_broker_symbol(symbol: str, symbol_map: Dict[str, str]) -> str:
+    return symbol_map.get(normalize_symbol(symbol), normalize_symbol(symbol))
+
+
+def make_idempotency_key(config: str, row: Dict[str, Any], broker_symbol: str) -> str:
+    raw = {
+        "config": config,
+        "date": str(row.get("date", "")).strip(),
+        "symbol": normalize_symbol(str(row.get("symbol", ""))),
+        "broker_symbol": broker_symbol,
+        "order_side": normalize_order_side(str(row.get("order_side", "HOLD"))),
+        "delta_shares": round(to_float(row.get("delta_shares", 0.0)), 8),
+        "order_notional": round(to_float(row.get("order_notional", 0.0)), 8),
+        "target_weight": round(to_float(row.get("target_weight", 0.0)), 8),
+    }
+    return hashlib.sha256(json.dumps(raw, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest()
+
+
+def make_client_tag(idempotency_key: str) -> str:
+    return f"pe-{idempotency_key[:24]}"
+
+
+def prepare_orders(config_name: str, df: pd.DataFrame, symbol_map: Dict[str, str]) -> List[PreparedOrder]:
+    prepared: List[PreparedOrder] = []
+    for _, row in df.iterrows():
+        row_dict = {str(k): row[k] for k in df.columns}
+        symbol = normalize_symbol(str(row_dict.get("symbol", "")))
+        order_side = normalize_order_side(str(row_dict.get("order_side", "HOLD")))
+        raw_qty = abs(to_float(row_dict.get("delta_shares", 0.0)))
+        if raw_qty <= 1e-12:
+            continue
+        qty = raw_qty if IB_ALLOW_FRACTIONAL else float(int(raw_qty))
+        if qty <= 1e-12:
+            continue
+        broker_symbol = resolve_broker_symbol(symbol, symbol_map)
+        row_for_key = dict(row_dict)
+        row_for_key["delta_shares"] = qty if order_side == "BUY" else -qty
+        idempotency_key = make_idempotency_key(config_name, row_for_key, broker_symbol)
+        prepared.append(PreparedOrder(
+            config=config_name,
+            order_date=str(row_dict.get("date", "")).strip(),
+            symbol=symbol,
+            broker_symbol=broker_symbol,
+            order_side=order_side,
+            qty=qty,
+            price=to_float(row_dict.get("price", 0.0)),
+            order_notional=abs(to_float(row_dict.get("order_notional", 0.0))),
+            target_weight=to_float(row_dict.get("target_weight", 0.0)),
+            current_shares=to_float(row_dict.get("current_shares", 0.0)),
+            target_shares=to_float(row_dict.get("target_shares", 0.0)),
+            delta_shares=to_float(row_dict.get("delta_shares", 0.0)),
+            source_row=row_dict,
+            idempotency_key=idempotency_key,
+            client_tag=make_client_tag(idempotency_key),
+        ))
+    return prepared
+
+
+def effective_order_type() -> str:
+    if IB_EXTENDED_HOURS_FORCE_LMT and IB_OUTSIDE_RTH and IB_ORDER_TYPE == "MKT":
+        return "LMT"
+    return IB_ORDER_TYPE
+
+
+def build_contract(prepared: PreparedOrder) -> Contract:
+    contract = Contract()
+    contract.symbol = prepared.broker_symbol
+    contract.secType = IB_SECURITY_TYPE
+    contract.exchange = IB_EXCHANGE
+    contract.currency = IB_CURRENCY
+    if IB_PRIMARY_EXCHANGE:
+        contract.primaryExchange = IB_PRIMARY_EXCHANGE
+    return contract
+
+
+def build_order(prepared: PreparedOrder, buy_bps: float, sell_bps: float) -> Tuple[Order, float | None, float | None]:
+    order = Order()
+    order.action = prepared.order_side
+    order.orderType = effective_order_type()
+    order.totalQuantity = float(prepared.qty)
+    order.tif = IB_TIME_IN_FORCE
+    order.outsideRth = bool(IB_OUTSIDE_RTH)
+    if IB_ACCOUNT_CODE:
+        order.account = IB_ACCOUNT_CODE
+    order.orderRef = prepared.client_tag
+    order.transmit = True
+    order.eTradeOnly = False
+    order.firmQuoteOnly = False
+    raw_limit_price = None
+    rounded_limit_price = None
+    if order.orderType == "LMT":
+        raw_limit_price, rounded_limit_price = compute_limit_price(prepared, buy_bps, sell_bps, IB_LMT_PRICE_MIN_ABS)
+        order.lmtPrice = float(rounded_limit_price)
+    elif order.orderType != "MKT":
+        raise RuntimeError("Supported IB order types in this adapter are MKT and LMT")
+    return order, raw_limit_price, rounded_limit_price
+
+
+def collect_app_errors(app: IBKRApp, start_idx: int, req_ids: Sequence[int]) -> List[BrokerErrorInfo]:
+    req_id_set = {int(x) for x in req_ids}
+    out: List[BrokerErrorInfo] = []
+    for payload in app._errors[start_idx:]:
+        try:
+            req_id = int(payload.get("reqId", 0) or 0)
+        except Exception:
+            req_id = 0
+        if req_id_set and req_id not in req_id_set:
+            continue
+        out.append(BrokerErrorInfo(
+            req_id=req_id,
+            error_code=int(payload.get("errorCode", 0) or 0),
+            error_string=str(payload.get("errorString", "") or ""),
+            advanced_order_reject_json=str(payload.get("advancedOrderRejectJson", "") or ""),
+            ts_utc=str(payload.get("ts_utc", "") or utc_now_iso()),
+        ))
+    return out
+
+
+def first_fractional_issue(prepared: PreparedOrder, broker_errors: Sequence[BrokerErrorInfo]) -> OrderIssue | None:
+    if not is_fractional_qty(prepared.qty):
+        return None
+    code_set = fractional_error_code_set()
+    for err in broker_errors:
+        if int(err.error_code) in code_set:
+            return OrderIssue(kind="fractional_api_reject", status="rejected_fractional_api", broker_error=err, message=f"IBKR API rejected fractional order code={err.error_code}: {err.error_string}")
+    return None
+
+
+def first_generic_issue(broker_errors: Sequence[BrokerErrorInfo]) -> OrderIssue | None:
+    if not broker_errors:
+        return None
+    err = broker_errors[-1]
+    return OrderIssue(kind="broker_api_error", status=f"error_api_{int(err.error_code)}", broker_error=err, message=f"IBKR API error code={err.error_code}: {err.error_string}")
+
+
+def find_error_code(broker_errors: Sequence[BrokerErrorInfo], code: int) -> BrokerErrorInfo | None:
+    for err in broker_errors:
+        if int(err.error_code) == int(code):
+            return err
+    return None
+
+
+def retry_buy_sell_bps(attempt_idx: int) -> Tuple[float, float]:
+    if attempt_idx <= 0:
+        return float(IB_LMT_PRICE_BUY_BPS), float(IB_LMT_PRICE_SELL_BPS)
+    buy_idx = min(attempt_idx - 1, max(0, len(IB_RETRY_202_BUY_BPS_STEPS) - 1))
+    sell_idx = min(attempt_idx - 1, max(0, len(IB_RETRY_202_SELL_BPS_STEPS) - 1))
+    return float(IB_RETRY_202_BUY_BPS_STEPS[buy_idx]), float(IB_RETRY_202_SELL_BPS_STEPS[sell_idx])
+
+
+def refresh_open_orders(app: IBKRApp) -> None:
+    app.done_open_orders = False
+    app.reqOpenOrders()
+    app.wait_until_open_orders_end(timeout_sec=IB_OPEN_ORDERS_TIMEOUT_SEC)
+
+
+def refresh_positions(app: IBKRApp, required: bool) -> bool:
+    app.done_positions = False
+    app.position_rows = []
+    app.reqPositions()
+    try:
+        app.wait_until_positions_end(timeout_sec=IB_POSITIONS_TIMEOUT_SEC)
+        app.cancelPositions()
+        print(f"[IB] positions refresh complete rows={len(app.position_rows)}")
+        return True
+    except TimeoutError:
+        try:
+            app.cancelPositions()
+        except Exception:
+            pass
+        if required:
+            raise
+        print(f"[IB][WARN] Timed out waiting for positionEnd after {IB_POSITIONS_TIMEOUT_SEC:.1f}s; continuing without initial position snapshot")
+        return False
+
+
+def query_contract_details(app: IBKRApp, prepared: PreparedOrder, req_id: int) -> dict:
+    app.done_contract_details[int(req_id)] = False
+    app.reqContractDetails(int(req_id), build_contract(prepared))
+    return app.wait_for_contract_details(int(req_id), timeout_sec=IB_TIMEOUT_SEC)
+
+
+def bootstrap_connection() -> IBKRApp:
+    app = IBKRApp(utc_now_iso=utc_now_iso, to_float=to_float)
+    print(f"[IB] connecting host={IB_HOST} port={IB_PORT} client_id={IB_CLIENT_ID}")
+    app.connect(IB_HOST, IB_PORT, clientId=IB_CLIENT_ID)
+    app.start_network_loop()
+    next_id = app.wait_for_next_valid_id(timeout_sec=IB_TIMEOUT_SEC)
+    managed_accounts = app.wait_for_managed_accounts(timeout_sec=IB_TIMEOUT_SEC)
+    if IB_ACCOUNT_CODE:
+        account_list = [x.strip() for x in managed_accounts.split(",") if x.strip()]
+        if IB_ACCOUNT_CODE not in account_list:
+            raise RuntimeError(f"IB_ACCOUNT_CODE={IB_ACCOUNT_CODE!r} not present in managed accounts: {managed_accounts!r}")
+    print(f"[IB] connected next_valid_id={next_id} managed_accounts={managed_accounts}")
+    refresh_open_orders(app)
+    if IB_REFRESH_POSITIONS_ON_CONNECT or IB_REQUIRE_POSITIONS_ON_CONNECT:
+        got_positions = refresh_positions(app, required=IB_REQUIRE_POSITIONS_ON_CONNECT)
+        print(f"[IB] initial positions refresh enabled={int(IB_REFRESH_POSITIONS_ON_CONNECT or IB_REQUIRE_POSITIONS_ON_CONNECT)} success={int(got_positions)}")
+    else:
+        print("[IB] initial positions refresh skipped by config")
+    return app
+
+
+def teardown_connection(app: IBKRApp) -> None:
+    try:
+        if app.isConnected():
+            app.disconnect()
+    except Exception:
+        pass
+    time.sleep(0.25)
+
+
+def entry_from_ib(prepared: PreparedOrder, ib_entry: dict, source_path: Path, buy_bps: float, sell_bps: float, raw_limit_price: float | None, rounded_limit_price: float | None, retry_count: int) -> dict:
+    status = str(ib_entry.get("status", "")).strip().lower() or "unknown"
+    avg_fill_price = to_float(ib_entry.get("avg_fill_price", prepared.price)) or float(prepared.price)
+    filled_qty = to_float(ib_entry.get("filled_qty", 0.0))
+    remaining_qty = to_float(ib_entry.get("remaining_qty", max(0.0, prepared.qty - filled_qty)))
+    request = {
+        "account": IB_ACCOUNT_CODE,
+        "host": IB_HOST,
+        "port": IB_PORT,
+        "client_id": IB_CLIENT_ID,
+        "order_type": effective_order_type(),
+        "tif": IB_TIME_IN_FORCE,
+        "outside_rth": int(IB_OUTSIDE_RTH),
+        "retry_count_202": int(retry_count),
+        "buy_bps_used": float(buy_bps),
+        "sell_bps_used": float(sell_bps),
+    }
+    if effective_order_type() == "LMT" and raw_limit_price is not None and rounded_limit_price is not None:
+        request.update(limit_price_debug_payload(prepared, raw_limit_price, rounded_limit_price))
+    return {
+        "idempotency_key": prepared.idempotency_key,
+        "client_order_id": prepared.client_tag,
+        "broker_order_id": str(ib_entry.get("ib_order_id", "")),
+        "perm_id": int(ib_entry.get("perm_id", 0) or 0),
+        "config": prepared.config,
+        "source_order_path": str(source_path),
+        "date": prepared.order_date,
+        "symbol": prepared.symbol,
+        "broker_symbol": prepared.broker_symbol,
+        "side": prepared.order_side,
+        "qty": float(prepared.qty),
+        "filled_qty": float(filled_qty),
+        "remaining_qty": float(remaining_qty),
+        "price_hint": float(prepared.price),
+        "filled_avg_price": float(avg_fill_price),
+        "order_notional": float(prepared.order_notional),
+        "fill_notional": abs(float(filled_qty * avg_fill_price)),
+        "status": status,
+        "submitted_at": str(ib_entry.get("submitted_at_utc", utc_now_iso())),
+        "filled_at": utc_now_iso() if status in {"filled", "partiallyfilled"} else "",
+        "mode": "ibkr_gateway",
+        "request": request,
+        "response": {
+            "ib_order_id": ib_entry.get("ib_order_id", ""),
+            "perm_id": ib_entry.get("perm_id", 0),
+            "status": ib_entry.get("status", ""),
+            "avg_fill_price": ib_entry.get("avg_fill_price", 0.0),
+            "last_fill_price": ib_entry.get("last_fill_price", 0.0),
+            "fills": ib_entry.get("fills", []),
+        },
+    }
+
+
+def build_error_entry(prepared: PreparedOrder, paths: ConfigPaths, issue: OrderIssue, buy_bps: float, sell_bps: float, raw_limit_price: float | None, rounded_limit_price: float | None, retry_count: int) -> dict:
+    request = {
+        "account": IB_ACCOUNT_CODE,
+        "host": IB_HOST,
+        "port": IB_PORT,
+        "client_id": IB_CLIENT_ID,
+        "order_type": effective_order_type(),
+        "outside_rth": int(IB_OUTSIDE_RTH),
+        "retry_count_202": int(retry_count),
+        "buy_bps_used": float(buy_bps),
+        "sell_bps_used": float(sell_bps),
+    }
+    if effective_order_type() == "LMT" and raw_limit_price is not None and rounded_limit_price is not None:
+        request.update(limit_price_debug_payload(prepared, raw_limit_price, rounded_limit_price))
+    return {
+        "idempotency_key": prepared.idempotency_key,
+        "client_order_id": prepared.client_tag,
+        "broker_order_id": "",
+        "perm_id": 0,
+        "config": prepared.config,
+        "source_order_path": str(paths.orders_csv),
+        "date": prepared.order_date,
+        "symbol": prepared.symbol,
+        "broker_symbol": prepared.broker_symbol,
+        "side": prepared.order_side,
+        "qty": float(prepared.qty),
+        "filled_qty": 0.0,
+        "remaining_qty": float(prepared.qty),
+        "price_hint": float(prepared.price),
+        "filled_avg_price": 0.0,
+        "order_notional": float(prepared.order_notional),
+        "fill_notional": 0.0,
+        "status": issue.status,
+        "submitted_at": utc_now_iso(),
+        "filled_at": "",
+        "mode": "ibkr_gateway",
+        "request": request,
+        "response": {
+            "error": issue.message,
+            "error_code": int(issue.broker_error.error_code) if issue.broker_error else 0,
+            "error_string": str(issue.broker_error.error_string) if issue.broker_error else "",
+        },
+    }
+
+
+def run_one_config(app: IBKRApp, paths: ConfigPaths, symbol_map: Dict[str, str], req_id_seed: int) -> int:
+    print(f"[BROKER][{paths.name}] orders={paths.orders_csv}")
+    paths.execution_dir.mkdir(parents=True, exist_ok=True)
+    broker_log = load_broker_log(paths.broker_log_json, paths.name, BROKER_NAME, BROKER_PLATFORM, BROKER_ACCOUNT_ID, utc_now_iso, RESET_BROKER_LOG)
+    orders_df = load_orders_df(paths.orders_csv)
+    prepared_orders = prepare_orders(paths.name, select_live_orders(orders_df), symbol_map)
+    fill_entries: List[dict] = []
+    sent_count = 0
+    dup_count = 0
+    err_count = 0
+    retry_202_count = 0
+    req_cursor = int(req_id_seed)
+
+    for prepared0 in prepared_orders:
+        duplicate_status = existing_duplicate_status(broker_log, prepared0.idempotency_key)
+        if duplicate_status is not None:
+            dup_count += 1
+            fill_entries.append(duplicate_fill_entry(prepared0, duplicate_status, paths.orders_csv, broker_log))
+            continue
+        try:
+            req_cursor += 1
+            meta = query_contract_details(app, prepared0, req_cursor)
+            prepared = PreparedOrder(**{**prepared0.__dict__, "min_tick": normalize_min_tick(to_float(meta.get("minTick", 0.0)), IB_LMT_PRICE_MIN_ABS)})
+            contract = build_contract(prepared)
+            if meta.get("primaryExchange") and not IB_PRIMARY_EXCHANGE:
+                contract.primaryExchange = str(meta.get("primaryExchange", ""))
+
+            final_entry: dict | None = None
+            final_issue: OrderIssue | None = None
+            final_buy_bps = float(IB_LMT_PRICE_BUY_BPS)
+            final_sell_bps = float(IB_LMT_PRICE_SELL_BPS)
+            final_raw_limit_price: float | None = None
+            final_rounded_limit_price: float | None = None
+            final_retry_count = 0
+
+            max_attempts = 1 + max(0, IB_RETRY_202_MAX_RETRIES if IB_RETRY_202_ENABLED else 0)
+            for attempt_idx in range(max_attempts):
+                buy_bps, sell_bps = retry_buy_sell_bps(attempt_idx)
+                order, raw_limit_price, rounded_limit_price = build_order(prepared, buy_bps=buy_bps, sell_bps=sell_bps)
+                error_cursor_before_submit = len(app._errors)
+                ib_order_id = app.allocate_order_id()
+                app.placeOrder(ib_order_id, contract, order)
+                ib_entry = app.wait_for_order_terminalish(ib_order_id, timeout_sec=IB_TIMEOUT_SEC)
+                if IB_POLL_AFTER_SUBMIT:
+                    for _ in range(max(0, IB_POLL_ATTEMPTS)):
+                        time.sleep(IB_POLL_SLEEP_SEC)
+                        refresh_open_orders(app)
+                        latest = app.orders_by_ib_id.get(int(ib_order_id), ib_entry)
+                        ib_entry = latest
+                        if str(latest.get("status", "")).strip().lower() in {"filled", "submitted", "presubmitted", "partiallyfilled", "inactive", "cancelled"}:
+                            break
+
+                broker_errors = collect_app_errors(app, error_cursor_before_submit, [int(ib_order_id), int(req_cursor)])
+                status_lower = str(ib_entry.get("status", "")).strip().lower()
+                issue = first_fractional_issue(prepared, broker_errors) or first_generic_issue(broker_errors)
+                retryable_202 = find_error_code(broker_errors, 202)
+
+                if issue is None or status_lower in ACCEPTED_STATUSES:
+                    final_entry = entry_from_ib(prepared, ib_entry, paths.orders_csv, buy_bps, sell_bps, raw_limit_price, rounded_limit_price, attempt_idx)
+                    final_issue = None
+                    final_buy_bps = buy_bps
+                    final_sell_bps = sell_bps
+                    final_raw_limit_price = raw_limit_price
+                    final_rounded_limit_price = rounded_limit_price
+                    final_retry_count = attempt_idx
+                    break
+
+                if retryable_202 is not None and attempt_idx + 1 < max_attempts:
+                    retry_202_count += 1
+                    print(
+                        f"[BROKER][{paths.name}][RETRY_202] symbol={prepared.symbol} side={prepared.order_side} qty={prepared.qty:.8f} "
+                        f"attempt={attempt_idx + 1}/{max_attempts - 1} code=202 msg={retryable_202.error_string} "
+                        f"buy_bps={buy_bps:.2f} sell_bps={sell_bps:.2f} raw_limit_price={(raw_limit_price if raw_limit_price is not None else 0.0):.4f} "
+                        f"rounded_limit_price={(rounded_limit_price if rounded_limit_price is not None else 0.0):.4f} min_tick={prepared.min_tick:.6f}"
+                    )
+                    time.sleep(IB_RETRY_202_SLEEP_SEC)
+                    continue
+
+                final_issue = issue
+                final_buy_bps = buy_bps
+                final_sell_bps = sell_bps
+                final_raw_limit_price = raw_limit_price
+                final_rounded_limit_price = rounded_limit_price
+                final_retry_count = attempt_idx
+                break
+
+            if final_entry is not None:
+                upsert_broker_log_entry(broker_log, final_entry, utc_now_iso)
+                fill_entries.append(final_entry)
+                sent_count += 1
+                if effective_order_type() == "LMT":
+                    print(
+                        f"[BROKER][{paths.name}][SEND] symbol={prepared.symbol} broker_symbol={prepared.broker_symbol} side={prepared.order_side} "
+                        f"qty={prepared.qty:.8f} status={final_entry['status']} ib_order_id={final_entry['broker_order_id']} order_type={effective_order_type()} outside_rth={int(IB_OUTSIDE_RTH)} "
+                        f"price_hint={prepared.price:.4f} raw_limit_price={(final_raw_limit_price if final_raw_limit_price is not None else 0.0):.4f} "
+                        f"rounded_limit_price={(final_rounded_limit_price if final_rounded_limit_price is not None else 0.0):.4f} min_tick={prepared.min_tick:.6f} retry_count_202={final_retry_count}"
+                    )
+                continue
+
+            if final_issue is None:
+                final_issue = OrderIssue(kind="broker_api_error", status="error_api_unknown", broker_error=None, message="IBKR API returned no accepted status and no explicit error")
+            err_count += 1
+            error_entry = build_error_entry(prepared, paths, final_issue, final_buy_bps, final_sell_bps, final_raw_limit_price, final_rounded_limit_price, final_retry_count)
+            upsert_broker_log_entry(broker_log, error_entry, utc_now_iso)
+            fill_entries.append(error_entry)
+        except Exception as exc:
+            err_count += 1
+            print(f"[BROKER][{paths.name}][ERROR] {exc}")
+
+    append_or_replace_fills(paths.fills_csv, fill_entries)
+    save_broker_log(paths.broker_log_json, broker_log, utc_now_iso)
+    print(
+        f"[BROKER][{paths.name}][SUMMARY] sent={sent_count} duplicate_skipped={dup_count} errors={err_count} retry_202={retry_202_count} "
+        f"fills_csv={paths.fills_csv} broker_log_json={paths.broker_log_json}"
+    )
+    return req_cursor
+
+
+def main() -> int:
+    enable_line_buffering()
+    symbol_map = load_symbol_map()
+    print(f"[CFG] ib_host={IB_HOST} ib_port={IB_PORT} ib_client_id={IB_CLIENT_ID}")
+    print(f"[CFG] ib_exchange={IB_EXCHANGE} ib_order_type={IB_ORDER_TYPE} ib_outside_rth={int(IB_OUTSIDE_RTH)}")
+    print(
+        f"[CFG] ib_lmt_price_buy_bps={IB_LMT_PRICE_BUY_BPS} ib_lmt_price_sell_bps={IB_LMT_PRICE_SELL_BPS} ib_lmt_price_min_abs={IB_LMT_PRICE_MIN_ABS} "
+        f"retry_202_enabled={int(IB_RETRY_202_ENABLED)} retry_202_max_retries={IB_RETRY_202_MAX_RETRIES} "
+        f"retry_202_buy_steps={IB_RETRY_202_BUY_BPS_STEPS} retry_202_sell_steps={IB_RETRY_202_SELL_BPS_STEPS}"
+    )
+    app = bootstrap_connection()
+    req_cursor = 100000
+    try:
+        for config_name in CONFIG_NAMES:
+            req_cursor = run_one_config(app, cfg_paths(config_name), symbol_map, req_cursor)
+    finally:
+        teardown_connection(app)
+    print("[FINAL] IBKR broker adapter complete")
+    return 0
+
+
+if __name__ == "__main__":
+    rc = 1
+    try:
+        rc = main()
+    except Exception:
+        traceback.print_exc()
+        rc = 1
+    safe_exit(rc)
