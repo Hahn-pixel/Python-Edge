@@ -55,6 +55,8 @@ IB_POLL_SLEEP_SEC = float(os.getenv("IB_POLL_SLEEP_SEC", "1.5"))
 IB_FINAL_STATUS_POLL_ENABLED = str(os.getenv("IB_FINAL_STATUS_POLL_ENABLED", "1")).strip().lower() not in {"0", "false", "no", "off"}
 IB_FINAL_STATUS_POLL_ATTEMPTS = int(os.getenv("IB_FINAL_STATUS_POLL_ATTEMPTS", "20"))
 IB_FINAL_STATUS_POLL_SLEEP_SEC = float(os.getenv("IB_FINAL_STATUS_POLL_SLEEP_SEC", "3.0"))
+IB_POLL_VERBOSE = str(os.getenv("IB_POLL_VERBOSE", "changes")).strip().lower() or "changes"
+IB_POLL_PRINT_EVERY = int(os.getenv("IB_POLL_PRINT_EVERY", "5"))
 IB_WORKING_ORDER_POLICY = str(os.getenv("IB_WORKING_ORDER_POLICY", "carry")).strip().lower() or "carry"
 IB_WORKING_ORDER_TTL_SEC = float(os.getenv("IB_WORKING_ORDER_TTL_SEC", "0"))
 IB_WORKING_CANCEL_POLL_ATTEMPTS = int(os.getenv("IB_WORKING_CANCEL_POLL_ATTEMPTS", "10"))
@@ -508,7 +510,10 @@ def latest_ib_entry(app: IBKRApp, ib_order_id: int, default_entry: dict) -> dict
 
 def poll_order_status(app: IBKRApp, ib_order_id: int, initial_entry: dict, attempts: int, sleep_sec: float, label: str) -> dict:
     latest = dict(initial_entry or {})
-    for poll_idx in range(max(0, attempts)):
+    last_signature = None
+    total_attempts = max(0, attempts)
+    print_every = max(1, int(IB_POLL_PRINT_EVERY))
+    for poll_idx in range(total_attempts):
         time.sleep(max(0.0, sleep_sec))
         refresh_open_orders(app)
         latest = latest_ib_entry(app, ib_order_id, latest)
@@ -516,10 +521,27 @@ def poll_order_status(app: IBKRApp, ib_order_id: int, initial_entry: dict, attem
         filled_qty = to_float(latest.get("filled_qty", 0.0))
         remaining_qty = to_float(latest.get("remaining_qty", 0.0))
         outcome = classify_outcome(status, filled_qty, remaining_qty)
-        print(
-            f"[BROKER][POLL][{label}] ib_order_id={ib_order_id} poll={poll_idx + 1}/{attempts} "
-            f"status={status or 'unknown'} outcome={outcome} filled_qty={filled_qty:.8f} remaining_qty={remaining_qty:.8f}"
-        )
+        signature = (status, round(filled_qty, 8), round(remaining_qty, 8), outcome)
+        should_print = False
+        mode = str(IB_POLL_VERBOSE).strip().lower()
+        if mode == "all":
+            should_print = True
+        elif mode == "none":
+            should_print = poll_idx == total_attempts - 1 or outcome in {"filled_now", "partial", "failed"}
+        else:
+            should_print = (
+                poll_idx == 0
+                or poll_idx == total_attempts - 1
+                or signature != last_signature
+                or ((poll_idx + 1) % print_every == 0)
+                or outcome in {"filled_now", "partial", "failed"}
+            )
+        if should_print:
+            print(
+                f"[BROKER][POLL][{label}] ib_order_id={ib_order_id} poll={poll_idx + 1}/{total_attempts} "
+                f"status={status or 'unknown'} outcome={outcome} filled_qty={filled_qty:.8f} remaining_qty={remaining_qty:.8f}"
+            )
+        last_signature = signature
         if outcome in {"filled_now", "partial", "failed"}:
             break
     return latest
@@ -846,7 +868,8 @@ def main() -> int:
     )
     print(
         f"[CFG] poll_after_submit={int(IB_POLL_AFTER_SUBMIT)} poll_attempts={IB_POLL_ATTEMPTS} poll_sleep_sec={IB_POLL_SLEEP_SEC} "
-        f"final_status_poll_enabled={int(IB_FINAL_STATUS_POLL_ENABLED)} final_status_poll_attempts={IB_FINAL_STATUS_POLL_ATTEMPTS} final_status_poll_sleep_sec={IB_FINAL_STATUS_POLL_SLEEP_SEC}"
+        f"final_status_poll_enabled={int(IB_FINAL_STATUS_POLL_ENABLED)} final_status_poll_attempts={IB_FINAL_STATUS_POLL_ATTEMPTS} final_status_poll_sleep_sec={IB_FINAL_STATUS_POLL_SLEEP_SEC} "
+        f"poll_verbose={IB_POLL_VERBOSE} poll_print_every={IB_POLL_PRINT_EVERY}"
     )
     print(
         f"[CFG] working_order_policy={working_policy} working_order_ttl_sec={IB_WORKING_ORDER_TTL_SEC} "
