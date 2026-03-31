@@ -436,7 +436,7 @@ def poll_order_status(app: IBKRApp, ib_order_id: int, initial_entry: dict, attem
 def cancel_and_poll_order(app: IBKRApp, ib_order_id: int, initial_entry: dict, label: str) -> dict:
     latest = dict(initial_entry or {})
     print(f"[BROKER][CANCEL] ib_order_id={ib_order_id} reason={label}")
-    app.cancelOrder(int(ib_order_id), "")
+    app.cancelOrder(int(ib_order_id))
     return poll_order_status(app, ib_order_id, latest, IB_REPRICE_CANCEL_POLL_ATTEMPTS, IB_REPRICE_CANCEL_POLL_SLEEP_SEC, f"cancel_{label}")
 
 

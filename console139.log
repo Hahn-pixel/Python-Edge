@@ -1,0 +1,662 @@
+[CFG] ib_host=127.0.0.1 ib_port=4002 ib_client_id=62
+[CFG] outside_rth=1 reprice_enabled=1 reprice_wait_sec=8.0
+[CFG] reprice_steps_bps=[15.0, 10.0, 5.0, 0.0] reprice_final_mode=marketable_lmt reprice_final_marketable_bps=12.0 reprice_max_deviation_pct=1.25
+[CFG] contract_details_retries=3 contract_details_retry_sleep_sec=1.0 allow_primary_exchange_fallback=1 allow_submit_without_contract_details=1
+[IB] connecting host=127.0.0.1 port=4002 client_id=62
+[IB] managedAccounts=DUP561175
+[IB] nextValidId=1
+[IB] connected next_valid_id=1 managed_accounts=DUP561175
+[IB][ERROR] reqId=-1 code=2104 msg=Market data farm connection is OK:usfarm
+[IB][ERROR] reqId=-1 code=2107 msg=HMDS data farm connection is inactive but should be available upon demand.ushmds
+[IB][ERROR] reqId=-1 code=2158 msg=Sec-def data farm connection is OK:secdefil
+[IB] openOrderEnd
+[BROKER][optimal] orders=artifacts\execution_loop\optimal\orders.csv
+[IB][CONTRACT_DETAILS] symbol=AAPL broker_symbol=AAPL attempt=1/3 use_primary_exchange=1 req_id=100001
+[BROKER][LADDER][SUBMIT] symbol=AAPL step=1/5 mode=passive_lmt limit_price=219.1700 cap_price=222.2400
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_1] ib_order_id=1 poll=1/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=1.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_1] ib_order_id=1 poll=5/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=1.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_1] ib_order_id=1 poll=8/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=1.00000000
+[BROKER][CANCEL] ib_order_id=1 reason=reprice_step_1
+[IB][ERROR] reqId=1 code=202 msg=Order Canceled - reason:
+[IB] openOrderEnd
+[BROKER][POLL][cancel_reprice_step_1] ib_order_id=1 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=1.00000000
+[BROKER][LADDER][SUBMIT] symbol=AAPL step=2/5 mode=passive_lmt limit_price=219.2800 cap_price=222.2400
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_2] ib_order_id=2 poll=1/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=1.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_2] ib_order_id=2 poll=5/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=1.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_2] ib_order_id=2 poll=8/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=1.00000000
+[BROKER][CANCEL] ib_order_id=2 reason=reprice_step_2
+[IB][ERROR] reqId=2 code=202 msg=Order Canceled - reason:
+[IB] openOrderEnd
+[BROKER][POLL][cancel_reprice_step_2] ib_order_id=2 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=1.00000000
+[BROKER][LADDER][SUBMIT] symbol=AAPL step=3/5 mode=passive_lmt limit_price=219.3900 cap_price=222.2400
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_3] ib_order_id=3 poll=1/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=1.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_3] ib_order_id=3 poll=5/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=1.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_3] ib_order_id=3 poll=8/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=1.00000000
+[BROKER][CANCEL] ib_order_id=3 reason=reprice_step_3
+[IB][ERROR] reqId=3 code=202 msg=Order Canceled - reason:
+[IB] openOrderEnd
+[BROKER][POLL][cancel_reprice_step_3] ib_order_id=3 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=1.00000000
+[BROKER][LADDER][SUBMIT] symbol=AAPL step=4/5 mode=passive_lmt limit_price=219.5000 cap_price=222.2400
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_4] ib_order_id=4 poll=1/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=1.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_4] ib_order_id=4 poll=5/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=1.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_4] ib_order_id=4 poll=8/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=1.00000000
+[BROKER][CANCEL] ib_order_id=4 reason=reprice_step_4
+[IB][ERROR] reqId=4 code=202 msg=Order Canceled - reason:
+[IB] openOrderEnd
+[BROKER][POLL][cancel_reprice_step_4] ib_order_id=4 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=1.00000000
+[BROKER][LADDER][SUBMIT] symbol=AAPL step=5/5 mode=marketable_lmt limit_price=219.7600 cap_price=222.2400
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_5] ib_order_id=5 poll=1/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=1.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_5] ib_order_id=5 poll=5/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=1.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_5] ib_order_id=5 poll=8/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=1.00000000
+[BROKER][CANCEL] ib_order_id=5 reason=final_unfilled_cap
+[IB][ERROR] reqId=5 code=202 msg=Order Canceled - reason:
+[IB] openOrderEnd
+[BROKER][POLL][cancel_final_unfilled_cap] ib_order_id=5 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=1.00000000
+[BROKER][optimal][ERROR] symbol=AAPL side=BUY status=cancelled_unfilled_cap message=Final capped price was not filled; order cancelled
+[IB][CONTRACT_DETAILS] symbol=MSFT broker_symbol=MSFT attempt=1/3 use_primary_exchange=1 req_id=100002
+[BROKER][LADDER][SUBMIT] symbol=MSFT step=1/5 mode=passive_lmt limit_price=427.4500 cap_price=433.4500
+[IB][ERROR] reqId=6 code=202 msg=Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 382.144162. Please submit your order <br>using a limit price that is closer to the current market price of 371.23.
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_1] ib_order_id=6 poll=1/8 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=1.00000000
+[BROKER][LADDER][202] symbol=MSFT step=1 next_limit_price=371.2500
+[BROKER][CANCEL] ib_order_id=6 reason=reprice_step_1
+[IB][ERROR] reqId=6 code=10148 msg=OrderId 6 that needs to be cancelled cannot be cancelled, state: Cancelled.
+[IB] openOrderEnd
+[BROKER][POLL][cancel_reprice_step_1] ib_order_id=6 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=1.00000000
+[BROKER][LADDER][SUBMIT] symbol=MSFT step=2/5 mode=passive_lmt limit_price=427.6700 cap_price=433.4500
+[IB][ERROR] reqId=7 code=202 msg=Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 382.144162. Please submit your order <br>using a limit price that is closer to the current market price of 371.23.
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_2] ib_order_id=7 poll=1/8 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=1.00000000
+[BROKER][LADDER][202] symbol=MSFT step=2 next_limit_price=371.2500
+[BROKER][CANCEL] ib_order_id=7 reason=reprice_step_2
+[IB][ERROR] reqId=7 code=10148 msg=OrderId 7 that needs to be cancelled cannot be cancelled, state: Cancelled.
+[IB] openOrderEnd
+[BROKER][POLL][cancel_reprice_step_2] ib_order_id=7 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=1.00000000
+[BROKER][LADDER][SUBMIT] symbol=MSFT step=3/5 mode=passive_lmt limit_price=427.8800 cap_price=433.4500
+[IB][ERROR] reqId=8 code=202 msg=Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 382.144162. Please submit your order <br>using a limit price that is closer to the current market price of 371.23.
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_3] ib_order_id=8 poll=1/8 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=1.00000000
+[BROKER][LADDER][202] symbol=MSFT step=3 next_limit_price=371.2500
+[BROKER][CANCEL] ib_order_id=8 reason=reprice_step_3
+[IB][ERROR] reqId=8 code=10148 msg=OrderId 8 that needs to be cancelled cannot be cancelled, state: Cancelled.
+[IB] openOrderEnd
+[BROKER][POLL][cancel_reprice_step_3] ib_order_id=8 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=1.00000000
+[BROKER][LADDER][SUBMIT] symbol=MSFT step=4/5 mode=passive_lmt limit_price=428.1000 cap_price=433.4500
+[IB][ERROR] reqId=9 code=202 msg=Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 382.144162. Please submit your order <br>using a limit price that is closer to the current market price of 371.23.
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_4] ib_order_id=9 poll=1/8 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=1.00000000
+[BROKER][LADDER][202] symbol=MSFT step=4 next_limit_price=371.2500
+[BROKER][CANCEL] ib_order_id=9 reason=reprice_step_4
+[IB][ERROR] reqId=9 code=10148 msg=OrderId 9 that needs to be cancelled cannot be cancelled, state: Cancelled.
+[IB] openOrderEnd
+[BROKER][POLL][cancel_reprice_step_4] ib_order_id=9 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=1.00000000
+[BROKER][LADDER][SUBMIT] symbol=MSFT step=5/5 mode=marketable_lmt limit_price=428.6100 cap_price=433.4500
+[IB][ERROR] reqId=10 code=202 msg=Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 382.144162. Please submit your order <br>using a limit price that is closer to the current market price of 371.23.
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_5] ib_order_id=10 poll=1/8 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=1.00000000
+[BROKER][LADDER][202] symbol=MSFT step=5 next_limit_price=371.2500
+[BROKER][CANCEL] ib_order_id=10 reason=final_unfilled_cap
+[IB][ERROR] reqId=10 code=10148 msg=OrderId 10 that needs to be cancelled cannot be cancelled, state: Cancelled.
+[IB] openOrderEnd
+[BROKER][POLL][cancel_final_unfilled_cap] ib_order_id=10 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=1.00000000
+[BROKER][optimal][ERROR] symbol=MSFT side=BUY status=error_api_202 message=IBKR API error code=202: Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 382.144162. Please submit your order <br>using a limit price that is closer to the current market price of 371.23.
+[IB][CONTRACT_DETAILS] symbol=NVDA broker_symbol=NVDA attempt=1/3 use_primary_exchange=1 req_id=100003
+[BROKER][LADDER][SUBMIT] symbol=NVDA step=1/5 mode=passive_lmt limit_price=118.5800 cap_price=116.9300
+[IB][ERROR] reqId=11 code=202 msg=Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 168.942636. Please submit your order <br>using a limit price that is closer to the current market price of 174.06.
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_1] ib_order_id=11 poll=1/8 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=1.00000000
+[BROKER][LADDER][202] symbol=NVDA step=1 next_limit_price=174.0400
+[BROKER][CANCEL] ib_order_id=11 reason=reprice_step_1
+[IB][ERROR] reqId=11 code=10148 msg=OrderId 11 that needs to be cancelled cannot be cancelled, state: Cancelled.
+[IB] openOrderEnd
+[BROKER][POLL][cancel_reprice_step_1] ib_order_id=11 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=1.00000000
+[BROKER][LADDER][SUBMIT] symbol=NVDA step=2/5 mode=passive_lmt limit_price=118.5200 cap_price=116.9300
+[IB][ERROR] reqId=12 code=202 msg=Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 168.942636. Please submit your order <br>using a limit price that is closer to the current market price of 174.06.
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_2] ib_order_id=12 poll=1/8 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=1.00000000
+[BROKER][LADDER][202] symbol=NVDA step=2 next_limit_price=174.0400
+[BROKER][CANCEL] ib_order_id=12 reason=reprice_step_2
+[IB][ERROR] reqId=12 code=10148 msg=OrderId 12 that needs to be cancelled cannot be cancelled, state: Cancelled.
+[IB] openOrderEnd
+[BROKER][POLL][cancel_reprice_step_2] ib_order_id=12 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=1.00000000
+[BROKER][LADDER][SUBMIT] symbol=NVDA step=3/5 mode=passive_lmt limit_price=118.4600 cap_price=116.9300
+[IB][ERROR] reqId=13 code=202 msg=Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 168.942636. Please submit your order <br>using a limit price that is closer to the current market price of 174.06.
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_3] ib_order_id=13 poll=1/8 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=1.00000000
+[BROKER][LADDER][202] symbol=NVDA step=3 next_limit_price=174.0400
+[BROKER][CANCEL] ib_order_id=13 reason=reprice_step_3
+[IB][ERROR] reqId=13 code=10148 msg=OrderId 13 that needs to be cancelled cannot be cancelled, state: Cancelled.
+[IB] openOrderEnd
+[BROKER][POLL][cancel_reprice_step_3] ib_order_id=13 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=1.00000000
+[BROKER][LADDER][SUBMIT] symbol=NVDA step=4/5 mode=passive_lmt limit_price=118.4000 cap_price=116.9300
+[IB][ERROR] reqId=14 code=202 msg=Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 168.942636. Please submit your order <br>using a limit price that is closer to the current market price of 174.06.
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_4] ib_order_id=14 poll=1/8 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=1.00000000
+[BROKER][LADDER][202] symbol=NVDA step=4 next_limit_price=174.0400
+[BROKER][CANCEL] ib_order_id=14 reason=reprice_step_4
+[IB][ERROR] reqId=14 code=10148 msg=OrderId 14 that needs to be cancelled cannot be cancelled, state: Cancelled.
+[IB] openOrderEnd
+[BROKER][POLL][cancel_reprice_step_4] ib_order_id=14 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=1.00000000
+[BROKER][LADDER][SUBMIT] symbol=NVDA step=5/5 mode=marketable_lmt limit_price=118.2600 cap_price=116.9300
+[IB][ERROR] reqId=15 code=202 msg=Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 168.942636. Please submit your order <br>using a limit price that is closer to the current market price of 174.06.
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_5] ib_order_id=15 poll=1/8 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=1.00000000
+[BROKER][LADDER][202] symbol=NVDA step=5 next_limit_price=174.0400
+[BROKER][CANCEL] ib_order_id=15 reason=final_unfilled_cap
+[IB][ERROR] reqId=15 code=10148 msg=OrderId 15 that needs to be cancelled cannot be cancelled, state: Cancelled.
+[IB] openOrderEnd
+[BROKER][POLL][cancel_final_unfilled_cap] ib_order_id=15 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=1.00000000
+[BROKER][optimal][ERROR] symbol=NVDA side=SELL status=error_api_202 message=IBKR API error code=202: Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 168.942636. Please submit your order <br>using a limit price that is closer to the current market price of 174.06.
+[IB][CONTRACT_DETAILS] symbol=AMZN broker_symbol=AMZN attempt=1/3 use_primary_exchange=1 req_id=100004
+[BROKER][LADDER][SUBMIT] symbol=AMZN step=1/5 mode=passive_lmt limit_price=202.0100 cap_price=199.1800
+[IB][ERROR] reqId=16 code=202 msg=Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 202.874812. Please submit your order <br>using a limit price that is closer to the current market price of 209.02.
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_1] ib_order_id=16 poll=1/8 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=1.00000000
+[BROKER][LADDER][202] symbol=AMZN step=1 next_limit_price=209.0000
+[BROKER][CANCEL] ib_order_id=16 reason=reprice_step_1
+[IB][ERROR] reqId=16 code=10148 msg=OrderId 16 that needs to be cancelled cannot be cancelled, state: Cancelled.
+[IB] openOrderEnd
+[BROKER][POLL][cancel_reprice_step_1] ib_order_id=16 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=1.00000000
+[BROKER][LADDER][SUBMIT] symbol=AMZN step=2/5 mode=passive_lmt limit_price=201.9100 cap_price=199.1800
+[IB][ERROR] reqId=17 code=202 msg=Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 202.874812. Please submit your order <br>using a limit price that is closer to the current market price of 209.02.
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_2] ib_order_id=17 poll=1/8 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=1.00000000
+[BROKER][LADDER][202] symbol=AMZN step=2 next_limit_price=209.0000
+[BROKER][CANCEL] ib_order_id=17 reason=reprice_step_2
+[IB][ERROR] reqId=17 code=10148 msg=OrderId 17 that needs to be cancelled cannot be cancelled, state: Cancelled.
+[IB] openOrderEnd
+[BROKER][POLL][cancel_reprice_step_2] ib_order_id=17 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=1.00000000
+[BROKER][LADDER][SUBMIT] symbol=AMZN step=3/5 mode=passive_lmt limit_price=201.8100 cap_price=199.1800
+[IB][ERROR] reqId=18 code=202 msg=Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 202.874812. Please submit your order <br>using a limit price that is closer to the current market price of 209.02.
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_3] ib_order_id=18 poll=1/8 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=1.00000000
+[BROKER][LADDER][202] symbol=AMZN step=3 next_limit_price=209.0000
+[BROKER][CANCEL] ib_order_id=18 reason=reprice_step_3
+[IB][ERROR] reqId=18 code=10148 msg=OrderId 18 that needs to be cancelled cannot be cancelled, state: Cancelled.
+[IB] openOrderEnd
+[BROKER][POLL][cancel_reprice_step_3] ib_order_id=18 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=1.00000000
+[BROKER][LADDER][SUBMIT] symbol=AMZN step=4/5 mode=passive_lmt limit_price=201.7000 cap_price=199.1800
+[IB][ERROR] reqId=19 code=202 msg=Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 202.865106. Please submit your order <br>using a limit price that is closer to the current market price of 209.01.
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_4] ib_order_id=19 poll=1/8 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=1.00000000
+[BROKER][LADDER][202] symbol=AMZN step=4 next_limit_price=208.9900
+[BROKER][CANCEL] ib_order_id=19 reason=reprice_step_4
+[IB][ERROR] reqId=19 code=10148 msg=OrderId 19 that needs to be cancelled cannot be cancelled, state: Cancelled.
+[IB] openOrderEnd
+[BROKER][POLL][cancel_reprice_step_4] ib_order_id=19 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=1.00000000
+[BROKER][LADDER][SUBMIT] symbol=AMZN step=5/5 mode=marketable_lmt limit_price=201.4600 cap_price=199.1800
+[IB][ERROR] reqId=20 code=202 msg=Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 202.865106. Please submit your order <br>using a limit price that is closer to the current market price of 209.01.
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_5] ib_order_id=20 poll=1/8 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=1.00000000
+[BROKER][LADDER][202] symbol=AMZN step=5 next_limit_price=208.9900
+[BROKER][CANCEL] ib_order_id=20 reason=final_unfilled_cap
+[IB][ERROR] reqId=20 code=10148 msg=OrderId 20 that needs to be cancelled cannot be cancelled, state: Cancelled.
+[IB] openOrderEnd
+[BROKER][POLL][cancel_final_unfilled_cap] ib_order_id=20 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=1.00000000
+[BROKER][optimal][ERROR] symbol=AMZN side=SELL status=error_api_202 message=IBKR API error code=202: Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 202.865106. Please submit your order <br>using a limit price that is closer to the current market price of 209.01.
+[BROKER][optimal][SUMMARY] sent=0 duplicate_skipped=0 errors=4 retry_202=0 filled_now=0 partial=0 working=0 working_carry=0 cancelled_after_ttl=0 cancelled_unfilled_cap=1 failed=3 unknown=0 fills_csv=artifacts\execution_loop\optimal\fills.csv broker_log_json=artifacts\execution_loop\optimal\broker_log.json
+[BROKER][aggressive] orders=artifacts\execution_loop\aggressive\orders.csv
+[IB][CONTRACT_DETAILS] symbol=HOOD broker_symbol=HOOD attempt=1/3 use_primary_exchange=1 req_id=100005
+[BROKER][LADDER][SUBMIT] symbol=HOOD step=1/5 mode=passive_lmt limit_price=100.1500 cap_price=98.7500
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_1] ib_order_id=21 poll=1/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=37.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_1] ib_order_id=21 poll=5/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=37.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_1] ib_order_id=21 poll=8/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=37.00000000
+[BROKER][CANCEL] ib_order_id=21 reason=reprice_step_1
+[IB][ERROR] reqId=21 code=202 msg=Order Canceled - reason:
+[IB] openOrderEnd
+[BROKER][POLL][cancel_reprice_step_1] ib_order_id=21 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=37.00000000
+[BROKER][LADDER][SUBMIT] symbol=HOOD step=2/5 mode=passive_lmt limit_price=100.1000 cap_price=98.7500
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_2] ib_order_id=22 poll=1/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=37.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_2] ib_order_id=22 poll=5/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=37.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_2] ib_order_id=22 poll=8/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=37.00000000
+[BROKER][CANCEL] ib_order_id=22 reason=reprice_step_2
+[IB][ERROR] reqId=22 code=202 msg=Order Canceled - reason:
+[IB] openOrderEnd
+[BROKER][POLL][cancel_reprice_step_2] ib_order_id=22 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=37.00000000
+[BROKER][LADDER][SUBMIT] symbol=HOOD step=3/5 mode=passive_lmt limit_price=100.0500 cap_price=98.7500
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_3] ib_order_id=23 poll=1/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=37.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_3] ib_order_id=23 poll=5/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=37.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_3] ib_order_id=23 poll=8/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=37.00000000
+[BROKER][CANCEL] ib_order_id=23 reason=reprice_step_3
+[IB][ERROR] reqId=23 code=202 msg=Order Canceled - reason:
+[IB] openOrderEnd
+[BROKER][POLL][cancel_reprice_step_3] ib_order_id=23 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=37.00000000
+[BROKER][LADDER][SUBMIT] symbol=HOOD step=4/5 mode=passive_lmt limit_price=100.0000 cap_price=98.7500
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_4] ib_order_id=24 poll=1/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=37.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_4] ib_order_id=24 poll=5/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=37.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_4] ib_order_id=24 poll=8/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=37.00000000
+[BROKER][CANCEL] ib_order_id=24 reason=reprice_step_4
+[IB][ERROR] reqId=24 code=202 msg=Order Canceled - reason:
+[IB] openOrderEnd
+[BROKER][POLL][cancel_reprice_step_4] ib_order_id=24 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=37.00000000
+[BROKER][LADDER][SUBMIT] symbol=HOOD step=5/5 mode=marketable_lmt limit_price=99.8800 cap_price=98.7500
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_5] ib_order_id=25 poll=1/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=37.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_5] ib_order_id=25 poll=5/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=37.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_5] ib_order_id=25 poll=8/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=37.00000000
+[BROKER][CANCEL] ib_order_id=25 reason=final_unfilled_cap
+[IB][ERROR] reqId=25 code=202 msg=Order Canceled - reason:
+[IB] openOrderEnd
+[BROKER][POLL][cancel_final_unfilled_cap] ib_order_id=25 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=37.00000000
+[BROKER][aggressive][ERROR] symbol=HOOD side=SELL status=cancelled_unfilled_cap message=Final capped price was not filled; order cancelled
+[IB][CONTRACT_DETAILS] symbol=CRCL broker_symbol=CRCL attempt=1/3 use_primary_exchange=1 req_id=100006
+[BROKER][LADDER][SUBMIT] symbol=CRCL step=1/5 mode=passive_lmt limit_price=104.0200 cap_price=102.5700
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_1] ib_order_id=26 poll=1/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=16.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_1] ib_order_id=26 poll=5/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=16.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_1] ib_order_id=26 poll=8/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=16.00000000
+[BROKER][CANCEL] ib_order_id=26 reason=reprice_step_1
+[IB][ERROR] reqId=26 code=202 msg=Order Canceled - reason:
+[IB] openOrderEnd
+[BROKER][POLL][cancel_reprice_step_1] ib_order_id=26 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=16.00000000
+[BROKER][LADDER][SUBMIT] symbol=CRCL step=2/5 mode=passive_lmt limit_price=103.9700 cap_price=102.5700
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_2] ib_order_id=27 poll=1/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=16.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_2] ib_order_id=27 poll=5/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=16.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_2] ib_order_id=27 poll=8/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=16.00000000
+[BROKER][CANCEL] ib_order_id=27 reason=reprice_step_2
+[IB][ERROR] reqId=27 code=202 msg=Order Canceled - reason:
+[IB] openOrderEnd
+[BROKER][POLL][cancel_reprice_step_2] ib_order_id=27 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=16.00000000
+[BROKER][LADDER][SUBMIT] symbol=CRCL step=3/5 mode=passive_lmt limit_price=103.9200 cap_price=102.5700
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_3] ib_order_id=28 poll=1/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=16.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_3] ib_order_id=28 poll=5/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=16.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_3] ib_order_id=28 poll=8/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=16.00000000
+[BROKER][CANCEL] ib_order_id=28 reason=reprice_step_3
+[IB][ERROR] reqId=28 code=202 msg=Order Canceled - reason:
+[IB] openOrderEnd
+[BROKER][POLL][cancel_reprice_step_3] ib_order_id=28 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=16.00000000
+[BROKER][LADDER][SUBMIT] symbol=CRCL step=4/5 mode=passive_lmt limit_price=103.8600 cap_price=102.5700
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_4] ib_order_id=29 poll=1/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=16.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_4] ib_order_id=29 poll=5/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=16.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_4] ib_order_id=29 poll=8/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=16.00000000
+[BROKER][CANCEL] ib_order_id=29 reason=reprice_step_4
+[IB][ERROR] reqId=29 code=202 msg=Order Canceled - reason:
+[IB] openOrderEnd
+[BROKER][POLL][cancel_reprice_step_4] ib_order_id=29 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=16.00000000
+[BROKER][LADDER][SUBMIT] symbol=CRCL step=5/5 mode=marketable_lmt limit_price=103.7400 cap_price=102.5700
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_5] ib_order_id=30 poll=1/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=16.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_5] ib_order_id=30 poll=5/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=16.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_5] ib_order_id=30 poll=8/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=16.00000000
+[BROKER][CANCEL] ib_order_id=30 reason=final_unfilled_cap
+[IB][ERROR] reqId=30 code=202 msg=Order Canceled - reason:
+[IB] openOrderEnd
+[BROKER][POLL][cancel_final_unfilled_cap] ib_order_id=30 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=16.00000000
+[BROKER][aggressive][ERROR] symbol=CRCL side=SELL status=cancelled_unfilled_cap message=Final capped price was not filled; order cancelled
+[IB][CONTRACT_DETAILS] symbol=NEM broker_symbol=NEM attempt=1/3 use_primary_exchange=1 req_id=100007
+[BROKER][LADDER][SUBMIT] symbol=NEM step=1/5 mode=passive_lmt limit_price=101.6800 cap_price=100.2600
+[IB][ERROR] reqId=31 code=202 msg=Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 104.92186. Please submit your order <br>using a limit price that is closer to the current market price of 108.1.
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_1] ib_order_id=31 poll=1/8 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=16.00000000
+[BROKER][LADDER][202] symbol=NEM step=1 next_limit_price=108.0800
+[BROKER][CANCEL] ib_order_id=31 reason=reprice_step_1
+[IB][ERROR] reqId=31 code=10148 msg=OrderId 31 that needs to be cancelled cannot be cancelled, state: Cancelled.
+[IB] openOrderEnd
+[BROKER][POLL][cancel_reprice_step_1] ib_order_id=31 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=16.00000000
+[BROKER][LADDER][SUBMIT] symbol=NEM step=2/5 mode=passive_lmt limit_price=101.6300 cap_price=100.2600
+[IB][ERROR] reqId=32 code=202 msg=Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 104.92186. Please submit your order <br>using a limit price that is closer to the current market price of 108.1.
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_2] ib_order_id=32 poll=1/8 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=16.00000000
+[BROKER][LADDER][202] symbol=NEM step=2 next_limit_price=108.0800
+[BROKER][CANCEL] ib_order_id=32 reason=reprice_step_2
+[IB][ERROR] reqId=32 code=10148 msg=OrderId 32 that needs to be cancelled cannot be cancelled, state: Cancelled.
+[IB] openOrderEnd
+[BROKER][POLL][cancel_reprice_step_2] ib_order_id=32 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=16.00000000
+[BROKER][LADDER][SUBMIT] symbol=NEM step=3/5 mode=passive_lmt limit_price=101.5800 cap_price=100.2600
+[IB][ERROR] reqId=33 code=202 msg=Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 104.92186. Please submit your order <br>using a limit price that is closer to the current market price of 108.1.
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_3] ib_order_id=33 poll=1/8 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=16.00000000
+[BROKER][LADDER][202] symbol=NEM step=3 next_limit_price=108.0800
+[BROKER][CANCEL] ib_order_id=33 reason=reprice_step_3
+[IB][ERROR] reqId=33 code=10148 msg=OrderId 33 that needs to be cancelled cannot be cancelled, state: Cancelled.
+[IB] openOrderEnd
+[BROKER][POLL][cancel_reprice_step_3] ib_order_id=33 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=16.00000000
+[BROKER][LADDER][SUBMIT] symbol=NEM step=4/5 mode=passive_lmt limit_price=101.5200 cap_price=100.2600
+[IB][ERROR] reqId=34 code=202 msg=Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 104.92186. Please submit your order <br>using a limit price that is closer to the current market price of 108.1.
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_4] ib_order_id=34 poll=1/8 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=16.00000000
+[BROKER][LADDER][202] symbol=NEM step=4 next_limit_price=108.0800
+[BROKER][CANCEL] ib_order_id=34 reason=reprice_step_4
+[IB][ERROR] reqId=34 code=10148 msg=OrderId 34 that needs to be cancelled cannot be cancelled, state: Cancelled.
+[IB] openOrderEnd
+[BROKER][POLL][cancel_reprice_step_4] ib_order_id=34 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=16.00000000
+[BROKER][LADDER][SUBMIT] symbol=NEM step=5/5 mode=marketable_lmt limit_price=101.4000 cap_price=100.2600
+[IB][ERROR] reqId=35 code=202 msg=Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 104.92186. Please submit your order <br>using a limit price that is closer to the current market price of 108.1.
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_5] ib_order_id=35 poll=1/8 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=16.00000000
+[BROKER][LADDER][202] symbol=NEM step=5 next_limit_price=108.0800
+[BROKER][CANCEL] ib_order_id=35 reason=final_unfilled_cap
+[IB][ERROR] reqId=35 code=10148 msg=OrderId 35 that needs to be cancelled cannot be cancelled, state: Cancelled.
+[IB] openOrderEnd
+[BROKER][POLL][cancel_final_unfilled_cap] ib_order_id=35 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=16.00000000
+[BROKER][aggressive][ERROR] symbol=NEM side=SELL status=error_api_202 message=IBKR API error code=202: Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 104.92186. Please submit your order <br>using a limit price that is closer to the current market price of 108.1.
+[IB][CONTRACT_DETAILS] symbol=INTC broker_symbol=INTC attempt=1/3 use_primary_exchange=1 req_id=100008
+[BROKER][LADDER][SUBMIT] symbol=INTC step=1/5 mode=passive_lmt limit_price=47.2600 cap_price=46.6000
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_1] ib_order_id=36 poll=1/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=25.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_1] ib_order_id=36 poll=5/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=25.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_1] ib_order_id=36 poll=8/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=25.00000000
+[BROKER][CANCEL] ib_order_id=36 reason=reprice_step_1
+[IB][ERROR] reqId=36 code=202 msg=Order Canceled - reason:
+[IB] openOrderEnd
+[BROKER][POLL][cancel_reprice_step_1] ib_order_id=36 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=25.00000000
+[BROKER][LADDER][SUBMIT] symbol=INTC step=2/5 mode=passive_lmt limit_price=47.2300 cap_price=46.6000
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_2] ib_order_id=37 poll=1/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=25.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_2] ib_order_id=37 poll=5/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=25.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_2] ib_order_id=37 poll=8/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=25.00000000
+[BROKER][CANCEL] ib_order_id=37 reason=reprice_step_2
+[IB][ERROR] reqId=37 code=202 msg=Order Canceled - reason:
+[IB] openOrderEnd
+[BROKER][POLL][cancel_reprice_step_2] ib_order_id=37 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=25.00000000
+[BROKER][LADDER][SUBMIT] symbol=INTC step=3/5 mode=passive_lmt limit_price=47.2100 cap_price=46.6000
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_3] ib_order_id=38 poll=1/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=25.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_3] ib_order_id=38 poll=5/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=25.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_3] ib_order_id=38 poll=8/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=25.00000000
+[BROKER][CANCEL] ib_order_id=38 reason=reprice_step_3
+[IB][ERROR] reqId=38 code=202 msg=Order Canceled - reason:
+[IB] openOrderEnd
+[BROKER][POLL][cancel_reprice_step_3] ib_order_id=38 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=25.00000000
+[BROKER][LADDER][SUBMIT] symbol=INTC step=4/5 mode=passive_lmt limit_price=47.1800 cap_price=46.6000
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_4] ib_order_id=39 poll=1/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=25.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_4] ib_order_id=39 poll=5/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=25.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_4] ib_order_id=39 poll=8/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=25.00000000
+[BROKER][CANCEL] ib_order_id=39 reason=reprice_step_4
+[IB][ERROR] reqId=39 code=202 msg=Order Canceled - reason:
+[IB] openOrderEnd
+[BROKER][POLL][cancel_reprice_step_4] ib_order_id=39 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=25.00000000
+[BROKER][LADDER][SUBMIT] symbol=INTC step=5/5 mode=marketable_lmt limit_price=47.1300 cap_price=46.6000
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_5] ib_order_id=40 poll=1/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=25.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_5] ib_order_id=40 poll=5/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=25.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_5] ib_order_id=40 poll=8/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=25.00000000
+[BROKER][CANCEL] ib_order_id=40 reason=final_unfilled_cap
+[IB][ERROR] reqId=40 code=202 msg=Order Canceled - reason:
+[IB] openOrderEnd
+[BROKER][POLL][cancel_final_unfilled_cap] ib_order_id=40 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=25.00000000
+[BROKER][aggressive][ERROR] symbol=INTC side=SELL status=cancelled_unfilled_cap message=Final capped price was not filled; order cancelled
+[IB][CONTRACT_DETAILS] symbol=RKLB broker_symbol=RKLB attempt=1/3 use_primary_exchange=1 req_id=100009
+[BROKER][LADDER][SUBMIT] symbol=RKLB step=1/5 mode=passive_lmt limit_price=72.9900 cap_price=71.9700
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_1] ib_order_id=41 poll=1/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=6.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_1] ib_order_id=41 poll=5/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=6.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_1] ib_order_id=41 poll=8/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=6.00000000
+[BROKER][CANCEL] ib_order_id=41 reason=reprice_step_1
+[IB][ERROR] reqId=41 code=202 msg=Order Canceled - reason:
+[IB] openOrderEnd
+[BROKER][POLL][cancel_reprice_step_1] ib_order_id=41 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=6.00000000
+[BROKER][LADDER][SUBMIT] symbol=RKLB step=2/5 mode=passive_lmt limit_price=72.9600 cap_price=71.9700
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_2] ib_order_id=42 poll=1/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=6.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_2] ib_order_id=42 poll=5/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=6.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_2] ib_order_id=42 poll=8/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=6.00000000
+[BROKER][CANCEL] ib_order_id=42 reason=reprice_step_2
+[IB][ERROR] reqId=42 code=202 msg=Order Canceled - reason:
+[IB] openOrderEnd
+[BROKER][POLL][cancel_reprice_step_2] ib_order_id=42 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=6.00000000
+[BROKER][LADDER][SUBMIT] symbol=RKLB step=3/5 mode=passive_lmt limit_price=72.9200 cap_price=71.9700
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_3] ib_order_id=43 poll=1/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=6.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_3] ib_order_id=43 poll=5/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=6.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_3] ib_order_id=43 poll=8/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=6.00000000
+[BROKER][CANCEL] ib_order_id=43 reason=reprice_step_3
+[IB][ERROR] reqId=43 code=202 msg=Order Canceled - reason:
+[IB] openOrderEnd
+[BROKER][POLL][cancel_reprice_step_3] ib_order_id=43 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=6.00000000
+[BROKER][LADDER][SUBMIT] symbol=RKLB step=4/5 mode=passive_lmt limit_price=72.8800 cap_price=71.9700
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_4] ib_order_id=44 poll=1/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=6.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_4] ib_order_id=44 poll=5/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=6.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_4] ib_order_id=44 poll=8/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=6.00000000
+[BROKER][CANCEL] ib_order_id=44 reason=reprice_step_4
+[IB][ERROR] reqId=44 code=202 msg=Order Canceled - reason:
+[IB] openOrderEnd
+[BROKER][POLL][cancel_reprice_step_4] ib_order_id=44 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=6.00000000
+[BROKER][LADDER][SUBMIT] symbol=RKLB step=5/5 mode=marketable_lmt limit_price=72.8000 cap_price=71.9700
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_5] ib_order_id=45 poll=1/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=6.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_5] ib_order_id=45 poll=5/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=6.00000000
+[IB] openOrderEnd
+[IB] openOrderEnd
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_5] ib_order_id=45 poll=8/8 status=submitted outcome=working filled_qty=0.00000000 remaining_qty=6.00000000
+[BROKER][CANCEL] ib_order_id=45 reason=final_unfilled_cap
+[IB][ERROR] reqId=45 code=202 msg=Order Canceled - reason:
+[IB] openOrderEnd
+[BROKER][POLL][cancel_final_unfilled_cap] ib_order_id=45 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=6.00000000
+[BROKER][aggressive][ERROR] symbol=RKLB side=SELL status=cancelled_unfilled_cap message=Final capped price was not filled; order cancelled
+[IB][CONTRACT_DETAILS] symbol=SHOP broker_symbol=SHOP attempt=1/3 use_primary_exchange=1 req_id=100010
+[BROKER][LADDER][SUBMIT] symbol=SHOP step=1/5 mode=passive_lmt limit_price=100.1500 cap_price=98.7500
+[IB][ERROR] reqId=46 code=202 msg=Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 115.093748. Please submit your order <br>using a limit price that is closer to the current market price of 118.58.
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_1] ib_order_id=46 poll=1/8 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=3.00000000
+[BROKER][LADDER][202] symbol=SHOP step=1 next_limit_price=118.5600
+[BROKER][CANCEL] ib_order_id=46 reason=reprice_step_1
+[IB][ERROR] reqId=46 code=10148 msg=OrderId 46 that needs to be cancelled cannot be cancelled, state: Cancelled.
+[IB] openOrderEnd
+[BROKER][POLL][cancel_reprice_step_1] ib_order_id=46 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=3.00000000
+[BROKER][LADDER][SUBMIT] symbol=SHOP step=2/5 mode=passive_lmt limit_price=100.1000 cap_price=98.7500
+[IB][ERROR] reqId=47 code=202 msg=Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 115.093748. Please submit your order <br>using a limit price that is closer to the current market price of 118.58.
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_2] ib_order_id=47 poll=1/8 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=3.00000000
+[BROKER][LADDER][202] symbol=SHOP step=2 next_limit_price=118.5600
+[BROKER][CANCEL] ib_order_id=47 reason=reprice_step_2
+[IB][ERROR] reqId=47 code=10148 msg=OrderId 47 that needs to be cancelled cannot be cancelled, state: Cancelled.
+[IB] openOrderEnd
+[BROKER][POLL][cancel_reprice_step_2] ib_order_id=47 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=3.00000000
+[BROKER][LADDER][SUBMIT] symbol=SHOP step=3/5 mode=passive_lmt limit_price=100.0500 cap_price=98.7500
+[IB][ERROR] reqId=48 code=202 msg=Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 115.093748. Please submit your order <br>using a limit price that is closer to the current market price of 118.58.
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_3] ib_order_id=48 poll=1/8 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=3.00000000
+[BROKER][LADDER][202] symbol=SHOP step=3 next_limit_price=118.5600
+[BROKER][CANCEL] ib_order_id=48 reason=reprice_step_3
+[IB][ERROR] reqId=48 code=10148 msg=OrderId 48 that needs to be cancelled cannot be cancelled, state: Cancelled.
+[IB] openOrderEnd
+[BROKER][POLL][cancel_reprice_step_3] ib_order_id=48 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=3.00000000
+[BROKER][LADDER][SUBMIT] symbol=SHOP step=4/5 mode=passive_lmt limit_price=100.0000 cap_price=98.7500
+[IB][ERROR] reqId=49 code=202 msg=Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 115.093748. Please submit your order <br>using a limit price that is closer to the current market price of 118.58.
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_4] ib_order_id=49 poll=1/8 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=3.00000000
+[BROKER][LADDER][202] symbol=SHOP step=4 next_limit_price=118.5600
+[BROKER][CANCEL] ib_order_id=49 reason=reprice_step_4
+[IB][ERROR] reqId=49 code=10148 msg=OrderId 49 that needs to be cancelled cannot be cancelled, state: Cancelled.
+[IB] openOrderEnd
+[BROKER][POLL][cancel_reprice_step_4] ib_order_id=49 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=3.00000000
+[BROKER][LADDER][SUBMIT] symbol=SHOP step=5/5 mode=marketable_lmt limit_price=99.8800 cap_price=98.7500
+[IB][ERROR] reqId=50 code=202 msg=Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 115.093748. Please submit your order <br>using a limit price that is closer to the current market price of 118.58.
+[IB] openOrderEnd
+[BROKER][POLL][ladder_step_5] ib_order_id=50 poll=1/8 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=3.00000000
+[BROKER][LADDER][202] symbol=SHOP step=5 next_limit_price=118.5600
+[BROKER][CANCEL] ib_order_id=50 reason=final_unfilled_cap
+[IB][ERROR] reqId=50 code=10148 msg=OrderId 50 that needs to be cancelled cannot be cancelled, state: Cancelled.
+[IB] openOrderEnd
+[BROKER][POLL][cancel_final_unfilled_cap] ib_order_id=50 poll=1/6 status=cancelled outcome=failed filled_qty=0.00000000 remaining_qty=3.00000000
+[BROKER][aggressive][ERROR] symbol=SHOP side=SELL status=error_api_202 message=IBKR API error code=202: Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 115.093748. Please submit your order <br>using a limit price that is closer to the current market price of 118.58.
+[BROKER][aggressive][SUMMARY] sent=0 duplicate_skipped=0 errors=6 retry_202=0 filled_now=0 partial=0 working=0 working_carry=0 cancelled_after_ttl=0 cancelled_unfilled_cap=4 failed=2 unknown=0 fills_csv=artifacts\execution_loop\aggressive\fills.csv broker_log_json=artifacts\execution_loop\aggressive\broker_log.json
+[FINAL] IBKR broker adapter complete
