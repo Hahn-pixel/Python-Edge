@@ -4,8 +4,8 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/.gitattributes
 .gitignore
 https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/.gitignore
 
-console105.log
-https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console105.log
+console127.log
+https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console127.log
 
 deps_edges.txt
 https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/deps_edges.txt
@@ -19,8 +19,14 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/repo_map.txt
   scripts/download_massive_aggs.py
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/download_massive_aggs.py
 
+  scripts/run_broker_adapter_ibkr.py
+  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_broker_adapter_ibkr.py
+
   scripts/run_broker_handoff.py
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_broker_handoff.py
+
+  scripts/run_broker_reconcile_ibkr.py
+  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_broker_reconcile_ibkr.py
 
   scripts/run_daily_cycle.py
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_daily_cycle.py
@@ -39,6 +45,18 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/repo_map.txt
 
     src/python_edge/__init__.py
     https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/__init__.py
+
+      src/python_edge/broker/ibkr_client.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/broker/ibkr_client.py
+
+      src/python_edge/broker/ibkr_models.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/broker/ibkr_models.py
+
+      src/python_edge/broker/ibkr_pricing.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/broker/ibkr_pricing.py
+
+      src/python_edge/broker/ibkr_storage.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/broker/ibkr_storage.py
 
     src/python_edge/config.py
     https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/config.py
@@ -159,4 +177,7 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/repo_map.txt
 
       src/python_edge/universe/universe_builder.py
       https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/universe/universe_builder.py
+
+test_ibkr_api.py
+https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/test_ibkr_api.py
 

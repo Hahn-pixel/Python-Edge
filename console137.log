@@ -1,0 +1,10 @@
+Traceback (most recent call last):
+  File "C:\Users\Dmytro Govor\Documents\Python-Edge\scripts\run_broker_adapter_ibkr.py", line 24, in <module>
+    from python_edge.broker.ibkr_adapter_support import (
+    ...<9 lines>...
+    )
+  File "C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\broker\ibkr_adapter_support.py", line 24, in <module>
+    from python_edge.broker.ibkr_adapter_support import (
+    ...<9 lines>...
+    )
+ImportError: cannot import name 'apply_working_order_policy' from partially initialized module 'python_edge.broker.ibkr_adapter_support' (most likely due to a circular import) (C:\Users\Dmytro Govor\Documents\Python-Edge\src\python_edge\broker\ibkr_adapter_support.py)
