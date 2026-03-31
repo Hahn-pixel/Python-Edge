@@ -39,10 +39,11 @@ IB_PRIMARY_EXCHANGE = str(os.getenv("IB_PRIMARY_EXCHANGE", "")).strip().upper()
 IB_CURRENCY = str(os.getenv("IB_CURRENCY", "USD")).strip().upper() or "USD"
 IB_SECURITY_TYPE = str(os.getenv("IB_SECURITY_TYPE", "STK")).strip().upper() or "STK"
 IB_MARKET_DATA_TYPE = int(os.getenv("IB_MARKET_DATA_TYPE", "3"))
-PRICE_MAX_AGE_SEC = float(os.getenv("PRICE_MAX_AGE_SEC", "15.0"))
 MAX_PRICE_DEVIATION_PCT = float(os.getenv("MAX_PRICE_DEVIATION_PCT", "8.0"))
 TOPK_PRINT = int(os.getenv("TOPK_PRINT", "50"))
 ALLOW_LAST_FALLBACK = str(os.getenv("ALLOW_LAST_FALLBACK", "1")).strip().lower() not in {"0", "false", "no", "off"}
+FORCE_MASSIVE_WHEN_IB_CLOSE_ONLY = str(os.getenv("FORCE_MASSIVE_WHEN_IB_CLOSE_ONLY", "1")).strip().lower() not in {"0", "false", "no", "off"}
+FORCE_MASSIVE_WHEN_IB_NO_BBO = str(os.getenv("FORCE_MASSIVE_WHEN_IB_NO_BBO", "1")).strip().lower() not in {"0", "false", "no", "off"}
 
 MASSIVE_API_KEY = str(os.getenv("MASSIVE_API_KEY", "")).strip()
 MASSIVE_BASE_URL = str(os.getenv("MASSIVE_BASE_URL", "https://api.massive.com")).strip() or "https://api.massive.com"
@@ -100,6 +101,9 @@ class QuoteState:
 
     def has_any_price(self) -> bool:
         return any(x > 0.0 for x in [self.bid, self.ask, self.last, self.close, self.mid()])
+
+    def has_bbo(self) -> bool:
+        return self.bid > 0.0 and self.ask > 0.0
 
 
 @dataclass(frozen=True)
@@ -230,27 +234,31 @@ class QuoteApp(EWrapper, EClient):
             return
         q.ts_utc = utc_now_iso()
         tick_type = int(tickType)
+        value = to_float(price)
+        if value <= 0.0:
+            return
 
         if tick_type in {TICK_TYPE_BY_NAME["BID"], TICK_TYPE_BY_NAME["DELAYED_BID"]}:
-            q.bid = to_float(price)
+            q.bid = value
         elif tick_type in {TICK_TYPE_BY_NAME["ASK"], TICK_TYPE_BY_NAME["DELAYED_ASK"]}:
-            q.ask = to_float(price)
+            q.ask = value
         elif tick_type in {TICK_TYPE_BY_NAME["LAST"], TICK_TYPE_BY_NAME["DELAYED_LAST"]}:
-            q.last = to_float(price)
+            q.last = value
         elif tick_type in {TICK_TYPE_BY_NAME["CLOSE"], TICK_TYPE_BY_NAME["DELAYED_CLOSE"]}:
-            q.close = to_float(price)
+            q.close = value
 
     def tickSize(self, reqId: int, tickType: int, size: float) -> None:
         q = self.quotes.get(int(reqId))
         if q is None:
             return
         tick_type = int(tickType)
+        value = to_float(size)
         if tick_type in {TICK_TYPE_BY_NAME["BID_SIZE"], TICK_TYPE_BY_NAME["DELAYED_BID_SIZE"]}:
-            q.bid_size = to_float(size)
+            q.bid_size = value
         elif tick_type in {TICK_TYPE_BY_NAME["ASK_SIZE"], TICK_TYPE_BY_NAME["DELAYED_ASK_SIZE"]}:
-            q.ask_size = to_float(size)
+            q.ask_size = value
         elif tick_type in {TICK_TYPE_BY_NAME["LAST_SIZE"], TICK_TYPE_BY_NAME["DELAYED_LAST_SIZE"]}:
-            q.last_size = to_float(size)
+            q.last_size = value
 
     def tickSnapshotEnd(self, reqId: int) -> None:
         q = self.quotes.get(int(reqId))
@@ -481,12 +489,23 @@ def pick_execution_price(side: str, quote: QuoteState) -> Tuple[float, str]:
     raise RuntimeError(f"No usable execution price for symbol={quote.symbol} side={side_up} provider={quote.provider}")
 
 
-def needs_massive_fallback(side: str, quote: QuoteState) -> bool:
+def should_force_massive_fallback(side: str, quote: QuoteState) -> Tuple[bool, str]:
     try:
-        pick_execution_price(side, quote)
-        return False
+        _, picked_source = pick_execution_price(side, quote)
     except Exception:
-        return True
+        return True, "no_usable_price"
+
+    if quote.provider != "ib":
+        return False, ""
+
+    if FORCE_MASSIVE_WHEN_IB_CLOSE_ONLY and picked_source == "close":
+        return True, "ib_close_only"
+
+    if FORCE_MASSIVE_WHEN_IB_NO_BBO and quote.timeframe.startswith("DELAYED") and not quote.has_bbo():
+        if picked_source in {"last", "close"}:
+            return True, "ib_delayed_without_bbo"
+
+    return False, ""
 
 
 def build_massive_client() -> Optional[MassiveClient]:
@@ -516,21 +535,30 @@ def request_massive_quotes(symbols: List[str]) -> Dict[str, QuoteState]:
     return states
 
 
-def overlay_massive_fallback_quotes(df: pd.DataFrame, ib_quotes: Dict[str, QuoteState]) -> Tuple[Dict[str, QuoteState], Dict[str, int]]:
+def overlay_massive_fallback_quotes(df: pd.DataFrame, ib_quotes: Dict[str, QuoteState]) -> Tuple[Dict[str, QuoteState], Dict[str, int], Dict[str, str]]:
     final_quotes: Dict[str, QuoteState] = dict(ib_quotes)
     fallback_symbols: List[str] = []
+    fallback_reasons: Dict[str, str] = {}
 
     for idx in df.index:
         symbol = normalize_symbol(str(df.at[idx, "symbol"]))
         side = normalize_order_side(str(df.at[idx, "order_side"]))
         q = final_quotes.get(symbol)
-        if q is None or needs_massive_fallback(side, q):
+        if q is None:
             fallback_symbols.append(symbol)
+            fallback_reasons[symbol] = "missing_ib_quote"
+            continue
+        must_fallback, reason = should_force_massive_fallback(side, q)
+        if must_fallback:
+            fallback_symbols.append(symbol)
+            fallback_reasons[symbol] = reason
 
     fallback_symbols = sorted(set(fallback_symbols))
     used_massive = 0
     if fallback_symbols:
         print(f"[HANDOFF][FALLBACK] symbols_needing_massive={len(fallback_symbols)}")
+        for symbol in fallback_symbols:
+            print(f"[HANDOFF][FALLBACK] symbol={symbol} reason={fallback_reasons.get(symbol, '')}")
         massive_quotes = request_massive_quotes(fallback_symbols)
         for symbol in fallback_symbols:
             if symbol in massive_quotes:
@@ -543,10 +571,10 @@ def overlay_massive_fallback_quotes(df: pd.DataFrame, ib_quotes: Dict[str, Quote
         "ib_only": int(max(0, len(final_quotes) - used_massive)),
         "fallback_needed": int(len(fallback_symbols)),
     }
-    return final_quotes, counts
+    return final_quotes, counts, fallback_reasons
 
 
-def enrich_orders_with_prices(df: pd.DataFrame, quotes: Dict[str, QuoteState]) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+def enrich_orders_with_prices(df: pd.DataFrame, quotes: Dict[str, QuoteState], fallback_reasons: Dict[str, str]) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     if df.empty:
         return df.copy(), {"rows": 0, "updated": 0, "price_sanity_fail": 0, "massive_rows": 0, "ib_rows": 0}
 
@@ -569,6 +597,7 @@ def enrich_orders_with_prices(df: pd.DataFrame, quotes: Dict[str, QuoteState]) -
     out["price_sanity_ok"] = 0
     out["price_deviation_pct"] = 0.0
     out["quote_raw_error_codes"] = ""
+    out["fallback_reason"] = ""
 
     updated = 0
     sanity_fail = 0
@@ -621,6 +650,7 @@ def enrich_orders_with_prices(df: pd.DataFrame, quotes: Dict[str, QuoteState]) -
         out.at[idx, "price_sanity_ok"] = int(sanity_ok)
         out.at[idx, "price_deviation_pct"] = float(deviation_pct)
         out.at[idx, "quote_raw_error_codes"] = str(q.raw_error_codes or "")
+        out.at[idx, "fallback_reason"] = str(fallback_reasons.get(symbol, ""))
         if "order_notional" in out.columns:
             out.at[idx, "order_notional"] = abs(to_float(out.at[idx, "delta_shares"]) * live_price)
 
@@ -663,8 +693,8 @@ def run_one_config(app: QuoteApp, paths: ConfigPaths) -> None:
         return
 
     ib_quotes = request_ib_quotes(app, symbols)
-    final_quotes, quote_counts = overlay_massive_fallback_quotes(live_df, ib_quotes)
-    updated_df, enrich_summary = enrich_orders_with_prices(df, final_quotes)
+    final_quotes, quote_counts, fallback_reasons = overlay_massive_fallback_quotes(live_df, ib_quotes)
+    updated_df, enrich_summary = enrich_orders_with_prices(df, final_quotes, fallback_reasons)
     updated_df.to_csv(paths.orders_csv, index=False)
 
     summary = {
@@ -688,6 +718,7 @@ def run_one_config(app: QuoteApp, paths: ConfigPaths) -> None:
             "quote_provider",
             "quote_timeframe",
             "price_hint_source",
+            "fallback_reason",
             "bid_price",
             "ask_price",
             "mid_price",
@@ -719,6 +750,10 @@ def main() -> int:
     print(
         f"[CFG] ib_market_data_type={IB_MARKET_DATA_TYPE} ib_mkt_timeout_sec={IB_MKT_TIMEOUT_SEC} "
         f"max_price_deviation_pct={MAX_PRICE_DEVIATION_PCT} allow_last_fallback={int(ALLOW_LAST_FALLBACK)}"
+    )
+    print(
+        f"[CFG] force_massive_when_ib_close_only={int(FORCE_MASSIVE_WHEN_IB_CLOSE_ONLY)} "
+        f"force_massive_when_ib_no_bbo={int(FORCE_MASSIVE_WHEN_IB_NO_BBO)}"
     )
     print(
         f"[CFG] enable_massive_fallback={int(ENABLE_MASSIVE_FALLBACK)} "
