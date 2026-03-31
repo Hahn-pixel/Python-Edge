@@ -541,6 +541,17 @@ def increment_outcome_counter(outcome: str, counters: Dict[str, int]) -> None:
     counters[outcome] = int(counters.get(outcome, 0)) + 1
 
 
+def cfg_paths(config_name: str) -> ConfigPaths:
+    base = EXECUTION_ROOT / config_name
+    return ConfigPaths(
+        name=config_name,
+        execution_dir=base,
+        orders_csv=base / "orders.csv",
+        fills_csv=base / "fills.csv",
+        broker_log_json=base / "broker_log.json",
+    )
+
+
 def run_one_config(app: IBKRApp, paths: ConfigPaths, symbol_map: Dict[str, str], req_id_seed: int) -> int:
     print(f"[BROKER][{paths.name}] orders={paths.orders_csv}")
     paths.execution_dir.mkdir(parents=True, exist_ok=True)
