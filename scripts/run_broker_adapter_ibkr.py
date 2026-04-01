@@ -72,6 +72,8 @@ IB_REPRICE_FINAL_MARKETABLE_BPS = float(os.getenv("IB_REPRICE_FINAL_MARKETABLE_B
 IB_REPRICE_MAX_DEVIATION_PCT = float(os.getenv("IB_REPRICE_MAX_DEVIATION_PCT", "1.25"))
 IB_REPRICE_CANCEL_POLL_ATTEMPTS = int(os.getenv("IB_REPRICE_CANCEL_POLL_ATTEMPTS", "6"))
 IB_REPRICE_CANCEL_POLL_SLEEP_SEC = float(os.getenv("IB_REPRICE_CANCEL_POLL_SLEEP_SEC", "1.0"))
+REQUIRE_PRICE_HINT_SOURCE = str(os.getenv("REQUIRE_PRICE_HINT_SOURCE", "1")).strip().lower() not in {"0", "false", "no", "off"}
+REQUIRE_QUOTE_TS = str(os.getenv("REQUIRE_QUOTE_TS", "1")).strip().lower() not in {"0", "false", "no", "off"}
 
 REQUIRED_ORDER_COLUMNS = ["symbol", "order_side", "delta_shares"]
 RE_202_AGGR = re.compile(r"at or more aggressive than\s+([0-9]+(?:\.[0-9]+)?)", re.IGNORECASE)
@@ -141,29 +143,83 @@ def normalize_order_side(side: str) -> str:
     return out
 
 
-def normalize_status(status: str) -> str:
-    return str(status or "").strip().lower().replace(" ", "")
+def build_price_context_from_row(row_dict: Dict[str, Any], prepared_price: float) -> Dict[str, Any]:
+    quote_ts = str(row_dict.get("quote_ts", row_dict.get("quote_ts_utc", "")) or "").strip()
+    quote_provider = str(row_dict.get("quote_provider", "") or "").strip()
+    quote_timeframe = str(row_dict.get("quote_timeframe", "") or "").strip()
+    price_hint_source = str(row_dict.get("price_hint_source", "") or "").strip()
+    if not price_hint_source and quote_provider:
+        source_suffix = ""
+        for key in ["ask", "bid", "mid", "last", "close_price"]:
+            if to_float(row_dict.get(key, 0.0)) > 0.0 and abs(prepared_price - to_float(row_dict.get(key, 0.0))) <= 1e-9:
+                source_suffix = key.replace("_price", "")
+                break
+        price_hint_source = f"{quote_provider}_{source_suffix}" if source_suffix else quote_provider
+    model_price_reference = to_float(row_dict.get("model_price_reference", 0.0))
+    deviation_pct = to_float(row_dict.get("price_deviation_vs_model", row_dict.get("price_deviation_pct", 0.0)))
+    if deviation_pct <= 0.0 and model_price_reference > 0.0 and prepared_price > 0.0:
+        deviation_pct = abs(prepared_price - model_price_reference) / model_price_reference * 100.0
+    return {
+        "price_hint_source": price_hint_source,
+        "quote_ts": quote_ts,
+        "quote_provider": quote_provider,
+        "quote_timeframe": quote_timeframe,
+        "quote_market_data_type": int(to_float(row_dict.get("quote_market_data_type", 0.0))),
+        "model_price_reference": float(model_price_reference),
+        "bid": float(to_float(row_dict.get("bid", row_dict.get("bid_price", 0.0)))),
+        "ask": float(to_float(row_dict.get("ask", row_dict.get("ask_price", 0.0)))),
+        "mid": float(to_float(row_dict.get("mid", row_dict.get("mid_price", 0.0)))),
+        "last": float(to_float(row_dict.get("last", row_dict.get("last_price", 0.0)))),
+        "close_price": float(to_float(row_dict.get("close_price", 0.0))),
+        "spread_bps": float(to_float(row_dict.get("spread_bps", 0.0))),
+        "price_deviation_vs_model": float(deviation_pct),
+        "fallback_reason": str(row_dict.get("fallback_reason", "") or "").strip(),
+    }
 
 
-def classify_outcome(status: str, filled_qty: float, remaining_qty: float) -> str:
-    status_norm = normalize_status(status)
-    if status_norm == "filled" or (filled_qty > 0.0 and remaining_qty <= 1e-9):
-        return "filled_now"
-    if status_norm == "partiallyfilled" or (filled_qty > 0.0 and remaining_qty > 1e-9):
-        return "partial"
-    if status_norm in {"submitted", "presubmitted", "pendingsubmit", "api_pending", "pending_submit"}:
-        return "working"
-    if status_norm in {"cancelled", "inactive", "apicancelled"}:
-        return "failed"
-    return "unknown"
+def validate_price_context(symbol: str, side: str, prepared_price: float, price_context: Dict[str, Any]) -> None:
+    issues: List[str] = []
+    if prepared_price <= 0.0:
+        issues.append("price<=0")
+    if REQUIRE_PRICE_HINT_SOURCE and not str(price_context.get("price_hint_source", "")).strip():
+        issues.append("missing_price_hint_source")
+    if REQUIRE_QUOTE_TS and not str(price_context.get("quote_ts", "")).strip():
+        issues.append("missing_quote_ts")
+    if issues:
+        raise RuntimeError(
+            f"Execution-ready price diagnostics missing for symbol={symbol} side={side}: {issues}. "
+            f"Run run_broker_handoff.py before run_broker_adapter_ibkr.py."
+        )
+
+
+def merged_request_debug(prepared: PreparedOrder, request_debug: Dict[str, Any]) -> Dict[str, Any]:
+    price_context = build_price_context_from_row(prepared.source_row, prepared.price)
+    return {
+        **request_debug,
+        "price_context": price_context,
+        "price_hint_source": price_context.get("price_hint_source", ""),
+        "quote_ts": price_context.get("quote_ts", ""),
+        "quote_provider": price_context.get("quote_provider", ""),
+        "quote_timeframe": price_context.get("quote_timeframe", ""),
+        "model_price_reference": float(price_context.get("model_price_reference", 0.0)),
+        "bid": float(price_context.get("bid", 0.0)),
+        "ask": float(price_context.get("ask", 0.0)),
+        "mid": float(price_context.get("mid", 0.0)),
+        "last": float(price_context.get("last", 0.0)),
+        "close_price": float(price_context.get("close_price", 0.0)),
+        "spread_bps": float(price_context.get("spread_bps", 0.0)),
+        "price_deviation_vs_model": float(price_context.get("price_deviation_vs_model", 0.0)),
+        "fallback_reason": price_context.get("fallback_reason", ""),
+    }
 
 
 def round_to_tick(price: float, tick: float, side: str) -> float:
     px = float(price)
-    tk = max(float(tick), float(IB_LMT_PRICE_MIN_ABS))
-    if normalize_order_side(side) == "BUY":
-        return round(math.floor(px / tk) * tk, 10)
-    return round(math.ceil(px / tk) * tk, 10)
+    step = max(float(tick), 1e-9)
+    side_up = normalize_order_side(side)
+    if side_up == "BUY":
+        return math.floor(px / step) * step
+    return math.ceil(px / step) * step
 
 
 def build_passive_price(anchor_price: float, side: str, offset_bps: float, tick: float) -> float:
@@ -181,7 +237,7 @@ def build_cap_price(anchor_price: float, side: str, max_dev_pct: float, tick: fl
 def build_final_price(anchor_price: float, side: str, tick: float, cap_price: float) -> float:
     side_up = normalize_order_side(side)
     raw = anchor_price * (1.0 + IB_REPRICE_FINAL_MARKETABLE_BPS / 10000.0) if side_up == "BUY" else anchor_price * (1.0 - IB_REPRICE_FINAL_MARKETABLE_BPS / 10000.0)
-    px = round_to_tick(raw, tick, side_up)
+    px = max(float(IB_LMT_PRICE_MIN_ABS), round_to_tick(raw, tick, side_up))
     return min(px, cap_price) if side_up == "BUY" else max(px, cap_price)
 
 
@@ -199,59 +255,69 @@ def ladder_prices(anchor_price: float, side: str, tick: float) -> List[float]:
     return prices
 
 
-def collect_app_errors(app: IBKRApp, start_idx: int, req_ids: Sequence[int]) -> List[BrokerErrorInfo]:
-    req_id_set = {int(x) for x in req_ids}
-    out: List[BrokerErrorInfo] = []
-    for payload in app._errors[start_idx:]:
-        try:
-            req_id = int(payload.get("reqId", 0) or 0)
-        except Exception:
-            req_id = 0
-        if req_id_set and req_id not in req_id_set:
-            continue
-        out.append(BrokerErrorInfo(req_id=req_id, error_code=int(payload.get("errorCode", 0) or 0), error_string=str(payload.get("errorString", "") or ""), advanced_order_reject_json=str(payload.get("advancedOrderRejectJson", "") or ""), ts_utc=str(payload.get("ts_utc", "") or utc_now_iso())))
-    return out
+def normalize_status(status: str) -> str:
+    s = str(status or "").strip().lower()
+    if s in {"submitted", "presubmitted", "pendingcancel", "pendingsubmit", "api pending"}:
+        return "working"
+    if s in {"filled", "inactive", "cancelled", "apicancelled"}:
+        return s
+    return s or "unknown"
 
 
-def find_error_code(broker_errors: Sequence[BrokerErrorInfo], code: int) -> BrokerErrorInfo | None:
-    for err in broker_errors:
-        if int(err.error_code) == int(code):
-            return err
-    return None
+def classify_outcome(status: str, filled_qty: float, remaining_qty: float) -> str:
+    status_norm = normalize_status(status)
+    if filled_qty > 0.0 and remaining_qty <= 1e-9:
+        return "filled_now"
+    if filled_qty > 0.0 and remaining_qty > 1e-9:
+        return "partial"
+    if status_norm in {"working", "submitted", "presubmitted", "pendingcancel", "pendingsubmit"}:
+        return "working"
+    if status_norm in {"cancelled", "apicancelled"}:
+        return "cancelled_unfilled_cap"
+    if status_norm == "inactive":
+        return "failed"
+    return "unknown"
 
 
-def parse_202_limits(error_string: str) -> Tuple[float | None, float | None]:
-    s = str(error_string or "")
-    m1 = RE_202_AGGR.search(s)
-    m2 = RE_202_MARKET.search(s)
-    return (float(m1.group(1)) if m1 else None, float(m2.group(1)) if m2 else None)
-
-
-def clip_limit_from_202(prepared: PreparedOrder, current_rounded: float | None, err202: BrokerErrorInfo | None) -> float | None:
-    if current_rounded is None or err202 is None:
+def clip_limit_from_202(prepared: PreparedOrder, previous_limit: float, broker_error: BrokerErrorInfo | None) -> float | None:
+    if broker_error is None or int(broker_error.error_code) != 202:
         return None
-    cutoff, market_px = parse_202_limits(err202.error_string)
-    if cutoff is None:
+    message = str(broker_error.error_string or "")
+    m = RE_202_AGGR.search(message) or RE_202_MARKET.search(message)
+    if m is None:
+        return None
+    boundary = to_float(m.group(1))
+    if boundary <= 0.0:
         return None
     tick = max(float(prepared.min_tick), float(IB_LMT_PRICE_MIN_ABS))
-    pad = max(1, int(IB_RETRY_202_CLIP_TICKS)) * tick
-    side = prepared.order_side.upper()
+    side = normalize_order_side(prepared.order_side)
     if side == "BUY":
-        clipped = max(float(IB_LMT_PRICE_MIN_ABS), cutoff - pad)
-        if market_px is not None:
-            clipped = min(clipped, market_px + pad)
-        clipped = min(clipped, float(current_rounded))
-    else:
-        clipped = cutoff + pad
-        if market_px is not None:
-            clipped = max(clipped, market_px - pad)
-        clipped = max(clipped, float(current_rounded))
-    return round_to_tick(clipped, tick, side)
+        clipped = boundary - tick * max(1, int(IB_RETRY_202_CLIP_TICKS))
+        clipped = max(float(IB_LMT_PRICE_MIN_ABS), round_to_tick(clipped, tick, side))
+        if clipped >= previous_limit:
+            clipped = max(float(IB_LMT_PRICE_MIN_ABS), round_to_tick(previous_limit - tick, tick, side))
+        return clipped if clipped > 0.0 else None
+    clipped = boundary + tick * max(1, int(IB_RETRY_202_CLIP_TICKS))
+    clipped = max(float(IB_LMT_PRICE_MIN_ABS), round_to_tick(clipped, tick, side))
+    if clipped <= previous_limit:
+        clipped = max(float(IB_LMT_PRICE_MIN_ABS), round_to_tick(previous_limit + tick, tick, side))
+    return clipped if clipped > 0.0 else None
 
 
-def build_contract(prepared: PreparedOrder) -> Contract:
+def connect_and_wait(app: IBKRApp) -> None:
+    app.start_network_loop()
+    next_id = app.wait_for_next_valid_id(timeout_sec=IB_TIMEOUT_SEC)
+    managed_accounts = app.wait_for_managed_accounts(timeout_sec=IB_TIMEOUT_SEC)
+    if IB_ACCOUNT_CODE:
+        account_list = [x.strip() for x in managed_accounts.split(",") if x.strip()]
+        if IB_ACCOUNT_CODE not in account_list:
+            raise RuntimeError(f"IB_ACCOUNT_CODE={IB_ACCOUNT_CODE!r} not present in managed accounts: {managed_accounts!r}")
+    print(f"[IB] connected next_valid_id={next_id} managed_accounts={managed_accounts}")
+
+
+def contract_for_symbol(symbol: str) -> Contract:
     contract = Contract()
-    contract.symbol = prepared.broker_symbol
+    contract.symbol = normalize_symbol(symbol)
     contract.secType = IB_SECURITY_TYPE
     contract.exchange = IB_EXCHANGE
     contract.currency = IB_CURRENCY
@@ -260,65 +326,117 @@ def build_contract(prepared: PreparedOrder) -> Contract:
     return contract
 
 
-def query_contract_details(app: IBKRApp, contract: Contract, req_id: int) -> dict:
-    app.done_contract_details[int(req_id)] = False
-    app.reqContractDetails(int(req_id), contract)
-    return app.wait_for_contract_details(int(req_id), timeout_sec=IB_TIMEOUT_SEC)
+def poll_order_until_done(app: IBKRApp, ib_order_id: int, timeout_sec: float) -> dict:
+    return app.wait_for_order_terminalish(ib_order_id, timeout_sec=timeout_sec)
+
+
+def cancel_and_poll_order(app: IBKRApp, ib_order_id: int, ib_entry: dict, cancel_reason: str) -> dict:
+    app.cancelOrder(int(ib_order_id), "")
+    final_entry = ib_entry
+    for poll_idx in range(max(1, IB_REPRICE_CANCEL_POLL_ATTEMPTS)):
+        time.sleep(max(0.1, IB_REPRICE_CANCEL_POLL_SLEEP_SEC))
+        final_entry = latest_ib_entry(app, ib_order_id, final_entry)
+        status = normalize_status(str(final_entry.get("status", "")))
+        if status in {"cancelled", "apicancelled", "filled", "inactive"}:
+            final_entry = {**final_entry, "cancel_reason": cancel_reason}
+            return final_entry
+    return {**final_entry, "cancel_reason": cancel_reason}
+
+
+def wait_for_fill_progress(app: IBKRApp, ib_order_id: int, initial_entry: dict) -> dict:
+    total_attempts = max(1, int(math.ceil(IB_REPRICE_WAIT_SEC / max(0.25, IB_REPRICE_CANCEL_POLL_SLEEP_SEC))))
+    last_signature = None
+    entry = initial_entry
+    mode = IB_POLL_VERBOSE
+    every_n = max(1, IB_POLL_PRINT_EVERY)
+    for poll_idx in range(total_attempts):
+        time.sleep(max(0.25, IB_REPRICE_CANCEL_POLL_SLEEP_SEC))
+        entry = latest_ib_entry(app, ib_order_id, entry)
+        filled_qty = to_float(entry.get("filled_qty", 0.0))
+        remaining_qty = to_float(entry.get("remaining_qty", 0.0))
+        status = normalize_status(str(entry.get("status", "")))
+        outcome = classify_outcome(status, filled_qty, remaining_qty)
+        signature = (status, round(filled_qty, 8), round(remaining_qty, 8), round(to_float(entry.get("avg_fill_price", 0.0)), 8))
+        should_print = mode == "all" or (mode == "none" and (poll_idx == total_attempts - 1 or outcome in {"filled_now", "partial", "failed"})) or (mode != "none" and (poll_idx == 0 or poll_idx == total_attempts - 1 or signature != last_signature or ((poll_idx + 1) % every_n == 0) or outcome in {"filled_now", "partial", "failed"}))
+        if should_print:
+            print(f"[BROKER][POLL] ib_order_id={ib_order_id} step={poll_idx + 1}/{total_attempts} status={status} filled_qty={filled_qty:.8f} remaining_qty={remaining_qty:.8f} avg_fill_price={to_float(entry.get('avg_fill_price', 0.0)):.4f} outcome={outcome}")
+        last_signature = signature
+        if outcome in {"filled_now", "partial", "failed"}:
+            return entry
+    return entry
 
 
 def resolve_contract_metadata(app: IBKRApp, prepared: PreparedOrder, req_id_seed: int) -> Tuple[PreparedOrder, Contract, int, Dict[str, Any]]:
+    contract = contract_for_symbol(prepared.broker_symbol)
     req_cursor = int(req_id_seed)
-    attempts_total = max(1, int(IB_CONTRACT_DETAILS_RETRIES))
+    contract_meta_debug: Dict[str, Any] = {"contract_details_mode": "", "contract_details_retries": 0, "contract_details_req_id": 0}
     last_exc: Exception | None = None
-    for attempt_idx in range(attempts_total):
+
+    for attempt in range(1, max(1, IB_CONTRACT_DETAILS_RETRIES) + 1):
         req_cursor += 1
-        contract = build_contract(prepared)
+        req_id = req_cursor
+        contract_meta_debug["contract_details_retries"] = attempt
+        contract_meta_debug["contract_details_req_id"] = req_id
         try:
-            print(f"[IB][CONTRACT_DETAILS] symbol={prepared.symbol} broker_symbol={prepared.broker_symbol} attempt={attempt_idx + 1}/{attempts_total} use_primary_exchange=1 req_id={req_cursor}")
-            meta = query_contract_details(app, contract, req_cursor)
-            prepared2 = PreparedOrder(**{**prepared.__dict__, "min_tick": normalize_min_tick(to_float(meta.get('minTick', 0.0)), IB_LMT_PRICE_MIN_ABS)})
-            contract2 = build_contract(prepared2)
-            if meta.get("primaryExchange") and not IB_PRIMARY_EXCHANGE:
-                contract2.primaryExchange = str(meta.get("primaryExchange", ""))
-            return prepared2, contract2, req_cursor, {"contract_details_mode": "full", "contract_details_attempts": attempt_idx + 1, "contract_details_fallback_used": 0}
+            app.req_contract_details(req_id, contract)
+            rows = app.wait_for_contract_details(req_id, timeout_sec=IB_TIMEOUT_SEC)
+            if rows:
+                best = rows[0]
+                min_tick = normalize_min_tick(to_float(best.get("minTick", 0.0)))
+                prepared2 = PreparedOrder(**{**prepared.__dict__, "min_tick": min_tick})
+                contract_meta_debug.update({
+                    "contract_details_mode": "resolved",
+                    "contract_exchange": str(best.get("exchange", "")),
+                    "contract_primary_exchange": str(best.get("primaryExchange", "")),
+                    "contract_currency": str(best.get("currency", "")),
+                    "contract_min_tick": float(min_tick),
+                    "contract_conid": int(best.get("conId", 0) or 0),
+                })
+                return prepared2, contract, req_cursor, contract_meta_debug
+            raise RuntimeError(f"No contract details returned for symbol={prepared.symbol}")
         except Exception as exc:
             last_exc = exc
-            print(f"[IB][CONTRACT_DETAILS][WARN] symbol={prepared.symbol} broker_symbol={prepared.broker_symbol} attempt={attempt_idx + 1}/{attempts_total} use_primary_exchange=1 error={exc}")
-            if attempt_idx + 1 < attempts_total:
-                time.sleep(max(0.0, IB_CONTRACT_DETAILS_RETRY_SLEEP_SEC))
-    if IB_ALLOW_PRIMARY_EXCHANGE_FALLBACK:
-        req_cursor += 1
-        contract = build_contract(prepared)
-        try:
-            contract.primaryExchange = ""
-        except Exception:
-            pass
-        try:
-            print(f"[IB][CONTRACT_DETAILS] symbol={prepared.symbol} broker_symbol={prepared.broker_symbol} attempt=fallback_no_primary use_primary_exchange=0 req_id={req_cursor}")
-            meta = query_contract_details(app, contract, req_cursor)
-            prepared2 = PreparedOrder(**{**prepared.__dict__, "min_tick": normalize_min_tick(to_float(meta.get('minTick', 0.0)), IB_LMT_PRICE_MIN_ABS)})
-            contract2 = build_contract(prepared2)
+            print(f"[IB][CONTRACT_DETAILS][WARN] symbol={prepared.symbol} attempt={attempt}/{IB_CONTRACT_DETAILS_RETRIES} error={exc}")
+            time.sleep(max(0.1, IB_CONTRACT_DETAILS_RETRY_SLEEP_SEC))
+
+    if IB_ALLOW_PRIMARY_EXCHANGE_FALLBACK and not IB_PRIMARY_EXCHANGE:
+        contract2 = contract_for_symbol(prepared.broker_symbol)
+        contract2.primaryExchange = "NASDAQ"
+        for attempt in range(1, max(1, IB_CONTRACT_DETAILS_RETRIES) + 1):
+            req_cursor += 1
+            req_id = req_cursor
+            contract_meta_debug["contract_details_retries"] = attempt
+            contract_meta_debug["contract_details_req_id"] = req_id
             try:
-                contract2.primaryExchange = ""
-            except Exception:
-                pass
-            return prepared2, contract2, req_cursor, {"contract_details_mode": "no_primary_exchange", "contract_details_attempts": attempts_total + 1, "contract_details_fallback_used": 1}
-        except Exception as exc:
-            last_exc = exc
-            print(f"[IB][CONTRACT_DETAILS][WARN] symbol={prepared.symbol} broker_symbol={prepared.broker_symbol} attempt=fallback_no_primary use_primary_exchange=0 error={exc}")
+                app.req_contract_details(req_id, contract2)
+                rows = app.wait_for_contract_details(req_id, timeout_sec=IB_TIMEOUT_SEC)
+                if rows:
+                    best = rows[0]
+                    min_tick = normalize_min_tick(to_float(best.get("minTick", 0.0)))
+                    prepared2 = PreparedOrder(**{**prepared.__dict__, "min_tick": min_tick})
+                    contract_meta_debug.update({
+                        "contract_details_mode": "primary_exchange_fallback",
+                        "contract_exchange": str(best.get("exchange", "")),
+                        "contract_primary_exchange": str(best.get("primaryExchange", "")),
+                        "contract_currency": str(best.get("currency", "")),
+                        "contract_min_tick": float(min_tick),
+                        "contract_conid": int(best.get("conId", 0) or 0),
+                    })
+                    return prepared2, contract2, req_cursor, contract_meta_debug
+                raise RuntimeError(f"No contract details returned for symbol={prepared.symbol} via fallback")
+            except Exception as exc:
+                last_exc = exc
+                print(f"[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol={prepared.symbol} attempt={attempt}/{IB_CONTRACT_DETAILS_RETRIES} error={exc}")
+                time.sleep(max(0.1, IB_CONTRACT_DETAILS_RETRY_SLEEP_SEC))
+
+    prepared2 = PreparedOrder(**{**prepared.__dict__, "min_tick": float(IB_LMT_PRICE_MIN_ABS)})
     if IB_ALLOW_SUBMIT_WITHOUT_CONTRACT_DETAILS:
-        prepared2 = PreparedOrder(**{**prepared.__dict__, "min_tick": normalize_min_tick(float(IB_LMT_PRICE_MIN_ABS), IB_LMT_PRICE_MIN_ABS)})
-        contract2 = build_contract(prepared2)
-        if IB_ALLOW_PRIMARY_EXCHANGE_FALLBACK:
-            try:
-                contract2.primaryExchange = ""
-            except Exception:
-                pass
+        contract_meta_debug.update({"contract_details_mode": "fallback_submit", "contract_min_tick": float(IB_LMT_PRICE_MIN_ABS)})
         print(f"[IB][CONTRACT_DETAILS][FALLBACK_SUBMIT] symbol={prepared.symbol} broker_symbol={prepared.broker_symbol} reason={last_exc} min_tick={prepared2.min_tick:.6f}")
-        return prepared2, contract2, req_cursor, {"contract_details_mode": "submit_without_contract_details", "contract_details_attempts": attempts_total + (1 if IB_ALLOW_PRIMARY_EXCHANGE_FALLBACK else 0), "contract_details_fallback_used": 1}
+        return prepared2, contract, req_cursor, contract_meta_debug
     if last_exc is not None:
         raise last_exc
-    raise RuntimeError(f"Failed to resolve contract details for symbol={prepared.symbol}")
+    raise RuntimeError(f"Unable to resolve contract details for symbol={prepared.symbol}")
 
 
 def load_symbol_map() -> Dict[str, str]:
@@ -373,8 +491,11 @@ def prepare_orders(config_name: str, df: pd.DataFrame, symbol_map: Dict[str, str
         if qty <= 0.0:
             continue
         broker_symbol = symbol_map.get(symbol, symbol)
+        prepared_price = to_float(row_dict.get("price", 0.0))
+        price_context = build_price_context_from_row(row_dict, prepared_price)
+        validate_price_context(symbol, order_side, prepared_price, price_context)
         idempotency_key = hashlib.sha256(json.dumps({"config": config_name, "date": str(row_dict.get("date", "")).strip(), "symbol": symbol, "broker_symbol": broker_symbol, "order_side": order_side, "delta_shares": round(to_float(row_dict.get("delta_shares", 0.0)), 8), "order_notional": round(to_float(row_dict.get("order_notional", 0.0)), 8), "target_weight": round(to_float(row_dict.get("target_weight", 0.0)), 8)}, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest()
-        prepared.append(PreparedOrder(config=config_name, order_date=str(row_dict.get("date", "")).strip(), symbol=symbol, broker_symbol=broker_symbol, order_side=order_side, qty=qty, price=to_float(row_dict.get("price", 0.0)), order_notional=abs(to_float(row_dict.get("order_notional", 0.0))), target_weight=to_float(row_dict.get("target_weight", 0.0)), current_shares=to_float(row_dict.get("current_shares", 0.0)), target_shares=to_float(row_dict.get("target_shares", 0.0)), delta_shares=to_float(row_dict.get("delta_shares", 0.0)), source_row=row_dict, idempotency_key=idempotency_key, client_tag=f"pe-{idempotency_key[:24]}"))
+        prepared.append(PreparedOrder(config=config_name, order_date=str(row_dict.get("date", "")).strip(), symbol=symbol, broker_symbol=broker_symbol, order_side=order_side, qty=qty, price=prepared_price, order_notional=abs(to_float(row_dict.get("order_notional", 0.0))), target_weight=to_float(row_dict.get("target_weight", 0.0)), current_shares=to_float(row_dict.get("current_shares", 0.0)), target_shares=to_float(row_dict.get("target_shares", 0.0)), delta_shares=to_float(row_dict.get("delta_shares", 0.0)), source_row=row_dict, idempotency_key=idempotency_key, client_tag=f"pe-{idempotency_key[:24]}"))
     return prepared
 
 
@@ -409,44 +530,16 @@ def latest_ib_entry(app: IBKRApp, ib_order_id: int, default_entry: dict) -> dict
     return latest if isinstance(latest, dict) else default_entry
 
 
-def poll_order_status(app: IBKRApp, ib_order_id: int, initial_entry: dict, attempts: int, sleep_sec: float, label: str) -> dict:
-    latest = dict(initial_entry or {})
-    last_signature = None
-    total_attempts = max(0, int(attempts))
-    every_n = max(1, int(IB_POLL_PRINT_EVERY))
-    mode = str(IB_POLL_VERBOSE or "changes").strip().lower()
-    for poll_idx in range(total_attempts):
-        time.sleep(max(0.0, float(sleep_sec)))
-        refresh_open_orders(app)
-        latest = latest_ib_entry(app, ib_order_id, latest)
-        status = normalize_status(str(latest.get("status", "")))
-        filled_qty = to_float(latest.get("filled_qty", 0.0))
-        remaining_qty = to_float(latest.get("remaining_qty", 0.0))
-        outcome = classify_outcome(status, filled_qty, remaining_qty)
-        signature = (status, round(filled_qty, 8), round(remaining_qty, 8), outcome)
-        should_print = mode == "all" or (mode == "none" and (poll_idx == total_attempts - 1 or outcome in {"filled_now", "partial", "failed"})) or (mode != "none" and (poll_idx == 0 or poll_idx == total_attempts - 1 or signature != last_signature or ((poll_idx + 1) % every_n == 0) or outcome in {"filled_now", "partial", "failed"}))
-        if should_print:
-            print(f"[BROKER][POLL][{label}] ib_order_id={ib_order_id} poll={poll_idx + 1}/{total_attempts} status={status or 'unknown'} outcome={outcome} filled_qty={filled_qty:.8f} remaining_qty={remaining_qty:.8f}")
-        last_signature = signature
-        if outcome in {"filled_now", "partial", "failed"}:
-            break
-    return latest
-
-
-def cancel_and_poll_order(app: IBKRApp, ib_order_id: int, initial_entry: dict, label: str) -> dict:
-    latest = dict(initial_entry or {})
-    print(f"[BROKER][CANCEL] ib_order_id={ib_order_id} reason={label}")
-    app.cancelOrder(int(ib_order_id))
-    return poll_order_status(app, ib_order_id, latest, IB_REPRICE_CANCEL_POLL_ATTEMPTS, IB_REPRICE_CANCEL_POLL_SLEEP_SEC, f"cancel_{label}")
-
-
 def refresh_positions(app: IBKRApp, required: bool) -> bool:
-    app.done_positions = False
-    app.position_rows = []
-    app.reqPositions()
     try:
-        app.wait_until_positions_end(timeout_sec=IB_POSITIONS_TIMEOUT_SEC)
-        app.cancelPositions()
+        app.position_rows = []
+        app.done_positions = False
+        app.reqPositions()
+        app.wait_until_position_end(timeout_sec=IB_POSITIONS_TIMEOUT_SEC)
+        try:
+            app.cancelPositions()
+        except Exception:
+            pass
         print(f"[IB] positions refresh complete rows={len(app.position_rows)}")
         return True
     except TimeoutError:
@@ -464,14 +557,7 @@ def bootstrap_connection() -> IBKRApp:
     app = IBKRApp(utc_now_iso=utc_now_iso, to_float=to_float)
     print(f"[IB] connecting host={IB_HOST} port={IB_PORT} client_id={IB_CLIENT_ID}")
     app.connect(IB_HOST, IB_PORT, clientId=IB_CLIENT_ID)
-    app.start_network_loop()
-    next_id = app.wait_for_next_valid_id(timeout_sec=IB_TIMEOUT_SEC)
-    managed_accounts = app.wait_for_managed_accounts(timeout_sec=IB_TIMEOUT_SEC)
-    if IB_ACCOUNT_CODE:
-        account_list = [x.strip() for x in managed_accounts.split(",") if x.strip()]
-        if IB_ACCOUNT_CODE not in account_list:
-            raise RuntimeError(f"IB_ACCOUNT_CODE={IB_ACCOUNT_CODE!r} not present in managed accounts: {managed_accounts!r}")
-    print(f"[IB] connected next_valid_id={next_id} managed_accounts={managed_accounts}")
+    connect_and_wait(app)
     refresh_open_orders(app)
     if IB_REFRESH_POSITIONS_ON_CONNECT or IB_REQUIRE_POSITIONS_ON_CONNECT:
         refresh_positions(app, required=IB_REQUIRE_POSITIONS_ON_CONNECT)
@@ -493,11 +579,15 @@ def entry_from_ib(prepared: PreparedOrder, ib_entry: dict, source_path: Path, re
     remaining_qty = to_float(ib_entry.get("remaining_qty", max(0.0, prepared.qty - filled_qty)))
     avg_fill_price = to_float(ib_entry.get("avg_fill_price", prepared.price)) or float(prepared.price)
     outcome = str(outcome_override or classify_outcome(status, filled_qty, remaining_qty))
-    return {"idempotency_key": prepared.idempotency_key, "client_order_id": prepared.client_tag, "broker_order_id": str(ib_entry.get("ib_order_id", "")), "perm_id": int(ib_entry.get("perm_id", 0) or 0), "config": prepared.config, "source_order_path": str(source_path), "date": prepared.order_date, "symbol": prepared.symbol, "broker_symbol": prepared.broker_symbol, "side": prepared.order_side, "qty": float(prepared.qty), "filled_qty": float(filled_qty), "remaining_qty": float(remaining_qty), "price_hint": float(prepared.price), "filled_avg_price": float(avg_fill_price), "order_notional": float(prepared.order_notional), "fill_notional": abs(float(filled_qty * avg_fill_price)), "status": status, "submitted_at": str(ib_entry.get("submitted_at_utc", utc_now_iso())), "filled_at": utc_now_iso() if outcome in {"filled_now", "partial"} else "", "mode": "ibkr_gateway", "request": request_debug, "response": {"ib_order_id": ib_entry.get("ib_order_id", ""), "perm_id": ib_entry.get("perm_id", 0), "status": ib_entry.get("status", ""), "avg_fill_price": ib_entry.get("avg_fill_price", 0.0), "last_fill_price": ib_entry.get("last_fill_price", 0.0), "fills": ib_entry.get("fills", []), "outcome": outcome}, "outcome": outcome}
+    price_context = build_price_context_from_row(prepared.source_row, prepared.price)
+    request_debug_full = merged_request_debug(prepared, request_debug)
+    return {"idempotency_key": prepared.idempotency_key, "client_order_id": prepared.client_tag, "broker_order_id": str(ib_entry.get("ib_order_id", "")), "perm_id": int(ib_entry.get("perm_id", 0) or 0), "config": prepared.config, "source_order_path": str(source_path), "date": prepared.order_date, "symbol": prepared.symbol, "broker_symbol": prepared.broker_symbol, "side": prepared.order_side, "qty": float(prepared.qty), "filled_qty": float(filled_qty), "remaining_qty": float(remaining_qty), "price_hint": float(prepared.price), "price_hint_source": price_context.get("price_hint_source", ""), "quote_ts": price_context.get("quote_ts", ""), "quote_provider": price_context.get("quote_provider", ""), "quote_timeframe": price_context.get("quote_timeframe", ""), "model_price_reference": float(price_context.get("model_price_reference", 0.0)), "bid": float(price_context.get("bid", 0.0)), "ask": float(price_context.get("ask", 0.0)), "mid": float(price_context.get("mid", 0.0)), "last": float(price_context.get("last", 0.0)), "close_price": float(price_context.get("close_price", 0.0)), "spread_bps": float(price_context.get("spread_bps", 0.0)), "price_deviation_vs_model": float(price_context.get("price_deviation_vs_model", 0.0)), "fallback_reason": price_context.get("fallback_reason", ""), "filled_avg_price": float(avg_fill_price), "order_notional": float(prepared.order_notional), "fill_notional": abs(float(filled_qty * avg_fill_price)), "status": status, "submitted_at": str(ib_entry.get("submitted_at_utc", utc_now_iso())), "filled_at": utc_now_iso() if outcome in {"filled_now", "partial"} else "", "mode": "ibkr_gateway", "request": request_debug_full, "response": {"ib_order_id": ib_entry.get("ib_order_id", ""), "perm_id": ib_entry.get("perm_id", 0), "status": ib_entry.get("status", ""), "avg_fill_price": ib_entry.get("avg_fill_price", 0.0), "last_fill_price": ib_entry.get("last_fill_price", 0.0), "fills": ib_entry.get("fills", []), "outcome": outcome}, "outcome": outcome}
 
 
 def build_error_entry(prepared: PreparedOrder, paths: ConfigPaths, issue: OrderIssue, request_debug: Dict[str, Any]) -> dict:
-    return {"idempotency_key": prepared.idempotency_key, "client_order_id": prepared.client_tag, "broker_order_id": "", "perm_id": 0, "config": prepared.config, "source_order_path": str(paths.orders_csv), "date": prepared.order_date, "symbol": prepared.symbol, "broker_symbol": prepared.broker_symbol, "side": prepared.order_side, "qty": float(prepared.qty), "filled_qty": 0.0, "remaining_qty": float(prepared.qty), "price_hint": float(prepared.price), "filled_avg_price": 0.0, "order_notional": float(prepared.order_notional), "fill_notional": 0.0, "status": issue.status, "submitted_at": utc_now_iso(), "filled_at": "", "mode": "ibkr_gateway", "request": request_debug, "response": {"error": issue.message, "error_code": int(issue.broker_error.error_code) if issue.broker_error else 0, "error_string": str(issue.broker_error.error_string) if issue.broker_error else "", "outcome": "failed"}, "outcome": "failed"}
+    price_context = build_price_context_from_row(prepared.source_row, prepared.price)
+    request_debug_full = merged_request_debug(prepared, request_debug)
+    return {"idempotency_key": prepared.idempotency_key, "client_order_id": prepared.client_tag, "broker_order_id": "", "perm_id": 0, "config": prepared.config, "source_order_path": str(paths.orders_csv), "date": prepared.order_date, "symbol": prepared.symbol, "broker_symbol": prepared.broker_symbol, "side": prepared.order_side, "qty": float(prepared.qty), "filled_qty": 0.0, "remaining_qty": float(prepared.qty), "price_hint": float(prepared.price), "price_hint_source": price_context.get("price_hint_source", ""), "quote_ts": price_context.get("quote_ts", ""), "quote_provider": price_context.get("quote_provider", ""), "quote_timeframe": price_context.get("quote_timeframe", ""), "model_price_reference": float(price_context.get("model_price_reference", 0.0)), "bid": float(price_context.get("bid", 0.0)), "ask": float(price_context.get("ask", 0.0)), "mid": float(price_context.get("mid", 0.0)), "last": float(price_context.get("last", 0.0)), "close_price": float(price_context.get("close_price", 0.0)), "spread_bps": float(price_context.get("spread_bps", 0.0)), "price_deviation_vs_model": float(price_context.get("price_deviation_vs_model", 0.0)), "fallback_reason": price_context.get("fallback_reason", ""), "filled_avg_price": 0.0, "order_notional": float(prepared.order_notional), "fill_notional": 0.0, "status": issue.status, "submitted_at": utc_now_iso(), "filled_at": "", "mode": "ibkr_gateway", "request": request_debug_full, "response": {"error": issue.message, "error_code": int(issue.broker_error.error_code) if issue.broker_error else 0, "error_string": str(issue.broker_error.error_string) if issue.broker_error else "", "outcome": "failed"}, "outcome": "failed"}
 
 
 def run_ladder_order(app: IBKRApp, prepared: PreparedOrder, contract: Contract, contract_meta_debug: Dict[str, Any]) -> Tuple[dict | None, OrderIssue | None, int, Dict[str, Any]]:
@@ -517,37 +607,36 @@ def run_ladder_order(app: IBKRApp, prepared: PreparedOrder, contract: Contract, 
         print(f"[BROKER][LADDER][SUBMIT] symbol={prepared.symbol} step={step_idx + 1}/{len(prices)} mode={step_mode} limit_price={limit_price:.4f} cap_price={cap_price:.4f}")
         app.placeOrder(ib_order_id, contract, order)
         ib_entry = app.wait_for_order_terminalish(ib_order_id, timeout_sec=IB_TIMEOUT_SEC)
-        poll_attempts = max(1, int(math.ceil(IB_REPRICE_WAIT_SEC / max(0.25, IB_REPRICE_CANCEL_POLL_SLEEP_SEC))))
-        ib_entry = poll_order_status(app, ib_order_id, ib_entry, poll_attempts, max(0.25, IB_REPRICE_CANCEL_POLL_SLEEP_SEC), f"ladder_step_{step_idx + 1}")
-        broker_errors = collect_app_errors(app, error_cursor_before_submit, [int(ib_order_id)])
-        issue = None
-        if IB_ALLOW_FRACTIONAL and abs(prepared.qty - round(prepared.qty)) > 1e-9:
-            for err in broker_errors:
-                if int(err.error_code) in set(IB_FRACTIONAL_REJECT_CODES):
-                    issue = OrderIssue(kind="fractional_api_reject", status="rejected_fractional_api", broker_error=err, message=f"IBKR API rejected fractional order code={err.error_code}: {err.error_string}")
+        ib_entry = wait_for_fill_progress(app, ib_order_id, ib_entry)
+        filled_qty = to_float(ib_entry.get("filled_qty", 0.0))
+        remaining_qty = to_float(ib_entry.get("remaining_qty", max(0.0, prepared.qty - filled_qty)))
+        outcome = classify_outcome(ib_entry.get("status", ""), filled_qty, remaining_qty)
+        retryable_202 = None
+        if IB_RETRY_202_ENABLED and len(app._errors) > error_cursor_before_submit:
+            recent_errors = list(app._errors[error_cursor_before_submit:])
+            for err in reversed(recent_errors):
+                if int(err.get("error_code", 0) or 0) == 202:
+                    retryable_202 = BrokerErrorInfo(req_id=int(err.get("req_id", 0) or 0), error_code=int(err.get("error_code", 0) or 0), error_string=str(err.get("error_string", "") or ""), advanced_order_reject_json=str(err.get("advanced_order_reject_json", "") or ""), ts_utc=str(err.get("ts_utc", utc_now_iso()) or utc_now_iso()))
                     break
-        if issue is None and broker_errors:
-            err = broker_errors[-1]
-            issue = OrderIssue(kind="broker_api_error", status=f"error_api_{int(err.error_code)}", broker_error=err, message=f"IBKR API error code={err.error_code}: {err.error_string}")
-        retryable_202 = find_error_code(broker_errors, 202)
-        if retryable_202 is not None and IB_RETRY_202_ENABLED:
+        if outcome in {"filled_now", "partial"}:
+            request_debug.update({"reprices_used": reprices_used, "final_step": step_idx + 1, "final_limit_price": float(limit_price), "final_mode": step_mode})
+            return ib_entry, None, reprices_used, request_debug
+        if retryable_202 is not None:
             clipped = clip_limit_from_202(prepared, limit_price, retryable_202)
             if clipped is not None and abs(clipped - limit_price) > 1e-9:
                 print(f"[BROKER][LADDER][202] symbol={prepared.symbol} step={step_idx + 1} next_limit_price={clipped:.4f}")
-        outcome = classify_outcome(str(ib_entry.get("status", "")), to_float(ib_entry.get("filled_qty", 0.0)), to_float(ib_entry.get("remaining_qty", 0.0)))
-        if issue is None and outcome in {"filled_now", "partial"}:
-            request_debug.update({"reprices_used": reprices_used, "final_step": step_idx + 1, "final_limit_price": float(limit_price), "final_mode": step_mode})
-            return ib_entry, None, reprices_used, request_debug
+                prices = prices[: step_idx + 1] + [clipped] + prices[step_idx + 1 :]
+                reprices_used += 1
+                continue
         if not is_last_step:
             cancel_and_poll_order(app, ib_order_id, ib_entry, f"reprice_step_{step_idx + 1}")
             reprices_used += 1
             continue
-        last_entry = cancel_and_poll_order(app, ib_order_id, ib_entry, "final_unfilled_cap")
-        request_debug.update({"reprices_used": reprices_used, "final_step": step_idx + 1, "final_limit_price": float(limit_price), "final_mode": step_mode})
-        if issue is None:
+        if IB_REPRICE_FINAL_MODE == "marketable_lmt":
+            last_entry = cancel_and_poll_order(app, ib_order_id, ib_entry, "final_unfilled_cap")
+            request_debug.update({"reprices_used": reprices_used, "final_step": step_idx + 1, "final_limit_price": float(limit_price), "final_mode": step_mode})
             issue = OrderIssue(kind="ladder_cap_cancelled", status="cancelled_unfilled_cap", broker_error=None, message="Final capped price was not filled; order cancelled")
-        return last_entry, issue, reprices_used, request_debug
-    if IB_REPRICE_FINAL_MODE == "mkt":
+            return last_entry, issue, reprices_used, request_debug
         request_debug.update({"reprices_used": reprices_used, "final_mode": "mkt_blocked_by_cap"})
         return last_entry, OrderIssue(kind="mkt_disallowed_by_cap", status="cancelled_unfilled_cap", broker_error=None, message="MKT final step disabled because hard deviation cap must be preserved"), reprices_used, request_debug
     request_debug.update({"reprices_used": reprices_used, "final_mode": "none"})
@@ -569,7 +658,11 @@ def run_one_config(app: IBKRApp, paths: ConfigPaths, symbol_map: Dict[str, str],
         duplicate_status = existing_duplicate_status(broker_log, prepared0.idempotency_key)
         if duplicate_status is not None:
             dup_count += 1
-            fill_entries.append(duplicate_fill_entry(prepared0, duplicate_status, paths.orders_csv, broker_log))
+            price_context = build_price_context_from_row(prepared0.source_row, prepared0.price)
+            duplicate_entry = duplicate_fill_entry(prepared0, duplicate_status, paths.orders_csv, broker_log)
+            duplicate_entry = {**duplicate_entry, **price_context, "price_hint": float(prepared0.price), "price_hint_source": price_context.get("price_hint_source", ""), "quote_ts": price_context.get("quote_ts", "")}
+            fill_entries.append(duplicate_entry)
+            print(f"[BROKER][{paths.name}][DUPLICATE] symbol={prepared0.symbol} side={prepared0.order_side} qty={prepared0.qty:.8f} price_hint_source={duplicate_entry.get('price_hint_source', '')} quote_ts={duplicate_entry.get('quote_ts', '')}")
             continue
         try:
             prepared, contract, req_cursor, contract_meta_debug = resolve_contract_metadata(app, prepared0, req_cursor)
@@ -582,7 +675,7 @@ def run_one_config(app: IBKRApp, paths: ConfigPaths, symbol_map: Dict[str, str],
                 sent_count += 1
                 outcome = str(final_entry.get("outcome", "unknown"))
                 outcome_counters[outcome] = int(outcome_counters.get(outcome, 0)) + 1
-                print(f"[BROKER][{paths.name}][SEND] symbol={prepared.symbol} broker_symbol={prepared.broker_symbol} side={prepared.order_side} qty={prepared.qty:.8f} status={final_entry['status']} outcome={outcome} ib_order_id={final_entry['broker_order_id']} reprices_used={reprices_used} contract_details_mode={contract_meta_debug.get('contract_details_mode', '')}")
+                print(f"[BROKER][{paths.name}][SEND] symbol={prepared.symbol} broker_symbol={prepared.broker_symbol} side={prepared.order_side} qty={prepared.qty:.8f} status={final_entry['status']} outcome={outcome} ib_order_id={final_entry['broker_order_id']} reprices_used={reprices_used} contract_details_mode={contract_meta_debug.get('contract_details_mode', '')} price_hint={final_entry['price_hint']:.4f} price_hint_source={final_entry.get('price_hint_source', '')} quote_ts={final_entry.get('quote_ts', '')} model_ref={final_entry.get('model_price_reference', 0.0):.4f} dev_pct={final_entry.get('price_deviation_vs_model', 0.0):.2f}")
                 continue
             if issue is None:
                 issue = OrderIssue(kind="ladder_failed", status="cancelled_unfilled_cap", broker_error=None, message="Order was cancelled after capped ladder exhausted")
@@ -600,7 +693,7 @@ def run_one_config(app: IBKRApp, paths: ConfigPaths, symbol_map: Dict[str, str],
 
     append_or_replace_fills(paths.fills_csv, fill_entries)
     save_broker_log(paths.broker_log_json, broker_log, utc_now_iso)
-    print(f"[BROKER][{paths.name}][SUMMARY] sent={sent_count} duplicate_skipped={dup_count} errors={err_count} retry_202={retry_202_count} filled_now={outcome_counters.get('filled_now', 0)} partial={outcome_counters.get('partial', 0)} working={outcome_counters.get('working', 0)} working_carry={outcome_counters.get('working_carry', 0)} cancelled_after_ttl={outcome_counters.get('cancelled_after_ttl', 0)} cancelled_unfilled_cap={outcome_counters.get('cancelled_unfilled_cap', 0)} failed={outcome_counters.get('failed', 0)} unknown={outcome_counters.get('unknown', 0)} fills_csv={paths.fills_csv} broker_log_json={paths.broker_log_json}")
+    print(f"[BROKER][{paths.name}][SUMMARY] sent={sent_count} duplicate_skipped={dup_count} errors={err_count} fills_csv={paths.fills_csv} broker_log_json={paths.broker_log_json} outcomes={json.dumps(outcome_counters, ensure_ascii=False, sort_keys=True)}")
     return req_cursor
 
 
@@ -611,14 +704,18 @@ def cfg_paths(config_name: str) -> ConfigPaths:
 
 def main() -> int:
     enable_line_buffering()
-    symbol_map = load_symbol_map()
-    print(f"[CFG] ib_host={IB_HOST} ib_port={IB_PORT} ib_client_id={IB_CLIENT_ID}")
+    print(f"[CFG] execution_root={EXECUTION_ROOT}")
+    print(f"[CFG] configs={CONFIG_NAMES}")
+    print(f"[CFG] broker_name={BROKER_NAME} broker_platform={BROKER_PLATFORM} broker_account_id={BROKER_ACCOUNT_ID}")
+    print(f"[CFG] ib_host={IB_HOST} ib_port={IB_PORT} ib_client_id={IB_CLIENT_ID} ib_account_code={IB_ACCOUNT_CODE}")
+    print(f"[CFG] exchange={IB_EXCHANGE} primary_exchange={IB_PRIMARY_EXCHANGE} currency={IB_CURRENCY} sec_type={IB_SECURITY_TYPE}")
     print(f"[CFG] outside_rth={int(IB_OUTSIDE_RTH)} reprice_enabled={int(IB_REPRICE_ENABLED)} reprice_wait_sec={IB_REPRICE_WAIT_SEC}")
     print(f"[CFG] reprice_steps_bps={IB_REPRICE_STEPS_BPS} reprice_final_mode={IB_REPRICE_FINAL_MODE} reprice_final_marketable_bps={IB_REPRICE_FINAL_MARKETABLE_BPS} reprice_max_deviation_pct={IB_REPRICE_MAX_DEVIATION_PCT}")
-    print(f"[CFG] contract_details_retries={IB_CONTRACT_DETAILS_RETRIES} contract_details_retry_sleep_sec={IB_CONTRACT_DETAILS_RETRY_SLEEP_SEC} allow_primary_exchange_fallback={int(IB_ALLOW_PRIMARY_EXCHANGE_FALLBACK)} allow_submit_without_contract_details={int(IB_ALLOW_SUBMIT_WITHOUT_CONTRACT_DETAILS)}")
+    print(f"[CFG] require_price_hint_source={int(REQUIRE_PRICE_HINT_SOURCE)} require_quote_ts={int(REQUIRE_QUOTE_TS)}")
+    symbol_map = load_symbol_map()
     app = bootstrap_connection()
-    req_cursor = 100000
     try:
+        req_cursor = 800000
         for config_name in CONFIG_NAMES:
             req_cursor = run_one_config(app, cfg_paths(config_name), symbol_map, req_cursor)
     finally:

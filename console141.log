@@ -1,0 +1,938 @@
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_broker_adapter_ibkr.py
+[CFG] execution_root=artifacts\execution_loop
+[CFG] configs=['optimal', 'aggressive']
+[CFG] broker_name=MEXEM broker_platform=IBKR broker_account_id=
+[CFG] ib_host=127.0.0.1 ib_port=4002 ib_client_id=41 ib_account_code=
+[CFG] exchange=SMART primary_exchange= currency=USD sec_type=STK
+[CFG] outside_rth=1 reprice_enabled=1 reprice_wait_sec=8.0
+[CFG] reprice_steps_bps=[15.0, 10.0, 5.0, 0.0] reprice_final_mode=marketable_lmt reprice_final_marketable_bps=12.0 reprice_max_deviation_pct=1.25
+[CFG] require_price_hint_source=1 require_quote_ts=1
+[IB] connecting host=127.0.0.1 port=4002 client_id=41
+[IB] managedAccounts=DUP561175
+[IB] connected next_valid_id=79 managed_accounts=DUP561175
+[IB] nextValidId=79
+[IB][ERROR] reqId=-1 code=2104 msg=Market data farm connection is OK:usfarm
+[IB][ERROR] reqId=-1 code=2107 msg=HMDS data farm connection is inactive but should be available upon demand.ushmds
+[IB][ERROR] reqId=-1 code=2158 msg=Sec-def data farm connection is OK:secdefil
+[IB] openOrderEnd
+[BROKER][optimal] orders=artifacts\execution_loop\optimal\orders.csv
+[IB][CONTRACT_DETAILS][WARN] symbol=AAPL attempt=1/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][WARN] symbol=AAPL attempt=2/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][WARN] symbol=AAPL attempt=3/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=AAPL attempt=1/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=AAPL attempt=2/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=AAPL attempt=3/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][FALLBACK_SUBMIT] symbol=AAPL broker_symbol=AAPL reason='IBKRApp' object has no attribute 'req_contract_details' min_tick=0.010000
+[BROKER][LADDER][SUBMIT] symbol=AAPL step=1/5 mode=passive_lmt limit_price=254.3200 cap_price=257.8900
+[BROKER][POLL] ib_order_id=79 step=1/8 status=filled filled_qty=1.00000000 remaining_qty=0.00000000 avg_fill_price=254.2200 outcome=filled_now
+[BROKER][optimal][SEND] symbol=AAPL broker_symbol=AAPL side=BUY qty=1.00000000 status=filled outcome=filled_now ib_order_id=79 reprices_used=0 contract_details_mode=fallback_submit price_hint=254.7100 price_hint_source=ib_ask quote_ts=2026-04-01T18:18:09Z model_ref=219.5000 dev_pct=16.04
+[IB][CONTRACT_DETAILS][WARN] symbol=MSFT attempt=1/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][WARN] symbol=MSFT attempt=2/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][WARN] symbol=MSFT attempt=3/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=MSFT attempt=1/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=MSFT attempt=2/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=MSFT attempt=3/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][FALLBACK_SUBMIT] symbol=MSFT broker_symbol=MSFT reason='IBKRApp' object has no attribute 'req_contract_details' min_tick=0.010000
+[BROKER][LADDER][SUBMIT] symbol=MSFT step=1/5 mode=passive_lmt limit_price=369.7300 cap_price=374.9100
+[BROKER][POLL] ib_order_id=80 step=1/8 status=filled filled_qty=1.00000000 remaining_qty=0.00000000 avg_fill_price=369.0800 outcome=filled_now
+[BROKER][optimal][SEND] symbol=MSFT broker_symbol=MSFT side=BUY qty=1.00000000 status=filled outcome=filled_now ib_order_id=80 reprices_used=0 contract_details_mode=fallback_submit price_hint=370.2900 price_hint_source=ib_ask quote_ts=2026-04-01T18:18:10Z model_ref=428.1000 dev_pct=13.50
+[IB][CONTRACT_DETAILS][WARN] symbol=NVDA attempt=1/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][WARN] symbol=NVDA attempt=2/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][WARN] symbol=NVDA attempt=3/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=NVDA attempt=1/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=NVDA attempt=2/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=NVDA attempt=3/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][FALLBACK_SUBMIT] symbol=NVDA broker_symbol=NVDA reason='IBKRApp' object has no attribute 'req_contract_details' min_tick=0.010000
+[BROKER][LADDER][SUBMIT] symbol=NVDA step=1/5 mode=passive_lmt limit_price=175.8900 cap_price=173.4300
+[BROKER][POLL] ib_order_id=81 step=1/8 status=working filled_qty=0.00000000 remaining_qty=1.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=81 step=5/8 status=working filled_qty=0.00000000 remaining_qty=1.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=81 step=8/8 status=working filled_qty=0.00000000 remaining_qty=1.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][optimal][ERROR] EClient.cancelOrder() takes 2 positional arguments but 3 were given
+[IB][CONTRACT_DETAILS][WARN] symbol=AMZN attempt=1/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][WARN] symbol=AMZN attempt=2/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][WARN] symbol=AMZN attempt=3/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=AMZN attempt=1/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=AMZN attempt=2/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=AMZN attempt=3/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][FALLBACK_SUBMIT] symbol=AMZN broker_symbol=AMZN reason='IBKRApp' object has no attribute 'req_contract_details' min_tick=0.010000
+[BROKER][LADDER][SUBMIT] symbol=AMZN step=1/5 mode=passive_lmt limit_price=211.9300 cap_price=208.9700
+[BROKER][POLL] ib_order_id=82 step=1/8 status=working filled_qty=0.00000000 remaining_qty=1.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=82 step=5/8 status=working filled_qty=0.00000000 remaining_qty=1.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=82 step=8/8 status=working filled_qty=0.00000000 remaining_qty=1.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][optimal][ERROR] EClient.cancelOrder() takes 2 positional arguments but 3 were given
+[BROKER][optimal][SUMMARY] sent=2 duplicate_skipped=0 errors=2 fills_csv=artifacts\execution_loop\optimal\fills.csv broker_log_json=artifacts\execution_loop\optimal\broker_log.json outcomes={"cancelled_after_ttl": 0, "cancelled_unfilled_cap": 0, "failed": 2, "filled_now": 2, "partial": 0, "unknown": 0, "working": 0, "working_carry": 0}
+[BROKER][aggressive] orders=artifacts\execution_loop\aggressive\orders.csv
+[IB][CONTRACT_DETAILS][WARN] symbol=HOOD attempt=1/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][WARN] symbol=HOOD attempt=2/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][WARN] symbol=HOOD attempt=3/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=HOOD attempt=1/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=HOOD attempt=2/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=HOOD attempt=3/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][FALLBACK_SUBMIT] symbol=HOOD broker_symbol=HOOD reason='IBKRApp' object has no attribute 'req_contract_details' min_tick=0.010000
+[BROKER][LADDER][SUBMIT] symbol=HOOD step=1/5 mode=passive_lmt limit_price=70.2200 cap_price=69.2400
+[BROKER][POLL] ib_order_id=83 step=1/8 status=working filled_qty=0.00000000 remaining_qty=37.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=83 step=5/8 status=working filled_qty=0.00000000 remaining_qty=37.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=83 step=8/8 status=working filled_qty=0.00000000 remaining_qty=37.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][aggressive][ERROR] EClient.cancelOrder() takes 2 positional arguments but 3 were given
+[IB][CONTRACT_DETAILS][WARN] symbol=CRCL attempt=1/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][WARN] symbol=CRCL attempt=2/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][WARN] symbol=CRCL attempt=3/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=CRCL attempt=1/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=CRCL attempt=2/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=CRCL attempt=3/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][FALLBACK_SUBMIT] symbol=CRCL broker_symbol=CRCL reason='IBKRApp' object has no attribute 'req_contract_details' min_tick=0.010000
+[BROKER][LADDER][SUBMIT] symbol=CRCL step=1/5 mode=passive_lmt limit_price=91.4700 cap_price=90.1900
+[BROKER][POLL] ib_order_id=84 step=1/8 status=working filled_qty=0.00000000 remaining_qty=16.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=84 step=5/8 status=working filled_qty=0.00000000 remaining_qty=16.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=84 step=8/8 status=working filled_qty=0.00000000 remaining_qty=16.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][aggressive][ERROR] EClient.cancelOrder() takes 2 positional arguments but 3 were given
+[IB][CONTRACT_DETAILS][WARN] symbol=NEM attempt=1/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][WARN] symbol=NEM attempt=2/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][WARN] symbol=NEM attempt=3/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=NEM attempt=1/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=NEM attempt=2/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=NEM attempt=3/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][FALLBACK_SUBMIT] symbol=NEM broker_symbol=NEM reason='IBKRApp' object has no attribute 'req_contract_details' min_tick=0.010000
+[BROKER][LADDER][SUBMIT] symbol=NEM step=1/5 mode=passive_lmt limit_price=115.3700 cap_price=113.7600
+[BROKER][POLL] ib_order_id=85 step=1/8 status=working filled_qty=0.00000000 remaining_qty=16.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=85 step=5/8 status=working filled_qty=0.00000000 remaining_qty=16.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=85 step=8/8 status=working filled_qty=0.00000000 remaining_qty=16.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][aggressive][ERROR] EClient.cancelOrder() takes 2 positional arguments but 3 were given
+[IB][CONTRACT_DETAILS][WARN] symbol=INTC attempt=1/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][WARN] symbol=INTC attempt=2/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][WARN] symbol=INTC attempt=3/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=INTC attempt=1/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=INTC attempt=2/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=INTC attempt=3/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][FALLBACK_SUBMIT] symbol=INTC broker_symbol=INTC reason='IBKRApp' object has no attribute 'req_contract_details' min_tick=0.010000
+[BROKER][LADDER][SUBMIT] symbol=INTC step=1/5 mode=passive_lmt limit_price=48.2700 cap_price=47.5900
+[BROKER][POLL] ib_order_id=86 step=1/8 status=working filled_qty=0.00000000 remaining_qty=25.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=86 step=5/8 status=working filled_qty=0.00000000 remaining_qty=25.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=86 step=8/8 status=working filled_qty=0.00000000 remaining_qty=25.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][aggressive][ERROR] EClient.cancelOrder() takes 2 positional arguments but 3 were given
+[IB][CONTRACT_DETAILS][WARN] symbol=RKLB attempt=1/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][WARN] symbol=RKLB attempt=2/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][WARN] symbol=RKLB attempt=3/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=RKLB attempt=1/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=RKLB attempt=2/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=RKLB attempt=3/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][FALLBACK_SUBMIT] symbol=RKLB broker_symbol=RKLB reason='IBKRApp' object has no attribute 'req_contract_details' min_tick=0.010000
+[BROKER][LADDER][SUBMIT] symbol=RKLB step=1/5 mode=passive_lmt limit_price=66.4800 cap_price=65.5600
+[BROKER][POLL] ib_order_id=87 step=1/8 status=working filled_qty=0.00000000 remaining_qty=6.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=87 step=5/8 status=working filled_qty=0.00000000 remaining_qty=6.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=87 step=8/8 status=working filled_qty=0.00000000 remaining_qty=6.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][aggressive][ERROR] EClient.cancelOrder() takes 2 positional arguments but 3 were given
+[IB][CONTRACT_DETAILS][WARN] symbol=SHOP attempt=1/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][WARN] symbol=SHOP attempt=2/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][WARN] symbol=SHOP attempt=3/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=SHOP attempt=1/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=SHOP attempt=2/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=SHOP attempt=3/3 error='IBKRApp' object has no attribute 'req_contract_details'
+[IB][CONTRACT_DETAILS][FALLBACK_SUBMIT] symbol=SHOP broker_symbol=SHOP reason='IBKRApp' object has no attribute 'req_contract_details' min_tick=0.010000
+[BROKER][LADDER][SUBMIT] symbol=SHOP step=1/5 mode=passive_lmt limit_price=118.9400 cap_price=117.2800
+[BROKER][POLL] ib_order_id=88 step=1/8 status=working filled_qty=0.00000000 remaining_qty=3.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=88 step=5/8 status=working filled_qty=0.00000000 remaining_qty=3.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=88 step=8/8 status=working filled_qty=0.00000000 remaining_qty=3.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][aggressive][ERROR] EClient.cancelOrder() takes 2 positional arguments but 3 were given
+[BROKER][aggressive][SUMMARY] sent=0 duplicate_skipped=0 errors=6 fills_csv=artifacts\execution_loop\aggressive\fills.csv broker_log_json=artifacts\execution_loop\aggressive\broker_log.json outcomes={"cancelled_after_ttl": 0, "cancelled_unfilled_cap": 0, "failed": 6, "filled_now": 0, "partial": 0, "unknown": 0, "working": 0, "working_carry": 0}
+[FINAL] IBKR broker adapter complete
+
+
+
+
+
+
+
+
+
+{
+  "broker_account_id": "DUP561175",
+  "broker_name": "MEXEM",
+  "broker_platform": "IBKR",
+  "config": "aggressive",
+  "created_at_utc": "2026-03-31T19:32:38Z",
+  "orders": {
+    "25fe3f2b9ed68e136f00566f77b3c64f71fa32b496a2e2fb1f843d86123faa55": {
+      "broker_order_id": "",
+      "broker_symbol": "INTC",
+      "client_order_id": "pe-25fe3f2b9ed68e136f00566f",
+      "config": "aggressive",
+      "date": "2026-03-25",
+      "fill_notional": 0.0,
+      "filled_at": "",
+      "filled_avg_price": 0.0,
+      "filled_qty": 0.0,
+      "mode": "ibkr_gateway",
+      "order_notional": 1179.5,
+      "perm_id": 0,
+      "qty": 25.0,
+      "remaining_qty": 25.0,
+      "request": {
+        "account": "DUP561175",
+        "anchor_price": 47.18,
+        "cap_price": 46.6,
+        "client_id": 62,
+        "contract_details_attempts": 1,
+        "contract_details_fallback_used": 0,
+        "contract_details_mode": "full",
+        "final_limit_price": 47.13,
+        "final_mode": "marketable_lmt",
+        "final_step": 5,
+        "host": "127.0.0.1",
+        "outside_rth": 1,
+        "port": 4002,
+        "reprice_enabled": 1,
+        "reprice_final_marketable_bps": 12.0,
+        "reprice_final_mode": "marketable_lmt",
+        "reprice_max_deviation_pct": 1.25,
+        "reprice_steps_bps": [
+          15.0,
+          10.0,
+          5.0,
+          0.0
+        ],
+        "reprice_wait_sec": 8.0,
+        "reprices_used": 4,
+        "tif": "DAY"
+      },
+      "response": {
+        "error": "Final capped price was not filled; order cancelled",
+        "error_code": 0,
+        "error_string": "",
+        "outcome": "failed"
+      },
+      "side": "SELL",
+      "source_order_path": "artifacts\\execution_loop\\aggressive\\orders.csv",
+      "status": "cancelled_unfilled_cap",
+      "submitted_at": "2026-03-31T19:35:25Z",
+      "symbol": "INTC",
+      "updated_at_utc": "2026-03-31T19:35:25Z"
+    },
+    "31ea9aae8b10588ee51c8dc569ecceafe87e42f418d141f03fc07dc549def26a": {
+      "broker_order_id": "",
+      "broker_symbol": "HOOD",
+      "client_order_id": "pe-31ea9aae8b10588ee51c8dc5",
+      "config": "aggressive",
+      "date": "2026-03-25",
+      "fill_notional": 0.0,
+      "filled_at": "",
+      "filled_avg_price": 0.0,
+      "filled_qty": 0.0,
+      "mode": "ibkr_gateway",
+      "order_notional": 3700.0,
+      "perm_id": 0,
+      "qty": 37.0,
+      "remaining_qty": 37.0,
+      "request": {
+        "account": "DUP561175",
+        "anchor_price": 100.0,
+        "cap_price": 98.75,
+        "client_id": 62,
+        "contract_details_attempts": 1,
+        "contract_details_fallback_used": 0,
+        "contract_details_mode": "full",
+        "final_limit_price": 99.88,
+        "final_mode": "marketable_lmt",
+        "final_step": 5,
+        "host": "127.0.0.1",
+        "outside_rth": 1,
+        "port": 4002,
+        "reprice_enabled": 1,
+        "reprice_final_marketable_bps": 12.0,
+        "reprice_final_mode": "marketable_lmt",
+        "reprice_max_deviation_pct": 1.25,
+        "reprice_steps_bps": [
+          15.0,
+          10.0,
+          5.0,
+          0.0
+        ],
+        "reprice_wait_sec": 8.0,
+        "reprices_used": 4,
+        "tif": "DAY"
+      },
+      "response": {
+        "error": "Final capped price was not filled; order cancelled",
+        "error_code": 0,
+        "error_string": "",
+        "outcome": "failed"
+      },
+      "side": "SELL",
+      "source_order_path": "artifacts\\execution_loop\\aggressive\\orders.csv",
+      "status": "cancelled_unfilled_cap",
+      "submitted_at": "2026-03-31T19:33:30Z",
+      "symbol": "HOOD",
+      "updated_at_utc": "2026-03-31T19:33:30Z"
+    },
+    "636c46d7e21f1758c51d9422a15b2750416560a58b7af9e462b1818306a4700a": {
+      "broker_order_id": "",
+      "broker_symbol": "NEM",
+      "client_order_id": "pe-636c46d7e21f1758c51d9422",
+      "config": "aggressive",
+      "date": "2026-03-25",
+      "fill_notional": 0.0,
+      "filled_at": "",
+      "filled_avg_price": 0.0,
+      "filled_qty": 0.0,
+      "mode": "ibkr_gateway",
+      "order_notional": 1624.32,
+      "perm_id": 0,
+      "qty": 16.0,
+      "remaining_qty": 16.0,
+      "request": {
+        "account": "DUP561175",
+        "anchor_price": 101.52,
+        "cap_price": 100.26,
+        "client_id": 62,
+        "contract_details_attempts": 1,
+        "contract_details_fallback_used": 0,
+        "contract_details_mode": "full",
+        "final_limit_price": 101.4,
+        "final_mode": "marketable_lmt",
+        "final_step": 5,
+        "host": "127.0.0.1",
+        "outside_rth": 1,
+        "port": 4002,
+        "reprice_enabled": 1,
+        "reprice_final_marketable_bps": 12.0,
+        "reprice_final_mode": "marketable_lmt",
+        "reprice_max_deviation_pct": 1.25,
+        "reprice_steps_bps": [
+          15.0,
+          10.0,
+          5.0,
+          0.0
+        ],
+        "reprice_wait_sec": 8.0,
+        "reprices_used": 4,
+        "tif": "DAY"
+      },
+      "response": {
+        "error": "IBKR API error code=202: Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 104.92186. Please submit your order <br>using a limit price that is closer to the current market price of 108.1.",
+        "error_code": 202,
+        "error_string": "Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 104.92186. Please submit your order <br>using a limit price that is closer to the current market price of 108.1.",
+        "outcome": "failed"
+      },
+      "side": "SELL",
+      "source_order_path": "artifacts\\execution_loop\\aggressive\\orders.csv",
+      "status": "error_api_202",
+      "submitted_at": "2026-03-31T19:34:34Z",
+      "symbol": "NEM",
+      "updated_at_utc": "2026-03-31T19:34:34Z"
+    },
+    "a93cad7d2b2704038acd0599c3e8067f0b153f6337926533491c70eea8abfd5c": {
+      "broker_order_id": "",
+      "broker_symbol": "SHOP",
+      "client_order_id": "pe-a93cad7d2b2704038acd0599",
+      "config": "aggressive",
+      "date": "2026-03-25",
+      "fill_notional": 0.0,
+      "filled_at": "",
+      "filled_avg_price": 0.0,
+      "filled_qty": 0.0,
+      "mode": "ibkr_gateway",
+      "order_notional": 300.0,
+      "perm_id": 0,
+      "qty": 3.0,
+      "remaining_qty": 3.0,
+      "request": {
+        "account": "DUP561175",
+        "anchor_price": 100.0,
+        "cap_price": 98.75,
+        "client_id": 62,
+        "contract_details_attempts": 1,
+        "contract_details_fallback_used": 0,
+        "contract_details_mode": "full",
+        "final_limit_price": 99.88,
+        "final_mode": "marketable_lmt",
+        "final_step": 5,
+        "host": "127.0.0.1",
+        "outside_rth": 1,
+        "port": 4002,
+        "reprice_enabled": 1,
+        "reprice_final_marketable_bps": 12.0,
+        "reprice_final_mode": "marketable_lmt",
+        "reprice_max_deviation_pct": 1.25,
+        "reprice_steps_bps": [
+          15.0,
+          10.0,
+          5.0,
+          0.0
+        ],
+        "reprice_wait_sec": 8.0,
+        "reprices_used": 4,
+        "tif": "DAY"
+      },
+      "response": {
+        "error": "IBKR API error code=202: Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 115.093748. Please submit your order <br>using a limit price that is closer to the current market price of 118.58.",
+        "error_code": 202,
+        "error_string": "Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 115.093748. Please submit your order <br>using a limit price that is closer to the current market price of 118.58.",
+        "outcome": "failed"
+      },
+      "side": "SELL",
+      "source_order_path": "artifacts\\execution_loop\\aggressive\\orders.csv",
+      "status": "error_api_202",
+      "submitted_at": "2026-03-31T19:36:30Z",
+      "symbol": "SHOP",
+      "updated_at_utc": "2026-03-31T19:36:30Z"
+    },
+    "b9b60a162cc9e44f96fb9e67dde7257a26e59ccf84ffb5f453602d60a3b779e5": {
+      "broker_order_id": "",
+      "broker_symbol": "RKLB",
+      "client_order_id": "pe-b9b60a162cc9e44f96fb9e67",
+      "config": "aggressive",
+      "date": "2026-03-25",
+      "fill_notional": 0.0,
+      "filled_at": "",
+      "filled_avg_price": 0.0,
+      "filled_qty": 0.0,
+      "mode": "ibkr_gateway",
+      "order_notional": 437.28,
+      "perm_id": 0,
+      "qty": 6.0,
+      "remaining_qty": 6.0,
+      "request": {
+        "account": "DUP561175",
+        "anchor_price": 72.88,
+        "cap_price": 71.97,
+        "client_id": 62,
+        "contract_details_attempts": 1,
+        "contract_details_fallback_used": 0,
+        "contract_details_mode": "full",
+        "final_limit_price": 72.8,
+        "final_mode": "marketable_lmt",
+        "final_step": 5,
+        "host": "127.0.0.1",
+        "outside_rth": 1,
+        "port": 4002,
+        "reprice_enabled": 1,
+        "reprice_final_marketable_bps": 12.0,
+        "reprice_final_mode": "marketable_lmt",
+        "reprice_max_deviation_pct": 1.25,
+        "reprice_steps_bps": [
+          15.0,
+          10.0,
+          5.0,
+          0.0
+        ],
+        "reprice_wait_sec": 8.0,
+        "reprices_used": 4,
+        "tif": "DAY"
+      },
+      "response": {
+        "error": "Final capped price was not filled; order cancelled",
+        "error_code": 0,
+        "error_string": "",
+        "outcome": "failed"
+      },
+      "side": "SELL",
+      "source_order_path": "artifacts\\execution_loop\\aggressive\\orders.csv",
+      "status": "cancelled_unfilled_cap",
+      "submitted_at": "2026-03-31T19:36:17Z",
+      "symbol": "RKLB",
+      "updated_at_utc": "2026-03-31T19:36:17Z"
+    },
+    "cd80eff9db5e57bd8af7e0127c9001bc81667deaac6010469bfa2063973a2548": {
+      "broker_order_id": "",
+      "broker_symbol": "CRCL",
+      "client_order_id": "pe-cd80eff9db5e57bd8af7e012",
+      "config": "aggressive",
+      "date": "2026-03-25",
+      "fill_notional": 0.0,
+      "filled_at": "",
+      "filled_avg_price": 0.0,
+      "filled_qty": 0.0,
+      "mode": "ibkr_gateway",
+      "order_notional": 1661.76,
+      "perm_id": 0,
+      "qty": 16.0,
+      "remaining_qty": 16.0,
+      "request": {
+        "account": "DUP561175",
+        "anchor_price": 103.86,
+        "cap_price": 102.57,
+        "client_id": 62,
+        "contract_details_attempts": 1,
+        "contract_details_fallback_used": 0,
+        "contract_details_mode": "full",
+        "final_limit_price": 103.74,
+        "final_mode": "marketable_lmt",
+        "final_step": 5,
+        "host": "127.0.0.1",
+        "outside_rth": 1,
+        "port": 4002,
+        "reprice_enabled": 1,
+        "reprice_final_marketable_bps": 12.0,
+        "reprice_final_mode": "marketable_lmt",
+        "reprice_max_deviation_pct": 1.25,
+        "reprice_steps_bps": [
+          15.0,
+          10.0,
+          5.0,
+          0.0
+        ],
+        "reprice_wait_sec": 8.0,
+        "reprices_used": 4,
+        "tif": "DAY"
+      },
+      "response": {
+        "error": "Final capped price was not filled; order cancelled",
+        "error_code": 0,
+        "error_string": "",
+        "outcome": "failed"
+      },
+      "side": "SELL",
+      "source_order_path": "artifacts\\execution_loop\\aggressive\\orders.csv",
+      "status": "cancelled_unfilled_cap",
+      "submitted_at": "2026-03-31T19:34:21Z",
+      "symbol": "CRCL",
+      "updated_at_utc": "2026-03-31T19:34:21Z"
+    }
+  },
+  "updated_at_utc": "2026-04-01T18:34:53Z"
+}
+
+
+
+
+
+
+
+
+{
+  "broker_account_id": "DUP561175",
+  "broker_name": "MEXEM",
+  "broker_platform": "IBKR",
+  "config": "optimal",
+  "created_at_utc": "2026-03-31T19:31:07Z",
+  "orders": {
+    "0524b18d9009d906b6f0b4a9113f508452034ebae3d5d953766aa1c35122dae9": {
+      "broker_order_id": "79",
+      "broker_symbol": "AAPL",
+      "client_order_id": "pe-0524b18d9009d906b6f0b4a9",
+      "config": "optimal",
+      "date": "2026-03-27",
+      "fill_notional": 254.22,
+      "filled_at": "2026-04-01T18:32:49Z",
+      "filled_avg_price": 254.22,
+      "filled_qty": 1.0,
+      "mode": "ibkr_gateway",
+      "order_notional": 254.71,
+      "perm_id": 1746756815,
+      "qty": 1.0,
+      "remaining_qty": 0.0,
+      "request": {
+        "account": "",
+        "anchor_price": 254.71,
+        "ask": 254.71,
+        "bid": 254.68,
+        "cap_price": 257.89,
+        "client_id": 41,
+        "close_price": 253.79,
+        "contract_details_mode": "fallback_submit",
+        "contract_details_req_id": 800006,
+        "contract_details_retries": 3,
+        "contract_min_tick": 0.01,
+        "fallback_reason": "nan",
+        "final_limit_price": 254.32,
+        "final_mode": "passive_lmt",
+        "final_step": 1,
+        "host": "127.0.0.1",
+        "last": 254.69,
+        "mid": 254.695,
+        "model_price_reference": 219.5,
+        "outside_rth": 1,
+        "port": 4002,
+        "price_context": {
+          "ask": 254.71,
+          "bid": 254.68,
+          "close_price": 253.79,
+          "fallback_reason": "nan",
+          "last": 254.69,
+          "mid": 254.695,
+          "model_price_reference": 219.5,
+          "price_deviation_vs_model": 16.041002277904333,
+          "price_hint_source": "ib_ask",
+          "quote_market_data_type": 3,
+          "quote_provider": "ib",
+          "quote_timeframe": "DELAYED",
+          "quote_ts": "2026-04-01T18:18:09Z",
+          "spread_bps": 1.177879424409633
+        },
+        "price_deviation_vs_model": 16.041002277904333,
+        "price_hint_source": "ib_ask",
+        "quote_provider": "ib",
+        "quote_timeframe": "DELAYED",
+        "quote_ts": "2026-04-01T18:18:09Z",
+        "reprice_enabled": 1,
+        "reprice_final_marketable_bps": 12.0,
+        "reprice_final_mode": "marketable_lmt",
+        "reprice_max_deviation_pct": 1.25,
+        "reprice_steps_bps": [
+          15.0,
+          10.0,
+          5.0,
+          0.0
+        ],
+        "reprice_wait_sec": 8.0,
+        "reprices_used": 0,
+        "spread_bps": 1.177879424409633,
+        "tif": "DAY"
+      },
+      "response": {
+        "avg_fill_price": 254.22,
+        "fills": [],
+        "ib_order_id": 79,
+        "last_fill_price": 254.22,
+        "outcome": "filled_now",
+        "perm_id": 1746756815,
+        "status": "Filled"
+      },
+      "side": "BUY",
+      "source_order_path": "artifacts\\execution_loop\\optimal\\orders.csv",
+      "status": "filled",
+      "submitted_at": "2026-04-01T18:32:48Z",
+      "symbol": "AAPL",
+      "updated_at_utc": "2026-04-01T18:32:49Z"
+    },
+    "45228bea7200d998cae3eeefa513395a45f9d9fcdce142f9b3325f588ab4da46": {
+      "broker_order_id": "",
+      "broker_symbol": "NVDA",
+      "client_order_id": "pe-45228bea7200d998cae3eeef",
+      "config": "optimal",
+      "date": "2026-03-27",
+      "fill_notional": 0.0,
+      "filled_at": "",
+      "filled_avg_price": 0.0,
+      "filled_qty": 0.0,
+      "mode": "ibkr_gateway",
+      "order_notional": 118.4,
+      "perm_id": 0,
+      "qty": 1.0,
+      "remaining_qty": 1.0,
+      "request": {
+        "account": "DUP561175",
+        "anchor_price": 118.4,
+        "cap_price": 116.93,
+        "client_id": 62,
+        "contract_details_attempts": 1,
+        "contract_details_fallback_used": 0,
+        "contract_details_mode": "full",
+        "final_limit_price": 118.26,
+        "final_mode": "marketable_lmt",
+        "final_step": 5,
+        "host": "127.0.0.1",
+        "outside_rth": 1,
+        "port": 4002,
+        "reprice_enabled": 1,
+        "reprice_final_marketable_bps": 12.0,
+        "reprice_final_mode": "marketable_lmt",
+        "reprice_max_deviation_pct": 1.25,
+        "reprice_steps_bps": [
+          15.0,
+          10.0,
+          5.0,
+          0.0
+        ],
+        "reprice_wait_sec": 8.0,
+        "reprices_used": 4,
+        "tif": "DAY"
+      },
+      "response": {
+        "error": "IBKR API error code=202: Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 168.942636. Please submit your order <br>using a limit price that is closer to the current market price of 174.06.",
+        "error_code": 202,
+        "error_string": "Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 168.942636. Please submit your order <br>using a limit price that is closer to the current market price of 174.06.",
+        "outcome": "failed"
+      },
+      "side": "SELL",
+      "source_order_path": "artifacts\\execution_loop\\optimal\\orders.csv",
+      "status": "error_api_202",
+      "submitted_at": "2026-03-31T19:32:25Z",
+      "symbol": "NVDA",
+      "updated_at_utc": "2026-03-31T19:32:25Z"
+    },
+    "55b5ecd5fcf8a14e96d55d09ee8a7129cfc18164b2bd250da77ea97c8abc2e65": {
+      "broker_order_id": "80",
+      "broker_symbol": "MSFT",
+      "client_order_id": "pe-55b5ecd5fcf8a14e96d55d09",
+      "config": "optimal",
+      "date": "2026-03-27",
+      "fill_notional": 369.08,
+      "filled_at": "2026-04-01T18:32:56Z",
+      "filled_avg_price": 369.08,
+      "filled_qty": 1.0,
+      "mode": "ibkr_gateway",
+      "order_notional": 370.29,
+      "perm_id": 1746756816,
+      "qty": 1.0,
+      "remaining_qty": 0.0,
+      "request": {
+        "account": "",
+        "anchor_price": 370.29,
+        "ask": 370.29,
+        "bid": 370.24,
+        "cap_price": 374.91,
+        "client_id": 41,
+        "close_price": 370.17,
+        "contract_details_mode": "fallback_submit",
+        "contract_details_req_id": 800012,
+        "contract_details_retries": 3,
+        "contract_min_tick": 0.01,
+        "fallback_reason": "nan",
+        "final_limit_price": 369.73,
+        "final_mode": "passive_lmt",
+        "final_step": 1,
+        "host": "127.0.0.1",
+        "last": 370.26,
+        "mid": 370.265,
+        "model_price_reference": 428.1,
+        "outside_rth": 1,
+        "port": 4002,
+        "price_context": {
+          "ask": 370.29,
+          "bid": 370.24,
+          "close_price": 370.17,
+          "fallback_reason": "nan",
+          "last": 370.26,
+          "mid": 370.265,
+          "model_price_reference": 428.1,
+          "price_deviation_vs_model": 13.50385423966363,
+          "price_hint_source": "ib_ask",
+          "quote_market_data_type": 3,
+          "quote_provider": "ib",
+          "quote_timeframe": "DELAYED",
+          "quote_ts": "2026-04-01T18:18:10Z",
+          "spread_bps": 1.3503841843007407
+        },
+        "price_deviation_vs_model": 13.50385423966363,
+        "price_hint_source": "ib_ask",
+        "quote_provider": "ib",
+        "quote_timeframe": "DELAYED",
+        "quote_ts": "2026-04-01T18:18:10Z",
+        "reprice_enabled": 1,
+        "reprice_final_marketable_bps": 12.0,
+        "reprice_final_mode": "marketable_lmt",
+        "reprice_max_deviation_pct": 1.25,
+        "reprice_steps_bps": [
+          15.0,
+          10.0,
+          5.0,
+          0.0
+        ],
+        "reprice_wait_sec": 8.0,
+        "reprices_used": 0,
+        "spread_bps": 1.3503841843007407,
+        "tif": "DAY"
+      },
+      "response": {
+        "avg_fill_price": 369.08,
+        "fills": [],
+        "ib_order_id": 80,
+        "last_fill_price": 369.08,
+        "outcome": "filled_now",
+        "perm_id": 1746756816,
+        "status": "Filled"
+      },
+      "side": "BUY",
+      "source_order_path": "artifacts\\execution_loop\\optimal\\orders.csv",
+      "status": "filled",
+      "submitted_at": "2026-04-01T18:32:55Z",
+      "symbol": "MSFT",
+      "updated_at_utc": "2026-04-01T18:32:56Z"
+    },
+    "8da82c599802e250b50499b02b47be7cca1c4933922c205a1c5648a4b3a610d3": {
+      "broker_order_id": "",
+      "broker_symbol": "AAPL",
+      "client_order_id": "pe-8da82c599802e250b50499b0",
+      "config": "optimal",
+      "date": "2026-03-27",
+      "fill_notional": 0.0,
+      "filled_at": "",
+      "filled_avg_price": 0.0,
+      "filled_qty": 0.0,
+      "mode": "ibkr_gateway",
+      "order_notional": 219.5,
+      "perm_id": 0,
+      "qty": 1.0,
+      "remaining_qty": 1.0,
+      "request": {
+        "account": "DUP561175",
+        "anchor_price": 219.5,
+        "cap_price": 222.24,
+        "client_id": 62,
+        "contract_details_attempts": 1,
+        "contract_details_fallback_used": 0,
+        "contract_details_mode": "full",
+        "final_limit_price": 219.76,
+        "final_mode": "marketable_lmt",
+        "final_step": 5,
+        "host": "127.0.0.1",
+        "outside_rth": 1,
+        "port": 4002,
+        "reprice_enabled": 1,
+        "reprice_final_marketable_bps": 12.0,
+        "reprice_final_mode": "marketable_lmt",
+        "reprice_max_deviation_pct": 1.25,
+        "reprice_steps_bps": [
+          15.0,
+          10.0,
+          5.0,
+          0.0
+        ],
+        "reprice_wait_sec": 8.0,
+        "reprices_used": 4,
+        "tif": "DAY"
+      },
+      "response": {
+        "error": "Final capped price was not filled; order cancelled",
+        "error_code": 0,
+        "error_string": "",
+        "outcome": "failed"
+      },
+      "side": "BUY",
+      "source_order_path": "artifacts\\execution_loop\\optimal\\orders.csv",
+      "status": "cancelled_unfilled_cap",
+      "submitted_at": "2026-03-31T19:31:59Z",
+      "symbol": "AAPL",
+      "updated_at_utc": "2026-03-31T19:31:59Z"
+    },
+    "b88591f05813660c0f31d4d44937292d46ec7f8f218e56aefbc2cdd801fd8736": {
+      "broker_order_id": "",
+      "broker_symbol": "AMZN",
+      "client_order_id": "pe-b88591f05813660c0f31d4d4",
+      "config": "optimal",
+      "date": "2026-03-27",
+      "fill_notional": 0.0,
+      "filled_at": "",
+      "filled_avg_price": 0.0,
+      "filled_qty": 0.0,
+      "mode": "ibkr_gateway",
+      "order_notional": 201.7,
+      "perm_id": 0,
+      "qty": 1.0,
+      "remaining_qty": 1.0,
+      "request": {
+        "account": "DUP561175",
+        "anchor_price": 201.7,
+        "cap_price": 199.18,
+        "client_id": 62,
+        "contract_details_attempts": 1,
+        "contract_details_fallback_used": 0,
+        "contract_details_mode": "full",
+        "final_limit_price": 201.46,
+        "final_mode": "marketable_lmt",
+        "final_step": 5,
+        "host": "127.0.0.1",
+        "outside_rth": 1,
+        "port": 4002,
+        "reprice_enabled": 1,
+        "reprice_final_marketable_bps": 12.0,
+        "reprice_final_mode": "marketable_lmt",
+        "reprice_max_deviation_pct": 1.25,
+        "reprice_steps_bps": [
+          15.0,
+          10.0,
+          5.0,
+          0.0
+        ],
+        "reprice_wait_sec": 8.0,
+        "reprices_used": 4,
+        "tif": "DAY"
+      },
+      "response": {
+        "error": "IBKR API error code=202: Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 202.865106. Please submit your order <br>using a limit price that is closer to the current market price of 209.01.",
+        "error_code": 202,
+        "error_string": "Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 202.865106. Please submit your order <br>using a limit price that is closer to the current market price of 209.01.",
+        "outcome": "failed"
+      },
+      "side": "SELL",
+      "source_order_path": "artifacts\\execution_loop\\optimal\\orders.csv",
+      "status": "error_api_202",
+      "submitted_at": "2026-03-31T19:32:38Z",
+      "symbol": "AMZN",
+      "updated_at_utc": "2026-03-31T19:32:38Z"
+    },
+    "d8f1f793174cedbf2eeba1e39ddb83376106c4a0204eefbcd7d9f6662038b40e": {
+      "broker_order_id": "",
+      "broker_symbol": "MSFT",
+      "client_order_id": "pe-d8f1f793174cedbf2eeba1e3",
+      "config": "optimal",
+      "date": "2026-03-27",
+      "fill_notional": 0.0,
+      "filled_at": "",
+      "filled_avg_price": 0.0,
+      "filled_qty": 0.0,
+      "mode": "ibkr_gateway",
+      "order_notional": 428.1,
+      "perm_id": 0,
+      "qty": 1.0,
+      "remaining_qty": 1.0,
+      "request": {
+        "account": "DUP561175",
+        "anchor_price": 428.1,
+        "cap_price": 433.45,
+        "client_id": 62,
+        "contract_details_attempts": 1,
+        "contract_details_fallback_used": 0,
+        "contract_details_mode": "full",
+        "final_limit_price": 428.61,
+        "final_mode": "marketable_lmt",
+        "final_step": 5,
+        "host": "127.0.0.1",
+        "outside_rth": 1,
+        "port": 4002,
+        "reprice_enabled": 1,
+        "reprice_final_marketable_bps": 12.0,
+        "reprice_final_mode": "marketable_lmt",
+        "reprice_max_deviation_pct": 1.25,
+        "reprice_steps_bps": [
+          15.0,
+          10.0,
+          5.0,
+          0.0
+        ],
+        "reprice_wait_sec": 8.0,
+        "reprices_used": 4,
+        "tif": "DAY"
+      },
+      "response": {
+        "error": "IBKR API error code=202: Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 382.144162. Please submit your order <br>using a limit price that is closer to the current market price of 371.23.",
+        "error_code": 202,
+        "error_string": "Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 382.144162. Please submit your order <br>using a limit price that is closer to the current market price of 371.23.",
+        "outcome": "failed"
+      },
+      "side": "BUY",
+      "source_order_path": "artifacts\\execution_loop\\optimal\\orders.csv",
+      "status": "error_api_202",
+      "submitted_at": "2026-03-31T19:32:12Z",
+      "symbol": "MSFT",
+      "updated_at_utc": "2026-03-31T19:32:12Z"
+    }
+  },
+  "updated_at_utc": "2026-04-01T18:33:25Z"
+}
+
+
+
+
+
+
+
+
+idempotency_key,client_order_id,broker_order_id,perm_id,config,source_order_path,date,symbol,broker_symbol,side,qty,filled_qty,remaining_qty,price_hint,filled_avg_price,order_notional,fill_notional,status,submitted_at,filled_at,mode
+098573120da484ac44eb4c46d1117c1cd4233db9bdd7630926cb232f078baa86,pe-098573120da484ac44eb4c46,,0,optimal,artifacts\execution_loop\optimal\orders.csv,2026-03-25,CRCL,CRCL,BUY,48.0,0.0,48.0,103.86,103.86,4985.28,0.0,unknown,2026-03-27T14:57:26+00:00,,ibkr_gateway
+d21ba42f2b3fb17604f2014dc07c5f6974832a5097528ddc903893a255289b33,pe-d21ba42f2b3fb17604f2014d,,0,optimal,artifacts\execution_loop\optimal\orders.csv,2026-03-25,NEM,NEM,BUY,49.0,0.0,49.0,101.52,101.52,4974.48,0.0,unknown,2026-03-27T14:57:57+00:00,,ibkr_gateway
+0524b18d9009d906b6f0b4a9113f508452034ebae3d5d953766aa1c35122dae9,pe-0524b18d9009d906b6f0b4a9,79,1746756815,optimal,artifacts\execution_loop\optimal\orders.csv,2026-03-27,AAPL,AAPL,BUY,1.0,1.0,0.0,254.71,254.22,254.71,254.22,filled,2026-04-01T18:32:48Z,2026-04-01T18:32:49Z,ibkr_gateway
+8da82c599802e250b50499b02b47be7cca1c4933922c205a1c5648a4b3a610d3,pe-8da82c599802e250b50499b0,,0,optimal,artifacts\execution_loop\optimal\orders.csv,2026-03-27,AAPL,AAPL,BUY,1.0,0.0,1.0,219.5,0.0,219.5,0.0,cancelled_unfilled_cap,2026-03-31T19:31:59Z,,ibkr_gateway
+aa38da5f52f99e46a119cb01824be1e55f5a2c1bf1cf5fd5575299a21c2faab3,pe-aa38da5f52f99e46a119cb01,,0,optimal,artifacts\execution_loop\optimal\orders.csv,2026-03-27,AAPL,AAPL,BUY,0.37,0.0,0.37,219.5,219.5,81.22,0.0,unknown,2026-03-27T15:44:53+00:00,,ibkr_gateway
+f8517c89ebfe574b2eb7427b1e27c1bc9d30e36827a158800a5a0892d101889d,pe-f8517c89ebfe574b2eb7427b,1.0,540635522,optimal,artifacts\execution_loop\optimal\orders.csv,2026-03-27,AAPL,AAPL,BUY,1.0,0.0,1.0,219.5,219.5,219.5,0.0,submitted,2026-03-29T18:37:54Z,,ibkr_gateway
+189e402b7dbe6e5487e94794d6e8a3e182e0aebe5f1ab267dbf4bb1622335a9b,pe-189e402b7dbe6e5487e94794,,0,optimal,artifacts\execution_loop\optimal\orders.csv,2026-03-27,AMZN,AMZN,SELL,0.33,0.0,0.33,201.7,201.7,66.56,0.0,unknown,2026-03-27T15:46:25+00:00,,ibkr_gateway
+b88591f05813660c0f31d4d44937292d46ec7f8f218e56aefbc2cdd801fd8736,pe-b88591f05813660c0f31d4d4,,0,optimal,artifacts\execution_loop\optimal\orders.csv,2026-03-27,AMZN,AMZN,SELL,1.0,0.0,1.0,201.7,0.0,201.7,0.0,error_api_202,2026-03-31T19:32:38Z,,ibkr_gateway
+f6f1585ea949ed84617cb29aca0777b9e8436b9e5259ec8ba625de69a9bf7b3d,pe-f6f1585ea949ed84617cb29a,4.0,540635525,optimal,artifacts\execution_loop\optimal\orders.csv,2026-03-27,AMZN,AMZN,SELL,1.0,0.0,1.0,201.7,201.7,201.7,0.0,submitted,2026-03-29T18:38:01Z,,ibkr_gateway
+55b5ecd5fcf8a14e96d55d09ee8a7129cfc18164b2bd250da77ea97c8abc2e65,pe-55b5ecd5fcf8a14e96d55d09,80,1746756816,optimal,artifacts\execution_loop\optimal\orders.csv,2026-03-27,MSFT,MSFT,BUY,1.0,1.0,0.0,370.29,369.08,370.29,369.08,filled,2026-04-01T18:32:55Z,2026-04-01T18:32:56Z,ibkr_gateway
+9e83348cd2a2945e348170bee012aad085bfa7a3e09fe7b4d38dabdbfbe0720c,pe-9e83348cd2a2945e348170be,,0,optimal,artifacts\execution_loop\optimal\orders.csv,2026-03-27,MSFT,MSFT,BUY,0.24,0.0,0.24,428.1,428.1,102.74,0.0,unknown,2026-03-27T15:45:23+00:00,,ibkr_gateway
+d76595b188fb79242d649e8c0798729867eb2f83013033172f29ae1a15ae4fb1,pe-d76595b188fb79242d649e8c,2.0,540635523,optimal,artifacts\execution_loop\optimal\orders.csv,2026-03-27,MSFT,MSFT,BUY,1.0,0.0,1.0,428.1,428.1,428.1,0.0,submitted,2026-03-29T18:37:56Z,,ibkr_gateway
+d8f1f793174cedbf2eeba1e39ddb83376106c4a0204eefbcd7d9f6662038b40e,pe-d8f1f793174cedbf2eeba1e3,,0,optimal,artifacts\execution_loop\optimal\orders.csv,2026-03-27,MSFT,MSFT,BUY,1.0,0.0,1.0,428.1,0.0,428.1,0.0,error_api_202,2026-03-31T19:32:12Z,,ibkr_gateway
+0b229f2ecccf0a990f12771ef25c25a6f23f0ae49904b8f2abdb6d0f3985fa92,pe-0b229f2ecccf0a990f12771e,3.0,540635524,optimal,artifacts\execution_loop\optimal\orders.csv,2026-03-27,NVDA,NVDA,SELL,1.0,0.0,1.0,118.4,118.4,118.4,0.0,submitted,2026-03-29T18:37:59Z,,ibkr_gateway
+45228bea7200d998cae3eeefa513395a45f9d9fcdce142f9b3325f588ab4da46,pe-45228bea7200d998cae3eeef,,0,optimal,artifacts\execution_loop\optimal\orders.csv,2026-03-27,NVDA,NVDA,SELL,1.0,0.0,1.0,118.4,0.0,118.4,0.0,error_api_202,2026-03-31T19:32:25Z,,ibkr_gateway
+cde030811a0585642732ee9633a0c8b1c867499e9be39ce649854f0ae6247256,pe-cde030811a0585642732ee96,,0,optimal,artifacts\execution_loop\optimal\orders.csv,2026-03-27,NVDA,NVDA,SELL,0.41,0.0,0.41,118.4,118.4,48.54,0.0,unknown,2026-03-27T15:45:54+00:00,,ibkr_gateway
