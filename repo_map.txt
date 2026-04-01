@@ -4,8 +4,8 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/.gitattributes
 .gitignore
 https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/.gitignore
 
-console127.log
-https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console127.log
+console139.log
+https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console139.log
 
 deps_edges.txt
 https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/deps_edges.txt
@@ -45,6 +45,9 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/repo_map.txt
 
     src/python_edge/__init__.py
     https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/__init__.py
+
+      src/python_edge/broker/ibkr_adapter_support.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/broker/ibkr_adapter_support.py
 
       src/python_edge/broker/ibkr_client.py
       https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/broker/ibkr_client.py

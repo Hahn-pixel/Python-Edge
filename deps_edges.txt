@@ -14,6 +14,7 @@ scripts/run_broker_adapter_ibkr.py -> hashlib
 scripts/run_broker_adapter_ibkr.py -> ibapi.contract
 scripts/run_broker_adapter_ibkr.py -> ibapi.order
 scripts/run_broker_adapter_ibkr.py -> json
+scripts/run_broker_adapter_ibkr.py -> math
 scripts/run_broker_adapter_ibkr.py -> os
 scripts/run_broker_adapter_ibkr.py -> pandas
 scripts/run_broker_adapter_ibkr.py -> pathlib
@@ -38,6 +39,7 @@ scripts/run_broker_handoff.py -> os
 scripts/run_broker_handoff.py -> pandas
 scripts/run_broker_handoff.py -> pathlib
 scripts/run_broker_handoff.py -> queue
+scripts/run_broker_handoff.py -> requests
 scripts/run_broker_handoff.py -> sys
 scripts/run_broker_handoff.py -> threading
 scripts/run_broker_handoff.py -> time
@@ -119,6 +121,12 @@ scripts/run_universe_builder.py -> sys
 scripts/run_universe_builder.py -> time
 scripts/run_universe_builder.py -> traceback
 scripts/run_universe_builder.py -> typing
+src/python_edge/broker/ibkr_adapter_support.py -> __future__
+src/python_edge/broker/ibkr_adapter_support.py -> ibapi.contract
+src/python_edge/broker/ibkr_adapter_support.py -> python_edge.broker.ibkr_models
+src/python_edge/broker/ibkr_adapter_support.py -> re
+src/python_edge/broker/ibkr_adapter_support.py -> time
+src/python_edge/broker/ibkr_adapter_support.py -> typing
 src/python_edge/broker/ibkr_client.py -> __future__
 src/python_edge/broker/ibkr_client.py -> ibapi.client
 src/python_edge/broker/ibkr_client.py -> ibapi.common

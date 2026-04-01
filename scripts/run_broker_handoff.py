@@ -489,23 +489,38 @@ def pick_execution_price(side: str, quote: QuoteState) -> Tuple[float, str]:
     raise RuntimeError(f"No usable execution price for symbol={quote.symbol} side={side_up} provider={quote.provider}")
 
 
-def should_force_massive_fallback(side: str, quote: QuoteState) -> Tuple[bool, str]:
+def is_quote_ts_usable(value: str) -> bool:
+    return bool(str(value or "").strip())
+
+
+def is_execution_ready_quote(side: str, quote: QuoteState) -> Tuple[bool, str]:
+    if quote is None:
+        return False, "missing_quote"
+
     try:
         _, picked_source = pick_execution_price(side, quote)
     except Exception:
-        return True, "no_usable_price"
+        return False, "no_usable_price"
 
     if quote.provider != "ib":
-        return False, ""
+        return True, ""
 
     if FORCE_MASSIVE_WHEN_IB_CLOSE_ONLY and picked_source == "close":
-        return True, "ib_close_only"
+        return False, "ib_close_only"
 
     if FORCE_MASSIVE_WHEN_IB_NO_BBO and quote.timeframe.startswith("DELAYED") and not quote.has_bbo():
         if picked_source in {"last", "close"}:
-            return True, "ib_delayed_without_bbo"
+            return False, "ib_delayed_without_bbo"
 
-    return False, ""
+    if not is_quote_ts_usable(quote.ts_utc):
+        return False, "missing_quote_ts"
+
+    return True, ""
+
+
+def should_force_massive_fallback(side: str, quote: QuoteState) -> Tuple[bool, str]:
+    is_ready, reason = is_execution_ready_quote(side, quote)
+    return (not is_ready), reason
 
 
 def build_massive_client() -> Optional[MassiveClient]:
@@ -586,7 +601,12 @@ def enrich_orders_with_prices(df: pd.DataFrame, quotes: Dict[str, QuoteState], f
     out["quote_market_data_type"] = 0
     out["quote_timeframe"] = ""
     out["price_hint_source"] = ""
+    out["quote_ts"] = ""
     out["quote_ts_utc"] = ""
+    out["bid"] = 0.0
+    out["ask"] = 0.0
+    out["mid"] = 0.0
+    out["last"] = 0.0
     out["bid_price"] = 0.0
     out["ask_price"] = 0.0
     out["mid_price"] = 0.0
@@ -595,6 +615,7 @@ def enrich_orders_with_prices(df: pd.DataFrame, quotes: Dict[str, QuoteState], f
     out["spread_abs"] = 0.0
     out["spread_bps"] = 0.0
     out["price_sanity_ok"] = 0
+    out["price_deviation_vs_model"] = 0.0
     out["price_deviation_pct"] = 0.0
     out["quote_raw_error_codes"] = ""
     out["fallback_reason"] = ""
@@ -634,12 +655,19 @@ def enrich_orders_with_prices(df: pd.DataFrame, quotes: Dict[str, QuoteState], f
                     f"live_price={live_price:.4f} deviation_pct={deviation_pct:.2f} src={q.provider}:{src}"
                 )
 
+        quote_ts = q.ts_utc or utc_now_iso()
+
         out.at[idx, "price"] = float(live_price)
         out.at[idx, "quote_provider"] = q.provider
         out.at[idx, "quote_market_data_type"] = int(q.market_data_type)
         out.at[idx, "quote_timeframe"] = q.timeframe
         out.at[idx, "price_hint_source"] = f"{q.provider}_{src}"
-        out.at[idx, "quote_ts_utc"] = q.ts_utc or utc_now_iso()
+        out.at[idx, "quote_ts"] = quote_ts
+        out.at[idx, "quote_ts_utc"] = quote_ts
+        out.at[idx, "bid"] = float(bid)
+        out.at[idx, "ask"] = float(ask)
+        out.at[idx, "mid"] = float(mid)
+        out.at[idx, "last"] = float(last)
         out.at[idx, "bid_price"] = float(bid)
         out.at[idx, "ask_price"] = float(ask)
         out.at[idx, "mid_price"] = float(mid)
@@ -648,6 +676,7 @@ def enrich_orders_with_prices(df: pd.DataFrame, quotes: Dict[str, QuoteState], f
         out.at[idx, "spread_abs"] = float(max(0.0, ask - bid)) if bid > 0.0 and ask > 0.0 else 0.0
         out.at[idx, "spread_bps"] = float(((ask - bid) / mid) * 10000.0) if bid > 0.0 and ask > 0.0 and mid > 0.0 else 0.0
         out.at[idx, "price_sanity_ok"] = int(sanity_ok)
+        out.at[idx, "price_deviation_vs_model"] = float(deviation_pct)
         out.at[idx, "price_deviation_pct"] = float(deviation_pct)
         out.at[idx, "quote_raw_error_codes"] = str(q.raw_error_codes or "")
         out.at[idx, "fallback_reason"] = str(fallback_reasons.get(symbol, ""))
@@ -718,14 +747,15 @@ def run_one_config(app: QuoteApp, paths: ConfigPaths) -> None:
             "quote_provider",
             "quote_timeframe",
             "price_hint_source",
+            "quote_ts",
             "fallback_reason",
-            "bid_price",
-            "ask_price",
-            "mid_price",
-            "last_price",
+            "bid",
+            "ask",
+            "mid",
+            "last",
             "close_price",
             "spread_bps",
-            "price_deviation_pct",
+            "price_deviation_vs_model",
         ]
         if c in updated_df.columns
     ]
