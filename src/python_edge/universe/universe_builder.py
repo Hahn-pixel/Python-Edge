@@ -546,11 +546,21 @@ def _build_snapshot(reference_all: pd.DataFrame, classified: pd.DataFrame, selec
     out = reference_all.copy()
     stage2_cols = [c for c in classified.columns if c != "ticker"]
     out = out.merge(classified[["ticker", *stage2_cols]], on="ticker", how="left")
+
+    classified_set = set(classified["ticker"].astype(str).tolist()) if len(classified) else set()
     selected_set = set(selected["ticker"].astype(str).tolist()) if len(selected) else set()
+
+    if "passes_reference" not in out.columns:
+        out["passes_reference"] = out["ticker"].astype(str).isin(classified_set)
+    if "drop_reason_reference" not in out.columns:
+        out["drop_reason_reference"] = np.where(out["passes_reference"], "passes_reference", "reference_filtered_out")
+    if "drop_reason_stage2" not in out.columns:
+        out["drop_reason_stage2"] = ""
+
     out["trade_date"] = str(as_of_date.date())
     out["universe_profile"] = config.policy.profile
     out["selected"] = out["ticker"].astype(str).isin(selected_set)
-    out["final_drop_reason"] = out["drop_reason_reference"].where(out["drop_reason_reference"] != "passes_reference", out.get("drop_reason_stage2", ""))
+    out["final_drop_reason"] = out["drop_reason_reference"].where(out["drop_reason_reference"] != "passes_reference", out["drop_reason_stage2"])
     out.loc[out["selected"], "final_drop_reason"] = "selected"
     return out.sort_values(["selected", "median_dollar_vol_20d", "ticker"], ascending=[False, False, True]).reset_index(drop=True)
 

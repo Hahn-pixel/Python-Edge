@@ -1,0 +1,475 @@
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_universe_builder.py
+[CFG] base_url=https://api.massive.com
+[CFG] universe_profile=trading_us_core_v1
+[CFG] target_size=175 sector_cap=18
+[CFG] min_price=7.50 min_median_dollar_vol_20d=20000000.00
+[CFG] min_history_days=25 max_nan_ratio=0.0200 max_missing_days_20d=1
+[CFG] locale=us market=stocks ticker_type=CS
+[CFG] rebalance_freq=weekly reuse_last=0 reuse_max_age_days=0
+[CFG] overview_enrichment_enabled=1 overview_enrichment_max=1200
+[DATA] as_of_date=2026-04-01
+[REFERENCE] page=5 rows=5000
+[REFERENCE] page=6 rows=5266
+[UNIVERSE] reference_total=5266
+[UNIVERSE] reference_kept=5127
+[UNIVERSE] reference_columns=['active', 'cik', 'composite_figi', 'currency_name', 'last_updated_utc', 'locale', 'market', 'name', 'primary_exchange', 'share_class_figi', 'ticker', 'type']
+[UNIVERSE] reference_drop_counters={'locale': 0, 'currency': 0, 'type': 0, 'otc': 0, 'etf_like': 104, 'adr_like': 35, 'active': 0}
+[GROUPED] 5/40 days fetched rows=59508
+[GROUPED] 10/40 days fetched rows=107209
+[GROUPED] 15/40 days fetched rows=166583
+[GROUPED] 20/40 days fetched rows=226273
+[GROUPED] 25/40 days fetched rows=285984
+[GROUPED] 30/40 days fetched rows=345606
+[GROUPED] 35/40 days fetched rows=405361
+[GROUPED] 40/40 days fetched rows=465219
+[UNIVERSE] grouped_rows_after_core_filter=194491 symbols=5111
+[UNIVERSE] stage2 candidate cap applied -> 1200
+[OVERVIEW] 100/1200 processed cache_hits=99 api_calls=1
+[OVERVIEW] 200/1200 processed cache_hits=192 api_calls=8
+[OVERVIEW] 300/1200 processed cache_hits=288 api_calls=12
+[OVERVIEW] 400/1200 processed cache_hits=382 api_calls=18
+[OVERVIEW] 500/1200 processed cache_hits=476 api_calls=24
+[OVERVIEW] 600/1200 processed cache_hits=569 api_calls=31
+[OVERVIEW] 700/1200 processed cache_hits=654 api_calls=46
+[OVERVIEW] 800/1200 processed cache_hits=747 api_calls=53
+[OVERVIEW] 900/1200 processed cache_hits=835 api_calls=65
+[OVERVIEW] 1000/1200 processed cache_hits=922 api_calls=78
+[OVERVIEW] 1100/1200 processed cache_hits=1014 api_calls=86
+[OVERVIEW] 1200/1200 processed cache_hits=1108 api_calls=92
+[UNIVERSE] dropped_price=28
+[UNIVERSE] dropped_liquidity=0
+[UNIVERSE] dropped_history=4
+[UNIVERSE] dropped_data_quality=0
+[UNIVERSE] eligible_total=1168
+[UNIVERSE] selected_total=175
+[UNIVERSE] selected_sector_cap_skips=310 selected_refill_from_over_cap=0
+[UNIVERSE] overview_enriched_total=1200 overview_cache_hits=1108 overview_api_calls=92 overview_missing_sic_total=92
+[UNIVERSE] sector_unknown_selected=22
+[UNIVERSE] industry_unknown_selected=23
+[UNIVERSE] sector_counts_selected={'Technology': 18, 'Industrials': 18, 'Consumer Discretionary': 18, 'Energy': 18, 'Financials': 18, 'Healthcare': 18, 'Utilities': 18, 'UNKNOWN': 22, 'Consumer Staples': 7, 'Materials': 18, 'Communication Services': 1, 'Real Estate': 1}
+[UNIVERSE][TOP_SELECTED]
+ticker                 sector                                             industry sic_code                                      sic_description  last_close  median_dollar_vol_20d liquidity_bucket volatility_bucket price_bucket
+  NVDA             Technology                     SEMICONDUCTORS & RELATED DEVICES     3674                     SEMICONDUCTORS & RELATED DEVICES      175.75           3.199504e+10             HIGH               MID         HIGH
+  TSLA            Industrials                MOTOR VEHICLES & PASSENGER CAR BODIES     3711                MOTOR VEHICLES & PASSENGER CAR BODIES      381.26           2.332092e+10             HIGH               MID         HIGH
+    MU             Technology                     SEMICONDUCTORS & RELATED DEVICES     3674                     SEMICONDUCTORS & RELATED DEVICES      367.85           1.920274e+10             HIGH              HIGH         HIGH
+  SNDK             Technology                             COMPUTER STORAGE DEVICES     3572                             COMPUTER STORAGE DEVICES      692.73           1.208997e+10             HIGH              HIGH         HIGH
+  MSFT             Technology                        SERVICES-PREPACKAGED SOFTWARE     7372                        SERVICES-PREPACKAGED SOFTWARE      369.37           1.195287e+10             HIGH               LOW         HIGH
+  AAPL             Technology                                 ELECTRONIC COMPUTERS     3571                                 ELECTRONIC COMPUTERS      255.63           1.006459e+10             HIGH               LOW         HIGH
+  AMZN Consumer Discretionary                   RETAIL-CATALOG & MAIL-ORDER HOUSES     5961                   RETAIL-CATALOG & MAIL-ORDER HOUSES      210.57           9.311629e+09             HIGH               MID         HIGH
+ GOOGL             Technology SERVICES-COMPUTER PROGRAMMING, DATA PROCESSING, ETC.     7370 SERVICES-COMPUTER PROGRAMMING, DATA PROCESSING, ETC.      297.39           8.714745e+09             HIGH               MID         HIGH
+  META             Technology SERVICES-COMPUTER PROGRAMMING, DATA PROCESSING, ETC.     7370 SERVICES-COMPUTER PROGRAMMING, DATA PROCESSING, ETC.      579.23           8.609533e+09             HIGH              HIGH         HIGH
+  AVGO             Technology                     SEMICONDUCTORS & RELATED DEVICES     3674                     SEMICONDUCTORS & RELATED DEVICES      313.49           8.529147e+09             HIGH               MID         HIGH
+   AMD             Technology                     SEMICONDUCTORS & RELATED DEVICES     3674                     SEMICONDUCTORS & RELATED DEVICES      210.21           6.491479e+09             HIGH              HIGH         HIGH
+  PLTR             Technology                        SERVICES-PREPACKAGED SOFTWARE     7372                        SERVICES-PREPACKAGED SOFTWARE      146.49           6.380087e+09             HIGH              HIGH         HIGH
+  GOOG             Technology SERVICES-COMPUTER PROGRAMMING, DATA PROCESSING, ETC.     7370 SERVICES-COMPUTER PROGRAMMING, DATA PROCESSING, ETC.      294.90           6.111191e+09             HIGH               MID         HIGH
+  LITE            Industrials                        COMMUNICATIONS EQUIPMENT, NEC     3669                        COMMUNICATIONS EQUIPMENT, NEC      764.65           4.829963e+09             HIGH              HIGH         HIGH
+   XOM                 Energy                                   PETROLEUM REFINING     2911                                   PETROLEUM REFINING      160.78           3.715790e+09             HIGH               MID         HIGH
+  ORCL             Technology                        SERVICES-PREPACKAGED SOFTWARE     7372                        SERVICES-PREPACKAGED SOFTWARE      145.23           3.652305e+09             HIGH              HIGH         HIGH
+  INTC             Technology                     SEMICONDUCTORS & RELATED DEVICES     3674                     SEMICONDUCTORS & RELATED DEVICES       48.03           3.623973e+09             HIGH              HIGH          LOW
+   JPM             Financials                            NATIONAL COMMERCIAL BANKS     6021                            NATIONAL COMMERCIAL BANKS      295.38           3.284454e+09             HIGH               LOW         HIGH
+   CVX                 Energy                                   PETROLEUM REFINING     2911                                   PETROLEUM REFINING      197.41           2.708888e+09             HIGH               LOW         HIGH
+  MSTR             Financials                                     FINANCE SERVICES     6199                                     FINANCE SERVICES      122.78           2.657534e+09             HIGH              HIGH          MID
+   LLY             Healthcare                          PHARMACEUTICAL PREPARATIONS     2834                          PHARMACEUTICAL PREPARATIONS      954.52           2.486301e+09             HIGH               MID         HIGH
+   WDC             Technology                             COMPUTER STORAGE DEVICES     3572                             COMPUTER STORAGE DEVICES      297.73           2.413409e+09             HIGH              HIGH         HIGH
+   WMT Consumer Discretionary                                RETAIL-VARIETY STORES     5331                                RETAIL-VARIETY STORES      124.74           2.408231e+09             HIGH               LOW          MID
+  LRCX            Industrials                      SPECIAL INDUSTRY MACHINERY, NEC     3559                      SPECIAL INDUSTRY MACHINERY, NEC      222.01           2.288644e+09             HIGH              HIGH         HIGH
+  COIN             Financials                                     FINANCE SERVICES     6199                                     FINANCE SERVICES      172.99           2.240227e+09             HIGH              HIGH         HIGH
+[OK] snapshot=artifacts\daily_cycle\universe\universe_snapshot.parquet
+[OK] summary=artifacts\daily_cycle\universe\universe_summary.json
+[FINAL] universe builder complete snapshot=artifacts\daily_cycle\universe\universe_snapshot.parquet summary=artifacts\daily_cycle\universe\universe_summary.json
+
+[EXIT] code=0
+
+
+
+
+
+
+{
+  "trade_date": "2026-04-01",
+  "universe_profile": "trading_us_core_v1",
+  "rebalance_freq": "weekly",
+  "policy": {
+    "profile": "trading_us_core_v1",
+    "target_size": 175,
+    "min_price": 7.5,
+    "min_median_dollar_vol_20d": 20000000.0,
+    "min_history_days": 25,
+    "max_nan_ratio": 0.02,
+    "max_missing_days_20d": 1,
+    "sector_cap": 18,
+    "locale": "us",
+    "market": "stocks",
+    "ticker_type": "CS",
+    "allow_otc": false,
+    "allow_etf_like_names": false,
+    "allow_adr_like_names": false,
+    "require_usd": true,
+    "require_active": true,
+    "max_reference_pages": 50,
+    "grouped_lookback_days": 40,
+    "grouped_sleep_sec": 0.05,
+    "overview_enrichment_enabled": true,
+    "overview_enrichment_max": 1200,
+    "overview_sleep_sec": 0.025,
+    "max_candidates_stage2": 1200,
+    "rebalance_freq": "weekly",
+    "reuse_last": false,
+    "reuse_max_age_days": 0
+  },
+  "reference_total": 5266,
+  "reference_dropped_locale": 0,
+  "reference_dropped_currency": 0,
+  "reference_dropped_type": 0,
+  "reference_dropped_otc": 0,
+  "reference_dropped_etf_like": 104,
+  "reference_dropped_adr_like": 35,
+  "reference_dropped_active": 0,
+  "reference_kept": 5127,
+  "stage2_candidates_total": 1200,
+  "dropped_price": 28,
+  "dropped_liquidity": 0,
+  "dropped_history": 4,
+  "dropped_data_quality": 0,
+  "eligible_total": 1168,
+  "selected_total": 175,
+  "selected_sector_cap_skips": 310,
+  "selected_refill_from_over_cap": 0,
+  "sector_counts_selected": {
+    "Technology": 18,
+    "Industrials": 18,
+    "Consumer Discretionary": 18,
+    "Energy": 18,
+    "Financials": 18,
+    "Healthcare": 18,
+    "Utilities": 18,
+    "UNKNOWN": 22,
+    "Consumer Staples": 7,
+    "Materials": 18,
+    "Communication Services": 1,
+    "Real Estate": 1
+  },
+  "sector_unknown_selected": 22,
+  "industry_unknown_selected": 23,
+  "liquidity_bucket_counts_selected": {
+    "HIGH": 165,
+    "MID": 10
+  },
+  "volatility_bucket_counts_selected": {
+    "MID": 53,
+    "HIGH": 62,
+    "LOW": 60
+  },
+  "price_bucket_counts_selected": {
+    "HIGH": 93,
+    "LOW": 33,
+    "MID": 49
+  },
+  "selected_preview": [
+    {
+      "ticker": "NVDA",
+      "sector": "Technology",
+      "industry": "SEMICONDUCTORS & RELATED DEVICES",
+      "sic_code": "3674",
+      "sic_description": "SEMICONDUCTORS & RELATED DEVICES",
+      "last_close": 175.75,
+      "median_dollar_vol_20d": 31995037539.66056,
+      "liquidity_bucket": "HIGH",
+      "volatility_bucket": "MID",
+      "price_bucket": "HIGH"
+    },
+    {
+      "ticker": "TSLA",
+      "sector": "Industrials",
+      "industry": "MOTOR VEHICLES & PASSENGER CAR BODIES",
+      "sic_code": "3711",
+      "sic_description": "MOTOR VEHICLES & PASSENGER CAR BODIES",
+      "last_close": 381.26,
+      "median_dollar_vol_20d": 23320922359.210155,
+      "liquidity_bucket": "HIGH",
+      "volatility_bucket": "MID",
+      "price_bucket": "HIGH"
+    },
+    {
+      "ticker": "MU",
+      "sector": "Technology",
+      "industry": "SEMICONDUCTORS & RELATED DEVICES",
+      "sic_code": "3674",
+      "sic_description": "SEMICONDUCTORS & RELATED DEVICES",
+      "last_close": 367.85,
+      "median_dollar_vol_20d": 19202737430.91302,
+      "liquidity_bucket": "HIGH",
+      "volatility_bucket": "HIGH",
+      "price_bucket": "HIGH"
+    },
+    {
+      "ticker": "SNDK",
+      "sector": "Technology",
+      "industry": "COMPUTER STORAGE DEVICES",
+      "sic_code": "3572",
+      "sic_description": "COMPUTER STORAGE DEVICES",
+      "last_close": 692.73,
+      "median_dollar_vol_20d": 12089969667.291084,
+      "liquidity_bucket": "HIGH",
+      "volatility_bucket": "HIGH",
+      "price_bucket": "HIGH"
+    },
+    {
+      "ticker": "MSFT",
+      "sector": "Technology",
+      "industry": "SERVICES-PREPACKAGED SOFTWARE",
+      "sic_code": "7372",
+      "sic_description": "SERVICES-PREPACKAGED SOFTWARE",
+      "last_close": 369.37,
+      "median_dollar_vol_20d": 11952870760.893814,
+      "liquidity_bucket": "HIGH",
+      "volatility_bucket": "LOW",
+      "price_bucket": "HIGH"
+    },
+    {
+      "ticker": "AAPL",
+      "sector": "Technology",
+      "industry": "ELECTRONIC COMPUTERS",
+      "sic_code": "3571",
+      "sic_description": "ELECTRONIC COMPUTERS",
+      "last_close": 255.63,
+      "median_dollar_vol_20d": 10064586735.996822,
+      "liquidity_bucket": "HIGH",
+      "volatility_bucket": "LOW",
+      "price_bucket": "HIGH"
+    },
+    {
+      "ticker": "AMZN",
+      "sector": "Consumer Discretionary",
+      "industry": "RETAIL-CATALOG & MAIL-ORDER HOUSES",
+      "sic_code": "5961",
+      "sic_description": "RETAIL-CATALOG & MAIL-ORDER HOUSES",
+      "last_close": 210.57,
+      "median_dollar_vol_20d": 9311629121.021032,
+      "liquidity_bucket": "HIGH",
+      "volatility_bucket": "MID",
+      "price_bucket": "HIGH"
+    },
+    {
+      "ticker": "GOOGL",
+      "sector": "Technology",
+      "industry": "SERVICES-COMPUTER PROGRAMMING, DATA PROCESSING, ETC.",
+      "sic_code": "7370",
+      "sic_description": "SERVICES-COMPUTER PROGRAMMING, DATA PROCESSING, ETC.",
+      "last_close": 297.39,
+      "median_dollar_vol_20d": 8714744995.92668,
+      "liquidity_bucket": "HIGH",
+      "volatility_bucket": "MID",
+      "price_bucket": "HIGH"
+    },
+    {
+      "ticker": "META",
+      "sector": "Technology",
+      "industry": "SERVICES-COMPUTER PROGRAMMING, DATA PROCESSING, ETC.",
+      "sic_code": "7370",
+      "sic_description": "SERVICES-COMPUTER PROGRAMMING, DATA PROCESSING, ETC.",
+      "last_close": 579.23,
+      "median_dollar_vol_20d": 8609533412.901339,
+      "liquidity_bucket": "HIGH",
+      "volatility_bucket": "HIGH",
+      "price_bucket": "HIGH"
+    },
+    {
+      "ticker": "AVGO",
+      "sector": "Technology",
+      "industry": "SEMICONDUCTORS & RELATED DEVICES",
+      "sic_code": "3674",
+      "sic_description": "SEMICONDUCTORS & RELATED DEVICES",
+      "last_close": 313.49,
+      "median_dollar_vol_20d": 8529146901.626347,
+      "liquidity_bucket": "HIGH",
+      "volatility_bucket": "MID",
+      "price_bucket": "HIGH"
+    },
+    {
+      "ticker": "AMD",
+      "sector": "Technology",
+      "industry": "SEMICONDUCTORS & RELATED DEVICES",
+      "sic_code": "3674",
+      "sic_description": "SEMICONDUCTORS & RELATED DEVICES",
+      "last_close": 210.21,
+      "median_dollar_vol_20d": 6491478937.909309,
+      "liquidity_bucket": "HIGH",
+      "volatility_bucket": "HIGH",
+      "price_bucket": "HIGH"
+    },
+    {
+      "ticker": "PLTR",
+      "sector": "Technology",
+      "industry": "SERVICES-PREPACKAGED SOFTWARE",
+      "sic_code": "7372",
+      "sic_description": "SERVICES-PREPACKAGED SOFTWARE",
+      "last_close": 146.49,
+      "median_dollar_vol_20d": 6380086746.201738,
+      "liquidity_bucket": "HIGH",
+      "volatility_bucket": "HIGH",
+      "price_bucket": "HIGH"
+    },
+    {
+      "ticker": "GOOG",
+      "sector": "Technology",
+      "industry": "SERVICES-COMPUTER PROGRAMMING, DATA PROCESSING, ETC.",
+      "sic_code": "7370",
+      "sic_description": "SERVICES-COMPUTER PROGRAMMING, DATA PROCESSING, ETC.",
+      "last_close": 294.9,
+      "median_dollar_vol_20d": 6111190952.004852,
+      "liquidity_bucket": "HIGH",
+      "volatility_bucket": "MID",
+      "price_bucket": "HIGH"
+    },
+    {
+      "ticker": "LITE",
+      "sector": "Industrials",
+      "industry": "COMMUNICATIONS EQUIPMENT, NEC",
+      "sic_code": "3669",
+      "sic_description": "COMMUNICATIONS EQUIPMENT, NEC",
+      "last_close": 764.65,
+      "median_dollar_vol_20d": 4829963134.597528,
+      "liquidity_bucket": "HIGH",
+      "volatility_bucket": "HIGH",
+      "price_bucket": "HIGH"
+    },
+    {
+      "ticker": "XOM",
+      "sector": "Energy",
+      "industry": "PETROLEUM REFINING",
+      "sic_code": "2911",
+      "sic_description": "PETROLEUM REFINING",
+      "last_close": 160.78,
+      "median_dollar_vol_20d": 3715789739.1809072,
+      "liquidity_bucket": "HIGH",
+      "volatility_bucket": "MID",
+      "price_bucket": "HIGH"
+    },
+    {
+      "ticker": "ORCL",
+      "sector": "Technology",
+      "industry": "SERVICES-PREPACKAGED SOFTWARE",
+      "sic_code": "7372",
+      "sic_description": "SERVICES-PREPACKAGED SOFTWARE",
+      "last_close": 145.23,
+      "median_dollar_vol_20d": 3652305081.749564,
+      "liquidity_bucket": "HIGH",
+      "volatility_bucket": "HIGH",
+      "price_bucket": "HIGH"
+    },
+    {
+      "ticker": "INTC",
+      "sector": "Technology",
+      "industry": "SEMICONDUCTORS & RELATED DEVICES",
+      "sic_code": "3674",
+      "sic_description": "SEMICONDUCTORS & RELATED DEVICES",
+      "last_close": 48.03,
+      "median_dollar_vol_20d": 3623973197.7126174,
+      "liquidity_bucket": "HIGH",
+      "volatility_bucket": "HIGH",
+      "price_bucket": "LOW"
+    },
+    {
+      "ticker": "JPM",
+      "sector": "Financials",
+      "industry": "NATIONAL COMMERCIAL BANKS",
+      "sic_code": "6021",
+      "sic_description": "NATIONAL COMMERCIAL BANKS",
+      "last_close": 295.38,
+      "median_dollar_vol_20d": 3284454266.191515,
+      "liquidity_bucket": "HIGH",
+      "volatility_bucket": "LOW",
+      "price_bucket": "HIGH"
+    },
+    {
+      "ticker": "CVX",
+      "sector": "Energy",
+      "industry": "PETROLEUM REFINING",
+      "sic_code": "2911",
+      "sic_description": "PETROLEUM REFINING",
+      "last_close": 197.41,
+      "median_dollar_vol_20d": 2708887753.638897,
+      "liquidity_bucket": "HIGH",
+      "volatility_bucket": "LOW",
+      "price_bucket": "HIGH"
+    },
+    {
+      "ticker": "MSTR",
+      "sector": "Financials",
+      "industry": "FINANCE SERVICES",
+      "sic_code": "6199",
+      "sic_description": "FINANCE SERVICES",
+      "last_close": 122.78,
+      "median_dollar_vol_20d": 2657533709.2497177,
+      "liquidity_bucket": "HIGH",
+      "volatility_bucket": "HIGH",
+      "price_bucket": "MID"
+    },
+    {
+      "ticker": "LLY",
+      "sector": "Healthcare",
+      "industry": "PHARMACEUTICAL PREPARATIONS",
+      "sic_code": "2834",
+      "sic_description": "PHARMACEUTICAL PREPARATIONS",
+      "last_close": 954.52,
+      "median_dollar_vol_20d": 2486300722.6598754,
+      "liquidity_bucket": "HIGH",
+      "volatility_bucket": "MID",
+      "price_bucket": "HIGH"
+    },
+    {
+      "ticker": "WDC",
+      "sector": "Technology",
+      "industry": "COMPUTER STORAGE DEVICES",
+      "sic_code": "3572",
+      "sic_description": "COMPUTER STORAGE DEVICES",
+      "last_close": 297.73,
+      "median_dollar_vol_20d": 2413409193.7004175,
+      "liquidity_bucket": "HIGH",
+      "volatility_bucket": "HIGH",
+      "price_bucket": "HIGH"
+    },
+    {
+      "ticker": "WMT",
+      "sector": "Consumer Discretionary",
+      "industry": "RETAIL-VARIETY STORES",
+      "sic_code": "5331",
+      "sic_description": "RETAIL-VARIETY STORES",
+      "last_close": 124.74,
+      "median_dollar_vol_20d": 2408231450.8336983,
+      "liquidity_bucket": "HIGH",
+      "volatility_bucket": "LOW",
+      "price_bucket": "MID"
+    },
+    {
+      "ticker": "LRCX",
+      "sector": "Industrials",
+      "industry": "SPECIAL INDUSTRY MACHINERY, NEC",
+      "sic_code": "3559",
+      "sic_description": "SPECIAL INDUSTRY MACHINERY, NEC",
+      "last_close": 222.01,
+      "median_dollar_vol_20d": 2288643859.4176006,
+      "liquidity_bucket": "HIGH",
+      "volatility_bucket": "HIGH",
+      "price_bucket": "HIGH"
+    },
+    {
+      "ticker": "COIN",
+      "sector": "Financials",
+      "industry": "FINANCE SERVICES",
+      "sic_code": "6199",
+      "sic_description": "FINANCE SERVICES",
+      "last_close": 172.99,
+      "median_dollar_vol_20d": 2240227469.9925776,
+      "liquidity_bucket": "HIGH",
+      "volatility_bucket": "HIGH",
+      "price_bucket": "HIGH"
+    }
+  ],
+  "overview_enriched_total": 1200,
+  "overview_cache_hits": 1108,
+  "overview_api_calls": 92,
+  "overview_missing_sic_total": 92,
+  "overview_enrichment_enabled": 1
+}
