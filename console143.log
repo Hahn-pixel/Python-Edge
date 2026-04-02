@@ -1,0 +1,49 @@
+[CFG] base_url=https://api.massive.com
+[CFG] universe_profile=trading_us_core_v1
+[CFG] target_size=175 sector_cap=18
+[CFG] min_price=7.50 min_median_dollar_vol_20d=20000000.00
+[CFG] min_history_days=25 max_nan_ratio=0.0200 max_missing_days_20d=1
+[CFG] locale=us market=stocks ticker_type=CS
+[CFG] rebalance_freq=weekly reuse_last=1 reuse_max_age_days=7
+[CFG] overview_enrichment_enabled=1 overview_enrichment_max=1200
+[DATA] as_of_date=2026-04-01
+[REBALANCE] reuse_last=1 -> using prior snapshot dated 2026-03-25 for as_of_date=2026-04-01
+[OK] snapshot=artifacts\daily_cycle\universe\universe_snapshot.parquet
+[OK] summary=artifacts\daily_cycle\universe\universe_summary.json
+[FINAL] universe builder complete snapshot=artifacts\daily_cycle\universe\universe_snapshot.parquet summary=artifacts\daily_cycle\universe\universe_summary.json
+
+
+
+
+
+{
+  "trade_date": "2026-03-25",
+  "universe_profile": "trading_us_core_v1",
+  "rebalance_freq": "weekly",
+  "reference_total": 12410,
+  "candidates_total": 1200,
+  "dropped_price": 28,
+  "dropped_liquidity": 0,
+  "dropped_history": 3,
+  "dropped_data_quality": 0,
+  "eligible_total": 1169,
+  "selected_total": 175,
+  "sector_counts_selected": {
+    "UNKNOWN": 175
+  },
+  "sector_unknown_selected": 175,
+  "liquidity_bucket_counts_selected": {
+    "HIGH": 175
+  },
+  "volatility_bucket_counts_selected": {
+    "MID": 55,
+    "LOW": 92,
+    "HIGH": 28
+  },
+  "price_bucket_counts_selected": {
+    "HIGH": 162,
+    "MID": 13
+  },
+  "reused_for_date": "2026-04-01",
+  "reused_from_date": "2026-03-25"
+}

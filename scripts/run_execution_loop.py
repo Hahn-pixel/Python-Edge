@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import math
 import os
-import re
 import sys
 import traceback
 from dataclasses import dataclass
@@ -40,9 +39,6 @@ MAX_PRICE_TO_TRADE = float(os.getenv("MAX_PRICE_TO_TRADE", "1000000.0"))
 COMMISSION_BPS = float(os.getenv("COMMISSION_BPS", "0.50"))
 COMMISSION_MIN_PER_ORDER = float(os.getenv("COMMISSION_MIN_PER_ORDER", "0.35"))
 SLIPPAGE_BPS = float(os.getenv("SLIPPAGE_BPS", "1.50"))
-AUTO_CONSOLE_LOG = str(os.getenv("AUTO_CONSOLE_LOG", "1")).strip().lower() not in {"0", "false", "no", "off"}
-CONSOLE_LOG_PREFIX = str(os.getenv("CONSOLE_LOG_PREFIX", "console")).strip() or "console"
-CONSOLE_LOG_DIR = Path(os.getenv("CONSOLE_LOG_DIR", str(ROOT))).resolve()
 
 PRICE_COL_CANDIDATES = [
     "close",
@@ -64,59 +60,6 @@ class ConfigPaths:
     execution_dir: Path
     current_book_csv: Path
     current_summary_json: Path
-
-
-class _TeeStream:
-    def __init__(self, *streams) -> None:
-        self._streams = streams
-        self.encoding = getattr(streams[0], "encoding", "utf-8") if streams else "utf-8"
-
-    def write(self, data: str) -> int:
-        written = 0
-        for stream in self._streams:
-            stream.write(data)
-            stream.flush()
-            written = len(data)
-        return written
-
-    def flush(self) -> None:
-        for stream in self._streams:
-            stream.flush()
-
-    def isatty(self) -> bool:
-        base = self._streams[0] if self._streams else None
-        return bool(base and hasattr(base, "isatty") and base.isatty())
-
-    def fileno(self) -> int:
-        base = self._streams[0]
-        if hasattr(base, "fileno"):
-            return base.fileno()
-        raise OSError("fileno not available")
-
-
-def _next_console_log_path() -> Path:
-    CONSOLE_LOG_DIR.mkdir(parents=True, exist_ok=True)
-    pattern = re.compile(rf"^{re.escape(CONSOLE_LOG_PREFIX)}(\d+)\.log$", re.IGNORECASE)
-    max_id = 0
-    for path in CONSOLE_LOG_DIR.glob(f"{CONSOLE_LOG_PREFIX}*.log"):
-        m = pattern.match(path.name)
-        if m:
-            max_id = max(max_id, int(m.group(1)))
-    return CONSOLE_LOG_DIR / f"{CONSOLE_LOG_PREFIX}{max_id + 1}.log"
-
-
-def _bootstrap_console_log() -> Path | None:
-    if not AUTO_CONSOLE_LOG:
-        return None
-    log_path = _next_console_log_path()
-    file_handle = log_path.open("w", encoding="utf-8", newline="")
-    original_stdout = sys.stdout
-    original_stderr = sys.stderr
-    sys.stdout = _TeeStream(original_stdout, file_handle)
-    sys.stderr = _TeeStream(original_stderr, file_handle)
-    setattr(sys, "_python_edge_console_log_handle", file_handle)
-    print(f"[LOG] console_log={log_path}")
-    return log_path
 
 
 def _enable_line_buffering() -> None:
@@ -690,14 +633,12 @@ def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, 
 
 def main() -> int:
     _enable_line_buffering()
-    console_log_path = _bootstrap_console_log()
     fractional_enabled = _fractional_enabled_effective()
     print(f"[CFG] live_feature_snapshot_file={LIVE_FEATURE_SNAPSHOT_FILE}")
     print(f"[CFG] freeze_root={FREEZE_ROOT}")
     print(f"[CFG] execution_root={EXECUTION_ROOT}")
     print(f"[CFG] account_nav={ACCOUNT_NAV}")
     print(f"[CFG] configs={CONFIG_NAMES}")
-    print(f"[CFG] auto_console_log={int(AUTO_CONSOLE_LOG)} console_log_dir={CONSOLE_LOG_DIR} console_log_path={console_log_path}")
     print(
         f"[CFG] allow_fractional_shares={int(ALLOW_FRACTIONAL_SHARES)} fractional_mode={FRACTIONAL_MODE} fractional_enabled_effective={int(fractional_enabled)} "
         f"min_order_notional={MIN_ORDER_NOTIONAL} skip_empty_freeze_configs={int(SKIP_EMPTY_FREEZE_CONFIGS)} "
