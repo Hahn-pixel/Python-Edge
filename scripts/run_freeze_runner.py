@@ -6,6 +6,7 @@ import subprocess
 import sys
 import traceback
 from dataclasses import dataclass
+from itertools import combinations
 from pathlib import Path
 from typing import Dict, List, Sequence, Set, Tuple
 
@@ -105,6 +106,11 @@ FREEZE_REQUIRE_POSITIVE_REPLAY_SHARPE = str(os.getenv("FREEZE_REQUIRE_POSITIVE_R
 FREEZE_MIN_REPLAY_SHARPE = float(os.getenv("FREEZE_MIN_REPLAY_SHARPE", "0.00"))
 FREEZE_MIN_REPLAY_CUMRET = float(os.getenv("FREEZE_MIN_REPLAY_CUMRET", "0.00"))
 FREEZE_MIN_LIVE_ACTIVE_NAMES = int(os.getenv("FREEZE_MIN_LIVE_ACTIVE_NAMES", "1"))
+FREEZE_MIN_COMPONENT_PROXY_TRAIN_SHARPE = float(os.getenv("FREEZE_MIN_COMPONENT_PROXY_TRAIN_SHARPE", "0.00"))
+FREEZE_MIN_COMPONENT_ABS_MEAN_IC = float(os.getenv("FREEZE_MIN_COMPONENT_ABS_MEAN_IC", "0.0000"))
+FREEZE_BASKET_CANDIDATE_POOL = int(os.getenv("FREEZE_BASKET_CANDIDATE_POOL", "8"))
+FREEZE_BASKET_MAX_COMBOS = int(os.getenv("FREEZE_BASKET_MAX_COMBOS", "40"))
+FREEZE_BASKET_MIN_UNIQUE_ALPHAS = int(os.getenv("FREEZE_BASKET_MIN_UNIQUE_ALPHAS", "4"))
 
 FREEZE_TRAIN_DAYS = int(os.getenv("FREEZE_TRAIN_DAYS", "120"))
 FREEZE_TEST_DAYS = int(os.getenv("FREEZE_TEST_DAYS", "20"))
@@ -118,12 +124,9 @@ WEIGHT_CAP = float(os.getenv("WEIGHT_CAP", "0.05"))
 GROSS_TARGET = float(os.getenv("GROSS_TARGET", "0.85"))
 MIN_DAILY_IC_CS = int(os.getenv("MIN_DAILY_IC_CS", "20"))
 MIN_TRAIN_ROWS = int(os.getenv("MIN_TRAIN_ROWS", "3000"))
-WF_PURGE_DAYS = int(os.getenv("WF_PURGE_DAYS", "5"))
-WF_EMBARGO_DAYS = int(os.getenv("WF_EMBARGO_DAYS", "5"))
 TOPK_EXPORT = int(os.getenv("TOPK_EXPORT", "50"))
 
 FEATURE_BUDGET_COLS = ["market_breadth", "intraday_rs", "volume_shock", "intraday_pressure"]
-FEATURE_REGIME_COLS = ["market_breadth"]
 
 
 @dataclass(frozen=True)
@@ -270,13 +273,10 @@ def _load_selected_universe() -> Tuple[Set[str], pd.Timestamp | None, int, str |
     df = pd.read_parquet(UNIVERSE_SNAPSHOT_FILE)
     if df.empty:
         raise RuntimeError("Universe snapshot is empty")
-    if "ticker" in df.columns:
-        sym_col = "ticker"
-    elif "symbol" in df.columns:
-        sym_col = "symbol"
-    else:
+    sym_col = "ticker" if "ticker" in df.columns else "symbol" if "symbol" in df.columns else None
+    if sym_col is None:
         raise RuntimeError(f"Universe snapshot missing ticker/symbol column: {UNIVERSE_SNAPSHOT_FILE}")
-    date_col = "trade_date" if "trade_date" in df.columns else ("date" if "date" in df.columns else None)
+    date_col = "trade_date" if "trade_date" in df.columns else "date" if "date" in df.columns else None
     if date_col is not None:
         df[date_col] = pd.to_datetime(df[date_col], errors="coerce").dt.normalize()
         valid = df[date_col].dropna()
@@ -285,10 +285,9 @@ def _load_selected_universe() -> Tuple[Set[str], pd.Timestamp | None, int, str |
             df = df.loc[df[date_col] == universe_date].copy()
     else:
         universe_date = None
-    selected_col = "selected" if "selected" in df.columns else None
-    if selected_col is None:
+    if "selected" not in df.columns:
         raise RuntimeError(f"Universe snapshot missing selected column: {UNIVERSE_SNAPSHOT_FILE}")
-    selected_mask = df[selected_col].astype(bool) if pd.api.types.is_bool_dtype(df[selected_col]) else df[selected_col].astype(str).str.strip().str.lower().isin({"1", "true", "yes", "y", "on"})
+    selected_mask = df["selected"].astype(bool) if pd.api.types.is_bool_dtype(df["selected"]) else df["selected"].astype(str).str.strip().str.lower().isin({"1", "true", "yes", "y", "on"})
     df = df.loc[selected_mask].copy()
     df[sym_col] = df[sym_col].astype(str).str.upper()
     selected_symbols = set(df[sym_col].tolist())
@@ -332,11 +331,9 @@ def _load_live_panel() -> tuple[pd.DataFrame, list[str], Dict[str, object]]:
     selected_universe, universe_date, universe_selected_current, universe_symbol_col = _load_selected_universe()
     if REQUIRE_UNIVERSE_FILTER and not selected_universe:
         raise RuntimeError("Selected universe is empty")
-
     df = _load_live_snapshot_df()
     diag_state = _diagnose_universe_vs_live(df, selected_universe, universe_date, universe_symbol_col)
     latest_live_date = pd.Timestamp(diag_state["latest_live_date"]).normalize()
-
     if REQUIRE_UNIVERSE_CURRENT_DATE_MATCH and universe_date is not None and latest_live_date != universe_date:
         if AUTO_REFRESH_LIVE_ALPHA_ON_DATE_MISMATCH:
             print(f"[UNIVERSE_FILTER][REFRESH] date mismatch detected universe_date={universe_date.date()} live_date={latest_live_date.date()} -> refreshing live alpha snapshot")
@@ -346,11 +343,9 @@ def _load_live_panel() -> tuple[pd.DataFrame, list[str], Dict[str, object]]:
             latest_live_date = pd.Timestamp(diag_state['latest_live_date']).normalize()
         if universe_date is not None and latest_live_date != universe_date:
             raise RuntimeError(f"Universe/live snapshot date mismatch: universe_date={universe_date.date()} live_date={latest_live_date.date()}")
-
     survival_ratio = float(diag_state["survival_ratio"])
     if REQUIRE_UNIVERSE_FILTER and survival_ratio < MIN_UNIVERSE_SURVIVAL_RATIO:
         raise RuntimeError(f"Universe survival ratio too low: {survival_ratio:.4f} < {MIN_UNIVERSE_SURVIVAL_RATIO:.4f}")
-
     filtered_df = df.loc[df["symbol"].isin(selected_universe)].copy() if REQUIRE_UNIVERSE_FILTER else df.copy()
     alpha_cols = list(diag_state["alpha_cols"])
     diag = {
@@ -511,9 +506,72 @@ def _summarize_daily(port_df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, flo
     return daily, summary
 
 
-def _select_components_for_config(component_info_all: pd.DataFrame, cfg: FreezeConfig) -> pd.DataFrame:
-    comp = component_info_all.copy().sort_values(["train_abs_mean_ic", "proxy_train_sharpe", "alpha"], ascending=[False, False, True]).reset_index(drop=True)
-    return comp.head(cfg.component_count).copy()
+def _prefilter_component_pool(component_info_all: pd.DataFrame, cfg: FreezeConfig) -> pd.DataFrame:
+    comp = component_info_all.copy()
+    comp = comp.loc[_num(comp["proxy_train_sharpe"]).fillna(-np.inf) >= float(FREEZE_MIN_COMPONENT_PROXY_TRAIN_SHARPE)].copy()
+    comp = comp.loc[_num(comp["train_abs_mean_ic"]).fillna(-np.inf) >= float(FREEZE_MIN_COMPONENT_ABS_MEAN_IC)].copy()
+    if comp.empty:
+        comp = component_info_all.copy()
+    comp = comp.sort_values(["train_abs_mean_ic", "proxy_train_sharpe", "alpha"], ascending=[False, False, True]).reset_index(drop=True)
+    pool_size = max(int(cfg.component_count), int(FREEZE_BASKET_CANDIDATE_POOL))
+    return comp.head(pool_size).copy()
+
+
+def _basket_search(pool_df: pd.DataFrame, replay_df: pd.DataFrame, cfg: FreezeConfig) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    if pool_df.empty:
+        raise RuntimeError("Basket search received empty component pool")
+    choose_k = min(int(cfg.component_count), len(pool_df))
+    rows: List[Dict[str, object]] = []
+    combo_counter = 0
+    for combo in combinations(list(pool_df.index), choose_k):
+        combo_counter += 1
+        chosen = pool_df.loc[list(combo)].copy().reset_index(drop=True)
+        if chosen["alpha"].nunique() < min(int(FREEZE_BASKET_MIN_UNIQUE_ALPHAS), choose_k):
+            continue
+        replay_scored = _build_portfolio_scores(replay_df, chosen, weighting_mode=cfg.weighting_mode)
+        replay_port = _build_portfolio(replay_scored, cfg)
+        _, replay_summary = _summarize_daily(replay_port)
+        rows.append({
+            "basket_id": len(rows) + 1,
+            "alpha_list": "|".join(chosen["alpha"].astype(str).tolist()),
+            "component_count": int(len(chosen)),
+            "train_abs_mean_ic_avg": float(_num(chosen["train_abs_mean_ic"]).mean()),
+            "proxy_train_sharpe_avg": float(_num(chosen["proxy_train_sharpe"]).mean()),
+            "replay_sharpe_last_fold": float(replay_summary.get("sharpe", float("nan"))),
+            "replay_cumret_last_fold": float(replay_summary.get("cumret", float("nan"))),
+            "replay_max_drawdown_last_fold": float(replay_summary.get("max_drawdown", float("nan"))),
+            "replay_avg_turnover_last_fold": float(replay_summary.get("avg_turnover", float("nan"))),
+        })
+        if len(rows) >= int(FREEZE_BASKET_MAX_COMBOS):
+            break
+    if not rows:
+        fallback = pool_df.head(choose_k).copy().reset_index(drop=True)
+        replay_scored = _build_portfolio_scores(replay_df, fallback, weighting_mode=cfg.weighting_mode)
+        replay_port = _build_portfolio(replay_scored, cfg)
+        _, replay_summary = _summarize_daily(replay_port)
+        rows = [{
+            "basket_id": 1,
+            "alpha_list": "|".join(fallback["alpha"].astype(str).tolist()),
+            "component_count": int(len(fallback)),
+            "train_abs_mean_ic_avg": float(_num(fallback["train_abs_mean_ic"]).mean()),
+            "proxy_train_sharpe_avg": float(_num(fallback["proxy_train_sharpe"]).mean()),
+            "replay_sharpe_last_fold": float(replay_summary.get("sharpe", float("nan"))),
+            "replay_cumret_last_fold": float(replay_summary.get("cumret", float("nan"))),
+            "replay_max_drawdown_last_fold": float(replay_summary.get("max_drawdown", float("nan"))),
+            "replay_avg_turnover_last_fold": float(replay_summary.get("avg_turnover", float("nan"))),
+        }]
+    basket_df = pd.DataFrame(rows)
+    basket_df = basket_df.sort_values([
+        "replay_sharpe_last_fold",
+        "replay_cumret_last_fold",
+        "replay_max_drawdown_last_fold",
+        "train_abs_mean_ic_avg",
+        "proxy_train_sharpe_avg",
+    ], ascending=[False, False, False, False, False]).reset_index(drop=True)
+    best_alpha_list = str(basket_df.iloc[0]["alpha_list"])
+    best_alphas = best_alpha_list.split("|") if best_alpha_list else []
+    best = pool_df.loc[pool_df["alpha"].astype(str).isin(best_alphas)].copy().drop_duplicates(subset=["alpha"]).reset_index(drop=True)
+    return best, basket_df
 
 
 def _evaluate_live_gate(replay_summary: Dict[str, float], live_active_names: int) -> Tuple[int, str]:
@@ -545,11 +603,11 @@ def main() -> int:
     print(f"[CFG] require_universe_filter={int(REQUIRE_UNIVERSE_FILTER)} require_universe_current_date_match={int(REQUIRE_UNIVERSE_CURRENT_DATE_MATCH)} min_universe_survival_ratio={MIN_UNIVERSE_SURVIVAL_RATIO:.4f}")
     print(f"[CFG] auto_refresh_live_alpha_on_date_mismatch={int(AUTO_REFRESH_LIVE_ALPHA_ON_DATE_MISMATCH)} live_alpha_refresh_script={LIVE_ALPHA_REFRESH_SCRIPT}")
     print(f"[CFG] freeze_require_positive_replay_sharpe={int(FREEZE_REQUIRE_POSITIVE_REPLAY_SHARPE)} freeze_min_replay_sharpe={FREEZE_MIN_REPLAY_SHARPE:.4f} freeze_min_replay_cumret={FREEZE_MIN_REPLAY_CUMRET:.4f} freeze_min_live_active_names={FREEZE_MIN_LIVE_ACTIVE_NAMES}")
+    print(f"[CFG] component_prefilter min_proxy_train_sharpe={FREEZE_MIN_COMPONENT_PROXY_TRAIN_SHARPE:.4f} min_abs_mean_ic={FREEZE_MIN_COMPONENT_ABS_MEAN_IC:.6f} basket_candidate_pool={FREEZE_BASKET_CANDIDATE_POOL} basket_max_combos={FREEZE_BASKET_MAX_COMBOS}")
     print(f"[CFG] frozen wf={FREEZE_TRAIN_DAYS}/{FREEZE_TEST_DAYS}/{FREEZE_STEP_DAYS} components={FREEZE_COMPONENT_COUNT} weighting={FREEZE_WEIGHTING_MODE}")
 
     df, alpha_cols, universe_diag = _load_live_panel()
     print(f"[DATA] rows={len(df)} symbols={df['symbol'].nunique()} alpha_cols={len(alpha_cols)} first_date={df['date'].min().date()} last_date={df['date'].max().date()}")
-
     splits = _build_walkforward_splits(df["date"], FREEZE_TRAIN_DAYS, FREEZE_TEST_DAYS, FREEZE_STEP_DAYS)
     current_split = splits[-1]
     print(f"[FREEZE] last_completed_fold fold_id={current_split.fold_id} train={current_split.train_start.date()}..{current_split.train_end.date()} test={current_split.test_start.date()}..{current_split.test_end.date()}")
@@ -560,7 +618,6 @@ def main() -> int:
 
     replay_df = df.loc[(df["date"] >= current_split.test_start) & (df["date"] <= current_split.test_end)].copy()
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-
     summary_export: Dict[str, object] = {
         "last_data_date": str(pd.Timestamp(df["date"].max()).date()),
         "last_completed_fold": {"fold_id": int(current_split.fold_id), "train_start": str(current_split.train_start.date()), "train_end": str(current_split.train_end.date()), "test_start": str(current_split.test_start.date()), "test_end": str(current_split.test_end.date())},
@@ -575,9 +632,13 @@ def main() -> int:
         raise RuntimeError("No rows on live current date")
 
     for cfg in FREEZE_CONFIGS:
-        component_info = _select_components_for_config(component_info_all, cfg)
-        print(f"[COMPONENTS][{cfg.name}] weighting_mode={cfg.weighting_mode} component_count={cfg.component_count}")
+        pool_df = _prefilter_component_pool(component_info_all, cfg)
+        best_components, basket_search_df = _basket_search(pool_df, replay_df, cfg)
+        component_info = best_components.head(cfg.component_count).copy().reset_index(drop=True)
+        print(f"[COMPONENTS][{cfg.name}] selected_by_basket_search component_count={len(component_info)} pool_size={len(pool_df)} combos_evaluated={len(basket_search_df)}")
         print(component_info[["alpha", "train_abs_mean_ic", "proxy_train_sharpe", "train_sign_locked"]].to_string(index=False))
+        print(f"[BASKET_SEARCH][{cfg.name}][TOP]")
+        print(basket_search_df.head(min(10, len(basket_search_df))).to_string(index=False))
 
         replay_scored = _build_portfolio_scores(replay_df, component_info, weighting_mode=cfg.weighting_mode)
         replay_port = _build_portfolio(replay_scored, cfg)
@@ -593,14 +654,13 @@ def main() -> int:
         live_scores = live_scores.sort_values(["score", "symbol"], ascending=[False, True]).reset_index(drop=True)
 
         live_gate_passed, live_gate_reason = _evaluate_live_gate(replay_summary, int(len(live_book_raw)))
-        if live_gate_passed:
-            live_book = live_book_raw.copy()
-        else:
-            live_book = live_book_raw.iloc[0:0].copy()
+        live_book = live_book_raw.copy() if live_gate_passed else live_book_raw.iloc[0:0].copy()
 
         cfg_dir = OUT_DIR / cfg.name
         cfg_dir.mkdir(parents=True, exist_ok=True)
         component_info.to_csv(cfg_dir / "freeze_component_train_info.csv", index=False)
+        pool_df.to_csv(cfg_dir / "freeze_component_pool.csv", index=False)
+        basket_search_df.to_csv(cfg_dir / "freeze_basket_search.csv", index=False)
         replay_daily.to_csv(cfg_dir / "freeze_daily_replay_last_fold.csv", index=False)
         replay_scored.to_csv(cfg_dir / "freeze_scored_last_fold.csv", index=False)
         replay_port.to_csv(cfg_dir / "freeze_portfolio_last_fold.csv", index=False)
@@ -620,6 +680,9 @@ def main() -> int:
             "weight_cap": cfg.weight_cap,
             "weighting_mode": cfg.weighting_mode,
             "component_count": cfg.component_count,
+            "component_pool_size": int(len(pool_df)),
+            "basket_combos_evaluated": int(len(basket_search_df)),
+            "selected_basket_alpha_list": basket_search_df.iloc[0]["alpha_list"] if len(basket_search_df) else "",
             "use_regime_overlay": int(cfg.use_regime_overlay),
             "use_dynamic_side_budgets": int(cfg.use_dynamic_side_budgets),
             "budget_input_lag_days": cfg.budget_input_lag_days,
