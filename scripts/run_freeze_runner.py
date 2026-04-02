@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 import traceback
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Sequence, Tuple
+from typing import Dict, List, Sequence, Set, Tuple
 
 import numpy as np
 import pandas as pd
@@ -92,8 +93,14 @@ except Exception:
 EPS = 1e-12
 PAUSE_ON_EXIT = str(os.getenv("PAUSE_ON_EXIT", "auto")).strip().lower()
 LIVE_ALPHA_SNAPSHOT_FILE = Path(os.getenv("LIVE_ALPHA_SNAPSHOT_FILE", "artifacts/live_alpha/live_alpha_snapshot.parquet"))
+UNIVERSE_SNAPSHOT_FILE = Path(os.getenv("UNIVERSE_SNAPSHOT_FILE", "artifacts/daily_cycle/universe/universe_snapshot.parquet"))
 TARGET_COL = str(os.getenv("TARGET_COL", "target_fwd_ret_1d")).strip()
 OUT_DIR = Path(os.getenv("FREEZE_OUT_DIR", "artifacts/freeze_runner"))
+REQUIRE_UNIVERSE_FILTER = str(os.getenv("REQUIRE_UNIVERSE_FILTER", "1")).strip().lower() not in {"0", "false", "no", "off"}
+REQUIRE_UNIVERSE_CURRENT_DATE_MATCH = str(os.getenv("REQUIRE_UNIVERSE_CURRENT_DATE_MATCH", "1")).strip().lower() not in {"0", "false", "no", "off"}
+MIN_UNIVERSE_SURVIVAL_RATIO = float(os.getenv("MIN_UNIVERSE_SURVIVAL_RATIO", "0.90"))
+AUTO_REFRESH_LIVE_ALPHA_ON_DATE_MISMATCH = str(os.getenv("AUTO_REFRESH_LIVE_ALPHA_ON_DATE_MISMATCH", "1")).strip().lower() not in {"0", "false", "no", "off"}
+LIVE_ALPHA_REFRESH_SCRIPT = Path(os.getenv("LIVE_ALPHA_REFRESH_SCRIPT", "scripts/run_live_alpha_snapshot.py"))
 
 FREEZE_TRAIN_DAYS = int(os.getenv("FREEZE_TRAIN_DAYS", "120"))
 FREEZE_TEST_DAYS = int(os.getenv("FREEZE_TEST_DAYS", "20"))
@@ -143,38 +150,8 @@ class FreezeConfig:
 
 
 FREEZE_CONFIGS: List[FreezeConfig] = [
-    FreezeConfig(
-        name="optimal",
-        cost_bps=4.0,
-        turnover_cap=0.10,
-        enter_pct=ENTER_PCT,
-        exit_pct=EXIT_PCT,
-        gross_target=GROSS_TARGET,
-        weight_cap=WEIGHT_CAP,
-        weighting_mode=FREEZE_WEIGHTING_MODE,
-        component_count=FREEZE_COMPONENT_COUNT,
-        use_regime_overlay=False,
-        use_dynamic_side_budgets=False,
-        budget_input_lag_days=1,
-        min_long_budget=0.35,
-        max_long_budget=0.75,
-    ),
-    FreezeConfig(
-        name="aggressive",
-        cost_bps=4.0,
-        turnover_cap=0.12,
-        enter_pct=0.08,
-        exit_pct=0.18,
-        gross_target=1.00,
-        weight_cap=0.05,
-        weighting_mode="ic",
-        component_count=max(3, FREEZE_COMPONENT_COUNT),
-        use_regime_overlay=True,
-        use_dynamic_side_budgets=True,
-        budget_input_lag_days=1,
-        min_long_budget=0.45,
-        max_long_budget=0.90,
-    ),
+    FreezeConfig("optimal", 4.0, 0.10, ENTER_PCT, EXIT_PCT, GROSS_TARGET, WEIGHT_CAP, FREEZE_WEIGHTING_MODE, FREEZE_COMPONENT_COUNT, False, False, 1, 0.35, 0.75),
+    FreezeConfig("aggressive", 4.0, 0.12, 0.08, 0.18, 1.00, 0.05, "ic", max(3, FREEZE_COMPONENT_COUNT), True, True, 1, 0.45, 0.90),
 ]
 
 
@@ -258,42 +235,9 @@ def _daily_ic_series(frame: pd.DataFrame, factor_col: str, target_col: str, min_
         x = g[[factor_col, target_col]].dropna()
         if len(x) < min_cs:
             continue
-        if x[factor_col].nunique(dropna=True) <= 1 or x[target_col].nunique(dropna=True) <= 1:
-            continue
         ic = x[factor_col].corr(x[target_col], method="spearman")
-        if pd.notna(ic):
-            rows.append({"date": pd.Timestamp(dt).normalize(), "daily_ic": float(ic)})
+        rows.append({"date": dt, "daily_ic": float(ic) if pd.notna(ic) else np.nan, "cs_n": int(len(x))})
     return pd.DataFrame(rows)
-
-
-def _build_walkforward_splits(dates: Sequence[pd.Timestamp], train_days: int, test_days: int, step_days: int) -> List[WFSplit]:
-    uniq = pd.Index(sorted(pd.to_datetime(pd.Series(dates)).dt.normalize().unique()))
-    if len(uniq) < (train_days + test_days + WF_PURGE_DAYS + WF_EMBARGO_DAYS + 5):
-        raise RuntimeError("Not enough dates for walkforward configuration")
-    splits: List[WFSplit] = []
-    fold_id = 0
-    start_idx = 0
-    while True:
-        train_start_idx = start_idx
-        train_end_idx = train_start_idx + train_days - 1
-        test_start_idx = train_end_idx + 1 + WF_PURGE_DAYS + WF_EMBARGO_DAYS
-        test_end_idx = test_start_idx + test_days - 1
-        if test_end_idx >= len(uniq):
-            break
-        fold_id += 1
-        splits.append(
-            WFSplit(
-                fold_id=fold_id,
-                train_start=pd.Timestamp(uniq[train_start_idx]).normalize(),
-                train_end=pd.Timestamp(uniq[train_end_idx]).normalize(),
-                test_start=pd.Timestamp(uniq[test_start_idx]).normalize(),
-                test_end=pd.Timestamp(uniq[test_end_idx]).normalize(),
-            )
-        )
-        start_idx += step_days
-    if not splits:
-        raise RuntimeError("No valid walkforward splits created")
-    return splits
 
 
 def _sign_decision(train_ic_df: pd.DataFrame) -> Dict[str, float]:
@@ -303,14 +247,51 @@ def _sign_decision(train_ic_df: pd.DataFrame) -> Dict[str, float]:
     sign_locked = 1.0 if mean_ic >= 0.0 else -1.0
     std_ic = float(pd.to_numeric(train_ic_df["daily_ic"], errors="coerce").std(ddof=0))
     proxy_train_sharpe = float((mean_ic / (std_ic + EPS)) * np.sqrt(252.0))
-    return {
-        "train_abs_mean_ic": float(train_ic_df["daily_ic"].abs().mean()),
-        "train_sign_locked": sign_locked,
-        "proxy_train_sharpe": proxy_train_sharpe,
-    }
+    return {"train_abs_mean_ic": float(train_ic_df["daily_ic"].abs().mean()), "train_sign_locked": sign_locked, "proxy_train_sharpe": proxy_train_sharpe}
 
 
-def _load_live_panel() -> tuple[pd.DataFrame, list[str]]:
+def _refresh_live_alpha_snapshot_once() -> None:
+    script_path = LIVE_ALPHA_REFRESH_SCRIPT if LIVE_ALPHA_REFRESH_SCRIPT.is_absolute() else (ROOT / LIVE_ALPHA_REFRESH_SCRIPT)
+    if not script_path.exists():
+        raise FileNotFoundError(f"LIVE_ALPHA_REFRESH_SCRIPT not found: {script_path}")
+    cmd = [sys.executable, str(script_path)]
+    print(f"[REFRESH] live alpha snapshot via: {' '.join(cmd)}")
+    completed = subprocess.run(cmd, cwd=str(ROOT))
+    if completed.returncode != 0:
+        raise RuntimeError(f"Live alpha refresh failed rc={completed.returncode} script={script_path}")
+
+
+def _load_selected_universe() -> Tuple[Set[str], pd.Timestamp | None, int, str | None]:
+    _must_exist(UNIVERSE_SNAPSHOT_FILE, "Universe snapshot")
+    df = pd.read_parquet(UNIVERSE_SNAPSHOT_FILE)
+    if df.empty:
+        raise RuntimeError("Universe snapshot is empty")
+    if "ticker" in df.columns:
+        sym_col = "ticker"
+    elif "symbol" in df.columns:
+        sym_col = "symbol"
+    else:
+        raise RuntimeError(f"Universe snapshot missing ticker/symbol column: {UNIVERSE_SNAPSHOT_FILE}")
+    date_col = "trade_date" if "trade_date" in df.columns else ("date" if "date" in df.columns else None)
+    if date_col is not None:
+        df[date_col] = pd.to_datetime(df[date_col], errors="coerce").dt.normalize()
+        valid = df[date_col].dropna()
+        universe_date = pd.Timestamp(valid.max()).normalize() if len(valid) else None
+        if universe_date is not None:
+            df = df.loc[df[date_col] == universe_date].copy()
+    else:
+        universe_date = None
+    selected_col = "selected" if "selected" in df.columns else None
+    if selected_col is None:
+        raise RuntimeError(f"Universe snapshot missing selected column: {UNIVERSE_SNAPSHOT_FILE}")
+    selected_mask = df[selected_col].astype(bool) if pd.api.types.is_bool_dtype(df[selected_col]) else df[selected_col].astype(str).str.strip().str.lower().isin({"1", "true", "yes", "y", "on"})
+    df = df.loc[selected_mask].copy()
+    df[sym_col] = df[sym_col].astype(str).str.upper()
+    selected_symbols = set(df[sym_col].tolist())
+    return selected_symbols, universe_date, int(len(df)), sym_col
+
+
+def _load_live_snapshot_df() -> pd.DataFrame:
     _must_exist(LIVE_ALPHA_SNAPSHOT_FILE, "Live alpha snapshot")
     df = pd.read_parquet(LIVE_ALPHA_SNAPSHOT_FILE)
     if df.empty:
@@ -319,11 +300,76 @@ def _load_live_panel() -> tuple[pd.DataFrame, list[str]]:
         raise RuntimeError(f"Target column not found: {TARGET_COL}")
     df["date"] = pd.to_datetime(df["date"]).dt.normalize()
     df["symbol"] = df["symbol"].astype(str).str.upper()
+    return df.sort_values(["date", "symbol"]).reset_index(drop=True)
+
+
+def _diagnose_universe_vs_live(df: pd.DataFrame, selected_universe: Set[str], universe_date: pd.Timestamp | None, universe_symbol_col: str | None) -> Dict[str, object]:
     alpha_cols = [str(c) for c in df.columns if str(c).startswith("alpha_")]
-    if not alpha_cols:
-        raise RuntimeError("No alpha_ columns found in live alpha snapshot")
-    df = df.sort_values(["date", "symbol"]).reset_index(drop=True)
-    return df, alpha_cols
+    latest_live_date = pd.Timestamp(df["date"].max()).normalize()
+    symbols_current = set(df.loc[df["date"] == latest_live_date, "symbol"].astype(str).tolist())
+    present_current = selected_universe & symbols_current
+    missing_current = selected_universe - symbols_current
+    survival_ratio = (len(present_current) / len(selected_universe)) if selected_universe else 0.0
+    return {
+        "df": df,
+        "alpha_cols": alpha_cols,
+        "latest_live_date": latest_live_date,
+        "selected_universe": selected_universe,
+        "universe_date": universe_date,
+        "universe_symbol_col": universe_symbol_col,
+        "symbols_current": symbols_current,
+        "present_current": present_current,
+        "missing_current": missing_current,
+        "survival_ratio": survival_ratio,
+    }
+
+
+def _load_live_panel() -> tuple[pd.DataFrame, list[str], Dict[str, object]]:
+    selected_universe, universe_date, universe_selected_current, universe_symbol_col = _load_selected_universe()
+    if REQUIRE_UNIVERSE_FILTER and not selected_universe:
+        raise RuntimeError("Selected universe is empty")
+
+    df = _load_live_snapshot_df()
+    diag_state = _diagnose_universe_vs_live(df, selected_universe, universe_date, universe_symbol_col)
+    latest_live_date = pd.Timestamp(diag_state["latest_live_date"]).normalize()
+
+    if REQUIRE_UNIVERSE_CURRENT_DATE_MATCH and universe_date is not None and latest_live_date != universe_date:
+        if AUTO_REFRESH_LIVE_ALPHA_ON_DATE_MISMATCH:
+            print(f"[UNIVERSE_FILTER][REFRESH] date mismatch detected universe_date={universe_date.date()} live_date={latest_live_date.date()} -> refreshing live alpha snapshot")
+            _refresh_live_alpha_snapshot_once()
+            df = _load_live_snapshot_df()
+            diag_state = _diagnose_universe_vs_live(df, selected_universe, universe_date, universe_symbol_col)
+            latest_live_date = pd.Timestamp(diag_state['latest_live_date']).normalize()
+        if universe_date is not None and latest_live_date != universe_date:
+            raise RuntimeError(f"Universe/live snapshot date mismatch: universe_date={universe_date.date()} live_date={latest_live_date.date()}")
+
+    survival_ratio = float(diag_state["survival_ratio"])
+    if REQUIRE_UNIVERSE_FILTER and survival_ratio < MIN_UNIVERSE_SURVIVAL_RATIO:
+        raise RuntimeError(f"Universe survival ratio too low: {survival_ratio:.4f} < {MIN_UNIVERSE_SURVIVAL_RATIO:.4f}")
+
+    filtered_df = df.loc[df["symbol"].isin(selected_universe)].copy() if REQUIRE_UNIVERSE_FILTER else df.copy()
+    alpha_cols = list(diag_state["alpha_cols"])
+    diag = {
+        "universe_filter_applied": int(REQUIRE_UNIVERSE_FILTER),
+        "universe_symbol_col": universe_symbol_col,
+        "universe_current_date": universe_date.date().isoformat() if universe_date is not None else None,
+        "universe_selected_current": int(len(selected_universe)),
+        "universe_present_in_panel_current": int(len(diag_state["present_current"])),
+        "universe_missing_in_panel_current": int(len(diag_state["missing_current"])),
+        "universe_survival_ratio_current": survival_ratio,
+        "panel_rows_before_filter": int(len(df)),
+        "panel_rows_after_filter": int(len(filtered_df)),
+        "panel_symbols_before_filter": int(df["symbol"].nunique()),
+        "panel_symbols_after_filter": int(filtered_df["symbol"].nunique()),
+        "live_snapshot_current_date": latest_live_date.date().isoformat(),
+        "live_snapshot_auto_refreshed": int(AUTO_REFRESH_LIVE_ALPHA_ON_DATE_MISMATCH),
+    }
+    print(
+        "[UNIVERSE_FILTER] "
+        f"applied={diag['universe_filter_applied']} universe_selected_current={diag['universe_selected_current']} present_in_panel_current={diag['universe_present_in_panel_current']} "
+        f"missing_in_panel_current={diag['universe_missing_in_panel_current']} survival_ratio_current={diag['universe_survival_ratio_current']:.4f} panel_rows_before_filter={diag['panel_rows_before_filter']} panel_rows_after_filter={diag['panel_rows_after_filter']} live_snapshot_current_date={diag['live_snapshot_current_date']}"
+    )
+    return filtered_df, alpha_cols, diag
 
 
 def _select_components(df: pd.DataFrame, alpha_cols: Sequence[str], train_start: pd.Timestamp, train_end: pd.Timestamp) -> pd.DataFrame:
@@ -333,173 +379,99 @@ def _select_components(df: pd.DataFrame, alpha_cols: Sequence[str], train_start:
     rows: List[Dict[str, object]] = []
     for alpha_col in alpha_cols:
         signal = _cs_zscore_by_date(train_df, _num(train_df[alpha_col]))
-        scored = pd.DataFrame({
-            "date": train_df["date"].values,
-            "symbol": train_df["symbol"].values,
-            TARGET_COL: _num(train_df[TARGET_COL]).values,
-            "score": _num(signal).values,
-        })
+        scored = pd.DataFrame({"date": train_df["date"].values, "symbol": train_df["symbol"].values, TARGET_COL: _num(train_df[TARGET_COL]).values, "score": _num(signal).values})
         ic_df = _daily_ic_series(scored, "score", TARGET_COL, MIN_DAILY_IC_CS)
         if ic_df.empty:
             continue
-        sign_info = _sign_decision(ic_df)
-        rows.append({
-            "candidate": alpha_col,
-            "alpha": alpha_col,
-            "regime": "none",
-            "kind": "base",
-            **sign_info,
-        })
+        rows.append({"candidate": alpha_col, "alpha": alpha_col, "regime": "none", "kind": "base", **_sign_decision(ic_df)})
     comp = pd.DataFrame(rows)
     if comp.empty:
         raise RuntimeError("No valid factory alpha components survived train-window IC screening")
-    comp = comp.sort_values(["train_abs_mean_ic", "proxy_train_sharpe", "alpha"], ascending=[False, False, True]).reset_index(drop=True)
-    return comp.copy()
+    return comp.sort_values(["train_abs_mean_ic", "proxy_train_sharpe", "alpha"], ascending=[False, False, True]).reset_index(drop=True).copy()
 
 
 def _weight_from_train_info(train_info_df: pd.DataFrame, weighting_mode: str) -> pd.Series:
-    if weighting_mode == "sharpe":
-        w = _num(train_info_df["proxy_train_sharpe"]).abs().clip(lower=0.0)
-    else:
-        w = _num(train_info_df["train_abs_mean_ic"]).clip(lower=0.0)
+    w = _num(train_info_df["proxy_train_sharpe"]).abs().clip(lower=0.0) if weighting_mode == "sharpe" else _num(train_info_df["train_abs_mean_ic"]).clip(lower=0.0)
     if float(w.sum()) <= EPS:
         w = pd.Series(np.ones(len(train_info_df), dtype="float64"), index=train_info_df.index)
     return w / float(w.sum())
 
 
-def _portfolio_weights(train_info_df: pd.DataFrame, weighting_mode: str) -> Dict[str, float]:
-    w = _weight_from_train_info(train_info_df, weighting_mode=weighting_mode)
-    out: Dict[str, float] = {}
-    for idx, row in train_info_df.reset_index(drop=True).iterrows():
-        out[str(row["candidate"])] = float(w.iloc[idx])
-    return out
+def _build_walkforward_splits(date_series: pd.Series, train_days: int, test_days: int, step_days: int) -> List[WFSplit]:
+    dates = sorted(pd.to_datetime(date_series, errors="coerce").dropna().dt.normalize().unique().tolist())
+    if len(dates) < (train_days + test_days):
+        raise RuntimeError(f"Not enough dates for WF: {len(dates)} < train_days+test_days={train_days + test_days}")
+    splits: List[WFSplit] = []
+    fold_id = 0
+    start = 0
+    while True:
+        train_start_idx = start
+        train_end_idx = train_start_idx + train_days - 1
+        test_start_idx = train_end_idx + 1
+        test_end_idx = test_start_idx + test_days - 1
+        if test_end_idx >= len(dates):
+            break
+        fold_id += 1
+        splits.append(WFSplit(fold_id, pd.Timestamp(dates[train_start_idx]), pd.Timestamp(dates[train_end_idx]), pd.Timestamp(dates[test_start_idx]), pd.Timestamp(dates[test_end_idx])))
+        start += step_days
+    if not splits:
+        raise RuntimeError("No completed walk-forward splits generated")
+    return splits
 
 
 def _build_portfolio_scores(test_df: pd.DataFrame, component_info: pd.DataFrame, weighting_mode: str) -> pd.DataFrame:
     passthrough_cols = [c for c in FEATURE_BUDGET_COLS if c in test_df.columns]
     base_cols = ["date", "symbol", TARGET_COL] + passthrough_cols
     out = test_df[base_cols].copy()
-    score = pd.Series(0.0, index=out.index, dtype="float64")
-    weights = _portfolio_weights(component_info, weighting_mode=weighting_mode)
-    for _, row in component_info.iterrows():
+    weights = _weight_from_train_info(component_info, weighting_mode=weighting_mode).reset_index(drop=True)
+    score_accum = pd.Series(0.0, index=out.index, dtype="float64")
+    for idx, row in component_info.reset_index(drop=True).iterrows():
         alpha = str(row["alpha"])
-        candidate = str(row["candidate"])
-        sign_locked = float(row["train_sign_locked"])
-        sig = _cs_zscore_by_date(test_df, _num(test_df[alpha])).fillna(0.0) * sign_locked
-        out[f"signal__{candidate}"] = sig.values
-        score = score + float(weights[candidate]) * sig
-    out["score"] = score.values
+        sign = float(row["train_sign_locked"])
+        signal = _cs_zscore_by_date(test_df, _num(test_df[alpha]))
+        score_accum = score_accum + (_num(signal).fillna(0.0) * sign * float(weights.iloc[idx]))
+    out["score"] = score_accum.values
     return out
-
-
-def _normalize_weights_with_caps(book: pd.DataFrame, gross_target: float, weight_cap: float) -> pd.DataFrame:
-    out = book.copy()
-    raw = _num(out["score"]).fillna(0.0)
-    denom = float(raw.abs().sum())
-    if denom <= EPS:
-        out["weight"] = 0.0
-        return out
-    out["weight"] = gross_target * raw / denom
-    out["weight"] = out["weight"].clip(lower=-weight_cap, upper=weight_cap)
-    denom2 = float(_num(out["weight"]).abs().sum())
-    if denom2 > EPS:
-        out["weight"] = gross_target * _num(out["weight"]) / denom2
-    out["weight"] = out["weight"].clip(lower=-weight_cap, upper=weight_cap)
-    return out
-
-
-def _apply_regime_overlay(day: pd.DataFrame) -> pd.DataFrame:
-    if not all(col in day.columns for col in FEATURE_REGIME_COLS):
-        out = day.copy()
-        out["market_regime"] = "na"
-        out["regime_long_mult"] = 1.0
-        out["regime_short_mult"] = 1.0
-        out["regime_top_pct"] = 0.10
-        out["score_after_regime"] = _num(out["active_score"]).fillna(0.0)
-        return out
-    out = attach_regime_multipliers(day.copy())
-    active = _num(out["active_score"]).fillna(0.0)
-    long_mult = _num(out.get("regime_long_mult", pd.Series(1.0, index=out.index))).fillna(1.0)
-    short_mult = _num(out.get("regime_short_mult", pd.Series(1.0, index=out.index))).fillna(1.0)
-    out["score_after_regime"] = np.where(active > 0.0, active * long_mult, np.where(active < 0.0, active * short_mult, active))
-    return out
-
-
-def _apply_side_budget_overlay(book: pd.DataFrame, cfg: FreezeConfig) -> Tuple[pd.DataFrame, int]:
-    if not cfg.use_dynamic_side_budgets:
-        out = book.copy()
-        out["long_budget"] = 0.50
-        out["short_budget"] = 0.50
-        out["budget_signal_lag_days"] = cfg.budget_input_lag_days
-        return out, 0
-    if not all(col in book.columns for col in FEATURE_BUDGET_COLS):
-        out = book.copy()
-        out["long_budget"] = 0.50
-        out["short_budget"] = 0.50
-        out["budget_signal_lag_days"] = cfg.budget_input_lag_days
-        return out, 0
-    out = attach_dynamic_side_budgets(
-        book.copy(),
-        min_long_budget=cfg.min_long_budget,
-        max_long_budget=cfg.max_long_budget,
-        input_lag_days=cfg.budget_input_lag_days,
-    )
-    out = apply_side_budgets(out, weight_col="weight")
-    return out, 1
 
 
 def _build_portfolio(scored_df: pd.DataFrame, cfg: FreezeConfig) -> pd.DataFrame:
-    pieces: List[pd.DataFrame] = []
-    regime_days_used = 0
-    budget_days_used = 0
-    for dt, g in scored_df.groupby("date", sort=False):
-        day = g.copy()
-        day = day[[c for c in day.columns if c in (["date", "symbol", "score", TARGET_COL] + FEATURE_BUDGET_COLS)]].copy()
-        inertia_input = day[["date", "symbol", "score"]].copy()
-        inertia_out = apply_holding_inertia(inertia_input, enter_pct=cfg.enter_pct, exit_pct=cfg.exit_pct)
-        day = day.merge(inertia_out[["date", "symbol", "rank_pct", "side"]], on=["date", "symbol"], how="left")
-        day["active_score"] = _num(day["score"]).fillna(0.0) * _num(day["side"]).fillna(0.0)
-
-        if cfg.use_regime_overlay:
-            day = _apply_regime_overlay(day)
-            regime_days_used += 1 if "market_regime" in day.columns and (day["market_regime"] != "na").any() else 0
-            score_for_book = _num(day["score_after_regime"]).fillna(0.0)
-        else:
-            day["market_regime"] = "disabled"
-            day["regime_long_mult"] = 1.0
-            day["regime_short_mult"] = 1.0
-            day["regime_top_pct"] = 0.10
-            day["score_after_regime"] = _num(day["active_score"]).fillna(0.0)
-            score_for_book = _num(day["active_score"]).fillna(0.0)
-
-        book_input = day.copy()
-        book_input["score"] = score_for_book
-        book = _normalize_weights_with_caps(book_input, gross_target=cfg.gross_target, weight_cap=cfg.weight_cap)
-        book, budget_used = _apply_side_budget_overlay(book, cfg)
-        budget_days_used += int(budget_used)
-        book["regime_overlay_used"] = int(cfg.use_regime_overlay)
-        book["side_budget_overlay_used"] = int(budget_used)
-        pieces.append(book)
-
-    out = pd.concat(pieces, ignore_index=True).sort_values(["date", "symbol"]).reset_index(drop=True)
+    out = scored_df.copy().sort_values(["date", "score", "symbol"], ascending=[True, False, True]).reset_index(drop=True)
+    out = apply_holding_inertia(out, enter_pct=cfg.enter_pct, exit_pct=cfg.exit_pct)
+    out["side"] = _num(out["side"]).fillna(0.0)
+    out["abs_score"] = _num(out["score"]).abs().fillna(0.0)
+    out["signed_score"] = _num(out["score"]).fillna(0.0) * _num(out["side"]).fillna(0.0)
+    out["weight"] = 0.0
+    for dt, idx in out.groupby("date", sort=False).groups.items():
+        day = out.loc[idx].copy()
+        longs = day.loc[day["side"] > 0.0].copy()
+        shorts = day.loc[day["side"] < 0.0].copy()
+        if len(longs):
+            lw = _num(longs["abs_score"]).clip(lower=0.0)
+            lw = lw / float(lw.sum() + EPS)
+            out.loc[longs.index, "weight"] = (lw * (cfg.gross_target * 0.5)).clip(upper=cfg.weight_cap).values
+        if len(shorts):
+            sw = _num(shorts["abs_score"]).clip(lower=0.0)
+            sw = sw / float(sw.sum() + EPS)
+            out.loc[shorts.index, "weight"] = (-sw * (cfg.gross_target * 0.5)).clip(lower=-cfg.weight_cap).values
     out = cap_daily_turnover(out, weight_col="weight", max_daily_turnover=cfg.turnover_cap)
-    if "trade_abs_after" not in out.columns:
-        out["prev_weight"] = out.groupby("symbol", sort=False)["weight"].shift(1).fillna(0.0)
-        out["trade_delta"] = _num(out["weight"]) - _num(out["prev_weight"])
-        out["trade_abs_after"] = _num(out["trade_delta"]).abs()
-        out["cap_hit"] = 0
-    out["turnover"] = out.groupby("date", sort=False)["trade_abs_after"].transform("sum")
-    out["pnl_gross"] = _num(out["weight"]) * _num(out[TARGET_COL])
-    out["cost"] = (cfg.cost_bps / 10000.0) * _num(out["trade_abs_after"])
-    out["pnl_net"] = _num(out["pnl_gross"]) - _num(out["cost"])
-    out["config_turnover_cap"] = cfg.turnover_cap
-    out["config_gross_target"] = cfg.gross_target
-    out["config_weight_cap"] = cfg.weight_cap
-    out["config_enter_pct"] = cfg.enter_pct
-    out["config_exit_pct"] = cfg.exit_pct
-    out["config_weighting_mode"] = cfg.weighting_mode
-    out["diag_regime_days_used"] = regime_days_used
-    out["diag_budget_days_used"] = budget_days_used
+    if cfg.use_regime_overlay:
+        out = attach_regime_multipliers(out)
+        out["regime_overlay_used"] = 1
+    else:
+        out["regime_overlay_used"] = 0
+        out["market_regime"] = "neutral"
+    if cfg.use_dynamic_side_budgets:
+        out = attach_dynamic_side_budgets(out, min_long_budget=cfg.min_long_budget, max_long_budget=cfg.max_long_budget, input_lag_days=cfg.budget_input_lag_days)
+        out = apply_side_budgets(out, weight_col="weight")
+        out["side_budget_overlay_used"] = 1
+    else:
+        out["long_budget"] = 0.50
+        out["short_budget"] = 0.50
+        out["side_budget_overlay_used"] = 0
+    out["next_ret"] = _num(out[TARGET_COL]).fillna(0.0)
+    out["pnl_gross"] = _num(out["weight"]).fillna(0.0) * out["next_ret"]
+    out["turnover"] = out.groupby("date", sort=False)["trade_abs_after"].transform("max") if "trade_abs_after" in out.columns else 0.0
+    out["pnl_net"] = out["pnl_gross"] - ((cfg.cost_bps / 10000.0) * _num(out["trade_abs_after"]).fillna(0.0) if "trade_abs_after" in out.columns else 0.0)
     return out
 
 
@@ -536,20 +508,20 @@ def _summarize_daily(port_df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, flo
 
 
 def _select_components_for_config(component_info_all: pd.DataFrame, cfg: FreezeConfig) -> pd.DataFrame:
-    comp = component_info_all.copy()
-    sort_cols = ["train_abs_mean_ic", "proxy_train_sharpe", "alpha"]
-    ascending = [False, False, True] if cfg.weighting_mode != "sharpe" else [False, False, True]
-    comp = comp.sort_values(sort_cols, ascending=ascending).reset_index(drop=True)
+    comp = component_info_all.copy().sort_values(["train_abs_mean_ic", "proxy_train_sharpe", "alpha"], ascending=[False, False, True]).reset_index(drop=True)
     return comp.head(cfg.component_count).copy()
 
 
 def main() -> int:
     _enable_line_buffering()
     print(f"[CFG] live_alpha_snapshot_file={LIVE_ALPHA_SNAPSHOT_FILE}")
+    print(f"[CFG] universe_snapshot_file={UNIVERSE_SNAPSHOT_FILE}")
     print(f"[CFG] out_dir={OUT_DIR}")
+    print(f"[CFG] require_universe_filter={int(REQUIRE_UNIVERSE_FILTER)} require_universe_current_date_match={int(REQUIRE_UNIVERSE_CURRENT_DATE_MATCH)} min_universe_survival_ratio={MIN_UNIVERSE_SURVIVAL_RATIO:.4f}")
+    print(f"[CFG] auto_refresh_live_alpha_on_date_mismatch={int(AUTO_REFRESH_LIVE_ALPHA_ON_DATE_MISMATCH)} live_alpha_refresh_script={LIVE_ALPHA_REFRESH_SCRIPT}")
     print(f"[CFG] frozen wf={FREEZE_TRAIN_DAYS}/{FREEZE_TEST_DAYS}/{FREEZE_STEP_DAYS} components={FREEZE_COMPONENT_COUNT} weighting={FREEZE_WEIGHTING_MODE}")
 
-    df, alpha_cols = _load_live_panel()
+    df, alpha_cols, universe_diag = _load_live_panel()
     print(f"[DATA] rows={len(df)} symbols={df['symbol'].nunique()} alpha_cols={len(alpha_cols)} first_date={df['date'].min().date()} last_date={df['date'].max().date()}")
 
     splits = _build_walkforward_splits(df["date"], FREEZE_TRAIN_DAYS, FREEZE_TEST_DAYS, FREEZE_STEP_DAYS)
@@ -565,14 +537,9 @@ def main() -> int:
 
     summary_export: Dict[str, object] = {
         "last_data_date": str(pd.Timestamp(df["date"].max()).date()),
-        "last_completed_fold": {
-            "fold_id": int(current_split.fold_id),
-            "train_start": str(current_split.train_start.date()),
-            "train_end": str(current_split.train_end.date()),
-            "test_start": str(current_split.test_start.date()),
-            "test_end": str(current_split.test_end.date()),
-        },
+        "last_completed_fold": {"fold_id": int(current_split.fold_id), "train_start": str(current_split.train_start.date()), "train_end": str(current_split.train_end.date()), "test_start": str(current_split.test_start.date()), "test_end": str(current_split.test_end.date())},
         "component_selection_all": component_info_all.to_dict(orient="records"),
+        "universe_filter": universe_diag,
         "configs": {},
     }
 
@@ -634,21 +601,16 @@ def main() -> int:
             "live_gross_exposure_current_day": float(_num(live_book["weight"]).abs().sum()) if len(live_book) else 0.0,
             "mr_enabled_effective": 0,
             "mr_alpha_effective": None,
+            **universe_diag,
         }
         (cfg_dir / "freeze_current_summary.json").write_text(json.dumps(cfg_summary, ensure_ascii=False, indent=2), encoding="utf-8")
         summary_export["configs"][cfg.name] = cfg_summary
 
-        print(
-            f"[FREEZE][{cfg.name}] live_active_names={len(live_book)} live_gross_exposure={cfg_summary['live_gross_exposure_current_day']:.4f} "
-            f"replay_sharpe_last_fold={replay_summary['sharpe']:.4f} avg_turnover={replay_summary['avg_turnover']:.4f} avg_gross={replay_summary['avg_gross_exposure']:.4f}"
-        )
-        print(
-            f"[FREEZE][{cfg.name}][DIAG] use_regime_overlay={int(cfg.use_regime_overlay)} use_dynamic_side_budgets={int(cfg.use_dynamic_side_budgets)} "
-            f"enter_pct={cfg.enter_pct:.4f} exit_pct={cfg.exit_pct:.4f} gross_target={cfg.gross_target:.4f} weight_cap={cfg.weight_cap:.4f} turnover_cap={cfg.turnover_cap:.4f}"
-        )
+        print(f"[FREEZE][{cfg.name}] live_active_names={len(live_book)} live_gross_exposure={cfg_summary['live_gross_exposure_current_day']:.4f} replay_sharpe_last_fold={replay_summary['sharpe']:.4f} avg_turnover={replay_summary['avg_turnover']:.4f} avg_gross={replay_summary['avg_gross_exposure']:.4f}")
+        print(f"[FREEZE][{cfg.name}][UNIVERSE] applied={cfg_summary['universe_filter_applied']} selected_current={cfg_summary['universe_selected_current']} present_in_panel_current={cfg_summary['universe_present_in_panel_current']} survival_ratio_current={cfg_summary['universe_survival_ratio_current']:.4f} live_snapshot_current_date={cfg_summary['live_snapshot_current_date']}")
         if len(live_book):
-            print(f"[FREEZE][{cfg.name}][LIVE_BOOK_TOP]")
             show_cols = [c for c in ["symbol", "weight", "score", "side", "market_regime", "long_budget", "short_budget", "turnover"] if c in live_book.columns]
+            print(f"[FREEZE][{cfg.name}][LIVE_BOOK_TOP]")
             print(live_book[show_cols].head(min(TOPK_EXPORT, len(live_book))).to_string(index=False))
         else:
             print(f"[FREEZE][{cfg.name}][LIVE_BOOK_TOP] no active positions on live current date")
