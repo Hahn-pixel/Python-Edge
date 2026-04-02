@@ -101,6 +101,10 @@ REQUIRE_UNIVERSE_CURRENT_DATE_MATCH = str(os.getenv("REQUIRE_UNIVERSE_CURRENT_DA
 MIN_UNIVERSE_SURVIVAL_RATIO = float(os.getenv("MIN_UNIVERSE_SURVIVAL_RATIO", "0.90"))
 AUTO_REFRESH_LIVE_ALPHA_ON_DATE_MISMATCH = str(os.getenv("AUTO_REFRESH_LIVE_ALPHA_ON_DATE_MISMATCH", "1")).strip().lower() not in {"0", "false", "no", "off"}
 LIVE_ALPHA_REFRESH_SCRIPT = Path(os.getenv("LIVE_ALPHA_REFRESH_SCRIPT", "scripts/run_live_alpha_snapshot.py"))
+FREEZE_REQUIRE_POSITIVE_REPLAY_SHARPE = str(os.getenv("FREEZE_REQUIRE_POSITIVE_REPLAY_SHARPE", "0")).strip().lower() not in {"0", "false", "no", "off"}
+FREEZE_MIN_REPLAY_SHARPE = float(os.getenv("FREEZE_MIN_REPLAY_SHARPE", "0.00"))
+FREEZE_MIN_REPLAY_CUMRET = float(os.getenv("FREEZE_MIN_REPLAY_CUMRET", "0.00"))
+FREEZE_MIN_LIVE_ACTIVE_NAMES = int(os.getenv("FREEZE_MIN_LIVE_ACTIVE_NAMES", "1"))
 
 FREEZE_TRAIN_DAYS = int(os.getenv("FREEZE_TRAIN_DAYS", "120"))
 FREEZE_TEST_DAYS = int(os.getenv("FREEZE_TEST_DAYS", "20"))
@@ -512,6 +516,27 @@ def _select_components_for_config(component_info_all: pd.DataFrame, cfg: FreezeC
     return comp.head(cfg.component_count).copy()
 
 
+def _evaluate_live_gate(replay_summary: Dict[str, float], live_active_names: int) -> Tuple[int, str]:
+    reasons: List[str] = []
+    replay_sharpe = float(replay_summary.get("sharpe", float("nan")))
+    replay_cumret = float(replay_summary.get("cumret", float("nan")))
+    if int(live_active_names) < int(FREEZE_MIN_LIVE_ACTIVE_NAMES):
+        reasons.append(f"live_active_names<{FREEZE_MIN_LIVE_ACTIVE_NAMES}")
+    if np.isnan(replay_sharpe):
+        reasons.append("replay_sharpe_nan")
+    elif replay_sharpe < float(FREEZE_MIN_REPLAY_SHARPE):
+        reasons.append(f"replay_sharpe<{FREEZE_MIN_REPLAY_SHARPE:.4f}")
+    if FREEZE_REQUIRE_POSITIVE_REPLAY_SHARPE and replay_sharpe <= 0.0:
+        reasons.append("replay_sharpe_nonpositive")
+    if np.isnan(replay_cumret):
+        reasons.append("replay_cumret_nan")
+    elif replay_cumret < float(FREEZE_MIN_REPLAY_CUMRET):
+        reasons.append(f"replay_cumret<{FREEZE_MIN_REPLAY_CUMRET:.4f}")
+    if reasons:
+        return 0, "|".join(reasons)
+    return 1, "passed"
+
+
 def main() -> int:
     _enable_line_buffering()
     print(f"[CFG] live_alpha_snapshot_file={LIVE_ALPHA_SNAPSHOT_FILE}")
@@ -519,6 +544,7 @@ def main() -> int:
     print(f"[CFG] out_dir={OUT_DIR}")
     print(f"[CFG] require_universe_filter={int(REQUIRE_UNIVERSE_FILTER)} require_universe_current_date_match={int(REQUIRE_UNIVERSE_CURRENT_DATE_MATCH)} min_universe_survival_ratio={MIN_UNIVERSE_SURVIVAL_RATIO:.4f}")
     print(f"[CFG] auto_refresh_live_alpha_on_date_mismatch={int(AUTO_REFRESH_LIVE_ALPHA_ON_DATE_MISMATCH)} live_alpha_refresh_script={LIVE_ALPHA_REFRESH_SCRIPT}")
+    print(f"[CFG] freeze_require_positive_replay_sharpe={int(FREEZE_REQUIRE_POSITIVE_REPLAY_SHARPE)} freeze_min_replay_sharpe={FREEZE_MIN_REPLAY_SHARPE:.4f} freeze_min_replay_cumret={FREEZE_MIN_REPLAY_CUMRET:.4f} freeze_min_live_active_names={FREEZE_MIN_LIVE_ACTIVE_NAMES}")
     print(f"[CFG] frozen wf={FREEZE_TRAIN_DAYS}/{FREEZE_TEST_DAYS}/{FREEZE_STEP_DAYS} components={FREEZE_COMPONENT_COUNT} weighting={FREEZE_WEIGHTING_MODE}")
 
     df, alpha_cols, universe_diag = _load_live_panel()
@@ -559,12 +585,18 @@ def main() -> int:
 
         live_scored = _build_portfolio_scores(live_df, component_info, weighting_mode=cfg.weighting_mode)
         live_port = _build_portfolio(live_scored, cfg)
-        live_book = live_port.loc[live_port["date"] == live_current_date].copy().sort_values(["weight", "symbol"], ascending=[False, True])
-        live_book["abs_weight"] = _num(live_book["weight"]).abs()
-        live_book = live_book.loc[live_book["abs_weight"] > 0.0].reset_index(drop=True)
+        live_book_raw = live_port.loc[live_port["date"] == live_current_date].copy().sort_values(["weight", "symbol"], ascending=[False, True])
+        live_book_raw["abs_weight"] = _num(live_book_raw["weight"]).abs()
+        live_book_raw = live_book_raw.loc[live_book_raw["abs_weight"] > 0.0].reset_index(drop=True)
         live_scores = live_scored.copy()
         live_scores["score_rank_pct"] = live_scores["score"].rank(method="average", pct=True)
         live_scores = live_scores.sort_values(["score", "symbol"], ascending=[False, True]).reset_index(drop=True)
+
+        live_gate_passed, live_gate_reason = _evaluate_live_gate(replay_summary, int(len(live_book_raw)))
+        if live_gate_passed:
+            live_book = live_book_raw.copy()
+        else:
+            live_book = live_book_raw.iloc[0:0].copy()
 
         cfg_dir = OUT_DIR / cfg.name
         cfg_dir.mkdir(parents=True, exist_ok=True)
@@ -597,7 +629,12 @@ def main() -> int:
             "live_current_date": str(live_current_date.date()),
             "weights": {str(component_info.iloc[i]["alpha"]): float(weight_series.iloc[i]) for i in range(len(component_info))},
             "replay_evaluation": replay_summary,
+            "replay_sharpe_last_fold": float(replay_summary.get("sharpe", float("nan"))),
+            "replay_cumret_last_fold": float(replay_summary.get("cumret", float("nan"))),
+            "live_active_names_raw": int(len(live_book_raw)),
             "live_active_names": int(len(live_book)),
+            "live_gate_passed": int(live_gate_passed),
+            "live_gate_reason": live_gate_reason,
             "live_gross_exposure_current_day": float(_num(live_book["weight"]).abs().sum()) if len(live_book) else 0.0,
             "mr_enabled_effective": 0,
             "mr_alpha_effective": None,
@@ -606,14 +643,14 @@ def main() -> int:
         (cfg_dir / "freeze_current_summary.json").write_text(json.dumps(cfg_summary, ensure_ascii=False, indent=2), encoding="utf-8")
         summary_export["configs"][cfg.name] = cfg_summary
 
-        print(f"[FREEZE][{cfg.name}] live_active_names={len(live_book)} live_gross_exposure={cfg_summary['live_gross_exposure_current_day']:.4f} replay_sharpe_last_fold={replay_summary['sharpe']:.4f} avg_turnover={replay_summary['avg_turnover']:.4f} avg_gross={replay_summary['avg_gross_exposure']:.4f}")
+        print(f"[FREEZE][{cfg.name}] live_active_names_raw={len(live_book_raw)} live_active_names={len(live_book)} live_gate_passed={live_gate_passed} live_gate_reason={live_gate_reason} replay_sharpe_last_fold={replay_summary['sharpe']:.4f} replay_cumret_last_fold={replay_summary['cumret']:.4f} avg_turnover={replay_summary['avg_turnover']:.4f} avg_gross={replay_summary['avg_gross_exposure']:.4f}")
         print(f"[FREEZE][{cfg.name}][UNIVERSE] applied={cfg_summary['universe_filter_applied']} selected_current={cfg_summary['universe_selected_current']} present_in_panel_current={cfg_summary['universe_present_in_panel_current']} survival_ratio_current={cfg_summary['universe_survival_ratio_current']:.4f} live_snapshot_current_date={cfg_summary['live_snapshot_current_date']}")
         if len(live_book):
             show_cols = [c for c in ["symbol", "weight", "score", "side", "market_regime", "long_budget", "short_budget", "turnover"] if c in live_book.columns]
             print(f"[FREEZE][{cfg.name}][LIVE_BOOK_TOP]")
             print(live_book[show_cols].head(min(TOPK_EXPORT, len(live_book))).to_string(index=False))
         else:
-            print(f"[FREEZE][{cfg.name}][LIVE_BOOK_TOP] no active positions on live current date")
+            print(f"[FREEZE][{cfg.name}][LIVE_BOOK_TOP] blocked by live gate")
 
     (OUT_DIR / "freeze_all_configs_summary.json").write_text(json.dumps(summary_export, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"[ARTIFACT] {OUT_DIR / 'freeze_all_configs_summary.json'}")

@@ -19,11 +19,12 @@ REQUIRE_FRESH_FREEZE_DATE_MATCH = str(os.getenv("REQUIRE_FRESH_FREEZE_DATE_MATCH
 RUN_BROKER_HANDOFF = str(os.getenv("RUN_BROKER_HANDOFF", "1")).strip().lower() not in {"0", "false", "no", "off"}
 REQUIRE_FREEZE_UNIVERSE_FILTER = str(os.getenv("REQUIRE_FREEZE_UNIVERSE_FILTER", "1")).strip().lower() not in {"0", "false", "no", "off"}
 MIN_FREEZE_UNIVERSE_SURVIVAL_RATIO = float(os.getenv("MIN_FREEZE_UNIVERSE_SURVIVAL_RATIO", "0.90"))
+REQUIRE_FREEZE_LIVE_GATE_PASSED = str(os.getenv("REQUIRE_FREEZE_LIVE_GATE_PASSED", "1")).strip().lower() not in {"0", "false", "no", "off"}
+REQUIRE_ANY_REPLAY_GATE_PASS = str(os.getenv("REQUIRE_ANY_REPLAY_GATE_PASS", "1")).strip().lower() not in {"0", "false", "no", "off"}
 
 UNIVERSE_SNAPSHOT_FILE = Path(os.getenv("UNIVERSE_SNAPSHOT_FILE", "artifacts/daily_cycle/universe/universe_snapshot.parquet"))
 UNIVERSE_SUMMARY_FILE = Path(os.getenv("UNIVERSE_SUMMARY_FILE", "artifacts/daily_cycle/universe/universe_summary.json"))
 LIVE_ALPHA_SNAPSHOT_FILE = Path(os.getenv("LIVE_ALPHA_SNAPSHOT_FILE", "artifacts/live_alpha/live_alpha_snapshot.parquet"))
-FREEZE_ALL_SUMMARY_FILE = Path(os.getenv("FREEZE_ALL_SUMMARY_FILE", "artifacts/freeze_runner/freeze_all_configs_summary.json"))
 TOP_MISSING_SYMBOLS = int(os.getenv("TOP_MISSING_SYMBOLS", "25"))
 
 SYMBOL_COLUMN_CANDIDATES = ["symbol", "ticker", "sym", "Symbol", "Ticker", "SYM"]
@@ -216,6 +217,16 @@ def _safe_int(payload: Dict[str, Any], key: str) -> int | None:
         return None
 
 
+def _safe_float(payload: Dict[str, Any], key: str) -> float | None:
+    value = payload.get(key)
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except Exception:
+        return None
+
+
 def _print_symbol_preview(tag: str, symbols: Sequence[str]) -> None:
     if not symbols:
         print(f"{tag} none")
@@ -334,9 +345,12 @@ def _diagnose_freeze_stage(live_diag: Dict[str, Any]) -> Dict[str, Any]:
             "[GATE] "
             f"config={row.get('config')} live_current_date={row.get('live_current_date')} freeze_live_active_names={row.get('live_active_names')} "
             f"universe_filter_applied={row.get('universe_filter_applied')} universe_selected_current={row.get('universe_selected_current')} "
-            f"universe_present_in_panel_current={row.get('universe_present_in_panel_current')} universe_survival_ratio_current={row.get('universe_survival_ratio_current')}"
+            f"universe_present_in_panel_current={row.get('universe_present_in_panel_current')} universe_survival_ratio_current={row.get('universe_survival_ratio_current')} "
+            f"live_gate_passed={row.get('live_gate_passed')} live_gate_reason={row.get('live_gate_reason')} replay_sharpe_last_fold={row.get('replay_sharpe_last_fold')} replay_cumret_last_fold={row.get('replay_cumret_last_fold')}"
         )
     any_live_names = any(int(row.get("live_active_names", 0) or 0) > 0 for row in summaries)
+    any_replay_gate_pass = any(bool(int(row.get("live_gate_passed", 0) or 0)) for row in summaries)
+    all_live_gate_passed = all(bool(int(row.get("live_gate_passed", 0) or 0)) for row in summaries)
     live_dates = {str(row.get("live_current_date", "")).strip() for row in summaries if str(row.get("live_current_date", "")).strip()}
     dates_match = len(live_dates) == 1
     universe_filter_ok = all(bool(int(row.get("universe_filter_applied", 0) or 0)) for row in summaries)
@@ -344,6 +358,8 @@ def _diagnose_freeze_stage(live_diag: Dict[str, Any]) -> Dict[str, Any]:
     freeze_diag = {
         "config_count": len(summaries),
         "any_live_names": bool(any_live_names),
+        "any_replay_gate_pass": bool(any_replay_gate_pass),
+        "all_live_gate_passed": bool(all_live_gate_passed),
         "live_dates": sorted(live_dates),
         "dates_match": bool(dates_match),
         "universe_filter_ok": bool(universe_filter_ok),
@@ -372,6 +388,12 @@ def _freeze_gate_allows_execution_from_diag(freeze_diag: Dict[str, Any]) -> bool
     if REQUIRE_FREEZE_UNIVERSE_FILTER and float(freeze_diag.get("min_universe_survival_ratio", 0.0)) < float(MIN_FREEZE_UNIVERSE_SURVIVAL_RATIO):
         print(f"[GATE][BLOCK] min universe survival ratio below threshold -> {freeze_diag.get('min_universe_survival_ratio')} < {MIN_FREEZE_UNIVERSE_SURVIVAL_RATIO}")
         return False
+    if REQUIRE_FREEZE_LIVE_GATE_PASSED and not bool(freeze_diag.get("all_live_gate_passed", False)):
+        print("[GATE][BLOCK] at least one freeze config failed live quality gate")
+        return False
+    if REQUIRE_ANY_REPLAY_GATE_PASS and not bool(freeze_diag.get("any_replay_gate_pass", False)):
+        print("[GATE][BLOCK] no freeze config passed replay/live quality gate")
+        return False
     return True
 
 
@@ -380,6 +402,7 @@ def main() -> int:
     print(f"[CFG] configs={CONFIG_NAMES}")
     print(f"[CFG] require_any_live_active_names={int(REQUIRE_ANY_LIVE_ACTIVE_NAMES)} require_fresh_freeze_date_match={int(REQUIRE_FRESH_FREEZE_DATE_MATCH)} run_broker_handoff={int(RUN_BROKER_HANDOFF)}")
     print(f"[CFG] require_freeze_universe_filter={int(REQUIRE_FREEZE_UNIVERSE_FILTER)} min_freeze_universe_survival_ratio={MIN_FREEZE_UNIVERSE_SURVIVAL_RATIO:.4f}")
+    print(f"[CFG] require_freeze_live_gate_passed={int(REQUIRE_FREEZE_LIVE_GATE_PASSED)} require_any_replay_gate_pass={int(REQUIRE_ANY_REPLAY_GATE_PASS)}")
     print("[STEP] universe builder")
     _run_step("scripts/run_universe_builder.py")
     universe_diag = _diagnose_universe_stage()
