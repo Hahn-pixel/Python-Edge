@@ -111,6 +111,8 @@ FREEZE_MIN_COMPONENT_ABS_MEAN_IC = float(os.getenv("FREEZE_MIN_COMPONENT_ABS_MEA
 FREEZE_BASKET_CANDIDATE_POOL = int(os.getenv("FREEZE_BASKET_CANDIDATE_POOL", "8"))
 FREEZE_BASKET_MAX_COMBOS = int(os.getenv("FREEZE_BASKET_MAX_COMBOS", "40"))
 FREEZE_BASKET_MIN_UNIQUE_ALPHAS = int(os.getenv("FREEZE_BASKET_MIN_UNIQUE_ALPHAS", "4"))
+FREEZE_SIGN_SOURCE = str(os.getenv("FREEZE_SIGN_SOURCE", "last_fold")).strip().lower()
+FREEZE_REQUIRE_RECENT_SIGN = str(os.getenv("FREEZE_REQUIRE_RECENT_SIGN", "0")).strip().lower() not in {"0", "false", "no", "off"}
 
 FREEZE_TRAIN_DAYS = int(os.getenv("FREEZE_TRAIN_DAYS", "120"))
 FREEZE_TEST_DAYS = int(os.getenv("FREEZE_TEST_DAYS", "20"))
@@ -249,12 +251,57 @@ def _daily_ic_series(frame: pd.DataFrame, factor_col: str, target_col: str, min_
 
 def _sign_decision(train_ic_df: pd.DataFrame) -> Dict[str, float]:
     if train_ic_df.empty:
-        return {"train_abs_mean_ic": float("nan"), "train_sign_locked": 1.0, "proxy_train_sharpe": float("nan")}
+        return {"train_abs_mean_ic": float("nan"), "train_mean_ic": float("nan"), "train_sign_locked": 1.0, "proxy_train_sharpe": float("nan")}
     mean_ic = float(train_ic_df["daily_ic"].mean())
     sign_locked = 1.0 if mean_ic >= 0.0 else -1.0
     std_ic = float(pd.to_numeric(train_ic_df["daily_ic"], errors="coerce").std(ddof=0))
     proxy_train_sharpe = float((mean_ic / (std_ic + EPS)) * np.sqrt(252.0))
-    return {"train_abs_mean_ic": float(train_ic_df["daily_ic"].abs().mean()), "train_sign_locked": sign_locked, "proxy_train_sharpe": proxy_train_sharpe}
+    return {
+        "train_abs_mean_ic": float(train_ic_df["daily_ic"].abs().mean()),
+        "train_mean_ic": mean_ic,
+        "train_sign_locked": sign_locked,
+        "proxy_train_sharpe": proxy_train_sharpe,
+    }
+
+
+def _recent_sign_decision(ic_df: pd.DataFrame) -> Dict[str, float | int]:
+    if ic_df.empty:
+        return {
+            "last_fold_abs_mean_ic": float("nan"),
+            "last_fold_mean_ic": float("nan"),
+            "last_fold_proxy_sharpe": float("nan"),
+            "last_fold_sign_locked": float("nan"),
+            "last_fold_sign_available": 0,
+        }
+    mean_ic = float(ic_df["daily_ic"].mean())
+    std_ic = float(pd.to_numeric(ic_df["daily_ic"], errors="coerce").std(ddof=0))
+    return {
+        "last_fold_abs_mean_ic": float(ic_df["daily_ic"].abs().mean()),
+        "last_fold_mean_ic": mean_ic,
+        "last_fold_proxy_sharpe": float((mean_ic / (std_ic + EPS)) * np.sqrt(252.0)),
+        "last_fold_sign_locked": 1.0 if mean_ic >= 0.0 else -1.0,
+        "last_fold_sign_available": 1,
+    }
+
+
+def _resolve_effective_sign(row: pd.Series) -> Tuple[float, str]:
+    train_sign = float(row.get("train_sign_locked", 1.0))
+    last_fold_sign = row.get("last_fold_sign_locked", np.nan)
+    last_fold_available = bool(int(row.get("last_fold_sign_available", 0) or 0)) and pd.notna(last_fold_sign)
+    sign_source = FREEZE_SIGN_SOURCE
+    if sign_source == "train":
+        return train_sign, "train_ic"
+    if sign_source == "train_x_last_fold":
+        if last_fold_available:
+            return float(train_sign * float(last_fold_sign)), "train_x_last_fold_ic"
+        return train_sign, "train_ic_fallback"
+    if sign_source == "last_fold":
+        if last_fold_available:
+            return float(last_fold_sign), "last_fold_ic"
+        if FREEZE_REQUIRE_RECENT_SIGN:
+            return float("nan"), "last_fold_ic_missing"
+        return train_sign, "train_ic_fallback"
+    return train_sign, "train_ic_default"
 
 
 def _refresh_live_alpha_snapshot_once() -> None:
@@ -328,7 +375,7 @@ def _diagnose_universe_vs_live(df: pd.DataFrame, selected_universe: Set[str], un
 
 
 def _load_live_panel() -> tuple[pd.DataFrame, list[str], Dict[str, object]]:
-    selected_universe, universe_date, universe_selected_current, universe_symbol_col = _load_selected_universe()
+    selected_universe, universe_date, _, universe_symbol_col = _load_selected_universe()
     if REQUIRE_UNIVERSE_FILTER and not selected_universe:
         raise RuntimeError("Selected universe is empty")
     df = _load_live_snapshot_df()
@@ -389,6 +436,27 @@ def _select_components(df: pd.DataFrame, alpha_cols: Sequence[str], train_start:
     return comp.sort_values(["train_abs_mean_ic", "proxy_train_sharpe", "alpha"], ascending=[False, False, True]).reset_index(drop=True).copy()
 
 
+def _attach_last_fold_sign_info(component_info: pd.DataFrame, replay_df: pd.DataFrame) -> pd.DataFrame:
+    out = component_info.copy()
+    recent_rows: List[Dict[str, object]] = []
+    for _, row in out.iterrows():
+        alpha_col = str(row["alpha"])
+        signal = _cs_zscore_by_date(replay_df, _num(replay_df[alpha_col]))
+        scored = pd.DataFrame({"date": replay_df["date"].values, "symbol": replay_df["symbol"].values, TARGET_COL: _num(replay_df[TARGET_COL]).values, "score": _num(signal).values})
+        ic_df = _daily_ic_series(scored, "score", TARGET_COL, MIN_DAILY_IC_CS)
+        recent = _recent_sign_decision(ic_df)
+        effective_sign_locked, sign_source_used = _resolve_effective_sign(pd.Series({**row.to_dict(), **recent}))
+        recent_rows.append({
+            "alpha": alpha_col,
+            **recent,
+            "effective_sign_locked": effective_sign_locked,
+            "sign_source_used": sign_source_used,
+        })
+    recent_df = pd.DataFrame(recent_rows)
+    out = out.merge(recent_df, on="alpha", how="left")
+    return out
+
+
 def _weight_from_train_info(train_info_df: pd.DataFrame, weighting_mode: str) -> pd.Series:
     w = _num(train_info_df["proxy_train_sharpe"]).abs().clip(lower=0.0) if weighting_mode == "sharpe" else _num(train_info_df["train_abs_mean_ic"]).clip(lower=0.0)
     if float(w.sum()) <= EPS:
@@ -426,7 +494,8 @@ def _build_portfolio_scores(test_df: pd.DataFrame, component_info: pd.DataFrame,
     score_accum = pd.Series(0.0, index=out.index, dtype="float64")
     for idx, row in component_info.reset_index(drop=True).iterrows():
         alpha = str(row["alpha"])
-        sign = float(row["train_sign_locked"])
+        sign = row.get("effective_sign_locked", row.get("train_sign_locked", 1.0))
+        sign = float(sign) if pd.notna(sign) else float(row.get("train_sign_locked", 1.0))
         signal = _cs_zscore_by_date(test_df, _num(test_df[alpha]))
         score_accum = score_accum + (_num(signal).fillna(0.0) * sign * float(weights.iloc[idx]))
     out["score"] = score_accum.values
@@ -522,9 +591,7 @@ def _basket_search(pool_df: pd.DataFrame, replay_df: pd.DataFrame, cfg: FreezeCo
         raise RuntimeError("Basket search received empty component pool")
     choose_k = min(int(cfg.component_count), len(pool_df))
     rows: List[Dict[str, object]] = []
-    combo_counter = 0
     for combo in combinations(list(pool_df.index), choose_k):
-        combo_counter += 1
         chosen = pool_df.loc[list(combo)].copy().reset_index(drop=True)
         if chosen["alpha"].nunique() < min(int(FREEZE_BASKET_MIN_UNIQUE_ALPHAS), choose_k):
             continue
@@ -537,6 +604,8 @@ def _basket_search(pool_df: pd.DataFrame, replay_df: pd.DataFrame, cfg: FreezeCo
             "component_count": int(len(chosen)),
             "train_abs_mean_ic_avg": float(_num(chosen["train_abs_mean_ic"]).mean()),
             "proxy_train_sharpe_avg": float(_num(chosen["proxy_train_sharpe"]).mean()),
+            "last_fold_abs_mean_ic_avg": float(_num(chosen["last_fold_abs_mean_ic"]).mean()),
+            "last_fold_proxy_sharpe_avg": float(_num(chosen["last_fold_proxy_sharpe"]).mean()),
             "replay_sharpe_last_fold": float(replay_summary.get("sharpe", float("nan"))),
             "replay_cumret_last_fold": float(replay_summary.get("cumret", float("nan"))),
             "replay_max_drawdown_last_fold": float(replay_summary.get("max_drawdown", float("nan"))),
@@ -555,6 +624,8 @@ def _basket_search(pool_df: pd.DataFrame, replay_df: pd.DataFrame, cfg: FreezeCo
             "component_count": int(len(fallback)),
             "train_abs_mean_ic_avg": float(_num(fallback["train_abs_mean_ic"]).mean()),
             "proxy_train_sharpe_avg": float(_num(fallback["proxy_train_sharpe"]).mean()),
+            "last_fold_abs_mean_ic_avg": float(_num(fallback["last_fold_abs_mean_ic"]).mean()),
+            "last_fold_proxy_sharpe_avg": float(_num(fallback["last_fold_proxy_sharpe"]).mean()),
             "replay_sharpe_last_fold": float(replay_summary.get("sharpe", float("nan"))),
             "replay_cumret_last_fold": float(replay_summary.get("cumret", float("nan"))),
             "replay_max_drawdown_last_fold": float(replay_summary.get("max_drawdown", float("nan"))),
@@ -565,9 +636,10 @@ def _basket_search(pool_df: pd.DataFrame, replay_df: pd.DataFrame, cfg: FreezeCo
         "replay_sharpe_last_fold",
         "replay_cumret_last_fold",
         "replay_max_drawdown_last_fold",
+        "last_fold_abs_mean_ic_avg",
         "train_abs_mean_ic_avg",
         "proxy_train_sharpe_avg",
-    ], ascending=[False, False, False, False, False]).reset_index(drop=True)
+    ], ascending=[False, False, False, False, False, False]).reset_index(drop=True)
     best_alpha_list = str(basket_df.iloc[0]["alpha_list"])
     best_alphas = best_alpha_list.split("|") if best_alpha_list else []
     best = pool_df.loc[pool_df["alpha"].astype(str).isin(best_alphas)].copy().drop_duplicates(subset=["alpha"]).reset_index(drop=True)
@@ -604,6 +676,7 @@ def main() -> int:
     print(f"[CFG] auto_refresh_live_alpha_on_date_mismatch={int(AUTO_REFRESH_LIVE_ALPHA_ON_DATE_MISMATCH)} live_alpha_refresh_script={LIVE_ALPHA_REFRESH_SCRIPT}")
     print(f"[CFG] freeze_require_positive_replay_sharpe={int(FREEZE_REQUIRE_POSITIVE_REPLAY_SHARPE)} freeze_min_replay_sharpe={FREEZE_MIN_REPLAY_SHARPE:.4f} freeze_min_replay_cumret={FREEZE_MIN_REPLAY_CUMRET:.4f} freeze_min_live_active_names={FREEZE_MIN_LIVE_ACTIVE_NAMES}")
     print(f"[CFG] component_prefilter min_proxy_train_sharpe={FREEZE_MIN_COMPONENT_PROXY_TRAIN_SHARPE:.4f} min_abs_mean_ic={FREEZE_MIN_COMPONENT_ABS_MEAN_IC:.6f} basket_candidate_pool={FREEZE_BASKET_CANDIDATE_POOL} basket_max_combos={FREEZE_BASKET_MAX_COMBOS}")
+    print(f"[CFG] sign_source={FREEZE_SIGN_SOURCE} require_recent_sign={int(FREEZE_REQUIRE_RECENT_SIGN)}")
     print(f"[CFG] frozen wf={FREEZE_TRAIN_DAYS}/{FREEZE_TEST_DAYS}/{FREEZE_STEP_DAYS} components={FREEZE_COMPONENT_COUNT} weighting={FREEZE_WEIGHTING_MODE}")
 
     df, alpha_cols, universe_diag = _load_live_panel()
@@ -613,10 +686,11 @@ def main() -> int:
     print(f"[FREEZE] last_completed_fold fold_id={current_split.fold_id} train={current_split.train_start.date()}..{current_split.train_end.date()} test={current_split.test_start.date()}..{current_split.test_end.date()}")
 
     component_info_all = _select_components(df, alpha_cols, current_split.train_start, current_split.train_end)
-    print("[COMPONENTS][ALL_CANDIDATES_TOP]")
-    print(component_info_all[["alpha", "train_abs_mean_ic", "proxy_train_sharpe", "train_sign_locked"]].head(max(FREEZE_COMPONENT_COUNT, 10)).to_string(index=False))
-
     replay_df = df.loc[(df["date"] >= current_split.test_start) & (df["date"] <= current_split.test_end)].copy()
+    component_info_all = _attach_last_fold_sign_info(component_info_all, replay_df)
+    print("[COMPONENTS][ALL_CANDIDATES_TOP]")
+    print(component_info_all[["alpha", "train_abs_mean_ic", "proxy_train_sharpe", "train_sign_locked", "last_fold_abs_mean_ic", "last_fold_mean_ic", "last_fold_sign_locked", "effective_sign_locked", "sign_source_used"]].head(max(FREEZE_COMPONENT_COUNT, 10)).to_string(index=False))
+
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     summary_export: Dict[str, object] = {
         "last_data_date": str(pd.Timestamp(df["date"].max()).date()),
@@ -636,7 +710,7 @@ def main() -> int:
         best_components, basket_search_df = _basket_search(pool_df, replay_df, cfg)
         component_info = best_components.head(cfg.component_count).copy().reset_index(drop=True)
         print(f"[COMPONENTS][{cfg.name}] selected_by_basket_search component_count={len(component_info)} pool_size={len(pool_df)} combos_evaluated={len(basket_search_df)}")
-        print(component_info[["alpha", "train_abs_mean_ic", "proxy_train_sharpe", "train_sign_locked"]].to_string(index=False))
+        print(component_info[["alpha", "train_abs_mean_ic", "proxy_train_sharpe", "train_sign_locked", "last_fold_abs_mean_ic", "last_fold_mean_ic", "last_fold_sign_locked", "effective_sign_locked", "sign_source_used"]].to_string(index=False))
         print(f"[BASKET_SEARCH][{cfg.name}][TOP]")
         print(basket_search_df.head(min(10, len(basket_search_df))).to_string(index=False))
 
@@ -683,6 +757,7 @@ def main() -> int:
             "component_pool_size": int(len(pool_df)),
             "basket_combos_evaluated": int(len(basket_search_df)),
             "selected_basket_alpha_list": basket_search_df.iloc[0]["alpha_list"] if len(basket_search_df) else "",
+            "sign_source": FREEZE_SIGN_SOURCE,
             "use_regime_overlay": int(cfg.use_regime_overlay),
             "use_dynamic_side_budgets": int(cfg.use_dynamic_side_budgets),
             "budget_input_lag_days": cfg.budget_input_lag_days,
