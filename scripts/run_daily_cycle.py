@@ -19,7 +19,7 @@ REQUIRE_FRESH_FREEZE_DATE_MATCH = str(os.getenv("REQUIRE_FRESH_FREEZE_DATE_MATCH
 RUN_BROKER_HANDOFF = str(os.getenv("RUN_BROKER_HANDOFF", "1")).strip().lower() not in {"0", "false", "no", "off"}
 REQUIRE_FREEZE_UNIVERSE_FILTER = str(os.getenv("REQUIRE_FREEZE_UNIVERSE_FILTER", "1")).strip().lower() not in {"0", "false", "no", "off"}
 MIN_FREEZE_UNIVERSE_SURVIVAL_RATIO = float(os.getenv("MIN_FREEZE_UNIVERSE_SURVIVAL_RATIO", "0.90"))
-REQUIRE_FREEZE_LIVE_GATE_PASSED = str(os.getenv("REQUIRE_FREEZE_LIVE_GATE_PASSED", "1")).strip().lower() not in {"0", "false", "no", "off"}
+REQUIRE_FREEZE_LIVE_GATE_PASSED = str(os.getenv("REQUIRE_FREEZE_LIVE_GATE_PASSED", "0")).strip().lower() not in {"0", "false", "no", "off"}
 REQUIRE_ANY_REPLAY_GATE_PASS = str(os.getenv("REQUIRE_ANY_REPLAY_GATE_PASS", "1")).strip().lower() not in {"0", "false", "no", "off"}
 
 UNIVERSE_SNAPSHOT_FILE = Path(os.getenv("UNIVERSE_SNAPSHOT_FILE", "artifacts/daily_cycle/universe/universe_snapshot.parquet"))
@@ -81,7 +81,7 @@ def _run_step(script_rel_path: str) -> None:
         raise FileNotFoundError(f"Script not found: {script_path}")
     cmd = [sys.executable, str(script_path)]
     print(f"[RUN] {' '.join(cmd)}")
-    completed = subprocess.run(cmd, cwd=str(ROOT))
+    completed = subprocess.run(cmd, cwd=str(ROOT), env=os.environ.copy())
     if completed.returncode != 0:
         raise RuntimeError(f"Step failed: {script_rel_path} rc={completed.returncode}")
 
@@ -217,16 +217,6 @@ def _safe_int(payload: Dict[str, Any], key: str) -> int | None:
         return None
 
 
-def _safe_float(payload: Dict[str, Any], key: str) -> float | None:
-    value = payload.get(key)
-    if value is None:
-        return None
-    try:
-        return float(value)
-    except Exception:
-        return None
-
-
 def _print_symbol_preview(tag: str, symbols: Sequence[str]) -> None:
     if not symbols:
         print(f"{tag} none")
@@ -337,6 +327,16 @@ def _load_freeze_summaries() -> List[Dict[str, Any]]:
     return rows
 
 
+def _collect_execution_ready_configs(summaries: Sequence[Dict[str, Any]]) -> List[str]:
+    ready: List[str] = []
+    for row in summaries:
+        gate_passed = bool(int(row.get("live_gate_passed", 0) or 0))
+        live_names = int(row.get("live_active_names", 0) or 0)
+        if gate_passed and live_names > 0:
+            ready.append(str(row.get("config", "")).strip())
+    return [x for x in ready if x]
+
+
 def _diagnose_freeze_stage(live_diag: Dict[str, Any]) -> Dict[str, Any]:
     summaries = _load_freeze_summaries()
     print("[GATE] freeze summaries")
@@ -348,18 +348,20 @@ def _diagnose_freeze_stage(live_diag: Dict[str, Any]) -> Dict[str, Any]:
             f"universe_present_in_panel_current={row.get('universe_present_in_panel_current')} universe_survival_ratio_current={row.get('universe_survival_ratio_current')} "
             f"live_gate_passed={row.get('live_gate_passed')} live_gate_reason={row.get('live_gate_reason')} replay_sharpe_last_fold={row.get('replay_sharpe_last_fold')} replay_cumret_last_fold={row.get('replay_cumret_last_fold')}"
         )
+    execution_ready_configs = _collect_execution_ready_configs(summaries)
     any_live_names = any(int(row.get("live_active_names", 0) or 0) > 0 for row in summaries)
     any_replay_gate_pass = any(bool(int(row.get("live_gate_passed", 0) or 0)) for row in summaries)
-    all_live_gate_passed = all(bool(int(row.get("live_gate_passed", 0) or 0)) for row in summaries)
+    all_live_gate_passed = all(bool(int(row.get("live_gate_passed", 0) or 0)) for row in summaries) if summaries else False
     live_dates = {str(row.get("live_current_date", "")).strip() for row in summaries if str(row.get("live_current_date", "")).strip()}
     dates_match = len(live_dates) == 1
-    universe_filter_ok = all(bool(int(row.get("universe_filter_applied", 0) or 0)) for row in summaries)
+    universe_filter_ok = all(bool(int(row.get("universe_filter_applied", 0) or 0)) for row in summaries) if summaries else False
     min_survival = min(float(row.get("universe_survival_ratio_current", 0.0) or 0.0) for row in summaries) if summaries else 0.0
     freeze_diag = {
         "config_count": len(summaries),
         "any_live_names": bool(any_live_names),
         "any_replay_gate_pass": bool(any_replay_gate_pass),
         "all_live_gate_passed": bool(all_live_gate_passed),
+        "execution_ready_configs": execution_ready_configs,
         "live_dates": sorted(live_dates),
         "dates_match": bool(dates_match),
         "universe_filter_ok": bool(universe_filter_ok),
@@ -372,6 +374,7 @@ def _diagnose_freeze_stage(live_diag: Dict[str, Any]) -> Dict[str, Any]:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps({"live_alpha": live_diag, "freeze": freeze_diag}, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"[ARTIFACT] {out_path}")
+    print(f"[GATE] execution_ready_configs={execution_ready_configs}")
     return freeze_diag
 
 
@@ -379,20 +382,20 @@ def _freeze_gate_allows_execution_from_diag(freeze_diag: Dict[str, Any]) -> bool
     if REQUIRE_FRESH_FREEZE_DATE_MATCH and not bool(freeze_diag.get("dates_match", False)):
         print("[GATE][BLOCK] freeze live_current_date mismatch across configs")
         return False
-    if REQUIRE_ANY_LIVE_ACTIVE_NAMES and not bool(freeze_diag.get("any_live_names", False)):
-        print("[GATE][BLOCK] all freeze configs have live_active_names=0 -> execution loop skipped")
-        return False
     if REQUIRE_FREEZE_UNIVERSE_FILTER and not bool(freeze_diag.get("universe_filter_ok", False)):
         print("[GATE][BLOCK] freeze summaries indicate universe filter was not applied")
         return False
     if REQUIRE_FREEZE_UNIVERSE_FILTER and float(freeze_diag.get("min_universe_survival_ratio", 0.0)) < float(MIN_FREEZE_UNIVERSE_SURVIVAL_RATIO):
         print(f"[GATE][BLOCK] min universe survival ratio below threshold -> {freeze_diag.get('min_universe_survival_ratio')} < {MIN_FREEZE_UNIVERSE_SURVIVAL_RATIO}")
         return False
-    if REQUIRE_FREEZE_LIVE_GATE_PASSED and not bool(freeze_diag.get("all_live_gate_passed", False)):
-        print("[GATE][BLOCK] at least one freeze config failed live quality gate")
-        return False
     if REQUIRE_ANY_REPLAY_GATE_PASS and not bool(freeze_diag.get("any_replay_gate_pass", False)):
         print("[GATE][BLOCK] no freeze config passed replay/live quality gate")
+        return False
+    if REQUIRE_ANY_LIVE_ACTIVE_NAMES and not bool(freeze_diag.get("execution_ready_configs", [])):
+        print("[GATE][BLOCK] no execution-ready configs after freeze gate")
+        return False
+    if REQUIRE_FREEZE_LIVE_GATE_PASSED and not bool(freeze_diag.get("all_live_gate_passed", False)):
+        print("[GATE][BLOCK] at least one freeze config failed live quality gate while REQUIRE_FREEZE_LIVE_GATE_PASSED=1")
         return False
     return True
 
@@ -403,23 +406,37 @@ def main() -> int:
     print(f"[CFG] require_any_live_active_names={int(REQUIRE_ANY_LIVE_ACTIVE_NAMES)} require_fresh_freeze_date_match={int(REQUIRE_FRESH_FREEZE_DATE_MATCH)} run_broker_handoff={int(RUN_BROKER_HANDOFF)}")
     print(f"[CFG] require_freeze_universe_filter={int(REQUIRE_FREEZE_UNIVERSE_FILTER)} min_freeze_universe_survival_ratio={MIN_FREEZE_UNIVERSE_SURVIVAL_RATIO:.4f}")
     print(f"[CFG] require_freeze_live_gate_passed={int(REQUIRE_FREEZE_LIVE_GATE_PASSED)} require_any_replay_gate_pass={int(REQUIRE_ANY_REPLAY_GATE_PASS)}")
+
     print("[STEP] universe builder")
     _run_step("scripts/run_universe_builder.py")
     universe_diag = _diagnose_universe_stage()
+
     print("[STEP] live alpha snapshot")
     _run_step("scripts/run_live_alpha_snapshot.py")
     live_diag = _diagnose_live_alpha_against_universe(universe_diag)
+
     print("[STEP] freeze runner")
     _run_step("scripts/run_freeze_runner.py")
     freeze_diag = _diagnose_freeze_stage(live_diag)
     if not _freeze_gate_allows_execution_from_diag(freeze_diag):
         print("[FINAL] daily cycle complete with execution skipped by gate")
         return 0
+
+    execution_ready_configs = list(freeze_diag.get("execution_ready_configs", []))
+    if not execution_ready_configs:
+        print("[FINAL] daily cycle complete with execution skipped because execution_ready_configs is empty")
+        return 0
+
+    os.environ["CONFIG_NAMES"] = "|".join(execution_ready_configs)
+    print(f"[CFG] execution_ready_configs={execution_ready_configs}")
+    print(f"[CFG] CONFIG_NAMES overridden for downstream steps -> {os.environ['CONFIG_NAMES']}")
+
     print("[STEP] execution loop")
     _run_step("scripts/run_execution_loop.py")
     if RUN_BROKER_HANDOFF:
         print("[STEP] broker handoff")
         _run_step("scripts/run_broker_handoff.py")
+
     print("[FINAL] daily cycle complete")
     return 0
 
