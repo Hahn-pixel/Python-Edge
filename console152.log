@@ -1,0 +1,147 @@
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_broker_adapter_ibkr.py
+[CFG] execution_root=artifacts\execution_loop
+[CFG] configs=['optimal', 'aggressive']
+[CFG] broker_name=MEXEM broker_platform=IBKR broker_account_id=
+[CFG] ib_host=127.0.0.1 ib_port=4002 ib_client_id=41 ib_account_code=
+[CFG] exchange=SMART primary_exchange= currency=USD sec_type=STK
+[CFG] outside_rth=1 reprice_enabled=1 reprice_wait_sec=8.0
+[CFG] reprice_steps_bps=[15.0, 10.0, 5.0, 0.0] reprice_final_mode=marketable_lmt reprice_final_marketable_bps=12.0 reprice_max_deviation_pct=1.25
+[CFG] require_price_hint_source=1 require_quote_ts=1
+[IB] connecting host=127.0.0.1 port=4002 client_id=41
+[IB] openOrderEnd
+[IB] managedAccounts=DUP561175
+[IB] connected next_valid_id=93 managed_accounts=DUP561175
+[IB] nextValidId=93
+[IB][ERROR] reqId=-1 code=2104 msg=Market data farm connection is OK:usfarm
+[IB][ERROR] reqId=-1 code=2107 msg=HMDS data farm connection is inactive but should be available upon demand.ushmds
+[IB][ERROR] reqId=-1 code=2158 msg=Sec-def data farm connection is OK:secdefil
+[IB] openOrderEnd
+[BROKER][optimal] orders=artifacts\execution_loop\optimal\orders.csv
+[IB][CONTRACT_DETAILS][WARN] symbol=OKLO attempt=1/3 error=normalize_min_tick() missing 1 required positional argument: 'fallback_min_abs'
+[IB][CONTRACT_DETAILS][WARN] symbol=OKLO attempt=2/3 error=normalize_min_tick() missing 1 required positional argument: 'fallback_min_abs'
+[IB][CONTRACT_DETAILS][WARN] symbol=OKLO attempt=3/3 error=normalize_min_tick() missing 1 required positional argument: 'fallback_min_abs'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=OKLO attempt=1/3 error=normalize_min_tick() missing 1 required positional argument: 'fallback_min_abs'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=OKLO attempt=2/3 error=normalize_min_tick() missing 1 required positional argument: 'fallback_min_abs'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=OKLO attempt=3/3 error=normalize_min_tick() missing 1 required positional argument: 'fallback_min_abs'
+[BROKER][LADDER][SUBMIT] symbol=OKLO step=1/4 mode=passive_lmt limit_price=48.0600 cap_price=47.5300
+[IB][ERROR] reqId=93 code=399 msg=Order Message: SELL 1 OKLO NYSE Your order will not be placed at the exchange until 2026-04-06 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute "Fill/Trigger Outside RTH."
+[BROKER][POLL] ib_order_id=93 step=1/8 status=submitted filled_qty=0.00000000 remaining_qty=1.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=93 step=5/8 status=submitted filled_qty=0.00000000 remaining_qty=1.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=93 step=8/8 status=submitted filled_qty=0.00000000 remaining_qty=1.00000000 avg_fill_price=0.0000 outcome=working
+[IB][ERROR] reqId=93 code=202 msg=Order Canceled - reason:
+[BROKER][LADDER][SUBMIT] symbol=OKLO step=2/4 mode=passive_lmt limit_price=48.0900 cap_price=47.5300
+[IB][ERROR] reqId=94 code=399 msg=Order Message: SELL 1 OKLO NYSE Your order will not be placed at the exchange until 2026-04-06 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute "Fill/Trigger Outside RTH."
+[BROKER][POLL] ib_order_id=94 step=1/8 status=submitted filled_qty=0.00000000 remaining_qty=1.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=94 step=5/8 status=submitted filled_qty=0.00000000 remaining_qty=1.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=94 step=8/8 status=submitted filled_qty=0.00000000 remaining_qty=1.00000000 avg_fill_price=0.0000 outcome=working
+[IB][ERROR] reqId=94 code=202 msg=Order Canceled - reason:
+[BROKER][LADDER][SUBMIT] symbol=OKLO step=3/4 mode=passive_lmt limit_price=48.1100 cap_price=47.5300
+[IB][ERROR] reqId=95 code=399 msg=Order Message: SELL 1 OKLO NYSE Your order will not be placed at the exchange until 2026-04-06 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute "Fill/Trigger Outside RTH."
+[BROKER][POLL] ib_order_id=95 step=1/8 status=submitted filled_qty=0.00000000 remaining_qty=1.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=95 step=5/8 status=submitted filled_qty=0.00000000 remaining_qty=1.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=95 step=8/8 status=submitted filled_qty=0.00000000 remaining_qty=1.00000000 avg_fill_price=0.0000 outcome=working
+[IB][ERROR] reqId=95 code=202 msg=Order Canceled - reason:
+[BROKER][LADDER][SUBMIT] symbol=OKLO step=4/4 mode=marketable_lmt limit_price=48.1300 cap_price=47.5300
+[IB][ERROR] reqId=96 code=399 msg=Order Message: SELL 1 OKLO NYSE Your order will not be placed at the exchange until 2026-04-06 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute "Fill/Trigger Outside RTH."
+[BROKER][POLL] ib_order_id=96 step=1/8 status=submitted filled_qty=0.00000000 remaining_qty=1.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=96 step=5/8 status=submitted filled_qty=0.00000000 remaining_qty=1.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=96 step=8/8 status=submitted filled_qty=0.00000000 remaining_qty=1.00000000 avg_fill_price=0.0000 outcome=working
+[IB][ERROR] reqId=96 code=202 msg=Order Canceled - reason:
+[BROKER][optimal][ERROR] symbol=OKLO side=SELL status=cancelled_unfilled_cap message=Final capped price was not filled; order cancelled
+[BROKER][optimal][SUMMARY] sent=0 duplicate_skipped=0 errors=1 fills_csv=artifacts\execution_loop\optimal\fills.csv broker_log_json=artifacts\execution_loop\optimal\broker_log.json outcomes={"cancelled_after_ttl": 0, "cancelled_unfilled_cap": 1, "failed": 0, "filled_now": 0, "partial": 0, "unknown": 0, "working": 0, "working_carry": 0}
+[BROKER][aggressive] orders=artifacts\execution_loop\aggressive\orders.csv
+[IB][CONTRACT_DETAILS][WARN] symbol=OKLO attempt=1/3 error=normalize_min_tick() missing 1 required positional argument: 'fallback_min_abs'
+[IB][CONTRACT_DETAILS][WARN] symbol=OKLO attempt=2/3 error=normalize_min_tick() missing 1 required positional argument: 'fallback_min_abs'
+[IB][CONTRACT_DETAILS][WARN] symbol=OKLO attempt=3/3 error=normalize_min_tick() missing 1 required positional argument: 'fallback_min_abs'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=OKLO attempt=1/3 error=normalize_min_tick() missing 1 required positional argument: 'fallback_min_abs'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=OKLO attempt=2/3 error=normalize_min_tick() missing 1 required positional argument: 'fallback_min_abs'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=OKLO attempt=3/3 error=normalize_min_tick() missing 1 required positional argument: 'fallback_min_abs'
+[BROKER][LADDER][SUBMIT] symbol=OKLO step=1/4 mode=passive_lmt limit_price=48.2000 cap_price=48.7300
+[IB][ERROR] reqId=97 code=399 msg=Order Message: BUY 3 OKLO NYSE Your order will not be placed at the exchange until 2026-04-06 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute "Fill/Trigger Outside RTH."
+[BROKER][POLL] ib_order_id=97 step=1/8 status=submitted filled_qty=0.00000000 remaining_qty=3.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=97 step=5/8 status=submitted filled_qty=0.00000000 remaining_qty=3.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=97 step=8/8 status=submitted filled_qty=0.00000000 remaining_qty=3.00000000 avg_fill_price=0.0000 outcome=working
+[IB][ERROR] reqId=97 code=202 msg=Order Canceled - reason:
+[BROKER][LADDER][SUBMIT] symbol=OKLO step=2/4 mode=passive_lmt limit_price=48.1700 cap_price=48.7300
+[IB][ERROR] reqId=98 code=399 msg=Order Message: BUY 3 OKLO NYSE Your order will not be placed at the exchange until 2026-04-06 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute "Fill/Trigger Outside RTH."
+[BROKER][POLL] ib_order_id=98 step=1/8 status=submitted filled_qty=0.00000000 remaining_qty=3.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=98 step=5/8 status=submitted filled_qty=0.00000000 remaining_qty=3.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=98 step=8/8 status=submitted filled_qty=0.00000000 remaining_qty=3.00000000 avg_fill_price=0.0000 outcome=working
+[IB][ERROR] reqId=98 code=202 msg=Order Canceled - reason:
+[BROKER][LADDER][SUBMIT] symbol=OKLO step=3/4 mode=passive_lmt limit_price=48.1500 cap_price=48.7300
+[IB][ERROR] reqId=99 code=399 msg=Order Message: BUY 3 OKLO NYSE Your order will not be placed at the exchange until 2026-04-06 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute "Fill/Trigger Outside RTH."
+[BROKER][POLL] ib_order_id=99 step=1/8 status=submitted filled_qty=0.00000000 remaining_qty=3.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=99 step=5/8 status=submitted filled_qty=0.00000000 remaining_qty=3.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=99 step=8/8 status=submitted filled_qty=0.00000000 remaining_qty=3.00000000 avg_fill_price=0.0000 outcome=working
+[IB][ERROR] reqId=99 code=202 msg=Order Canceled - reason:
+[BROKER][LADDER][SUBMIT] symbol=OKLO step=4/4 mode=marketable_lmt limit_price=48.1300 cap_price=48.7300
+[IB][ERROR] reqId=100 code=399 msg=Order Message: BUY 3 OKLO NYSE Your order will not be placed at the exchange until 2026-04-06 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute "Fill/Trigger Outside RTH."
+[BROKER][POLL] ib_order_id=100 step=1/8 status=submitted filled_qty=0.00000000 remaining_qty=3.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=100 step=5/8 status=submitted filled_qty=0.00000000 remaining_qty=3.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=100 step=8/8 status=submitted filled_qty=0.00000000 remaining_qty=3.00000000 avg_fill_price=0.0000 outcome=working
+[IB][ERROR] reqId=100 code=202 msg=Order Canceled - reason:
+[BROKER][aggressive][ERROR] symbol=OKLO side=BUY status=cancelled_unfilled_cap message=Final capped price was not filled; order cancelled
+[IB][CONTRACT_DETAILS][WARN] symbol=NKE attempt=1/3 error=normalize_min_tick() missing 1 required positional argument: 'fallback_min_abs'
+[IB][CONTRACT_DETAILS][WARN] symbol=NKE attempt=2/3 error=normalize_min_tick() missing 1 required positional argument: 'fallback_min_abs'
+[IB][CONTRACT_DETAILS][WARN] symbol=NKE attempt=3/3 error=normalize_min_tick() missing 1 required positional argument: 'fallback_min_abs'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=NKE attempt=1/3 error=normalize_min_tick() missing 1 required positional argument: 'fallback_min_abs'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=NKE attempt=2/3 error=normalize_min_tick() missing 1 required positional argument: 'fallback_min_abs'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=NKE attempt=3/3 error=normalize_min_tick() missing 1 required positional argument: 'fallback_min_abs'
+[BROKER][LADDER][SUBMIT] symbol=NKE step=1/4 mode=passive_lmt limit_price=44.2500 cap_price=44.7400
+[IB][ERROR] reqId=101 code=399 msg=Order Message: BUY 3 NKE NYSE Your order will not be placed at the exchange until 2026-04-06 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute "Fill/Trigger Outside RTH."
+[BROKER][POLL] ib_order_id=101 step=1/8 status=submitted filled_qty=0.00000000 remaining_qty=3.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=101 step=5/8 status=submitted filled_qty=0.00000000 remaining_qty=3.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=101 step=8/8 status=submitted filled_qty=0.00000000 remaining_qty=3.00000000 avg_fill_price=0.0000 outcome=working
+[IB][ERROR] reqId=101 code=202 msg=Order Canceled - reason:
+[BROKER][LADDER][SUBMIT] symbol=NKE step=2/4 mode=passive_lmt limit_price=44.2300 cap_price=44.7400
+[IB][ERROR] reqId=102 code=399 msg=Order Message: BUY 3 NKE NYSE Your order will not be placed at the exchange until 2026-04-06 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute "Fill/Trigger Outside RTH."
+[BROKER][POLL] ib_order_id=102 step=1/8 status=submitted filled_qty=0.00000000 remaining_qty=3.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=102 step=5/8 status=submitted filled_qty=0.00000000 remaining_qty=3.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=102 step=8/8 status=submitted filled_qty=0.00000000 remaining_qty=3.00000000 avg_fill_price=0.0000 outcome=working
+[IB][ERROR] reqId=102 code=202 msg=Order Canceled - reason:
+[BROKER][LADDER][SUBMIT] symbol=NKE step=3/4 mode=passive_lmt limit_price=44.2100 cap_price=44.7400
+[IB][ERROR] reqId=103 code=399 msg=Order Message: BUY 3 NKE NYSE Your order will not be placed at the exchange until 2026-04-06 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute "Fill/Trigger Outside RTH."
+[BROKER][POLL] ib_order_id=103 step=1/8 status=submitted filled_qty=0.00000000 remaining_qty=3.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=103 step=5/8 status=submitted filled_qty=0.00000000 remaining_qty=3.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=103 step=8/8 status=submitted filled_qty=0.00000000 remaining_qty=3.00000000 avg_fill_price=0.0000 outcome=working
+[IB][ERROR] reqId=103 code=202 msg=Order Canceled - reason:
+[BROKER][LADDER][SUBMIT] symbol=NKE step=4/4 mode=marketable_lmt limit_price=44.1900 cap_price=44.7400
+[IB][ERROR] reqId=104 code=399 msg=Order Message: BUY 3 NKE NYSE Your order will not be placed at the exchange until 2026-04-06 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute "Fill/Trigger Outside RTH."
+[BROKER][POLL] ib_order_id=104 step=1/8 status=submitted filled_qty=0.00000000 remaining_qty=3.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=104 step=5/8 status=submitted filled_qty=0.00000000 remaining_qty=3.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=104 step=8/8 status=submitted filled_qty=0.00000000 remaining_qty=3.00000000 avg_fill_price=0.0000 outcome=working
+[IB][ERROR] reqId=104 code=202 msg=Order Canceled - reason:
+[BROKER][aggressive][ERROR] symbol=NKE side=BUY status=cancelled_unfilled_cap message=Final capped price was not filled; order cancelled
+[IB][CONTRACT_DETAILS][WARN] symbol=TSEM attempt=1/3 error=normalize_min_tick() missing 1 required positional argument: 'fallback_min_abs'
+[IB][CONTRACT_DETAILS][WARN] symbol=TSEM attempt=2/3 error=normalize_min_tick() missing 1 required positional argument: 'fallback_min_abs'
+[IB][CONTRACT_DETAILS][WARN] symbol=TSEM attempt=3/3 error=normalize_min_tick() missing 1 required positional argument: 'fallback_min_abs'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=TSEM attempt=1/3 error=normalize_min_tick() missing 1 required positional argument: 'fallback_min_abs'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=TSEM attempt=2/3 error=normalize_min_tick() missing 1 required positional argument: 'fallback_min_abs'
+[IB][CONTRACT_DETAILS][FALLBACK_WARN] symbol=TSEM attempt=3/3 error=normalize_min_tick() missing 1 required positional argument: 'fallback_min_abs'
+[BROKER][LADDER][SUBMIT] symbol=TSEM step=1/4 mode=passive_lmt limit_price=197.5100 cap_price=195.3300
+[IB][ERROR] reqId=105 code=399 msg=Order Message: SELL 1 TSEM NASDAQ.NMS Your order will not be placed at the exchange until 2026-04-06 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute "Fill/Trigger Outside RTH."
+[BROKER][POLL] ib_order_id=105 step=1/8 status=submitted filled_qty=0.00000000 remaining_qty=1.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=105 step=5/8 status=submitted filled_qty=0.00000000 remaining_qty=1.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=105 step=8/8 status=submitted filled_qty=0.00000000 remaining_qty=1.00000000 avg_fill_price=0.0000 outcome=working
+[IB][ERROR] reqId=105 code=202 msg=Order Canceled - reason:
+[BROKER][LADDER][SUBMIT] symbol=TSEM step=2/4 mode=passive_lmt limit_price=197.6100 cap_price=195.3300
+[IB][ERROR] reqId=106 code=399 msg=Order Message: SELL 1 TSEM NASDAQ.NMS Your order will not be placed at the exchange until 2026-04-06 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute "Fill/Trigger Outside RTH."
+[BROKER][POLL] ib_order_id=106 step=1/8 status=submitted filled_qty=0.00000000 remaining_qty=1.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=106 step=5/8 status=submitted filled_qty=0.00000000 remaining_qty=1.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=106 step=8/8 status=submitted filled_qty=0.00000000 remaining_qty=1.00000000 avg_fill_price=0.0000 outcome=working
+[IB][ERROR] reqId=106 code=202 msg=Order Canceled - reason:
+[BROKER][LADDER][SUBMIT] symbol=TSEM step=3/4 mode=passive_lmt limit_price=197.7100 cap_price=195.3300
+[IB][ERROR] reqId=107 code=399 msg=Order Message: SELL 1 TSEM NASDAQ.NMS Your order will not be placed at the exchange until 2026-04-06 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute "Fill/Trigger Outside RTH."
+[BROKER][POLL] ib_order_id=107 step=1/8 status=submitted filled_qty=0.00000000 remaining_qty=1.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=107 step=5/8 status=submitted filled_qty=0.00000000 remaining_qty=1.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=107 step=8/8 status=submitted filled_qty=0.00000000 remaining_qty=1.00000000 avg_fill_price=0.0000 outcome=working
+[IB][ERROR] reqId=107 code=202 msg=Order Canceled - reason:
+[BROKER][LADDER][SUBMIT] symbol=TSEM step=4/4 mode=marketable_lmt limit_price=197.8000 cap_price=195.3300
+[IB][ERROR] reqId=108 code=399 msg=Order Message: SELL 1 TSEM NASDAQ.NMS Your order will not be placed at the exchange until 2026-04-06 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute "Fill/Trigger Outside RTH."
+[BROKER][POLL] ib_order_id=108 step=1/8 status=submitted filled_qty=0.00000000 remaining_qty=1.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=108 step=5/8 status=submitted filled_qty=0.00000000 remaining_qty=1.00000000 avg_fill_price=0.0000 outcome=working
+[BROKER][POLL] ib_order_id=108 step=8/8 status=submitted filled_qty=0.00000000 remaining_qty=1.00000000 avg_fill_price=0.0000 outcome=working
+[IB][ERROR] reqId=108 code=202 msg=Order Canceled - reason:
+[BROKER][aggressive][ERROR] symbol=TSEM side=SELL status=cancelled_unfilled_cap message=Final capped price was not filled; order cancelled
+[BROKER][aggressive][SUMMARY] sent=0 duplicate_skipped=0 errors=3 fills_csv=artifacts\execution_loop\aggressive\fills.csv broker_log_json=artifacts\execution_loop\aggressive\broker_log.json outcomes={"cancelled_after_ttl": 0, "cancelled_unfilled_cap": 3, "failed": 0, "filled_now": 0, "partial": 0, "unknown": 0, "working": 0, "working_carry": 0}
+[FINAL] IBKR broker adapter complete
