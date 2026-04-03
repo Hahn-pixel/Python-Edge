@@ -83,6 +83,7 @@ REQUIRE_QUOTE_TS = str(os.getenv("REQUIRE_QUOTE_TS", "1")).strip().lower() not i
 REQUIRED_ORDER_COLUMNS = ["symbol", "order_side", "delta_shares"]
 RE_202_AGGR = re.compile(r"at or more aggressive than\s+([0-9]+(?:\.[0-9]+)?)", re.IGNORECASE)
 RE_202_MARKET = re.compile(r"current market price of\s+([0-9]+(?:\.[0-9]+)?)", re.IGNORECASE)
+RE_399_DEFERRED = re.compile(r"will not be placed at the exchange until\s+(.+?)\.", re.IGNORECASE)
 
 
 def enable_line_buffering() -> None:
@@ -327,6 +328,29 @@ def clip_limit_from_202(prepared: PreparedOrder, previous_limit: float, err: Bro
         if clipped >= previous_limit:
             clipped = max(float(IB_LMT_PRICE_MIN_ABS), round_to_tick(previous_limit - tick, tick, side))
     return clipped if clipped > 0.0 else None
+
+
+def detect_deferred_399(errors: Sequence[dict]) -> BrokerErrorInfo | None:
+    for err in reversed(list(errors)):
+        if int(err.get("errorCode", 0) or 0) != 399:
+            continue
+        msg = str(err.get("errorString", "") or "")
+        if RE_399_DEFERRED.search(msg):
+            return BrokerErrorInfo(
+                req_id=int(err.get("reqId", 0) or 0),
+                error_code=int(err.get("errorCode", 0) or 0),
+                error_string=msg,
+                advanced_order_reject_json=str(err.get("advancedOrderRejectJson", "") or ""),
+                ts_utc=str(err.get("ts_utc", utc_now_iso()) or utc_now_iso()),
+            )
+    return None
+
+
+def deferred_until_from_399(err: BrokerErrorInfo | None) -> str:
+    if err is None:
+        return ""
+    m = RE_399_DEFERRED.search(str(err.error_string or ""))
+    return str(m.group(1)).strip() if m else ""
 
 
 def connect_and_wait(app: IBKRApp) -> None:
@@ -793,7 +817,17 @@ def run_ladder_order(app: IBKRApp, prepared: PreparedOrder, contract: Contract, 
         order = build_order_for_price(prepared, limit_price=limit_price, is_market=False)
         error_cursor_before_submit = len(app._errors)
         ib_order_id = app.allocate_order_id()
-        order_payload = order_debug_payload(contract, order)
+        order_payload = {
+            "orderType": str(getattr(order, "orderType", "") or ""),
+            "outsideRth": int(bool(getattr(order, "outsideRth", False))),
+            "tif": str(getattr(order, "tif", "") or ""),
+            "exchange": str(getattr(contract, "exchange", "") or ""),
+            "primaryExchange": str(getattr(contract, "primaryExchange", "") or ""),
+            "lmtPrice": float(getattr(order, "lmtPrice", 0.0) or 0.0),
+            "totalQuantity": float(getattr(order, "totalQuantity", 0.0) or 0.0),
+            "account": str(getattr(order, "account", "") or ""),
+            "orderRef": str(getattr(order, "orderRef", "") or ""),
+        }
         request_debug["submitted_order"] = order_payload
         print(
             f"[BROKER][LADDER][SUBMIT] symbol={prepared.symbol} step={step_idx + 1}/{len(prices)} mode={step_mode} "
@@ -801,13 +835,32 @@ def run_ladder_order(app: IBKRApp, prepared: PreparedOrder, contract: Contract, 
         )
         app.placeOrder(ib_order_id, contract, order)
         ib_entry = app.wait_for_order_terminalish(ib_order_id, timeout_sec=IB_TIMEOUT_SEC)
+        recent_errors = list(app._errors[error_cursor_before_submit:]) if len(app._errors) > error_cursor_before_submit else []
+        deferred_399 = detect_deferred_399(recent_errors)
+        if deferred_399 is not None:
+            deferred_until = deferred_until_from_399(deferred_399)
+            request_debug.update({
+                "reprices_used": reprices_used,
+                "final_step": step_idx + 1,
+                "final_limit_price": float(limit_price),
+                "final_mode": step_mode,
+                "deferred_until": deferred_until,
+                "ib_399_message": str(deferred_399.error_string),
+            })
+            final_entry = cancel_and_poll_order(app, ib_order_id, ib_entry, "ib_399_session_deferred")
+            issue = OrderIssue(
+                kind="session_deferred_399",
+                status="deferred_session_closed",
+                broker_error=deferred_399,
+                message=f"IB deferred order until {deferred_until}" if deferred_until else "IB deferred order until later session",
+            )
+            return final_entry, issue, reprices_used, request_debug
         ib_entry = wait_for_fill_progress(app, ib_order_id, ib_entry)
         filled_qty = to_float(ib_entry.get("filled_qty", 0.0))
         remaining_qty = to_float(ib_entry.get("remaining_qty", max(0.0, prepared.qty - filled_qty)))
         outcome = classify_outcome(ib_entry.get("status", ""), filled_qty, remaining_qty)
         retryable_202 = None
-        if IB_RETRY_202_ENABLED and len(app._errors) > error_cursor_before_submit:
-            recent_errors = list(app._errors[error_cursor_before_submit:])
+        if IB_RETRY_202_ENABLED and recent_errors:
             for err in reversed(recent_errors):
                 if int(err.get("errorCode", 0) or 0) == 202:
                     retryable_202 = BrokerErrorInfo(
@@ -858,6 +911,7 @@ def run_one_config(app: IBKRApp, paths: ConfigPaths, symbol_map: Dict[str, str],
         "working_carry": 0,
         "cancelled_after_ttl": 0,
         "cancelled_unfilled_cap": 0,
+        "deferred_session_closed": 0,
         "failed": 0,
         "unknown": 0,
     }
