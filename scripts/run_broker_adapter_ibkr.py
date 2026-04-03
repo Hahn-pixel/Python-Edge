@@ -444,7 +444,8 @@ def resolve_contract_metadata(app: IBKRApp, prepared: PreparedOrder, req_id_seed
         try:
             best = request_contract_details(app, req_id, contract)
             if best:
-                min_tick = normalize_min_tick(to_float(best.get("minTick", 0.0)))
+                raw_min_tick = to_float(best.get("minTick", 0.0))
+                min_tick = normalize_min_tick(raw_min_tick, IB_LMT_PRICE_MIN_ABS)
                 prepared2 = PreparedOrder(**{**prepared.__dict__, "min_tick": min_tick})
                 contract_meta_debug.update({
                     "contract_details_mode": "resolved",
@@ -452,6 +453,8 @@ def resolve_contract_metadata(app: IBKRApp, prepared: PreparedOrder, req_id_seed
                     "contract_primary_exchange": str(best.get("primaryExchange", "")),
                     "contract_currency": str(best.get("currency", "")),
                     "contract_min_tick": float(min_tick),
+                        "contract_raw_min_tick": float(raw_min_tick),
+                    "contract_raw_min_tick": float(raw_min_tick),
                     "contract_local_symbol": str(best.get("localSymbol", "")),
                 })
                 return prepared2, contract, req_cursor, contract_meta_debug
@@ -472,7 +475,8 @@ def resolve_contract_metadata(app: IBKRApp, prepared: PreparedOrder, req_id_seed
             try:
                 best = request_contract_details(app, req_id, contract2)
                 if best:
-                    min_tick = normalize_min_tick(to_float(best.get("minTick", 0.0)))
+                    raw_min_tick = to_float(best.get("minTick", 0.0))
+                    min_tick = normalize_min_tick(raw_min_tick, IB_LMT_PRICE_MIN_ABS)
                     prepared2 = PreparedOrder(**{**prepared.__dict__, "min_tick": min_tick})
                     contract_meta_debug.update({
                         "contract_details_mode": "primary_exchange_fallback",
@@ -582,6 +586,27 @@ def refresh_open_orders(app: IBKRApp) -> None:
     app.done_open_orders = False
     app.reqOpenOrders()
     app.wait_until_open_orders_end(timeout_sec=IB_OPEN_ORDERS_TIMEOUT_SEC)
+
+
+def order_debug_payload(contract: Contract, order: Order) -> Dict[str, Any]:
+    return {
+        "symbol": str(getattr(contract, "symbol", "") or ""),
+        "secType": str(getattr(contract, "secType", "") or ""),
+        "exchange": str(getattr(contract, "exchange", "") or ""),
+        "primaryExchange": str(getattr(contract, "primaryExchange", "") or ""),
+        "currency": str(getattr(contract, "currency", "") or ""),
+        "orderType": str(getattr(order, "orderType", "") or ""),
+        "action": str(getattr(order, "action", "") or ""),
+        "totalQuantity": float(to_float(getattr(order, "totalQuantity", 0.0))),
+        "lmtPrice": float(to_float(getattr(order, "lmtPrice", 0.0))),
+        "tif": str(getattr(order, "tif", "") or ""),
+        "outsideRth": int(bool(getattr(order, "outsideRth", False))),
+        "account": str(getattr(order, "account", "") or ""),
+        "orderRef": str(getattr(order, "orderRef", "") or ""),
+        "eTradeOnly": int(bool(getattr(order, "eTradeOnly", False))),
+        "firmQuoteOnly": int(bool(getattr(order, "firmQuoteOnly", False))),
+        "transmit": int(bool(getattr(order, "transmit", False))),
+    }
 
 
 def latest_ib_entry(app: IBKRApp, ib_order_id: int, default_entry: dict) -> dict:
@@ -768,7 +793,12 @@ def run_ladder_order(app: IBKRApp, prepared: PreparedOrder, contract: Contract, 
         order = build_order_for_price(prepared, limit_price=limit_price, is_market=False)
         error_cursor_before_submit = len(app._errors)
         ib_order_id = app.allocate_order_id()
-        print(f"[BROKER][LADDER][SUBMIT] symbol={prepared.symbol} step={step_idx + 1}/{len(prices)} mode={step_mode} limit_price={limit_price:.4f} cap_price={cap_price:.4f}")
+        order_payload = order_debug_payload(contract, order)
+        request_debug["submitted_order"] = order_payload
+        print(
+            f"[BROKER][LADDER][SUBMIT] symbol={prepared.symbol} step={step_idx + 1}/{len(prices)} mode={step_mode} "
+            f"limit_price={limit_price:.4f} cap_price={cap_price:.4f} order={json.dumps(order_payload, ensure_ascii=False, sort_keys=True)}"
+        )
         app.placeOrder(ib_order_id, contract, order)
         ib_entry = app.wait_for_order_terminalish(ib_order_id, timeout_sec=IB_TIMEOUT_SEC)
         ib_entry = wait_for_fill_progress(app, ib_order_id, ib_entry)
