@@ -39,6 +39,9 @@ MAX_PRICE_TO_TRADE = float(os.getenv("MAX_PRICE_TO_TRADE", "1000000.0"))
 COMMISSION_BPS = float(os.getenv("COMMISSION_BPS", "0.50"))
 COMMISSION_MIN_PER_ORDER = float(os.getenv("COMMISSION_MIN_PER_ORDER", "0.35"))
 SLIPPAGE_BPS = float(os.getenv("SLIPPAGE_BPS", "1.50"))
+ALIGN_STATE_FROM_BROKER_ONCE = str(os.getenv("ALIGN_STATE_FROM_BROKER_ONCE", "0")).strip().lower() not in {"0", "false", "no", "off"}
+ALIGN_STATE_REQUIRE_BROKER_POSITIONS = str(os.getenv("ALIGN_STATE_REQUIRE_BROKER_POSITIONS", "1")).strip().lower() not in {"0", "false", "no", "off"}
+ALIGN_STATE_CASH_MODE = str(os.getenv("ALIGN_STATE_CASH_MODE", "preserve_nav")).strip().lower() or "preserve_nav"
 
 PRICE_COL_CANDIDATES = [
     "close",
@@ -189,12 +192,14 @@ def _load_freeze_book(paths: ConfigPaths) -> Tuple[pd.DataFrame, dict]:
     return book, summary
 
 
-def _state_paths(execution_dir: Path) -> Tuple[Path, Path, Path, Path]:
+def _state_paths(execution_dir: Path) -> Tuple[Path, Path, Path, Path, Path, Path]:
     return (
         execution_dir / "portfolio_state.json",
         execution_dir / "orders.csv",
         execution_dir / "execution_log.csv",
         execution_dir / "positions_mark_to_market.csv",
+        execution_dir / "broker_positions.csv",
+        execution_dir / "state_alignment_once.json",
     )
 
 
@@ -262,7 +267,7 @@ def _apply_execution_risk_guards(target: pd.DataFrame, price_col: str, nav: floa
 
     weight_before = _num(out["weight"]).copy()
     out["weight"] = _num(out["weight"]).clip(lower=-float(MAX_SINGLE_NAME_WEIGHT), upper=float(MAX_SINGLE_NAME_WEIGHT))
-    counters["clipped_weight_cap"] = int((weight_before != _num(out["weight"])).sum())
+    counters["clipped_weight_cap"] = int((weight_before != _num(out["weight"]).sum()).sum()) if False else int((weight_before != _num(out["weight"])).sum())
 
     if float(MAX_SINGLE_NAME_NOTIONAL) > 0.0:
         weight_notional_cap = float(MAX_SINGLE_NAME_NOTIONAL) / (float(nav) + 1e-12)
@@ -403,18 +408,106 @@ def _mark_positions_to_market(positions: Dict[str, dict], price_df: pd.DataFrame
             "last_price": price,
             "market_value": market_value,
         }
-        rows.append(
-            {
-                "symbol": symbol,
-                "shares": shares,
-                "last_price": price,
-                "market_value": market_value,
-            }
-        )
+        rows.append({"symbol": symbol, "shares": shares, "last_price": price, "market_value": market_value})
     mtm_df = pd.DataFrame(rows)
     if len(mtm_df):
         mtm_df = mtm_df.sort_values(["market_value", "symbol"], ascending=[False, True]).reset_index(drop=True)
     return updated, mtm_df, fallback_count
+
+
+def _broker_positions_to_state_positions(broker_positions_csv: Path, price_df: pd.DataFrame, price_col: str) -> Tuple[Dict[str, dict], float, int]:
+    _must_exist(broker_positions_csv, "broker_positions.csv for one-time alignment")
+    df = pd.read_csv(broker_positions_csv)
+    if df.empty:
+        if ALIGN_STATE_REQUIRE_BROKER_POSITIONS:
+            raise RuntimeError(f"broker_positions.csv is empty: {broker_positions_csv}")
+        return {}, 0.0, 0
+    if "symbol" not in df.columns or "position" not in df.columns:
+        raise RuntimeError(f"broker_positions.csv missing symbol/position columns: {broker_positions_csv}")
+    df = df.copy()
+    df["symbol"] = df["symbol"].astype(str).str.upper()
+    df["position"] = pd.to_numeric(df["position"], errors="coerce").fillna(0.0)
+    df = df.loc[df["symbol"] != ""].copy()
+    df = df.groupby("symbol", as_index=False).agg(position=("position", "sum"))
+    price_map = dict(zip(price_df["symbol"].astype(str), _num(price_df[price_col]).fillna(float(DEFAULT_PRICE_FALLBACK))))
+    positions: Dict[str, dict] = {}
+    fallback_count = 0
+    market_value = 0.0
+    for _, row in df.iterrows():
+        symbol = str(row["symbol"])
+        shares = float(row["position"])
+        if abs(shares) <= 1e-12:
+            continue
+        price = float(price_map.get(symbol, float(DEFAULT_PRICE_FALLBACK)))
+        if symbol not in price_map:
+            fallback_count += 1
+        mv = float(shares * price)
+        positions[symbol] = {"shares": shares, "last_price": price, "market_value": mv}
+        market_value += mv
+    return positions, market_value, fallback_count
+
+
+def _maybe_align_state_once(state: dict, paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, current_date: pd.Timestamp) -> Tuple[dict, Dict[str, object]]:
+    _, _, _, _, broker_positions_csv, alignment_marker_json = _state_paths(paths.execution_dir)
+    diag: Dict[str, object] = {
+        "alignment_requested": int(ALIGN_STATE_FROM_BROKER_ONCE),
+        "alignment_applied": 0,
+        "alignment_reason": "not_requested",
+        "alignment_marker_json": str(alignment_marker_json),
+        "alignment_broker_positions_csv": str(broker_positions_csv),
+        "alignment_fallback_price_count": 0,
+    }
+    if not ALIGN_STATE_FROM_BROKER_ONCE:
+        return state, diag
+    if alignment_marker_json.exists():
+        diag["alignment_reason"] = "already_applied"
+        return state, diag
+    positions, market_value, fallback_count = _broker_positions_to_state_positions(broker_positions_csv, price_df, price_col)
+    aligned_state = json.loads(json.dumps(state))
+    aligned_state["config"] = paths.name
+    aligned_state["positions"] = positions
+    if ALIGN_STATE_CASH_MODE == "zero":
+        cash = 0.0
+        nav = float(market_value)
+    else:
+        nav = float(state.get("nav", ACCOUNT_NAV))
+        cash = float(nav - market_value)
+    aligned_state["cash"] = float(cash)
+    aligned_state["nav"] = float(nav)
+    aligned_state["last_rebalanced_date"] = str(current_date.date())
+    aligned_state["state_alignment"] = {
+        "applied_at_date": str(current_date.date()),
+        "source": str(broker_positions_csv),
+        "cash_mode": ALIGN_STATE_CASH_MODE,
+        "positions_count": int(len(positions)),
+        "market_value": float(market_value),
+        "cash_after_alignment": float(cash),
+        "nav_after_alignment": float(nav),
+        "fallback_price_count": int(fallback_count),
+    }
+    alignment_marker_payload = {
+        "applied_at_date": str(current_date.date()),
+        "config": paths.name,
+        "source": str(broker_positions_csv),
+        "cash_mode": ALIGN_STATE_CASH_MODE,
+        "positions_count": int(len(positions)),
+        "market_value": float(market_value),
+        "cash_after_alignment": float(cash),
+        "nav_after_alignment": float(nav),
+        "fallback_price_count": int(fallback_count),
+    }
+    alignment_marker_json.write_text(json.dumps(alignment_marker_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    _save_state(aligned_state, _state_paths(paths.execution_dir)[0])
+    diag.update({
+        "alignment_applied": 1,
+        "alignment_reason": "applied_from_broker_positions",
+        "alignment_positions_count": int(len(positions)),
+        "alignment_market_value": float(market_value),
+        "alignment_cash_after": float(cash),
+        "alignment_nav_after": float(nav),
+        "alignment_fallback_price_count": int(fallback_count),
+    })
+    return aligned_state, diag
 
 
 def _apply_orders_to_state(state: dict, orders: pd.DataFrame, config_name: str, current_date: pd.Timestamp, price_df: pd.DataFrame, price_col: str) -> Tuple[dict, pd.DataFrame, int]:
@@ -474,7 +567,7 @@ def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, 
         )
 
     paths.execution_dir.mkdir(parents=True, exist_ok=True)
-    state_json, orders_csv, execution_log_csv, mtm_csv = _state_paths(paths.execution_dir)
+    state_json, orders_csv, execution_log_csv, mtm_csv, broker_positions_csv, alignment_marker_json = _state_paths(paths.execution_dir)
 
     if SKIP_EMPTY_FREEZE_CONFIGS and freeze_live_active_names <= 0:
         print(f"[EXEC][{paths.name}][SKIP] freeze summary has live_active_names=0")
@@ -514,14 +607,21 @@ def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, 
                 "estimated_commission_total": 0.0,
                 "estimated_slippage_total": 0.0,
                 "estimated_total_cost": 0.0,
+                "alignment_applied": 0,
+                "alignment_reason": "skip_empty_freeze_config",
             },
         )
         print(f"[ARTIFACT] {execution_log_csv}")
         return
 
     state = _load_state(paths.name, state_json)
+    state, alignment_diag = _maybe_align_state_once(state, paths, price_df, price_col, current_date)
     starting_nav = float(state.get("nav", ACCOUNT_NAV))
     starting_cash = float(state.get("cash", ACCOUNT_NAV))
+    print(
+        f"[EXEC][{paths.name}][ALIGN] requested={alignment_diag.get('alignment_requested', 0)} applied={alignment_diag.get('alignment_applied', 0)} "
+        f"reason={alignment_diag.get('alignment_reason', '')} marker={alignment_diag.get('alignment_marker_json', '')}"
+    )
 
     target, merged_missing, risk_counters = _build_target_table(book, price_df, price_col, starting_nav, fractional_enabled=fractional_enabled)
     orders, order_diag = _build_orders(target, state, price_col, current_date)
@@ -581,6 +681,13 @@ def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, 
         "estimated_commission_total": estimated_commission_total,
         "estimated_slippage_total": estimated_slippage_total,
         "estimated_total_cost": estimated_total_cost,
+        "alignment_applied": int(alignment_diag.get("alignment_applied", 0)),
+        "alignment_reason": str(alignment_diag.get("alignment_reason", "")),
+        "alignment_positions_count": int(alignment_diag.get("alignment_positions_count", 0) or 0),
+        "alignment_market_value": float(alignment_diag.get("alignment_market_value", 0.0) or 0.0),
+        "alignment_cash_after": float(alignment_diag.get("alignment_cash_after", 0.0) or 0.0),
+        "alignment_nav_after": float(alignment_diag.get("alignment_nav_after", 0.0) or 0.0),
+        "alignment_fallback_price_count": int(alignment_diag.get("alignment_fallback_price_count", 0) or 0),
     }
     _append_execution_log(execution_log_csv, log_row)
 
@@ -629,6 +736,7 @@ def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, 
     print(f"[ARTIFACT] {mtm_csv}")
     print(f"[ARTIFACT] {state_json}")
     print(f"[ARTIFACT] {execution_log_csv}")
+    print(f"[ARTIFACT] {alignment_marker_json}")
 
 
 def main() -> int:
@@ -650,6 +758,10 @@ def main() -> int:
     )
     print(
         f"[CFG] commission_bps={COMMISSION_BPS} commission_min_per_order={COMMISSION_MIN_PER_ORDER} slippage_bps={SLIPPAGE_BPS}"
+    )
+    print(
+        f"[CFG] align_state_from_broker_once={int(ALIGN_STATE_FROM_BROKER_ONCE)} align_state_require_broker_positions={int(ALIGN_STATE_REQUIRE_BROKER_POSITIONS)} "
+        f"align_state_cash_mode={ALIGN_STATE_CASH_MODE}"
     )
 
     feature_df = _load_live_feature_frame()
