@@ -42,6 +42,7 @@ SLIPPAGE_BPS = float(os.getenv("SLIPPAGE_BPS", "1.50"))
 ALIGN_STATE_FROM_BROKER_ONCE = str(os.getenv("ALIGN_STATE_FROM_BROKER_ONCE", "0")).strip().lower() not in {"0", "false", "no", "off"}
 ALIGN_STATE_REQUIRE_BROKER_POSITIONS = str(os.getenv("ALIGN_STATE_REQUIRE_BROKER_POSITIONS", "1")).strip().lower() not in {"0", "false", "no", "off"}
 ALIGN_STATE_CASH_MODE = str(os.getenv("ALIGN_STATE_CASH_MODE", "preserve_nav")).strip().lower() or "preserve_nav"
+SKIP_LEGACY_SYMBOLS_NOT_IN_TARGET = str(os.getenv("SKIP_LEGACY_SYMBOLS_NOT_IN_TARGET", "1")).strip().lower() not in {"0", "false", "no", "off"}
 
 PRICE_COL_CANDIDATES = [
     "close",
@@ -326,6 +327,7 @@ def _build_orders(target: pd.DataFrame, state: dict, price_col: str, current_dat
         target_notional = float(row["target_notional"]) if row is not None else 0.0
         target_shares_raw = float(row["target_shares_raw"]) if row is not None else 0.0
         target_shares = float(row["target_shares"]) if row is not None else 0.0
+        legacy_skipped = row is None and SKIP_LEGACY_SYMBOLS_NOT_IN_TARGET
         current_shares = _current_position_shares(state, symbol)
         raw_delta_shares = float(target_shares - current_shares)
         delta_shares = raw_delta_shares
@@ -338,6 +340,15 @@ def _build_orders(target: pd.DataFrame, state: dict, price_col: str, current_dat
             diag["rounded_to_zero_from_nonzero_target"] += 1
             if not skip_reason:
                 skip_reason = "rounded_to_zero"
+
+        if legacy_skipped:
+            target_shares = current_shares
+            raw_delta_shares = 0.0
+            delta_shares = 0.0
+            order_notional = 0.0
+            order_notional_abs = 0.0
+            order_side = "HOLD"
+            skip_reason = "legacy_symbol_not_in_target"
 
         if order_side == "HOLD":
             diag["already_at_target"] += 1
@@ -787,7 +798,7 @@ def main() -> int:
     )
     print(
         f"[CFG] align_state_from_broker_once={int(ALIGN_STATE_FROM_BROKER_ONCE)} align_state_require_broker_positions={int(ALIGN_STATE_REQUIRE_BROKER_POSITIONS)} "
-        f"align_state_cash_mode={ALIGN_STATE_CASH_MODE}"
+        f"align_state_cash_mode={ALIGN_STATE_CASH_MODE} skip_legacy_symbols_not_in_target={int(SKIP_LEGACY_SYMBOLS_NOT_IN_TARGET)}"
     )
 
     feature_df = _load_live_feature_frame()
