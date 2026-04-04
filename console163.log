@@ -10,30 +10,30 @@ PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_execution_l
 [CFG] align_state_from_broker_once=1 align_state_require_broker_positions=1 align_state_cash_mode=preserve_nav
 [DATA] current_date=2026-04-01 price_col=close symbols=175 snapshot_fallback_count=0
 [EXEC][optimal] loading freeze artifacts
-[EXEC][optimal][ALIGN] requested=1 applied=1 reason=applied_from_broker_positions marker=artifacts\execution_loop\optimal\state_alignment_once.json
-[EXEC][optimal] starting_nav=99733.36 ending_nav=78580.97 cash_after=78541.65 market_value_after=39.32 nav_recon_error=0.000000 order_count=12 active_names=3 gross_target=0.1000 price_col=close merged_missing_prices=0 fallback_price_rows=0 mtm_fallback_count=0 fractional_enabled_effective=0
+[EXEC][optimal][ALIGN] requested=1 applied=0 reason=already_applied marker=artifacts\execution_loop\optimal\state_alignment_once.json
+[EXEC][optimal] starting_nav=78579.97 ending_nav=57427.87 cash_after=57462.67 market_value_after=-34.80 nav_recon_error=0.000000 order_count=12 active_names=3 gross_target=0.1000 price_col=close merged_missing_prices=0 fallback_price_rows=0 mtm_fallback_count=0 fractional_enabled_effective=0 bootstrap_only=0 skip_reason=
 [EXEC][optimal][RISK] dropped_price_below_min=0 dropped_price_above_max=0 clipped_weight_cap=0 clipped_notional_cap=0
 [EXEC][optimal][DIAG] already_at_target=0 below_min_notional=1 rounded_to_zero_from_nonzero_target=0 entered_new_position=2 exited_position=10 increased_existing_position=0 decreased_existing_position=0 symbol_only_in_state=10 symbol_only_in_target=3
-[EXEC][optimal][COST] estimated_commission_total=6.9600 estimated_slippage_total=15.8253 estimated_total_cost=22.7853
+[EXEC][optimal][COST] estimated_commission_total=6.9600 estimated_slippage_total=15.5336 estimated_total_cost=22.4936
 [EXEC][optimal][ORDERS_TOP]
 symbol order_side  current_shares  target_shares_raw  target_shares  raw_delta_shares  delta_shares  price  order_notional  target_weight  estimated_commission  estimated_slippage  estimated_total_cost        skip_reason
-  HOOD        BUY         -296.00           0.000000            0.0            296.00        296.00 100.00        29600.00       0.000000                  1.48            4.440000              5.920000
-   NEM        BUY         -208.00           0.000000            0.0            208.00        208.00 100.00        20800.00       0.000000                  1.04            3.120000              4.160000
-  INTC        BUY         -200.00           0.000000            0.0            200.00        200.00 100.00        20000.00       0.000000                  1.00            3.000000              4.000000
-  CRCL        BUY         -128.00           0.000000            0.0            128.00        128.00 100.00        12800.00       0.000000                  0.64            1.920000              2.560000
-  OKLO        BUY            0.00         102.943706          102.0            102.00        102.00  48.07         4903.14       0.049617                  0.35            0.735471              1.085471
-  RKLB        BUY          -48.00           0.000000            0.0             48.00         48.00 100.00         4800.00       0.000000                  0.35            0.720000              1.070000
-  SHOP        BUY          -33.00           0.000000            0.0             33.00         33.00 100.00         3300.00       0.000000                  0.35            0.495000              0.845000
-  AMZN        BUY          -13.00           0.000000            0.0             13.00         13.00 100.00         1300.00       0.000000                  0.35            0.195000              0.545000
-  NVDA        BUY          -12.00           0.000000            0.0             12.00         12.00 100.00         1200.00       0.000000                  0.35            0.180000              0.530000
-  HIMS       HOLD            0.00           1.923596            1.0              1.00          0.00  19.84            0.00       0.000383                  0.00            0.000000              0.000000 below_min_notional
-  TSEM       SELL            0.00         -26.656696          -26.0            -26.00        -26.00 187.07        -4863.82      -0.050000                  0.35            0.729573              1.079573
-  MSFT       SELL           11.00           0.000000            0.0            -11.00        -11.00 100.00        -1100.00       0.000000                  0.35            0.165000              0.515000
-  AAPL       SELL            8.35           0.000000            0.0             -8.35         -8.35 100.00         -835.00       0.000000                  0.35            0.125250              0.475250
+  HOOD        BUY         -296.00           0.000000            0.0            296.00        296.00 100.00        29600.00       0.000000                  1.48             4.44000               5.92000
+   NEM        BUY         -208.00           0.000000            0.0            208.00        208.00 100.00        20800.00       0.000000                  1.04             3.12000               4.16000
+  INTC        BUY         -200.00           0.000000            0.0            200.00        200.00 100.00        20000.00       0.000000                  1.00             3.00000               4.00000
+  CRCL        BUY         -128.00           0.000000            0.0            128.00        128.00 100.00        12800.00       0.000000                  0.64             1.92000               2.56000
+  RKLB        BUY          -48.00           0.000000            0.0             48.00         48.00 100.00         4800.00       0.000000                  0.35             0.72000               1.07000
+  OKLO        BUY            0.00          81.109406           81.0             81.00         81.00  48.07         3893.67       0.049617                  0.35             0.58405               0.93405
+  SHOP        BUY          -33.00           0.000000            0.0             33.00         33.00 100.00         3300.00       0.000000                  0.35             0.49500               0.84500
+  AMZN        BUY          -13.00           0.000000            0.0             13.00         13.00 100.00         1300.00       0.000000                  0.35             0.19500               0.54500
+  NVDA        BUY          -12.00           0.000000            0.0             12.00         12.00 100.00         1200.00       0.000000                  0.35             0.18000               0.53000
+  HIMS       HOLD            0.00           1.515602            1.0              1.00          0.00  19.84            0.00       0.000383                  0.00             0.00000               0.00000 below_min_notional
+  TSEM       SELL            0.00         -21.002826          -21.0            -21.00        -21.00 187.07        -3928.47      -0.050000                  0.35             0.58927               0.93927
+  MSFT       SELL           11.00           0.000000            0.0            -11.00        -11.00 100.00        -1100.00       0.000000                  0.35             0.16500               0.51500
+  AAPL       SELL            8.35           0.000000            0.0             -8.35         -8.35 100.00         -835.00       0.000000                  0.35             0.12525               0.47525
 [EXEC][optimal][POSITIONS_MTM_TOP]
 symbol  shares  last_price  market_value
-  OKLO   102.0       48.07       4903.14
-  TSEM   -26.0      187.07      -4863.82
+  OKLO    81.0       48.07       3893.67
+  TSEM   -21.0      187.07      -3928.47
 [ARTIFACT] artifacts\execution_loop\optimal\target_book.csv
 [ARTIFACT] artifacts\execution_loop\optimal\orders.csv
 [ARTIFACT] artifacts\execution_loop\optimal\positions_mark_to_market.csv
@@ -41,31 +41,31 @@ symbol  shares  last_price  market_value
 [ARTIFACT] artifacts\execution_loop\optimal\execution_log.csv
 [ARTIFACT] artifacts\execution_loop\optimal\state_alignment_once.json
 [EXEC][aggressive] loading freeze artifacts
-[EXEC][aggressive][ALIGN] requested=1 applied=1 reason=applied_from_broker_positions marker=artifacts\execution_loop\aggressive\state_alignment_once.json
-[EXEC][aggressive] starting_nav=104078.01 ending_nav=82924.42 cash_after=77606.67 market_value_after=5317.75 nav_recon_error=0.000000 order_count=13 active_names=3 gross_target=0.1500 price_col=close merged_missing_prices=0 fallback_price_rows=0 mtm_fallback_count=0 fractional_enabled_effective=0
+[EXEC][aggressive][ALIGN] requested=1 applied=0 reason=already_applied marker=artifacts\execution_loop\aggressive\state_alignment_once.json
+[EXEC][aggressive] starting_nav=82922.91 ending_nav=61769.77 cash_after=57645.33 market_value_after=4124.44 nav_recon_error=0.000000 order_count=13 active_names=3 gross_target=0.1500 price_col=close merged_missing_prices=0 fallback_price_rows=0 mtm_fallback_count=0 fractional_enabled_effective=0 bootstrap_only=0 skip_reason=
 [EXEC][aggressive][RISK] dropped_price_below_min=0 dropped_price_above_max=0 clipped_weight_cap=3 clipped_notional_cap=0
 [EXEC][aggressive][DIAG] already_at_target=0 below_min_notional=0 rounded_to_zero_from_nonzero_target=0 entered_new_position=3 exited_position=10 increased_existing_position=0 decreased_existing_position=0 symbol_only_in_state=10 symbol_only_in_target=3
-[EXEC][aggressive][COST] estimated_commission_total=7.3100 estimated_slippage_total=16.6732 estimated_total_cost=23.9832
+[EXEC][aggressive][COST] estimated_commission_total=7.3100 estimated_slippage_total=16.2136 estimated_total_cost=23.5236
 [EXEC][aggressive][ORDERS_TOP]
 symbol order_side  current_shares  target_shares_raw  target_shares  raw_delta_shares  delta_shares  price  order_notional  target_weight  estimated_commission  estimated_slippage  estimated_total_cost skip_reason
   HOOD        BUY         -296.00           0.000000            0.0            296.00        296.00 100.00        29600.00           0.00                  1.48            4.440000              5.920000
    NEM        BUY         -208.00           0.000000            0.0            208.00        208.00 100.00        20800.00           0.00                  1.04            3.120000              4.160000
   INTC        BUY         -200.00           0.000000            0.0            200.00        200.00 100.00        20000.00           0.00                  1.00            3.000000              4.000000
   CRCL        BUY         -128.00           0.000000            0.0            128.00        128.00 100.00        12800.00           0.00                  0.64            1.920000              2.560000
-  OKLO        BUY            0.00         108.256720          108.0            108.00        108.00  48.07         5191.56           0.05                  0.35            0.778734              1.128734
-   NKE        BUY            0.00         116.600953          116.0            116.00        116.00  44.63         5177.08           0.05                  0.35            0.776562              1.126562
   RKLB        BUY          -48.00           0.000000            0.0             48.00         48.00 100.00         4800.00           0.00                  0.35            0.720000              1.070000
+  OKLO        BUY            0.00          86.252244           86.0             86.00         86.00  48.07         4134.02           0.05                  0.35            0.620103              0.970103
+   NKE        BUY            0.00          92.900411           92.0             92.00         92.00  44.63         4105.96           0.05                  0.35            0.615894              0.965894
   SHOP        BUY          -33.00           0.000000            0.0             33.00         33.00 100.00         3300.00           0.00                  0.35            0.495000              0.845000
   AMZN        BUY          -13.00           0.000000            0.0             13.00         13.00 100.00         1300.00           0.00                  0.35            0.195000              0.545000
   NVDA        BUY          -12.00           0.000000            0.0             12.00         12.00 100.00         1200.00           0.00                  0.35            0.180000              0.530000
-  TSEM       SELL            0.00         -27.817932          -27.0            -27.00        -27.00 187.07        -5050.89          -0.05                  0.35            0.757633              1.107633
+  TSEM       SELL            0.00         -22.163604          -22.0            -22.00        -22.00 187.07        -4115.54          -0.05                  0.35            0.617331              0.967331
   MSFT       SELL           11.00           0.000000            0.0            -11.00        -11.00 100.00        -1100.00           0.00                  0.35            0.165000              0.515000
   AAPL       SELL            8.35           0.000000            0.0             -8.35         -8.35 100.00         -835.00           0.00                  0.35            0.125250              0.475250
 [EXEC][aggressive][POSITIONS_MTM_TOP]
 symbol  shares  last_price  market_value
-  OKLO   108.0       48.07       5191.56
-   NKE   116.0       44.63       5177.08
-  TSEM   -27.0      187.07      -5050.89
+  OKLO    86.0       48.07       4134.02
+   NKE    92.0       44.63       4105.96
+  TSEM   -22.0      187.07      -4115.54
 [ARTIFACT] artifacts\execution_loop\aggressive\target_book.csv
 [ARTIFACT] artifacts\execution_loop\aggressive\orders.csv
 [ARTIFACT] artifacts\execution_loop\aggressive\positions_mark_to_market.csv
