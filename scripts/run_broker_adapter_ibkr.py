@@ -9,6 +9,7 @@ import sys
 import time
 import traceback
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from pathlib import Path
 from typing import Any, Dict, List, Sequence, Tuple
 
@@ -78,6 +79,8 @@ IB_REPRICE_FINAL_MARKETABLE_BPS = float(os.getenv("IB_REPRICE_FINAL_MARKETABLE_B
 IB_REPRICE_MAX_DEVIATION_PCT = float(os.getenv("IB_REPRICE_MAX_DEVIATION_PCT", "1.25"))
 IB_REPRICE_CANCEL_POLL_ATTEMPTS = int(os.getenv("IB_REPRICE_CANCEL_POLL_ATTEMPTS", "6"))
 IB_REPRICE_CANCEL_POLL_SLEEP_SEC = float(os.getenv("IB_REPRICE_CANCEL_POLL_SLEEP_SEC", "1.0"))
+IB_DEFERRED_WAIT_HEARTBEAT_SEC = float(os.getenv("IB_DEFERRED_WAIT_HEARTBEAT_SEC", "30.0"))
+IB_DEFERRED_POST_OPEN_WAIT_SEC = float(os.getenv("IB_DEFERRED_POST_OPEN_WAIT_SEC", "30.0"))
 REQUIRE_PRICE_HINT_SOURCE = str(os.getenv("REQUIRE_PRICE_HINT_SOURCE", "1")).strip().lower() not in {"0", "false", "no", "off"}
 REQUIRE_QUOTE_TS = str(os.getenv("REQUIRE_QUOTE_TS", "1")).strip().lower() not in {"0", "false", "no", "off"}
 REQUIRED_ORDER_COLUMNS = ["symbol", "order_side", "delta_shares"]
@@ -351,6 +354,74 @@ def deferred_until_from_399(err: BrokerErrorInfo | None) -> str:
         return ""
     m = RE_399_DEFERRED.search(str(err.error_string or ""))
     return str(m.group(1)).strip() if m else ""
+
+
+def parse_ib_deferred_until(err: BrokerErrorInfo | None) -> datetime | None:
+    raw = deferred_until_from_399(err)
+    if not raw:
+        return None
+    parts = raw.rsplit(" ", 1)
+    if len(parts) != 2:
+        return None
+    dt_part, tz_part = parts[0].strip(), parts[1].strip()
+    try:
+        naive = datetime.strptime(dt_part, "%Y-%m-%d %H:%M:%S")
+    except Exception:
+        return None
+    tz_map = {
+        "US/Eastern": "America/New_York",
+        "America/New_York": "America/New_York",
+        "EST": "America/New_York",
+        "EDT": "America/New_York",
+        "UTC": "UTC",
+    }
+    tz_name = tz_map.get(tz_part, tz_part)
+    try:
+        tzinfo = ZoneInfo(tz_name)
+    except Exception:
+        tzinfo = timezone.utc
+    return naive.replace(tzinfo=tzinfo)
+
+
+def wait_until_session_open_or_state_change(app: IBKRApp, ib_order_id: int, ib_entry: dict, err: BrokerErrorInfo | None) -> dict:
+    deferred_dt = parse_ib_deferred_until(err)
+    if deferred_dt is None:
+        return ib_entry
+    heartbeat = max(1.0, float(IB_DEFERRED_WAIT_HEARTBEAT_SEC))
+    while True:
+        latest = latest_ib_entry(app, ib_order_id, ib_entry)
+        status = normalize_status(str(latest.get("status", "")))
+        filled_qty = to_float(latest.get("filled_qty", 0.0))
+        remaining_qty = to_float(latest.get("remaining_qty", 0.0))
+        outcome = classify_outcome(status, filled_qty, remaining_qty)
+        if outcome in {"filled_now", "partial", "failed", "cancelled_after_ttl"}:
+            return latest
+        now_utc = datetime.now(timezone.utc)
+        deferred_utc = deferred_dt.astimezone(timezone.utc)
+        remaining_sec = (deferred_utc - now_utc).total_seconds()
+        if remaining_sec <= 0.0:
+            break
+        sleep_sec = min(heartbeat, max(0.5, remaining_sec))
+        print(
+            f"[BROKER][DEFERRED_WAIT] ib_order_id={ib_order_id} status={status} deferred_until={deferred_dt.isoformat()} remaining_sec={remaining_sec:.1f}"
+        )
+        time.sleep(sleep_sec)
+        ib_entry = latest
+    end_time = time.time() + max(1.0, float(IB_DEFERRED_POST_OPEN_WAIT_SEC))
+    latest = ib_entry
+    while time.time() < end_time:
+        time.sleep(max(0.25, IB_REPRICE_CANCEL_POLL_SLEEP_SEC))
+        latest = latest_ib_entry(app, ib_order_id, latest)
+        status = normalize_status(str(latest.get("status", "")))
+        filled_qty = to_float(latest.get("filled_qty", 0.0))
+        remaining_qty = to_float(latest.get("remaining_qty", 0.0))
+        outcome = classify_outcome(status, filled_qty, remaining_qty)
+        print(
+            f"[BROKER][DEFERRED_POST_OPEN] ib_order_id={ib_order_id} status={status} filled_qty={filled_qty:.8f} remaining_qty={remaining_qty:.8f} outcome={outcome}"
+        )
+        if outcome in {"filled_now", "partial", "failed", "cancelled_after_ttl"}:
+            return latest
+    return latest
 
 
 def connect_and_wait(app: IBKRApp) -> None:
@@ -847,12 +918,18 @@ def run_ladder_order(app: IBKRApp, prepared: PreparedOrder, contract: Contract, 
                 "deferred_until": deferred_until,
                 "ib_399_message": str(deferred_399.error_string),
             })
-            final_entry = cancel_and_poll_order(app, ib_order_id, ib_entry, "ib_399_session_deferred")
+            final_entry = wait_until_session_open_or_state_change(app, ib_order_id, ib_entry, deferred_399)
+            final_status = normalize_status(str(final_entry.get("status", "")))
+            final_filled_qty = to_float(final_entry.get("filled_qty", 0.0))
+            final_remaining_qty = to_float(final_entry.get("remaining_qty", max(0.0, prepared.qty - final_filled_qty)))
+            final_outcome = classify_outcome(final_status, final_filled_qty, final_remaining_qty)
+            if final_outcome in {"filled_now", "partial"}:
+                return final_entry, None, reprices_used, request_debug
             issue = OrderIssue(
                 kind="session_deferred_399",
-                status="deferred_session_closed",
+                status="working_carry",
                 broker_error=deferred_399,
-                message=f"IB deferred order until {deferred_until}" if deferred_until else "IB deferred order until later session",
+                message=f"IB deferred order until {deferred_until}; leaving live at broker" if deferred_until else "IB deferred order until later session; leaving live at broker",
             )
             return final_entry, issue, reprices_used, request_debug
         ib_entry = wait_for_fill_progress(app, ib_order_id, ib_entry)
@@ -937,8 +1014,11 @@ def run_one_config(app: IBKRApp, paths: ConfigPaths, symbol_map: Dict[str, str],
             prepared, contract, req_cursor, contract_meta_debug = resolve_contract_metadata(app, prepared0, req_cursor)
             request_debug: Dict[str, Any] = {}
             ib_entry, issue, reprices_used, request_debug = run_ladder_order(app, prepared, contract, contract_meta_debug)
-            if ib_entry is not None and issue is None:
-                final_entry = entry_from_ib(prepared, ib_entry, paths.orders_csv, request_debug, "")
+            if ib_entry is not None and (issue is None or issue.status == "working_carry"):
+                outcome_override = "working_carry" if issue is not None and issue.status == "working_carry" else ""
+                final_entry = entry_from_ib(prepared, ib_entry, paths.orders_csv, request_debug, outcome_override)
+                if issue is not None:
+                    final_entry["response"]["deferred_message"] = issue.message
                 upsert_broker_log_entry(broker_log, final_entry, utc_now_iso)
                 fill_entries.append(final_entry)
                 sent_count += 1
