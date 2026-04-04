@@ -25,7 +25,6 @@ except Exception as import_exc:
         "Failed to import ibapi. Install IB API first, for example: pip install ibapi"
     ) from import_exc
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = ROOT / "src"
 for p in [ROOT, SRC_DIR]:
@@ -119,6 +118,8 @@ BROKER_ACCOUNT_ID = str(os.getenv("BROKER_ACCOUNT_ID", "")).strip()
 IB_ACCOUNT_CODE = str(os.getenv("IB_ACCOUNT_CODE", BROKER_ACCOUNT_ID)).strip()
 TOPK_PRINT = int(os.getenv("TOPK_PRINT", "50"))
 REQ_OPEN_ORDERS_MODE = str(os.getenv("RECONCILE_OPEN_ORDERS_MODE", "open")).strip().lower()
+RECONCILE_BROKER_LOG_AS_PENDING = _env_flag("RECONCILE_BROKER_LOG_AS_PENDING", "1")
+RECONCILE_PENDING_MATCH_TOLERANCE = float(os.getenv("RECONCILE_PENDING_MATCH_TOLERANCE", "0.000001"))
 
 
 @dataclass(frozen=True)
@@ -127,10 +128,13 @@ class ConfigPaths:
     execution_dir: Path
     state_json: Path
     orders_csv: Path
+    fills_csv: Path
+    broker_log_json: Path
     report_json: Path
     diff_csv: Path
     broker_positions_csv: Path
     broker_open_orders_csv: Path
+    broker_pending_csv: Path
 
 
 @dataclass(frozen=True)
@@ -342,7 +346,6 @@ class IBKRReconApp(EWrapper, EClient):
         raise TimeoutError("Timed out waiting for positionEnd")
 
 
-
 def _config_paths(name: str) -> ConfigPaths:
     execution_dir = EXECUTION_ROOT / name
     return ConfigPaths(
@@ -350,12 +353,14 @@ def _config_paths(name: str) -> ConfigPaths:
         execution_dir=execution_dir,
         state_json=execution_dir / "portfolio_state.json",
         orders_csv=execution_dir / "orders.csv",
+        fills_csv=execution_dir / "fills.csv",
+        broker_log_json=execution_dir / "broker_log.json",
         report_json=execution_dir / "reconcile_report.json",
         diff_csv=execution_dir / "reconcile_diff.csv",
         broker_positions_csv=execution_dir / "broker_positions.csv",
         broker_open_orders_csv=execution_dir / "broker_open_orders.csv",
+        broker_pending_csv=execution_dir / "broker_pending.csv",
     )
-
 
 
 def _bootstrap_connection() -> IBKRReconApp:
@@ -372,7 +377,6 @@ def _bootstrap_connection() -> IBKRReconApp:
                 f"IB_ACCOUNT_CODE={IB_ACCOUNT_CODE!r} not present in managed accounts: {managed_accounts!r}"
             )
     return app
-
 
 
 def _refresh_open_orders(app: IBKRReconApp) -> pd.DataFrame:
@@ -400,7 +404,6 @@ def _refresh_open_orders(app: IBKRReconApp) -> pd.DataFrame:
     df["broker_symbol"] = df.get("broker_symbol", pd.Series(dtype="object")).astype(str)
     df = df.sort_values(["symbol", "ib_order_id"], ascending=[True, True]).reset_index(drop=True)
     return df
-
 
 
 def _refresh_positions_once(app: IBKRReconApp) -> pd.DataFrame:
@@ -436,7 +439,6 @@ def _refresh_positions_once(app: IBKRReconApp) -> pd.DataFrame:
         .reset_index(drop=True)
     )
     return df
-
 
 
 def _refresh_positions(app: IBKRReconApp) -> pd.DataFrame:
@@ -493,7 +495,6 @@ def _refresh_positions(app: IBKRReconApp) -> pd.DataFrame:
     raise RuntimeError("Unexpected positions refresh failure")
 
 
-
 def _load_portfolio_state(state_json: Path) -> LocalExpectedSource:
     with state_json.open("r", encoding="utf-8") as fh:
         payload = json.load(fh)
@@ -533,7 +534,6 @@ def _load_portfolio_state(state_json: Path) -> LocalExpectedSource:
     else:
         df = df.sort_values(["symbol"], ascending=[True]).reset_index(drop=True)
     return LocalExpectedSource(source="portfolio_state.json", rows=df)
-
 
 
 def _compute_expected_from_orders(orders_csv: Path) -> LocalExpectedSource:
@@ -615,15 +615,85 @@ def _compute_expected_from_orders(orders_csv: Path) -> LocalExpectedSource:
     return LocalExpectedSource(source="orders.csv", rows=out)
 
 
-
 def _load_local_expected(paths: ConfigPaths) -> LocalExpectedSource:
     if paths.state_json.exists():
         return _load_portfolio_state(paths.state_json)
     return _compute_expected_from_orders(paths.orders_csv)
 
 
+def _load_broker_pending(paths: ConfigPaths) -> pd.DataFrame:
+    if not RECONCILE_BROKER_LOG_AS_PENDING or not paths.broker_log_json.exists():
+        return pd.DataFrame(
+            columns=[
+                "symbol", "pending_order_count", "pending_net_qty", "pending_remaining_qty",
+                "pending_actions", "pending_statuses", "pending_outcomes", "pending_client_tags",
+            ]
+        )
+    payload = json.loads(paths.broker_log_json.read_text(encoding="utf-8"))
+    orders_obj = payload.get("orders", {}) if isinstance(payload, dict) else {}
+    if not isinstance(orders_obj, dict):
+        raise RuntimeError(f"broker_log.json orders must be an object: {paths.broker_log_json}")
 
-def _build_reconcile_diff(local_source: LocalExpectedSource, broker_positions: pd.DataFrame, broker_open_orders: pd.DataFrame) -> pd.DataFrame:
+    active_statuses = {"presubmitted", "submitted", "pending_submit", "pendingcancel", "pending_cancel", "api_pending"}
+    active_outcomes = {"working", "working_carry"}
+    rows: List[Dict[str, Any]] = []
+    for _, entry in orders_obj.items():
+        if not isinstance(entry, dict):
+            continue
+        symbol = _norm_symbol(entry.get("symbol", ""))
+        if not symbol:
+            continue
+        status = str(entry.get("status", "") or "").strip().lower()
+        response = entry.get("response", {}) if isinstance(entry.get("response", {}), dict) else {}
+        outcome = str(response.get("outcome", "") or entry.get("outcome", "") or "").strip().lower()
+        if status not in active_statuses and outcome not in active_outcomes:
+            continue
+        side = str(entry.get("side", "") or "").strip().upper()
+        remaining_qty = _num_scalar(entry.get("remaining_qty", 0.0))
+        signed_remaining = remaining_qty if side == "BUY" else -remaining_qty
+        rows.append(
+            {
+                "symbol": symbol,
+                "pending_order_count": 1,
+                "pending_net_qty": signed_remaining,
+                "pending_remaining_qty": remaining_qty,
+                "pending_actions": side,
+                "pending_statuses": status,
+                "pending_outcomes": outcome,
+                "pending_client_tags": str(entry.get("client_order_id", "") or ""),
+            }
+        )
+    df = pd.DataFrame(rows)
+    if not len(df):
+        return pd.DataFrame(
+            columns=[
+                "symbol", "pending_order_count", "pending_net_qty", "pending_remaining_qty",
+                "pending_actions", "pending_statuses", "pending_outcomes", "pending_client_tags",
+            ]
+        )
+    df = (
+        df.groupby("symbol", as_index=False)
+        .agg(
+            pending_order_count=("pending_order_count", "sum"),
+            pending_net_qty=("pending_net_qty", "sum"),
+            pending_remaining_qty=("pending_remaining_qty", "sum"),
+            pending_actions=("pending_actions", lambda s: "|".join(sorted({str(x) for x in s if str(x)}))),
+            pending_statuses=("pending_statuses", lambda s: "|".join(sorted({str(x) for x in s if str(x)}))),
+            pending_outcomes=("pending_outcomes", lambda s: "|".join(sorted({str(x) for x in s if str(x)}))),
+            pending_client_tags=("pending_client_tags", lambda s: "|".join(sorted({str(x) for x in s if str(x)}))),
+        )
+        .sort_values(["symbol"], ascending=[True])
+        .reset_index(drop=True)
+    )
+    return df
+
+
+def _build_reconcile_diff(
+    local_source: LocalExpectedSource,
+    broker_positions: pd.DataFrame,
+    broker_open_orders: pd.DataFrame,
+    broker_pending: pd.DataFrame,
+) -> pd.DataFrame:
     local_df = local_source.rows.copy()
     if not len(local_df):
         local_df = pd.DataFrame(columns=["symbol", "expected_shares", "source", "source_priority"])
@@ -677,18 +747,27 @@ def _build_reconcile_diff(local_source: LocalExpectedSource, broker_positions: p
             .reset_index(drop=True)
         )
 
+    pending_agg = broker_pending.copy()
+    if not len(pending_agg):
+        pending_agg = pd.DataFrame(columns=["symbol", "pending_order_count", "pending_net_qty", "pending_remaining_qty"])
+
     merged = pd.merge(local_df, broker_positions_agg, on="symbol", how="outer")
     merged = pd.merge(merged, open_orders_agg, on="symbol", how="outer")
-    if "expected_shares" not in merged.columns:
-        merged["expected_shares"] = 0.0
-    if "broker_position" not in merged.columns:
-        merged["broker_position"] = 0.0
-    if "broker_open_order_count" not in merged.columns:
-        merged["broker_open_order_count"] = 0
-    if "broker_open_order_net_qty" not in merged.columns:
-        merged["broker_open_order_net_qty"] = 0.0
-    if "broker_open_order_remaining_qty" not in merged.columns:
-        merged["broker_open_order_remaining_qty"] = 0.0
+    merged = pd.merge(merged, pending_agg, on="symbol", how="outer")
+
+    defaults = {
+        "expected_shares": 0.0,
+        "broker_position": 0.0,
+        "broker_open_order_count": 0,
+        "broker_open_order_net_qty": 0.0,
+        "broker_open_order_remaining_qty": 0.0,
+        "pending_order_count": 0,
+        "pending_net_qty": 0.0,
+        "pending_remaining_qty": 0.0,
+    }
+    for col, default in defaults.items():
+        if col not in merged.columns:
+            merged[col] = default
     if "source" not in merged.columns:
         merged["source"] = local_source.source
 
@@ -697,14 +776,29 @@ def _build_reconcile_diff(local_source: LocalExpectedSource, broker_positions: p
     merged["broker_open_order_count"] = pd.to_numeric(merged["broker_open_order_count"], errors="coerce").fillna(0).astype(int)
     merged["broker_open_order_net_qty"] = pd.to_numeric(merged["broker_open_order_net_qty"], errors="coerce").fillna(0.0)
     merged["broker_open_order_remaining_qty"] = pd.to_numeric(merged["broker_open_order_remaining_qty"], errors="coerce").fillna(0.0)
-
+    merged["pending_order_count"] = pd.to_numeric(merged["pending_order_count"], errors="coerce").fillna(0).astype(int)
+    merged["pending_net_qty"] = pd.to_numeric(merged["pending_net_qty"], errors="coerce").fillna(0.0)
+    merged["pending_remaining_qty"] = pd.to_numeric(merged["pending_remaining_qty"], errors="coerce").fillna(0.0)
     merged["source"] = merged["source"].fillna(local_source.source).astype(str)
+
+    merged["has_open_orders"] = merged["broker_open_order_count"] > 0
+    merged["has_pending_carry"] = merged["pending_order_count"] > 0
+    merged["effective_pending_order_count"] = merged[["broker_open_order_count", "pending_order_count"]].max(axis=1)
+    merged["effective_pending_net_qty"] = merged["broker_open_order_net_qty"]
+    use_pending_mask = merged["effective_pending_net_qty"].abs() <= RECONCILE_PENDING_MATCH_TOLERANCE
+    merged.loc[use_pending_mask, "effective_pending_net_qty"] = merged.loc[use_pending_mask, "pending_net_qty"]
+    merged["effective_pending_remaining_qty"] = merged["broker_open_order_remaining_qty"]
+    use_pending_rem_mask = merged["effective_pending_remaining_qty"].abs() <= RECONCILE_PENDING_MATCH_TOLERANCE
+    merged.loc[use_pending_rem_mask, "effective_pending_remaining_qty"] = merged.loc[use_pending_rem_mask, "pending_remaining_qty"]
+    merged["expected_after_pending"] = merged["broker_position"] + merged["effective_pending_net_qty"]
     merged["drift_shares"] = merged["broker_position"] - merged["expected_shares"]
     merged["abs_drift_shares"] = merged["drift_shares"].abs()
-    merged["positions_match"] = merged["abs_drift_shares"] <= 1e-9
-    merged["has_open_orders"] = merged["broker_open_order_count"] > 0
-    merged["expected_nonzero"] = merged["expected_shares"].abs() > 1e-9
-    merged["broker_nonzero"] = merged["broker_position"].abs() > 1e-9
+    merged["drift_after_pending"] = merged["expected_after_pending"] - merged["expected_shares"]
+    merged["abs_drift_after_pending"] = merged["drift_after_pending"].abs()
+    merged["positions_match"] = merged["abs_drift_shares"] <= RECONCILE_PENDING_MATCH_TOLERANCE
+    merged["covered_by_pending"] = merged["abs_drift_after_pending"] <= RECONCILE_PENDING_MATCH_TOLERANCE
+    merged["expected_nonzero"] = merged["expected_shares"].abs() > RECONCILE_PENDING_MATCH_TOLERANCE
+    merged["broker_nonzero"] = merged["broker_position"].abs() > RECONCILE_PENDING_MATCH_TOLERANCE
 
     status: List[str] = []
     for _, row in merged.iterrows():
@@ -712,10 +806,18 @@ def _build_reconcile_diff(local_source: LocalExpectedSource, broker_positions: p
         broker_nonzero = bool(row["broker_nonzero"])
         positions_match = bool(row["positions_match"])
         has_open_orders = bool(row["has_open_orders"])
-        if positions_match and not has_open_orders:
+        has_pending_carry = bool(row["has_pending_carry"])
+        covered_by_pending = bool(row["covered_by_pending"])
+        if positions_match and not has_open_orders and not has_pending_carry:
             status.append("match")
-        elif positions_match and has_open_orders:
+        elif positions_match and (has_open_orders or has_pending_carry):
             status.append("match_with_open_orders")
+        elif covered_by_pending and (has_open_orders or has_pending_carry):
+            status.append("covered_by_pending_orders")
+        elif expected_nonzero and not broker_nonzero and (has_open_orders or has_pending_carry):
+            status.append("working_carry_pending_open")
+        elif broker_nonzero and not expected_nonzero and (has_open_orders or has_pending_carry):
+            status.append("flatten_pending_open")
         elif expected_nonzero and not broker_nonzero:
             status.append("missing_at_broker")
         elif broker_nonzero and not expected_nonzero:
@@ -729,14 +831,24 @@ def _build_reconcile_diff(local_source: LocalExpectedSource, broker_positions: p
         "source",
         "expected_shares",
         "broker_position",
+        "effective_pending_net_qty",
+        "expected_after_pending",
         "drift_shares",
         "abs_drift_shares",
+        "drift_after_pending",
+        "abs_drift_after_pending",
         "reconcile_status",
         "positions_match",
+        "covered_by_pending",
         "has_open_orders",
+        "has_pending_carry",
+        "effective_pending_order_count",
         "broker_open_order_count",
         "broker_open_order_net_qty",
         "broker_open_order_remaining_qty",
+        "pending_order_count",
+        "pending_net_qty",
+        "pending_remaining_qty",
         "target_shares",
         "current_shares",
         "delta_shares",
@@ -753,14 +865,17 @@ def _build_reconcile_diff(local_source: LocalExpectedSource, broker_positions: p
         "broker_account",
         "broker_open_order_actions",
         "broker_open_order_statuses",
+        "pending_actions",
+        "pending_statuses",
+        "pending_outcomes",
+        "pending_client_tags",
         "price",
         "last_price",
         "market_value",
     ]
     final_cols = [c for c in preferred_cols if c in merged.columns] + [c for c in merged.columns if c not in preferred_cols]
-    merged = merged[final_cols].sort_values(["abs_drift_shares", "symbol"], ascending=[False, True]).reset_index(drop=True)
+    merged = merged[final_cols].sort_values(["abs_drift_after_pending", "abs_drift_shares", "symbol"], ascending=[False, False, True]).reset_index(drop=True)
     return merged
-
 
 
 def _write_df_csv_safe(df: pd.DataFrame, path: Path) -> None:
@@ -768,18 +883,31 @@ def _write_df_csv_safe(df: pd.DataFrame, path: Path) -> None:
     _safe_write_text(path, csv_text, encoding="utf-8")
 
 
-
 def _write_json_safe(payload: Dict[str, Any], path: Path) -> None:
     _safe_write_text(path, json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def _status_count(diff_df: pd.DataFrame, status: str) -> int:
+    return int((diff_df["reconcile_status"] == status).sum()) if len(diff_df) else 0
 
-def _build_report(paths: ConfigPaths, local_source: LocalExpectedSource, broker_positions: pd.DataFrame, broker_open_orders: pd.DataFrame, diff_df: pd.DataFrame, app: IBKRReconApp) -> Dict[str, Any]:
-    exact_match_count = int((diff_df["reconcile_status"] == "match").sum()) if len(diff_df) else 0
-    match_with_open_orders_count = int((diff_df["reconcile_status"] == "match_with_open_orders").sum()) if len(diff_df) else 0
-    drift_count = int((diff_df["reconcile_status"] == "drift").sum()) if len(diff_df) else 0
-    missing_at_broker_count = int((diff_df["reconcile_status"] == "missing_at_broker").sum()) if len(diff_df) else 0
-    unexpected_at_broker_count = int((diff_df["reconcile_status"] == "unexpected_at_broker").sum()) if len(diff_df) else 0
+
+def _build_report(
+    paths: ConfigPaths,
+    local_source: LocalExpectedSource,
+    broker_positions: pd.DataFrame,
+    broker_open_orders: pd.DataFrame,
+    broker_pending: pd.DataFrame,
+    diff_df: pd.DataFrame,
+    app: IBKRReconApp,
+) -> Dict[str, Any]:
+    exact_match_count = _status_count(diff_df, "match")
+    match_with_open_orders_count = _status_count(diff_df, "match_with_open_orders")
+    covered_by_pending_orders_count = _status_count(diff_df, "covered_by_pending_orders")
+    working_carry_pending_open_count = _status_count(diff_df, "working_carry_pending_open")
+    flatten_pending_open_count = _status_count(diff_df, "flatten_pending_open")
+    drift_count = _status_count(diff_df, "drift")
+    missing_at_broker_count = _status_count(diff_df, "missing_at_broker")
+    unexpected_at_broker_count = _status_count(diff_df, "unexpected_at_broker")
     report = {
         "generated_at_utc": _utc_now_iso(),
         "config": paths.name,
@@ -798,6 +926,7 @@ def _build_report(paths: ConfigPaths, local_source: LocalExpectedSource, broker_
             "source": local_source.source,
             "state_json_exists": paths.state_json.exists(),
             "orders_csv_exists": paths.orders_csv.exists(),
+            "broker_log_json_exists": paths.broker_log_json.exists(),
             "local_rows": int(len(local_source.rows)),
         },
         "summary": {
@@ -805,13 +934,19 @@ def _build_report(paths: ConfigPaths, local_source: LocalExpectedSource, broker_
             "local_expected_symbols": int(len(local_source.rows)),
             "broker_position_symbols": int(len(broker_positions)),
             "broker_open_orders": int(len(broker_open_orders)),
+            "broker_pending_symbols": int(len(broker_pending)),
             "exact_match_count": exact_match_count,
             "match_with_open_orders_count": match_with_open_orders_count,
+            "covered_by_pending_orders_count": covered_by_pending_orders_count,
+            "working_carry_pending_open_count": working_carry_pending_open_count,
+            "flatten_pending_open_count": flatten_pending_open_count,
             "drift_count": drift_count,
             "missing_at_broker_count": missing_at_broker_count,
             "unexpected_at_broker_count": unexpected_at_broker_count,
             "max_abs_drift_shares": float(diff_df["abs_drift_shares"].max()) if len(diff_df) else 0.0,
+            "max_abs_drift_after_pending": float(diff_df["abs_drift_after_pending"].max()) if len(diff_df) else 0.0,
             "sum_abs_drift_shares": float(diff_df["abs_drift_shares"].sum()) if len(diff_df) else 0.0,
+            "sum_abs_drift_after_pending": float(diff_df["abs_drift_after_pending"].sum()) if len(diff_df) else 0.0,
         },
         "top_drifts": diff_df.head(min(TOPK_PRINT, len(diff_df))).to_dict(orient="records") if len(diff_df) else [],
         "artifacts": {
@@ -819,11 +954,11 @@ def _build_report(paths: ConfigPaths, local_source: LocalExpectedSource, broker_
             "reconcile_diff_csv": str(paths.diff_csv),
             "broker_positions_csv": str(paths.broker_positions_csv),
             "broker_open_orders_csv": str(paths.broker_open_orders_csv),
+            "broker_pending_csv": str(paths.broker_pending_csv),
         },
         "ib_errors": app._errors,
     }
     return report
-
 
 
 def _run_one_config(app: IBKRReconApp, paths: ConfigPaths) -> None:
@@ -833,37 +968,45 @@ def _run_one_config(app: IBKRReconApp, paths: ConfigPaths) -> None:
     local_source = _load_local_expected(paths)
     print(
         f"[LOCAL][{paths.name}] source={local_source.source} rows={len(local_source.rows)} "
-        f"state_json_exists={int(paths.state_json.exists())} orders_csv_exists={int(paths.orders_csv.exists())}"
+        f"state_json_exists={int(paths.state_json.exists())} orders_csv_exists={int(paths.orders_csv.exists())} "
+        f"broker_log_json_exists={int(paths.broker_log_json.exists())}"
     )
 
     broker_positions = _refresh_positions(app)
     broker_open_orders = _refresh_open_orders(app)
+    broker_pending = _load_broker_pending(paths)
 
     print(
         f"[BROKER][{paths.name}] positions={len(broker_positions)} open_orders={len(broker_open_orders)} "
-        f"account={IB_ACCOUNT_CODE or '<all>'}"
+        f"pending_symbols={len(broker_pending)} account={IB_ACCOUNT_CODE or '<all>'}"
     )
 
-    diff_df = _build_reconcile_diff(local_source, broker_positions, broker_open_orders)
-    report = _build_report(paths, local_source, broker_positions, broker_open_orders, diff_df, app)
+    diff_df = _build_reconcile_diff(local_source, broker_positions, broker_open_orders, broker_pending)
+    report = _build_report(paths, local_source, broker_positions, broker_open_orders, broker_pending, diff_df, app)
 
     _write_df_csv_safe(broker_positions, paths.broker_positions_csv)
     _write_df_csv_safe(broker_open_orders, paths.broker_open_orders_csv)
+    _write_df_csv_safe(broker_pending, paths.broker_pending_csv)
     _write_df_csv_safe(diff_df, paths.diff_csv)
     _write_json_safe(report, paths.report_json)
 
-    exact_match_count = int((diff_df["reconcile_status"] == "match").sum()) if len(diff_df) else 0
-    match_with_open_orders_count = int((diff_df["reconcile_status"] == "match_with_open_orders").sum()) if len(diff_df) else 0
-    drift_count = int((diff_df["reconcile_status"] == "drift").sum()) if len(diff_df) else 0
-    missing_at_broker_count = int((diff_df["reconcile_status"] == "missing_at_broker").sum()) if len(diff_df) else 0
-    unexpected_at_broker_count = int((diff_df["reconcile_status"] == "unexpected_at_broker").sum()) if len(diff_df) else 0
+    exact_match_count = _status_count(diff_df, "match")
+    match_with_open_orders_count = _status_count(diff_df, "match_with_open_orders")
+    covered_by_pending_orders_count = _status_count(diff_df, "covered_by_pending_orders")
+    working_carry_pending_open_count = _status_count(diff_df, "working_carry_pending_open")
+    flatten_pending_open_count = _status_count(diff_df, "flatten_pending_open")
+    drift_count = _status_count(diff_df, "drift")
+    missing_at_broker_count = _status_count(diff_df, "missing_at_broker")
+    unexpected_at_broker_count = _status_count(diff_df, "unexpected_at_broker")
     max_abs_drift = float(diff_df["abs_drift_shares"].max()) if len(diff_df) else 0.0
+    max_abs_drift_after_pending = float(diff_df["abs_drift_after_pending"].max()) if len(diff_df) else 0.0
 
     print(
         f"[RECON][{paths.name}][SUMMARY] symbols_total={len(diff_df)} exact_match={exact_match_count} "
-        f"match_with_open_orders={match_with_open_orders_count} drift={drift_count} "
-        f"missing_at_broker={missing_at_broker_count} unexpected_at_broker={unexpected_at_broker_count} "
-        f"max_abs_drift_shares={max_abs_drift:.8f}"
+        f"match_with_open_orders={match_with_open_orders_count} covered_by_pending_orders={covered_by_pending_orders_count} "
+        f"working_carry_pending_open={working_carry_pending_open_count} flatten_pending_open={flatten_pending_open_count} "
+        f"drift={drift_count} missing_at_broker={missing_at_broker_count} unexpected_at_broker={unexpected_at_broker_count} "
+        f"max_abs_drift_shares={max_abs_drift:.8f} max_abs_drift_after_pending={max_abs_drift_after_pending:.8f}"
     )
 
     if len(diff_df):
@@ -874,7 +1017,7 @@ def _run_one_config(app: IBKRReconApp, paths: ConfigPaths) -> None:
     print(f"[ARTIFACT] {paths.diff_csv}")
     print(f"[ARTIFACT] {paths.broker_positions_csv}")
     print(f"[ARTIFACT] {paths.broker_open_orders_csv}")
-
+    print(f"[ARTIFACT] {paths.broker_pending_csv}")
 
 
 def main() -> int:
@@ -885,6 +1028,7 @@ def main() -> int:
     print(f"[CFG] ib_positions_timeout_sec={IB_POSITIONS_TIMEOUT_SEC} ib_positions_retries={IB_POSITIONS_RETRIES} ib_positions_settle_sec={IB_POSITIONS_SETTLE_SEC}")
     print(f"[CFG] ib_account_code={IB_ACCOUNT_CODE}")
     print(f"[CFG] reconcile_open_orders_mode={REQ_OPEN_ORDERS_MODE}")
+    print(f"[CFG] reconcile_broker_log_as_pending={int(RECONCILE_BROKER_LOG_AS_PENDING)} pending_match_tolerance={RECONCILE_PENDING_MATCH_TOLERANCE}")
 
     if not RECONCILE_CONFIG_NAMES:
         raise RuntimeError("No reconcile configs provided. Set RECONCILE_CONFIG_NAMES or CONFIG_NAMES.")
