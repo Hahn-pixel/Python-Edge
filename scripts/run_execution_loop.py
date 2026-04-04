@@ -624,18 +624,42 @@ def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, 
     )
 
     target, merged_missing, risk_counters = _build_target_table(book, price_df, price_col, starting_nav, fractional_enabled=fractional_enabled)
-    orders, order_diag = _build_orders(target, state, price_col, current_date)
-    next_state, mtm_df, mtm_fallback_count = _apply_orders_to_state(state, orders, paths.name, current_date, price_df, price_col)
+    live_active_names = int(len(target.loc[target["target_shares"].abs() > 0.0]))
+    gross_target = float(target["target_notional"].abs().sum() / (starting_nav + 1e-12)) if len(target) else 0.0
+    fallback_price_rows = int((_num(target[price_col]) == float(DEFAULT_PRICE_FALLBACK)).sum()) if len(target) else 0
+
+    bootstrap_only = int(alignment_diag.get("alignment_applied", 0)) == 1
+    if bootstrap_only:
+        orders = pd.DataFrame(
+            columns=[
+                "date", "symbol", "price", "target_weight", "target_notional", "target_shares_raw",
+                "current_shares", "target_shares", "raw_delta_shares", "delta_shares", "order_side",
+                "order_notional", "order_notional_abs", "estimated_commission", "estimated_slippage",
+                "estimated_total_cost", "skip_reason",
+            ]
+        )
+        order_diag = _empty_order_diag()
+        mtm_positions, mtm_df, mtm_fallback_count = _mark_positions_to_market(state.get("positions", {}), price_df, price_col)
+        next_state = json.loads(json.dumps(state))
+        next_state["positions"] = mtm_positions
+        next_state["config"] = paths.name
+        next_state["last_rebalanced_date"] = str(current_date.date())
+        next_state["last_estimated_trading_cost"] = 0.0
+        next_state["nav"] = float(next_state.get("cash", ACCOUNT_NAV)) + float(mtm_df["market_value"].sum() if len(mtm_df) else 0.0)
+        target = target.copy()
+        target["bootstrap_only_skip"] = 1
+        skip_reason_value = "aligned_state_bootstrap_only"
+    else:
+        orders, order_diag = _build_orders(target, state, price_col, current_date)
+        next_state, mtm_df, mtm_fallback_count = _apply_orders_to_state(state, orders, paths.name, current_date, price_df, price_col)
+        skip_reason_value = ""
 
     target.to_csv(paths.execution_dir / "target_book.csv", index=False)
     orders.to_csv(orders_csv, index=False)
     mtm_df.to_csv(mtm_csv, index=False)
     _save_state(next_state, state_json)
 
-    live_active_names = int(len(target.loc[target["target_shares"].abs() > 0.0]))
-    order_count = int((orders["order_side"] != "HOLD").sum()) if len(orders) else 0
-    gross_target = float(target["target_notional"].abs().sum() / (starting_nav + 1e-12)) if len(target) else 0.0
-    fallback_price_rows = int((_num(target[price_col]) == float(DEFAULT_PRICE_FALLBACK)).sum()) if len(target) else 0
+    order_count = int((orders["order_side"] != "HOLD").sum()) if len(orders) and "order_side" in orders.columns else 0
     ending_nav = float(next_state.get("nav", ACCOUNT_NAV))
     cash_after = float(next_state.get("cash", ACCOUNT_NAV))
     market_value_after = float(mtm_df["market_value"].sum()) if len(mtm_df) else 0.0
@@ -657,7 +681,7 @@ def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, 
         "gross_target": gross_target,
         "freeze_live_current_date": freeze_summary.get("live_current_date", ""),
         "freeze_replay_current_date": freeze_summary.get("replay_current_date", ""),
-        "skip_reason": "",
+        "skip_reason": skip_reason_value,
         "price_col": price_col,
         "merged_missing_prices": merged_missing,
         "fallback_price_rows": fallback_price_rows,
@@ -696,7 +720,7 @@ def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, 
         f"cash_after={cash_after:.2f} market_value_after={market_value_after:.2f} nav_recon_error={nav_recon_error:.6f} "
         f"order_count={order_count} active_names={live_active_names} gross_target={gross_target:.4f} "
         f"price_col={price_col} merged_missing_prices={merged_missing} fallback_price_rows={fallback_price_rows} mtm_fallback_count={mtm_fallback_count} "
-        f"fractional_enabled_effective={int(fractional_enabled)}"
+        f"fractional_enabled_effective={int(fractional_enabled)} bootstrap_only={int(bootstrap_only)} skip_reason={skip_reason_value}"
     )
     print(
         f"[EXEC][{paths.name}][RISK] dropped_price_below_min={risk_counters.get('dropped_price_below_min', 0)} "
@@ -719,7 +743,9 @@ def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, 
         f"[EXEC][{paths.name}][COST] estimated_commission_total={estimated_commission_total:.4f} "
         f"estimated_slippage_total={estimated_slippage_total:.4f} estimated_total_cost={estimated_total_cost:.4f}"
     )
-    if len(orders):
+    if bootstrap_only:
+        print(f"[EXEC][{paths.name}][BOOTSTRAP_ONLY] state aligned from broker_positions.csv; skipping live order generation on this run")
+    elif len(orders):
         print(f"[EXEC][{paths.name}][ORDERS_TOP]")
         print(
             orders[[
