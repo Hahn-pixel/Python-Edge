@@ -81,6 +81,7 @@ IB_REPRICE_CANCEL_POLL_ATTEMPTS = int(os.getenv("IB_REPRICE_CANCEL_POLL_ATTEMPTS
 IB_REPRICE_CANCEL_POLL_SLEEP_SEC = float(os.getenv("IB_REPRICE_CANCEL_POLL_SLEEP_SEC", "1.0"))
 IB_DEFERRED_WAIT_HEARTBEAT_SEC = float(os.getenv("IB_DEFERRED_WAIT_HEARTBEAT_SEC", "30.0"))
 IB_DEFERRED_POST_OPEN_WAIT_SEC = float(os.getenv("IB_DEFERRED_POST_OPEN_WAIT_SEC", "30.0"))
+IB_DEFERRED_WAIT_MODE = str(os.getenv("IB_DEFERRED_WAIT_MODE", "carry")).strip().lower() or "carry"
 REQUIRE_PRICE_HINT_SOURCE = str(os.getenv("REQUIRE_PRICE_HINT_SOURCE", "1")).strip().lower() not in {"0", "false", "no", "off"}
 REQUIRE_QUOTE_TS = str(os.getenv("REQUIRE_QUOTE_TS", "1")).strip().lower() not in {"0", "false", "no", "off"}
 REQUIRED_ORDER_COLUMNS = ["symbol", "order_side", "delta_shares"]
@@ -387,40 +388,66 @@ def wait_until_session_open_or_state_change(app: IBKRApp, ib_order_id: int, ib_e
     deferred_dt = parse_ib_deferred_until(err)
     if deferred_dt is None:
         return ib_entry
+
+    # carry mode: do not block the process, just leave order live
+    if IB_DEFERRED_WAIT_MODE != "block":
+        print(f"[BROKER][DEFERRED_CARRY] ib_order_id={ib_order_id} deferred_until={deferred_dt.isoformat()} mode={IB_DEFERRED_WAIT_MODE}")
+        return latest_ib_entry(app, ib_order_id, ib_entry)
+
     heartbeat = max(1.0, float(IB_DEFERRED_WAIT_HEARTBEAT_SEC))
+
     while True:
         latest = latest_ib_entry(app, ib_order_id, ib_entry)
+
         status = normalize_status(str(latest.get("status", "")))
         filled_qty = to_float(latest.get("filled_qty", 0.0))
         remaining_qty = to_float(latest.get("remaining_qty", 0.0))
         outcome = classify_outcome(status, filled_qty, remaining_qty)
+
         if outcome in {"filled_now", "partial", "failed", "cancelled_after_ttl"}:
             return latest
+
         now_utc = datetime.now(timezone.utc)
         deferred_utc = deferred_dt.astimezone(timezone.utc)
         remaining_sec = (deferred_utc - now_utc).total_seconds()
-        if remaining_sec <= 0.0:
+
+        if remaining_sec <= 0:
             break
+
         sleep_sec = min(heartbeat, max(0.5, remaining_sec))
+
         print(
-            f"[BROKER][DEFERRED_WAIT] ib_order_id={ib_order_id} status={status} deferred_until={deferred_dt.isoformat()} remaining_sec={remaining_sec:.1f}"
+            f"[BROKER][DEFERRED_WAIT] ib_order_id={ib_order_id} "
+            f"status={status} deferred_until={deferred_dt.isoformat()} "
+            f"remaining_sec={remaining_sec:.1f}"
         )
+
         time.sleep(sleep_sec)
         ib_entry = latest
+
+    # short post-open polling
     end_time = time.time() + max(1.0, float(IB_DEFERRED_POST_OPEN_WAIT_SEC))
     latest = ib_entry
+
     while time.time() < end_time:
         time.sleep(max(0.25, IB_REPRICE_CANCEL_POLL_SLEEP_SEC))
+
         latest = latest_ib_entry(app, ib_order_id, latest)
+
         status = normalize_status(str(latest.get("status", "")))
         filled_qty = to_float(latest.get("filled_qty", 0.0))
         remaining_qty = to_float(latest.get("remaining_qty", 0.0))
         outcome = classify_outcome(status, filled_qty, remaining_qty)
+
         print(
-            f"[BROKER][DEFERRED_POST_OPEN] ib_order_id={ib_order_id} status={status} filled_qty={filled_qty:.8f} remaining_qty={remaining_qty:.8f} outcome={outcome}"
+            f"[BROKER][DEFERRED_POST_OPEN] ib_order_id={ib_order_id} "
+            f"status={status} filled_qty={filled_qty:.8f} "
+            f"remaining_qty={remaining_qty:.8f} outcome={outcome}"
         )
+
         if outcome in {"filled_now", "partial", "failed", "cancelled_after_ttl"}:
             return latest
+
     return latest
 
 
@@ -1066,6 +1093,7 @@ def main() -> int:
     print(f"[CFG] exchange={IB_EXCHANGE} primary_exchange={IB_PRIMARY_EXCHANGE} currency={IB_CURRENCY} sec_type={IB_SECURITY_TYPE}")
     print(f"[CFG] outside_rth={int(IB_OUTSIDE_RTH)} reprice_enabled={int(IB_REPRICE_ENABLED)} reprice_wait_sec={IB_REPRICE_WAIT_SEC}")
     print(f"[CFG] reprice_steps_bps={IB_REPRICE_STEPS_BPS} reprice_final_mode={IB_REPRICE_FINAL_MODE} reprice_final_marketable_bps={IB_REPRICE_FINAL_MARKETABLE_BPS} reprice_max_deviation_pct={IB_REPRICE_MAX_DEVIATION_PCT}")
+    print(f"[CFG] deferred_wait_mode={IB_DEFERRED_WAIT_MODE} deferred_wait_heartbeat_sec={IB_DEFERRED_WAIT_HEARTBEAT_SEC} deferred_post_open_wait_sec={IB_DEFERRED_POST_OPEN_WAIT_SEC}")
     print(f"[CFG] require_price_hint_source={int(REQUIRE_PRICE_HINT_SOURCE)} require_quote_ts={int(REQUIRE_QUOTE_TS)}")
     symbol_map = load_symbol_map()
     app = bootstrap_connection()

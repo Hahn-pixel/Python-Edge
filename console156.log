@@ -1,0 +1,41 @@
+
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_broker_adapter_ibkr.py
+[CFG] execution_root=artifacts\execution_loop
+[CFG] configs=['optimal', 'aggressive']
+[CFG] broker_name=MEXEM broker_platform=IBKR broker_account_id=
+[CFG] ib_host=127.0.0.1 ib_port=4002 ib_client_id=41 ib_account_code=
+[CFG] exchange=SMART primary_exchange= currency=USD sec_type=STK
+[CFG] outside_rth=1 reprice_enabled=1 reprice_wait_sec=8.0
+[CFG] reprice_steps_bps=[15.0, 10.0, 5.0, 0.0] reprice_final_mode=marketable_lmt reprice_final_marketable_bps=12.0 reprice_max_deviation_pct=1.25
+[CFG] deferred_wait_mode=carry deferred_wait_heartbeat_sec=30.0 deferred_post_open_wait_sec=30.0
+[CFG] require_price_hint_source=1 require_quote_ts=1
+[IB] connecting host=127.0.0.1 port=4002 client_id=41
+[IB] openOrderEnd
+[IB] managedAccounts=DUP561175
+[IB] connected next_valid_id=94 managed_accounts=DUP561175[IB] nextValidId=94
+
+[IB][ERROR] reqId=-1 code=2104 msg=Market data farm connection is OK:usfarm
+[IB][ERROR] reqId=-1 code=2107 msg=HMDS data farm connection is inactive but should be available upon demand.ushmds
+[IB][ERROR] reqId=-1 code=2158 msg=Sec-def data farm connection is OK:secdefil
+[IB] openOrderEnd
+[BROKER][optimal] orders=artifacts\execution_loop\optimal\orders.csv
+[BROKER][LADDER][SUBMIT] symbol=AAPL step=1/4 mode=passive_lmt limit_price=249.0000 cap_price=251.7300 order={"account": "", "exchange": "SMART", "lmtPrice": 249.0, "orderRef": "pe-59befe69d25f3547ed444977", "orderType": "LMT", "outsideRth": 1, "primaryExchange": "", "tif": "DAY", "totalQuantity": 1.0}
+[IB][ERROR] reqId=94 code=399 msg=Order Message: BUY 1 AAPL NASDAQ.NMS Your order will not be placed at the exchange until 2026-04-06 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute "Fill/Trigger Outside RTH."
+[BROKER][DEFERRED_CARRY] ib_order_id=94 deferred_until=2026-04-06T04:00:00-04:00 mode=carry
+[BROKER][optimal][SEND] symbol=AAPL broker_symbol=AAPL side=BUY qty=1.00000000 status=submitted outcome=working_carry ib_order_id=94 reprices_used=0 contract_details_mode=resolved price_hint=248.6300 price_hint_source=ib_ask quote_ts=2026-03-31T08:23:40Z model_ref=246.6300 dev_pct=0.81
+[BROKER][LADDER][SUBMIT] symbol=MSFT step=1/4 mode=passive_lmt limit_price=364.2300 cap_price=368.2300 order={"account": "", "exchange": "SMART", "lmtPrice": 364.23, "orderRef": "pe-4a78e292d46e29778ee21f11", "orderType": "LMT", "outsideRth": 1, "primaryExchange": "", "tif": "DAY", "totalQuantity": 1.0}
+[IB][ERROR] reqId=95 code=399 msg=Order Message: BUY 1 MSFT NASDAQ.NMS Your order will not be placed at the exchange until 2026-04-06 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute "Fill/Trigger Outside RTH."
+[BROKER][DEFERRED_CARRY] ib_order_id=95 deferred_until=2026-04-06T04:00:00-04:00 mode=carry
+[BROKER][optimal][SEND] symbol=MSFT broker_symbol=MSFT side=BUY qty=1.00000000 status=submitted outcome=working_carry ib_order_id=95 reprices_used=0 contract_details_mode=resolved price_hint=363.6900 price_hint_source=ib_ask quote_ts=2026-03-31T08:23:40Z model_ref=358.9600 dev_pct=1.32
+[BROKER][optimal][DUPLICATE] symbol=NVDA side=SELL qty=1.00000000 price_hint_source=ib_bid quote_ts=2026-03-31T08:23:40Z
+[BROKER][optimal][DUPLICATE] symbol=AMZN side=SELL qty=1.00000000 price_hint_source=ib_bid quote_ts=2026-03-31T08:23:40Z
+[BROKER][optimal][SUMMARY] sent=2 duplicate_skipped=2 errors=0 fills_csv=artifacts\execution_loop\optimal\fills.csv broker_log_json=artifacts\execution_loop\optimal\broker_log.json outcomes={"cancelled_after_ttl": 0, "cancelled_unfilled_cap": 0, "deferred_session_closed": 0, "failed": 0, "filled_now": 0, "partial": 0, "unknown": 0, "working": 0, "working_carry": 2}
+[BROKER][aggressive] orders=artifacts\execution_loop\aggressive\orders.csv
+[BROKER][aggressive][DUPLICATE] symbol=HOOD side=SELL qty=37.00000000 price_hint_source=ib_bid quote_ts=2026-03-31T08:23:45Z
+[BROKER][aggressive][DUPLICATE] symbol=CRCL side=SELL qty=16.00000000 price_hint_source=ib_bid quote_ts=2026-03-31T08:23:45Z
+[BROKER][aggressive][DUPLICATE] symbol=NEM side=SELL qty=16.00000000 price_hint_source=ib_bid quote_ts=2026-03-31T08:23:45Z
+[BROKER][aggressive][DUPLICATE] symbol=INTC side=SELL qty=25.00000000 price_hint_source=ib_bid quote_ts=2026-03-31T08:23:45Z
+[BROKER][aggressive][DUPLICATE] symbol=RKLB side=SELL qty=6.00000000 price_hint_source=ib_bid quote_ts=2026-03-31T08:23:46Z
+[BROKER][aggressive][DUPLICATE] symbol=SHOP side=SELL qty=3.00000000 price_hint_source=ib_bid quote_ts=2026-03-31T08:23:46Z
+[BROKER][aggressive][SUMMARY] sent=0 duplicate_skipped=6 errors=0 fills_csv=artifacts\execution_loop\aggressive\fills.csv broker_log_json=artifacts\execution_loop\aggressive\broker_log.json outcomes={"cancelled_after_ttl": 0, "cancelled_unfilled_cap": 0, "deferred_session_closed": 0, "failed": 0, "filled_now": 0, "partial": 0, "unknown": 0, "working": 0, "working_carry": 0}
+[FINAL] IBKR broker adapter complete
