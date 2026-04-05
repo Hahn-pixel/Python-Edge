@@ -1,0 +1,115 @@
+{
+  "config": "aggressive",
+  "nav": 64887.40208200002,
+  "cash": 55198.75208200002,
+  "last_rebalanced_date": "2026-04-02",
+  "positions": {
+    "OKLO": {
+      "shares": 64.0,
+      "last_price": 100.0,
+      "market_value": 6400.0
+    },
+    "NKE": {
+      "shares": 73.0,
+      "last_price": 44.19,
+      "market_value": 3225.87
+    },
+    "TSEM": {
+      "shares": -16.0,
+      "last_price": 197.8,
+      "market_value": -3164.8
+    },
+    "SMCI": {
+      "shares": 139.0,
+      "last_price": 23.22,
+      "market_value": 3227.58
+    }
+  },
+  "last_estimated_trading_cost": 0.0,
+  "state_alignment": {
+    "applied_at_date": "2026-04-01",
+    "source": "artifacts\\execution_loop\\aggressive\\broker_positions.csv",
+    "cash_mode": "preserve_nav",
+    "positions_count": 10,
+    "market_value": -70735.3895,
+    "cash_after_alignment": 153658.29661850003,
+    "nav_after_alignment": 82922.9071185,
+    "fallback_price_count": 1
+  }
+}
+
+
+account,symbol,broker_symbol,sec_type,currency,exchange,primary_exchange,position,avg_cost
+DUP561175,AAPL,AAPL,STK,USD,NASDAQ,,8.35,250.94868265
+DUP561175,AMZN,AMZN,STK,USD,NASDAQ,,-13.0,202.62826925
+DUP561175,CRCL,CRCL,STK,USD,NYSE,,-128.0,91.8960547
+DUP561175,HOOD,HOOD,STK,USD,NASDAQ,,-296.0,66.84902805
+DUP561175,INTC,INTC,STK,USD,NASDAQ,,-200.0,43.021055
+DUP561175,MSFT,MSFT,STK,USD,NASDAQ,,11.0,366.22
+DUP561175,NEM,NEM,STK,USD,NYSE,,-208.0,105.01345865
+DUP561175,NVDA,NVDA,STK,USD,NASDAQ,,-12.0,167.621475
+DUP561175,RKLB,RKLB,STK,USD,NASDAQ,,-48.0,60.6568875
+DUP561175,SHOP,SHOP,STK,USD,NASDAQ,,-33.0,113.88192725
+
+
+
+{
+  "config": "optimal",
+  "nav": 60327.462944,
+  "cash": 51394.162943999996,
+  "last_rebalanced_date": "2026-04-02",
+  "positions": {
+    "OKLO": {
+      "shares": 59.0,
+      "last_price": 100.0,
+      "market_value": 5900.0
+    },
+    "TSEM": {
+      "shares": -15.0,
+      "last_price": 197.8,
+      "market_value": -2967.0
+    },
+    "SMCI": {
+      "shares": 129.0,
+      "last_price": 23.22,
+      "market_value": 2995.3799999999997
+    },
+    "NKE": {
+      "shares": 68.0,
+      "last_price": 44.19,
+      "market_value": 3004.92
+    }
+  },
+  "last_estimated_trading_cost": 0.0,
+  "state_alignment": {
+    "applied_at_date": "2026-04-01",
+    "source": "artifacts\\execution_loop\\optimal\\broker_positions.csv",
+    "cash_mode": "preserve_nav",
+    "positions_count": 10,
+    "market_value": -70735.3895,
+    "cash_after_alignment": 149315.36355399998,
+    "nav_after_alignment": 78579.97405399999,
+    "fallback_price_count": 1
+  }
+}
+
+
+
+
+
+account,symbol,broker_symbol,sec_type,currency,exchange,primary_exchange,position,avg_cost
+DUP561175,AAPL,AAPL,STK,USD,NASDAQ,,8.35,250.94868265
+DUP561175,AMZN,AMZN,STK,USD,NASDAQ,,-13.0,202.62826925
+DUP561175,CRCL,CRCL,STK,USD,NYSE,,-128.0,91.8960547
+DUP561175,HOOD,HOOD,STK,USD,NASDAQ,,-296.0,66.84902805
+DUP561175,INTC,INTC,STK,USD,NASDAQ,,-200.0,43.021055
+DUP561175,MSFT,MSFT,STK,USD,NASDAQ,,11.0,366.22
+DUP561175,NEM,NEM,STK,USD,NYSE,,-208.0,105.01345865
+DUP561175,NVDA,NVDA,STK,USD,NASDAQ,,-12.0,167.621475
+DUP561175,RKLB,RKLB,STK,USD,NASDAQ,,-48.0,60.6568875
+DUP561175,SHOP,SHOP,STK,USD,NASDAQ,,-33.0,113.88192725
+
+
+
+
+
