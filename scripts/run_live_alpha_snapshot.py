@@ -117,27 +117,56 @@ def _safe_exit(code: int) -> None:
     raise SystemExit(code)
 
 
+def _find_snapshot_date_column(snap: pd.DataFrame) -> str:
+    for candidate in ["trade_date", "as_of_date", "date", "session_date"]:
+        if candidate in snap.columns:
+            return candidate
+    raise RuntimeError("Universe snapshot does not contain trade_date/as_of_date/date/session_date")
+
+
 def _load_selected_universe() -> tuple[list[str], str]:
     if not UNIVERSE_SNAPSHOT_FILE.exists():
         raise FileNotFoundError(f"Universe snapshot not found: {UNIVERSE_SNAPSHOT_FILE}")
+
     snap = pd.read_parquet(UNIVERSE_SNAPSHOT_FILE)
     if snap.empty:
         raise RuntimeError("Universe snapshot is empty")
     if "ticker" not in snap.columns or "selected" not in snap.columns:
         raise RuntimeError("Universe snapshot must contain ticker and selected")
-    snap["ticker"] = snap["ticker"].astype(str).str.upper()
+
+    date_col = _find_snapshot_date_column(snap)
+    snap["ticker"] = snap["ticker"].astype(str).str.strip().str.upper()
     snap["selected"] = snap["selected"].fillna(False).astype(bool)
-    selected = snap.loc[snap["selected"], "ticker"].dropna().astype(str).tolist()
-    if not selected:
-        raise RuntimeError("Universe snapshot has zero selected symbols")
-    as_of_date = None
-    if "trade_date" in snap.columns:
-        vals = snap.loc[snap["selected"], "trade_date"].dropna().astype(str).tolist()
-        if vals:
-            as_of_date = vals[0]
-    if not as_of_date:
-        raise RuntimeError("Universe snapshot does not provide trade_date for selected rows")
-    return selected[:LIVE_ALPHA_MAX_SYMBOLS], str(as_of_date)
+    snap[date_col] = pd.to_datetime(snap[date_col], errors="coerce").dt.normalize()
+
+    valid_dates = snap[date_col].dropna()
+    if valid_dates.empty:
+        raise RuntimeError(f"Universe snapshot has no valid dates in column={date_col}")
+    latest_date = pd.Timestamp(valid_dates.max()).normalize()
+    snap = snap.loc[snap[date_col] == latest_date].copy()
+
+    snap = snap.loc[snap["ticker"].ne("") & snap["ticker"].ne("NAN")].copy()
+    selected = snap.loc[snap["selected"]].copy()
+    if selected.empty:
+        raise RuntimeError("Universe snapshot has zero selected symbols on current date")
+
+    if "liquidity_rank" in selected.columns:
+        selected["liquidity_rank"] = pd.to_numeric(selected["liquidity_rank"], errors="coerce")
+        selected = selected.sort_values(["liquidity_rank", "ticker"], ascending=[True, True], na_position="last")
+    else:
+        selected = selected.sort_values(["ticker"], ascending=[True])
+
+    selected = selected.drop_duplicates(subset=["ticker"], keep="first").reset_index(drop=True)
+    symbols = selected["ticker"].astype(str).tolist()[:LIVE_ALPHA_MAX_SYMBOLS]
+    if not symbols:
+        raise RuntimeError("Universe snapshot produced zero selected symbols after filtering current date")
+
+    print(
+        "[UNIVERSE][LOAD] "
+        f"snapshot={UNIVERSE_SNAPSHOT_FILE} date_col={date_col} latest_date={latest_date.date().isoformat()} "
+        f"rows_current={len(snap)} selected_current={len(selected)} max_symbols={LIVE_ALPHA_MAX_SYMBOLS}"
+    )
+    return symbols, latest_date.date().isoformat()
 
 
 def _build_recipes() -> tuple[Sequence[object], pd.DataFrame, str]:
