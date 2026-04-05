@@ -1,0 +1,51 @@
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_universe_builder.py
+[CFG][UNIVERSE] profile=trading_us_core_v1 as_of_date=2026-04-05 min_price=7.50 min_median_dollar_vol_20d=20000000.00 min_history_days=25 target_size=175 grouped_lookback_days=35 allowed_base_types=CS exclude_otc=1 exclude_etfs=1 exclude_adr=1
+[REFERENCE] page=1 rows_total=1000
+[REFERENCE] page=2 rows_total=2000
+[REFERENCE] page=3 rows_total=3000
+[REFERENCE] page=4 rows_total=4000
+[REFERENCE] page=5 rows_total=5000
+[REFERENCE] page=6 rows_total=5261
+[GROUPED] 5/35 days fetched rows=47567
+[GROUPED] 10/35 days fetched rows=107014
+[GROUPED] 15/35 days fetched rows=166705
+[GROUPED] 20/35 days fetched rows=226396
+[GROUPED] 25/35 days fetched rows=286049
+[GROUPED] 30/35 days fetched rows=345880
+[GROUPED] 35/35 days fetched rows=393772
+[UNIVERSE][SUMMARY] reference_total=5261 eligible_total=1761 selected_total=175 dropped_reference=184 dropped_price=1821 dropped_liquidity=1488 dropped_history_depth=7 dropped_rank_cut=1586
+[UNIVERSE][WRITE] snapshot=artifacts\daily_cycle\universe\universe_snapshot.parquet
+[UNIVERSE][WRITE] summary=artifacts\daily_cycle\universe\universe_summary.json
+[UNIVERSE][WRITE] reference_raw=artifacts\daily_cycle\universe\universe_reference_raw.parquet
+[UNIVERSE][WRITE] grouped_raw=artifacts\daily_cycle\universe\universe_grouped_daily_raw.parquet
+[UNIVERSE][WRITE] eligibility_debug=artifacts\daily_cycle\universe\universe_eligibility_debug.parquet
+[UNIVERSE][TOP_SELECTED]
+ticker symbol  liquidity_rank  last_close  median_dollar_vol_20d  history_days
+  NVDA   NVDA             1.0      177.39           3.126836e+10            33
+  TSLA   TSLA             2.0      360.59           2.387171e+10            33
+    MU     MU             3.0      366.24           1.920274e+10            33
+  SNDK   SNDK             4.0      701.59           1.234074e+10            33
+  MSFT   MSFT             5.0      373.46           1.146846e+10            33
+  AAPL   AAPL             6.0      255.92           9.830426e+09            33
+  AMZN   AMZN             7.0      209.77           9.298497e+09            33
+  META   META             8.0      574.46           8.362044e+09            33
+  AVGO   AVGO             9.0      314.55           8.137612e+09            33
+ GOOGL  GOOGL            10.0      295.77           8.136266e+09            33
+   AMD    AMD            11.0      217.50           6.491479e+09            33
+  PLTR   PLTR            12.0      148.46           6.161709e+09            33
+  GOOG   GOOG            13.0      294.46           5.628649e+09            33
+  LITE   LITE            14.0      826.88           4.879013e+09            33
+   XOM    XOM            15.0      160.69           3.920599e+09            33
+  INTC   INTC            16.0       50.38           3.716795e+09            33
+  ORCL   ORCL            17.0      146.38           3.515811e+09            33
+  NFLX   NFLX            18.0       98.66           3.275779e+09            33
+   JPM    JPM            19.0      294.60           3.088768e+09            33
+   CVX    CVX            20.0      198.97           2.708888e+09            33
+  MSTR   MSTR            21.0      119.83           2.633021e+09            33
+   LLY    LLY            22.0      935.58           2.479265e+09            33
+   WDC    WDC            23.0      294.97           2.413409e+09            33
+   WMT    WMT            24.0      125.79           2.379360e+09            33
+  LRCX   LRCX            25.0      218.44           2.288644e+09            33
+[FINAL] universe builder complete snapshot=artifacts\daily_cycle\universe\universe_snapshot.parquet summary=artifacts\daily_cycle\universe\universe_summary.json
+
+[EXIT] code=0

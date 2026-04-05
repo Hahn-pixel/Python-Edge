@@ -1,4 +1,3 @@
-# ===== FILE: src/python_edge/universe/universe_builder.py =====
 from __future__ import annotations
 
 import json
@@ -81,7 +80,6 @@ class UniversePolicy:
     min_history_days: int
     target_size: int
     grouped_lookback_days: int
-    max_missing_days_lookback: int
     grouped_sleep_sec: float
     request_pages_limit: int
 
@@ -206,7 +204,6 @@ def load_config_from_env(root_dir: Path) -> UniverseConfig:
         min_history_days=_env_int("UNIVERSE_MIN_HISTORY_DAYS", 25),
         target_size=_env_int("UNIVERSE_TARGET_SIZE", 175),
         grouped_lookback_days=_env_int("UNIVERSE_GROUPED_LOOKBACK_DAYS", 35),
-        max_missing_days_lookback=_env_int("UNIVERSE_MAX_MISSING_DAYS_LOOKBACK", 1),
         grouped_sleep_sec=_env_float("UNIVERSE_GROUPED_SLEEP_SEC", 0.0),
         request_pages_limit=_env_int("UNIVERSE_REQUEST_PAGES_LIMIT", 50),
     )
@@ -240,10 +237,12 @@ def _build_reference_flags(reference_df: pd.DataFrame, policy: UniversePolicy) -
             df[column] = ""
     if "active" not in df.columns:
         df["active"] = False
+
     df["type_norm"] = df["type"].astype(str).str.upper().str.strip()
     df["locale_norm"] = df["locale"].astype(str).str.lower().str.strip()
     df["currency_norm"] = df["currency_name"].astype(str).str.upper().str.strip()
     df["primary_exchange_norm"] = df["primary_exchange"].astype(str).str.upper().str.strip()
+
     name_blob = (
         df["name"].astype(str).str.lower().fillna("")
         + " "
@@ -251,19 +250,28 @@ def _build_reference_flags(reference_df: pd.DataFrame, policy: UniversePolicy) -
         + " "
         + df["primary_exchange"].astype(str).str.lower().fillna("")
     )
+
     df["passes_locale"] = df["locale_norm"].eq(policy.locale.lower())
     df["passes_type"] = df["type_norm"].isin(set(policy.allowed_base_types))
     df["passes_currency"] = df["currency_norm"].eq(policy.allowed_currency.upper())
-    if policy.active_only:
-        df["passes_active"] = df["active"].fillna(False).astype(bool)
-    else:
-        df["passes_active"] = True
+    df["passes_active"] = df["active"].fillna(False).astype(bool) if policy.active_only else True
+
     df["is_otc_like"] = df["primary_exchange_norm"].str.contains("OTC", na=False)
-    df["is_etf_like"] = name_blob.str.contains(r"\betf\b|\bfund\b|\btrust\b|\bspdr\b|\bishares\b|\bvanguard\b|\betn\b|\bnotes\b", regex=True, na=False)
-    df["is_adr_like"] = name_blob.str.contains(r"\badr\b|\bads\b|\bsponsored\b|\bdepositary\b", regex=True, na=False)
+    df["is_etf_like"] = name_blob.str.contains(
+        r"\betf\b|\bfund\b|\btrust\b|\bspdr\b|\bishares\b|\bvanguard\b|\betn\b|\bnotes\b",
+        regex=True,
+        na=False,
+    )
+    df["is_adr_like"] = name_blob.str.contains(
+        r"\badr\b|\bads\b|\bdepositary\b|\bsponsored\b",
+        regex=True,
+        na=False,
+    )
+
     df["passes_otc"] = ~df["is_otc_like"] if policy.exclude_otc else True
     df["passes_etf"] = ~df["is_etf_like"] if policy.exclude_etfs else True
     df["passes_adr"] = ~df["is_adr_like"] if policy.exclude_adr else True
+
     df["passes_reference"] = (
         df["passes_locale"]
         & df["passes_type"]
@@ -317,47 +325,74 @@ def _fetch_grouped_history(client: MassiveClient, policy: UniversePolicy, as_of_
     return out
 
 
-def _classify_eligibility(reference_df: pd.DataFrame, grouped_df: pd.DataFrame, as_of_date: datetime, policy: UniversePolicy) -> pd.DataFrame:
+def _aggregate_grouped_history(grouped_df: pd.DataFrame) -> pd.DataFrame:
     grouped = grouped_df.copy()
     grouped["date"] = pd.to_datetime(grouped["date"], errors="coerce").dt.normalize()
     grouped["close"] = pd.to_numeric(grouped["close"], errors="coerce")
     grouped["dollar_volume"] = pd.to_numeric(grouped["dollar_volume"], errors="coerce")
+    grouped = grouped.sort_values(["ticker", "date"]).reset_index(drop=True)
 
-    agg = (
-        grouped.sort_values(["ticker", "date"])
-        .groupby("ticker", as_index=False)
-        .agg(
-            history_days=("date", lambda s: int(pd.Series(s).dropna().nunique())),
-            last_trade_date=("date", "max"),
-            last_close=("close", "last"),
-            median_dollar_vol_20d=("dollar_volume", lambda s: float(pd.Series(s).dropna().tail(20).median()) if len(pd.Series(s).dropna()) else float("nan")),
+    pieces: List[Dict[str, object]] = []
+    for ticker, frame in grouped.groupby("ticker", sort=False):
+        frame = frame.dropna(subset=["date"]).copy()
+        frame = frame.loc[frame["ticker"].astype(str).ne("")].copy()
+        if frame.empty:
+            continue
+        hist_dates = pd.Series(frame["date"]).dropna().drop_duplicates().sort_values()
+        hist_days = int(len(hist_dates))
+        last_trade_date = hist_dates.iloc[-1] if hist_days else pd.NaT
+        close_series = pd.to_numeric(frame["close"], errors="coerce").dropna()
+        dv_series = pd.to_numeric(frame["dollar_volume"], errors="coerce").dropna()
+        last_close = float(close_series.iloc[-1]) if len(close_series) else float("nan")
+        median_dollar_vol_20d = float(dv_series.tail(20).median()) if len(dv_series) else float("nan")
+        pieces.append(
+            {
+                "ticker": ticker,
+                "history_days": hist_days,
+                "last_trade_date": last_trade_date,
+                "last_close": last_close,
+                "median_dollar_vol_20d": median_dollar_vol_20d,
+            }
         )
-    )
-    agg["missing_days_lookback"] = (policy.grouped_lookback_days - agg["history_days"]).clip(lower=0)
 
-    out = reference_df.merge(agg, on="ticker", how="left")
+    if not pieces:
+        return pd.DataFrame(
+            columns=["ticker", "history_days", "last_trade_date", "last_close", "median_dollar_vol_20d"]
+        )
+    return pd.DataFrame(pieces)
+
+
+def _classify_eligibility(reference_df: pd.DataFrame, grouped_df: pd.DataFrame, as_of_date: datetime, policy: UniversePolicy) -> pd.DataFrame:
+    history_agg = _aggregate_grouped_history(grouped_df)
+    out = reference_df.merge(history_agg, on="ticker", how="left")
+
     out["trade_date"] = pd.Timestamp(as_of_date.date())
-    out["symbol"] = out["ticker"]
     out["as_of_date"] = out["trade_date"]
+    out["symbol"] = out["ticker"]
 
     out["history_days"] = pd.to_numeric(out["history_days"], errors="coerce").fillna(0).astype(int)
-    out["missing_days_lookback"] = pd.to_numeric(out["missing_days_lookback"], errors="coerce").fillna(policy.grouped_lookback_days).astype(int)
     out["last_close"] = pd.to_numeric(out["last_close"], errors="coerce")
     out["median_dollar_vol_20d"] = pd.to_numeric(out["median_dollar_vol_20d"], errors="coerce")
 
     out["eligible_price"] = out["last_close"].ge(policy.min_price).fillna(False)
     out["eligible_liquidity"] = out["median_dollar_vol_20d"].ge(policy.min_median_dollar_vol_20d).fillna(False)
     out["eligible_history_depth"] = out["history_days"].ge(policy.min_history_days).fillna(False)
-    out["eligible_missing_days"] = out["missing_days_lookback"].le(policy.max_missing_days_lookback).fillna(False)
 
     out["eligible"] = (
         out["passes_reference"]
         & out["eligible_price"]
         & out["eligible_liquidity"]
         & out["eligible_history_depth"]
-        & out["eligible_missing_days"]
     )
-    out["selected"] = out["eligible"]
+
+    out = out.sort_values(["eligible", "median_dollar_vol_20d", "ticker"], ascending=[False, False, True]).reset_index(drop=True)
+    out["liquidity_rank"] = pd.NA
+    eligible_mask = out["eligible"].fillna(False)
+    out.loc[eligible_mask, "liquidity_rank"] = list(range(1, int(eligible_mask.sum()) + 1))
+    out["liquidity_rank"] = pd.to_numeric(out["liquidity_rank"], errors="coerce")
+
+    out["selected"] = False
+    out.loc[eligible_mask & out["liquidity_rank"].le(policy.target_size), "selected"] = True
     out["is_selected"] = out["selected"]
 
     reason = pd.Series("eligible", index=out.index, dtype="object")
@@ -365,9 +400,9 @@ def _classify_eligibility(reference_df: pd.DataFrame, grouped_df: pd.DataFrame, 
     reason = reason.mask(out["passes_reference"] & ~out["eligible_price"], "price")
     reason = reason.mask(out["passes_reference"] & out["eligible_price"] & ~out["eligible_liquidity"], "liquidity")
     reason = reason.mask(out["passes_reference"] & out["eligible_price"] & out["eligible_liquidity"] & ~out["eligible_history_depth"], "history_depth")
-    reason = reason.mask(out["passes_reference"] & out["eligible_price"] & out["eligible_liquidity"] & out["eligible_history_depth"] & ~out["eligible_missing_days"], "missing_days")
+    reason = reason.mask(out["eligible"] & ~out["selected"], "rank_cut")
     out["drop_reason"] = reason
-    out["eligibility_stage"] = out["drop_reason"].where(~out["eligible"], "selected")
+    out["eligibility_stage"] = out["drop_reason"].where(~out["selected"], "selected")
 
     keep_cols = [
         "trade_date",
@@ -385,13 +420,12 @@ def _classify_eligibility(reference_df: pd.DataFrame, grouped_df: pd.DataFrame, 
         "last_close",
         "median_dollar_vol_20d",
         "history_days",
-        "missing_days_lookback",
         "passes_reference",
         "eligible_price",
         "eligible_liquidity",
         "eligible_history_depth",
-        "eligible_missing_days",
         "eligible",
+        "liquidity_rank",
         "selected",
         "is_selected",
         "drop_reason_reference",
@@ -402,23 +436,24 @@ def _classify_eligibility(reference_df: pd.DataFrame, grouped_df: pd.DataFrame, 
         if col not in out.columns:
             out[col] = pd.NA
     out = out[keep_cols].copy()
-    return out.sort_values(["selected", "median_dollar_vol_20d", "ticker"], ascending=[False, False, True]).reset_index(drop=True)
+    return out.sort_values(["selected", "eligible", "liquidity_rank", "median_dollar_vol_20d", "ticker"], ascending=[False, False, True, False, True]).reset_index(drop=True)
 
 
 def _build_summary(classified: pd.DataFrame, config: UniverseConfig, as_of_date: datetime) -> Dict[str, object]:
-    selected = classified.loc[classified["selected"]].copy()
+    eligible_mask = classified["eligible"].fillna(False)
+    selected_mask = classified["selected"].fillna(False)
     return {
         "trade_date": str(as_of_date.date()),
         "universe_profile": config.policy.profile,
         "policy": asdict(config.policy),
         "reference_total": int(len(classified)),
-        "eligible_total": int(classified["eligible"].sum()),
-        "selected_total": int(selected["selected"].sum()) if len(selected) else 0,
-        "dropped_reference": int((~classified["passes_reference"]).sum()),
-        "dropped_price": int((classified["passes_reference"] & ~classified["eligible_price"]).sum()),
-        "dropped_liquidity": int((classified["passes_reference"] & classified["eligible_price"] & ~classified["eligible_liquidity"]).sum()),
-        "dropped_history_depth": int((classified["passes_reference"] & classified["eligible_price"] & classified["eligible_liquidity"] & ~classified["eligible_history_depth"]).sum()),
-        "dropped_missing_days": int((classified["passes_reference"] & classified["eligible_price"] & classified["eligible_liquidity"] & classified["eligible_history_depth"] & ~classified["eligible_missing_days"]).sum()),
+        "eligible_total": int(eligible_mask.sum()),
+        "selected_total": int(selected_mask.sum()),
+        "dropped_reference": int((~classified["passes_reference"].fillna(False)).sum()),
+        "dropped_price": int((classified["passes_reference"].fillna(False) & ~classified["eligible_price"].fillna(False)).sum()),
+        "dropped_liquidity": int((classified["passes_reference"].fillna(False) & classified["eligible_price"].fillna(False) & ~classified["eligible_liquidity"].fillna(False)).sum()),
+        "dropped_history_depth": int((classified["passes_reference"].fillna(False) & classified["eligible_price"].fillna(False) & classified["eligible_liquidity"].fillna(False) & ~classified["eligible_history_depth"].fillna(False)).sum()),
+        "dropped_rank_cut": int((classified["eligible"].fillna(False) & ~classified["selected"].fillna(False)).sum()),
         "overview_missing_sic_total": 0,
         "sector_unknown_selected": 0,
         "industry_unknown_selected": 0,
@@ -453,9 +488,13 @@ def _write_outputs(
     print(f"[UNIVERSE][WRITE] grouped_raw={grouped_path}")
     print(f"[UNIVERSE][WRITE] eligibility_debug={debug_path}")
 
-    selected = classified.loc[classified["selected"]].copy()
+    selected = classified.loc[classified["selected"].fillna(False)].copy()
     if len(selected):
-        cols = [c for c in ["ticker", "symbol", "last_close", "median_dollar_vol_20d", "history_days", "missing_days_lookback"] if c in selected.columns]
+        cols = [
+            c
+            for c in ["ticker", "symbol", "liquidity_rank", "last_close", "median_dollar_vol_20d", "history_days"]
+            if c in selected.columns
+        ]
         print("[UNIVERSE][TOP_SELECTED]")
         print(selected[cols].head(min(25, len(selected))).to_string(index=False))
     else:
@@ -474,7 +513,8 @@ def _build_universe_snapshot_full(
         f"min_price={config.policy.min_price:.2f} "
         f"min_median_dollar_vol_20d={config.policy.min_median_dollar_vol_20d:.2f} "
         f"min_history_days={config.policy.min_history_days} "
-        f"max_missing_days_lookback={config.policy.max_missing_days_lookback} "
+        f"target_size={config.policy.target_size} "
+        f"grouped_lookback_days={config.policy.grouped_lookback_days} "
         f"allowed_base_types={'|'.join(config.policy.allowed_base_types)} "
         f"exclude_otc={int(config.policy.exclude_otc)} "
         f"exclude_etfs={int(config.policy.exclude_etfs)} "
@@ -497,7 +537,7 @@ def _build_universe_snapshot_full(
         f"reference_total={summary['reference_total']} eligible_total={summary['eligible_total']} "
         f"selected_total={summary['selected_total']} dropped_reference={summary['dropped_reference']} "
         f"dropped_price={summary['dropped_price']} dropped_liquidity={summary['dropped_liquidity']} "
-        f"dropped_history_depth={summary['dropped_history_depth']} dropped_missing_days={summary['dropped_missing_days']}"
+        f"dropped_history_depth={summary['dropped_history_depth']} dropped_rank_cut={summary['dropped_rank_cut']}"
     )
 
     return classified, summary, reference_raw, grouped_raw
