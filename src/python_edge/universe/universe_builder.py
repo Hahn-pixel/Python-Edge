@@ -218,7 +218,7 @@ def load_config_from_env(root_dir: Path) -> UniverseConfig:
     )
 
 
-def _choose_as_of_date(config: UniverseConfig) -> datetime:
+def _choose_requested_as_of_date(config: UniverseConfig) -> datetime:
     if config.as_of_date:
         parsed = pd.Timestamp(config.as_of_date)
         if parsed.tzinfo is None:
@@ -257,11 +257,11 @@ def _build_reference_flags(reference_df: pd.DataFrame, policy: UniversePolicy) -
     df["passes_active"] = df["active"].fillna(False).astype(bool) if policy.active_only else True
 
     df["is_otc_like"] = df["primary_exchange_norm"].str.contains("OTC", na=False)
-    df["is_etf_like"] = name_blob.str.contains(
+    df["is_etf_like"] = df["name"].astype(str).str.lower().fillna("").str.contains(
         r"\betf\b|\bfund\b|\btrust\b|\bspdr\b|\bishares\b|\bvanguard\b|\betn\b|\bnotes\b",
         regex=True,
         na=False,
-    )
+    ) | name_blob.str.contains(r"\betf\b|\betn\b", regex=True, na=False)
     df["is_adr_like"] = name_blob.str.contains(
         r"\badr\b|\bads\b|\bdepositary\b|\bsponsored\b",
         regex=True,
@@ -305,8 +305,8 @@ def _get_recent_business_days(end_date: datetime, count: int) -> List[datetime]:
     return out
 
 
-def _fetch_grouped_history(client: MassiveClient, policy: UniversePolicy, as_of_date: datetime) -> pd.DataFrame:
-    days = _get_recent_business_days(as_of_date, policy.grouped_lookback_days)
+def _fetch_grouped_history(client: MassiveClient, policy: UniversePolicy, requested_as_of_date: datetime) -> pd.DataFrame:
+    days = _get_recent_business_days(requested_as_of_date, policy.grouped_lookback_days)
     frames: List[pd.DataFrame] = []
     for idx, dt in enumerate(days, start=1):
         df = client.get_grouped_daily(dt.date().isoformat(), policy)
@@ -356,18 +356,33 @@ def _aggregate_grouped_history(grouped_df: pd.DataFrame) -> pd.DataFrame:
         )
 
     if not pieces:
-        return pd.DataFrame(
-            columns=["ticker", "history_days", "last_trade_date", "last_close", "median_dollar_vol_20d"]
-        )
+        return pd.DataFrame(columns=["ticker", "history_days", "last_trade_date", "last_close", "median_dollar_vol_20d"])
     return pd.DataFrame(pieces)
 
 
-def _classify_eligibility(reference_df: pd.DataFrame, grouped_df: pd.DataFrame, as_of_date: datetime, policy: UniversePolicy) -> pd.DataFrame:
+def _resolve_effective_trade_date(grouped_df: pd.DataFrame, requested_as_of_date: datetime) -> pd.Timestamp:
+    if "date" not in grouped_df.columns:
+        raise RuntimeError("Grouped history is missing date column")
+    observed = pd.to_datetime(grouped_df["date"], errors="coerce").dropna()
+    if observed.empty:
+        raise RuntimeError("Grouped history has no valid observed dates")
+    effective = pd.Timestamp(observed.max()).normalize()
+    requested = pd.Timestamp(requested_as_of_date.date()).normalize()
+    if effective != requested:
+        print(
+            "[UNIVERSE][DATE_ADJUST] "
+            f"requested_as_of_date={requested.date().isoformat()} effective_trade_date={effective.date().isoformat()}"
+        )
+    return effective
+
+
+def _classify_eligibility(reference_df: pd.DataFrame, grouped_df: pd.DataFrame, effective_trade_date: pd.Timestamp, policy: UniversePolicy) -> pd.DataFrame:
     history_agg = _aggregate_grouped_history(grouped_df)
     out = reference_df.merge(history_agg, on="ticker", how="left")
 
-    out["trade_date"] = pd.Timestamp(as_of_date.date())
-    out["as_of_date"] = out["trade_date"]
+    out["trade_date"] = effective_trade_date
+    out["as_of_date"] = effective_trade_date
+    out["requested_as_of_date"] = pd.NaT
     out["symbol"] = out["ticker"]
 
     out["history_days"] = pd.to_numeric(out["history_days"], errors="coerce").fillna(0).astype(int)
@@ -407,6 +422,7 @@ def _classify_eligibility(reference_df: pd.DataFrame, grouped_df: pd.DataFrame, 
     keep_cols = [
         "trade_date",
         "as_of_date",
+        "requested_as_of_date",
         "ticker",
         "symbol",
         "name",
@@ -439,11 +455,12 @@ def _classify_eligibility(reference_df: pd.DataFrame, grouped_df: pd.DataFrame, 
     return out.sort_values(["selected", "eligible", "liquidity_rank", "median_dollar_vol_20d", "ticker"], ascending=[False, False, True, False, True]).reset_index(drop=True)
 
 
-def _build_summary(classified: pd.DataFrame, config: UniverseConfig, as_of_date: datetime) -> Dict[str, object]:
+def _build_summary(classified: pd.DataFrame, config: UniverseConfig, effective_trade_date: pd.Timestamp, requested_as_of_date: datetime) -> Dict[str, object]:
     eligible_mask = classified["eligible"].fillna(False)
     selected_mask = classified["selected"].fillna(False)
     return {
-        "trade_date": str(as_of_date.date()),
+        "trade_date": str(effective_trade_date.date()),
+        "requested_as_of_date": str(pd.Timestamp(requested_as_of_date.date()).date()),
         "universe_profile": config.policy.profile,
         "policy": asdict(config.policy),
         "reference_total": int(len(classified)),
@@ -506,10 +523,10 @@ def _write_outputs(
 def _build_universe_snapshot_full(
     config: UniverseConfig,
 ) -> Tuple[pd.DataFrame, Dict[str, object], pd.DataFrame, pd.DataFrame]:
-    as_of_date = _choose_as_of_date(config)
+    requested_as_of_date = _choose_requested_as_of_date(config)
     print(
         "[CFG][UNIVERSE] "
-        f"profile={config.policy.profile} as_of_date={as_of_date.date().isoformat()} "
+        f"profile={config.policy.profile} requested_as_of_date={requested_as_of_date.date().isoformat()} "
         f"min_price={config.policy.min_price:.2f} "
         f"min_median_dollar_vol_20d={config.policy.min_median_dollar_vol_20d:.2f} "
         f"min_history_days={config.policy.min_history_days} "
@@ -528,12 +545,15 @@ def _build_universe_snapshot_full(
     )
     reference_raw = client.get_reference_tickers(config.policy)
     reference_classified = _build_reference_flags(reference_raw, config.policy)
-    grouped_raw = _fetch_grouped_history(client, config.policy, as_of_date)
-    classified = _classify_eligibility(reference_classified, grouped_raw, as_of_date, config.policy)
-    summary = _build_summary(classified, config, as_of_date)
+    grouped_raw = _fetch_grouped_history(client, config.policy, requested_as_of_date)
+    effective_trade_date = _resolve_effective_trade_date(grouped_raw, requested_as_of_date)
+    classified = _classify_eligibility(reference_classified, grouped_raw, effective_trade_date, config.policy)
+    classified["requested_as_of_date"] = pd.Timestamp(requested_as_of_date.date()).normalize()
+    summary = _build_summary(classified, config, effective_trade_date, requested_as_of_date)
 
     print(
         "[UNIVERSE][SUMMARY] "
+        f"requested_as_of_date={summary['requested_as_of_date']} trade_date={summary['trade_date']} "
         f"reference_total={summary['reference_total']} eligible_total={summary['eligible_total']} "
         f"selected_total={summary['selected_total']} dropped_reference={summary['dropped_reference']} "
         f"dropped_price={summary['dropped_price']} dropped_liquidity={summary['dropped_liquidity']} "
