@@ -1,0 +1,68 @@
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_universe_builder.py
+[CFG][UNIVERSE] profile=trading_us_core_v1 as_of_date=2026-04-05 min_price=7.50 min_median_dollar_vol_20d=20000000.00 min_history_days=25 max_missing_days_lookback=1 allowed_base_types=CS exclude_otc=1 exclude_etfs=1 exclude_adr=1
+[REFERENCE] page=1 rows_total=1000
+[REFERENCE] page=2 rows_total=2000
+[REFERENCE] page=3 rows_total=3000
+[REFERENCE] page=4 rows_total=4000
+[REFERENCE] page=5 rows_total=5000
+[REFERENCE] page=6 rows_total=5261
+[GROUPED] 5/35 days fetched rows=47567
+[GROUPED] 10/35 days fetched rows=107014
+[GROUPED] 15/35 days fetched rows=166705
+[GROUPED] 20/35 days fetched rows=226396
+[GROUPED] 25/35 days fetched rows=286049
+[GROUPED] 30/35 days fetched rows=345880
+[GROUPED] 35/35 days fetched rows=393772
+[UNIVERSE][SUMMARY] reference_total=5261 eligible_total=0 selected_total=0 dropped_reference=184 dropped_price=1821 dropped_liquidity=1488 dropped_history_depth=7 dropped_missing_days=1761
+[UNIVERSE][WRITE] snapshot=artifacts\daily_cycle\universe\universe_snapshot.parquet
+[UNIVERSE][WRITE] summary=artifacts\daily_cycle\universe\universe_summary.json
+[UNIVERSE][WRITE] reference_raw=artifacts\daily_cycle\universe\universe_reference_raw.parquet
+[UNIVERSE][WRITE] grouped_raw=artifacts\daily_cycle\universe\universe_grouped_daily_raw.parquet
+[UNIVERSE][WRITE] eligibility_debug=artifacts\daily_cycle\universe\universe_eligibility_debug.parquet
+[UNIVERSE][TOP_SELECTED] none
+[FINAL] universe builder complete snapshot=artifacts\daily_cycle\universe\universe_snapshot.parquet summary=artifacts\daily_cycle\universe\universe_summary.json
+
+[EXIT] code=0
+
+
+
+
+{
+  "dropped_history_depth": 7,
+  "dropped_liquidity": 1488,
+  "dropped_missing_days": 1761,
+  "dropped_price": 1821,
+  "dropped_reference": 184,
+  "eligible_total": 0,
+  "generated_at_utc": "2026-04-05T08:39:42.937990+00:00",
+  "industry_unknown_selected": 0,
+  "overview_missing_sic_total": 0,
+  "policy": {
+    "active_only": true,
+    "allowed_base_types": [
+      "CS"
+    ],
+    "allowed_currency": "USD",
+    "exclude_adr": true,
+    "exclude_etfs": true,
+    "exclude_otc": true,
+    "grouped_lookback_days": 35,
+    "grouped_sleep_sec": 0.0,
+    "locale": "us",
+    "market": "stocks",
+    "max_missing_days_lookback": 1,
+    "min_history_days": 25,
+    "min_median_dollar_vol_20d": 20000000.0,
+    "min_price": 7.5,
+    "profile": "trading_us_core_v1",
+    "request_pages_limit": 50,
+    "target_size": 175,
+    "ticker_type": "CS"
+  },
+  "reference_total": 5261,
+  "sector_unknown_selected": 0,
+  "selected_total": 0,
+  "trade_date": "2026-04-05",
+  "universe_profile": "trading_us_core_v1"
+}
+

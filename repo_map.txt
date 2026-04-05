@@ -4,11 +4,17 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/.gitattributes
 .gitignore
 https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/.gitignore
 
-console139.log
-https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console139.log
+console163.log
+https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console163.log
+
+console164.log
+https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console164.log
 
 deps_edges.txt
 https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/deps_edges.txt
+
+git_push_update.cmd
+https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/git_push_update.cmd
 
 pyproject.toml
 https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/pyproject.toml
