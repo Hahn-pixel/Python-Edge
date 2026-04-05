@@ -1,0 +1,60 @@
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_execution_loop.py
+[CFG] live_feature_snapshot_file=artifacts\live_alpha\live_feature_snapshot.parquet
+[CFG] freeze_root=artifacts\freeze_runner
+[CFG] execution_root=artifacts\execution_loop
+[CFG] account_nav=100000.0
+[CFG] configs=['optimal', 'aggressive']
+[CFG] allow_fractional_shares=0 fractional_mode=auto fractional_enabled_effective=0 min_order_notional=25.0 skip_empty_freeze_configs=1 require_freeze_date_match_live_prices=1
+[CFG] max_single_name_weight=0.05 max_single_name_notional=10000.0 min_price_to_trade=1.0 max_price_to_trade=1000000.0
+[CFG] commission_bps=0.5 commission_min_per_order=0.35 slippage_bps=1.5
+[CFG] align_state_from_broker_once=0 align_state_require_broker_positions=1 align_state_cash_mode=preserve_nav skip_legacy_symbols_not_in_target=1
+[DATA] current_date=2026-04-02 price_col=close symbols=175 snapshot_fallback_count=0
+[EXEC][optimal] loading freeze artifacts
+[EXEC][optimal][ALIGN] requested=0 applied=0 reason=not_requested marker=artifacts\execution_loop\optimal\state_alignment_once.json
+[EXEC][optimal] starting_nav=60328.21 ending_nav=60327.46 cash_after=51394.16 market_value_after=8933.30 nav_recon_error=0.000000 order_count=2 active_names=2 gross_target=0.1000 price_col=close merged_missing_prices=0 fallback_price_rows=0 mtm_fallback_count=1 fractional_enabled_effective=0 bootstrap_only=0 skip_reason=
+[EXEC][optimal][RISK] dropped_price_below_min=0 dropped_price_above_max=0 clipped_weight_cap=0 clipped_notional_cap=0
+[EXEC][optimal][DIAG] already_at_target=2 below_min_notional=0 rounded_to_zero_from_nonzero_target=0 entered_new_position=0 exited_position=0 increased_existing_position=2 decreased_existing_position=0 symbol_only_in_state=2 symbol_only_in_target=0
+[EXEC][optimal][COST] estimated_commission_total=0.7000 estimated_slippage_total=0.0474 estimated_total_cost=0.7474
+[EXEC][optimal][ORDERS_TOP]
+symbol order_side  current_shares  target_shares_raw  target_shares  raw_delta_shares  delta_shares  price  order_notional  target_weight  estimated_commission  estimated_slippage  estimated_total_cost                 skip_reason
+   NKE        BUY            64.0          68.260025           68.0               4.0           4.0  44.19          176.76           0.05                  0.35            0.026514              0.376514
+  SMCI        BUY           123.0         129.905707          129.0               6.0           6.0  23.22          139.32           0.05                  0.35            0.020898              0.370898
+  OKLO       HOLD            59.0           0.000000           59.0               0.0           0.0 100.00            0.00           0.00                  0.00            0.000000              0.000000 legacy_symbol_not_in_target
+  TSEM       HOLD           -15.0           0.000000          -15.0               0.0           0.0 100.00            0.00           0.00                  0.00            0.000000              0.000000 legacy_symbol_not_in_target
+[EXEC][optimal][POSITIONS_MTM_TOP]
+symbol  shares  last_price  market_value
+  OKLO    59.0      100.00       5900.00
+   NKE    68.0       44.19       3004.92
+  SMCI   129.0       23.22       2995.38
+  TSEM   -15.0      197.80      -2967.00
+[ARTIFACT] artifacts\execution_loop\optimal\target_book.csv
+[ARTIFACT] artifacts\execution_loop\optimal\orders.csv
+[ARTIFACT] artifacts\execution_loop\optimal\positions_mark_to_market.csv
+[ARTIFACT] artifacts\execution_loop\optimal\portfolio_state.json
+[ARTIFACT] artifacts\execution_loop\optimal\execution_log.csv
+[ARTIFACT] artifacts\execution_loop\optimal\state_alignment_once.json
+[EXEC][aggressive] loading freeze artifacts
+[EXEC][aggressive][ALIGN] requested=0 applied=0 reason=not_requested marker=artifacts\execution_loop\aggressive\state_alignment_once.json
+[EXEC][aggressive] starting_nav=64888.53 ending_nav=64887.40 cash_after=55198.75 market_value_after=9688.65 nav_recon_error=0.000000 order_count=3 active_names=3 gross_target=0.1500 price_col=close merged_missing_prices=0 fallback_price_rows=0 mtm_fallback_count=1 fractional_enabled_effective=0 bootstrap_only=0 skip_reason=
+[EXEC][aggressive][RISK] dropped_price_below_min=0 dropped_price_above_max=0 clipped_weight_cap=3 clipped_notional_cap=0
+[EXEC][aggressive][DIAG] already_at_target=1 below_min_notional=0 rounded_to_zero_from_nonzero_target=0 entered_new_position=0 exited_position=0 increased_existing_position=3 decreased_existing_position=0 symbol_only_in_state=1 symbol_only_in_target=0
+[EXEC][aggressive][COST] estimated_commission_total=1.0500 estimated_slippage_total=0.0771 estimated_total_cost=1.1271
+[EXEC][aggressive][ORDERS_TOP]
+symbol order_side  current_shares  target_shares_raw  target_shares  raw_delta_shares  delta_shares  price  order_notional  target_weight  estimated_commission  estimated_slippage  estimated_total_cost                 skip_reason
+   NKE        BUY            69.0          73.419924           73.0               4.0           4.0  44.19          176.76           0.05                  0.35            0.026514              0.376514
+  SMCI        BUY           133.0         139.725515          139.0               6.0           6.0  23.22          139.32           0.05                  0.35            0.020898              0.370898
+  OKLO       HOLD            64.0           0.000000           64.0               0.0           0.0 100.00            0.00           0.00                  0.00            0.000000              0.000000 legacy_symbol_not_in_target
+  TSEM       SELL           -15.0         -16.402560          -16.0              -1.0          -1.0 197.80         -197.80          -0.05                  0.35            0.029670              0.379670
+[EXEC][aggressive][POSITIONS_MTM_TOP]
+symbol  shares  last_price  market_value
+  OKLO    64.0      100.00       6400.00
+  SMCI   139.0       23.22       3227.58
+   NKE    73.0       44.19       3225.87
+  TSEM   -16.0      197.80      -3164.80
+[ARTIFACT] artifacts\execution_loop\aggressive\target_book.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\orders.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\positions_mark_to_market.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\portfolio_state.json
+[ARTIFACT] artifacts\execution_loop\aggressive\execution_log.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\state_alignment_once.json
+[FINAL] execution loop complete
