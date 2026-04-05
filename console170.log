@@ -1,0 +1,12 @@
+date,symbol,price,target_weight,target_notional,target_shares_raw,current_shares,target_shares,raw_delta_shares,delta_shares,order_side,order_notional,order_notional_abs,estimated_commission,estimated_slippage,estimated_total_cost,skip_reason
+2026-04-02,NKE,44.19,0.05,3244.4264582000014,73.41992437655415,69.0,73.0,4.0,4.0,BUY,176.76,176.76,0.35,0.026513999999999996,0.37651399999999996,
+2026-04-02,SMCI,23.22,0.05,3244.4264582000014,139.72551499568743,133.0,139.0,6.0,6.0,BUY,139.32,139.32,0.35,0.020897999999999996,0.37089799999999995,
+2026-04-02,OKLO,100.0,0.0,0.0,0.0,64.0,64.0,0.0,0.0,HOLD,0.0,0.0,0.0,0.0,0.0,legacy_symbol_not_in_target
+2026-04-02,TSEM,197.8,-0.05,-3244.4264582000014,-16.4025604560161,-15.0,-16.0,-1.0,-1.0,SELL,-197.8,197.8,0.35,0.02967,0.37966999999999995,
+
+
+date,symbol,price,target_weight,target_notional,target_shares_raw,current_shares,target_shares,raw_delta_shares,delta_shares,order_side,order_notional,order_notional_abs,estimated_commission,estimated_slippage,estimated_total_cost,skip_reason
+2026-04-02,NKE,44.19,0.05,3016.4105178,68.26002529531414,64.0,68.0,4.0,4.0,BUY,176.76,176.76,0.35,0.026513999999999996,0.37651399999999996,
+2026-04-02,SMCI,23.22,0.05,3016.4105178,129.905707054258,123.0,129.0,6.0,6.0,BUY,139.32,139.32,0.35,0.020897999999999996,0.37089799999999995,
+2026-04-02,OKLO,100.0,0.0,0.0,0.0,59.0,59.0,0.0,0.0,HOLD,0.0,0.0,0.0,0.0,0.0,legacy_symbol_not_in_target
+2026-04-02,TSEM,100.0,0.0,0.0,0.0,-15.0,-15.0,0.0,0.0,HOLD,0.0,0.0,0.0,0.0,0.0,legacy_symbol_not_in_target
