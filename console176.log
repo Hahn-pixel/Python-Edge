@@ -1,0 +1,1270 @@
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_broker_handoff.py
+[CFG] execution_root=artifacts\execution_loop
+[CFG] configs=['optimal', 'aggressive']
+[CFG] ib_host=127.0.0.1 ib_port=4002 ib_client_id=51
+[CFG] exchange=SMART primary_exchange= currency=USD sec_type=STK
+[CFG] ib_market_data_type=3 ib_mkt_timeout_sec=8.0 max_price_deviation_pct=8.0 allow_last_fallback=1
+[CFG] force_massive_when_ib_close_only=1 force_massive_when_ib_no_bbo=1
+[CFG] enable_massive_fallback=1 massive_base_url=https://api.massive.com massive_timeout_sec=20.0
+[IB] connecting host=127.0.0.1 port=4002 client_id=51
+[IB] managedAccounts=DUP561175
+[IB] nextValidId=1
+[IB][ERROR] reqId=-1 code=2104 msg=Market data farm connection is OK:usfarm
+[IB][ERROR] reqId=-1 code=2107 msg=HMDS data farm connection is inactive but should be available upon demand.ushmds
+[IB][ERROR] reqId=-1 code=2158 msg=Sec-def data farm connection is OK:secdefil
+[IB] connected next_valid_id=1 managed_accounts=DUP561175
+[HANDOFF][optimal] orders_csv=artifacts\execution_loop\optimal\orders.csv
+[HANDOFF][optimal] total_rows=4 live_rows=0 symbols=0
+[HANDOFF][optimal][SUMMARY] updated=0 price_sanity_fail=0 summary_json=artifacts\execution_loop\optimal\broker_handoff_summary.json
+[HANDOFF][aggressive] orders_csv=artifacts\execution_loop\aggressive\orders.csv
+[HANDOFF][aggressive] total_rows=4 live_rows=0 symbols=0
+[HANDOFF][aggressive][SUMMARY] updated=0 price_sanity_fail=0 summary_json=artifacts\execution_loop\aggressive\broker_handoff_summary.json
+[FINAL] broker handoff complete
+
+[EXIT] code=0
+Press Enter to exit...
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> if ($LASTEXITCODE -ne 0) { throw 'run_broker_handoff.py failed' }
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python -c "import ast; ast.parse(open(r'.\scripts\run_broker_adapter_ibkr.py','rb').read())"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> if ($LASTEXITCODE -ne 0) { throw 'AST parse failed: scripts\run_broker_adapter_ibkr.py' }
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_broker_adapter_ibkr.py
+[CFG] execution_root=artifacts\execution_loop
+[CFG] configs=['optimal', 'aggressive']
+[CFG] broker_name=MEXEM broker_platform=IBKR broker_account_id=
+[CFG] ib_host=127.0.0.1 ib_port=4002 ib_client_id=41 ib_account_code=
+[CFG] exchange=SMART primary_exchange= currency=USD sec_type=STK
+[CFG] outside_rth=1 reprice_enabled=1 reprice_wait_sec=8.0
+[CFG] reprice_steps_bps=[15.0, 10.0, 5.0, 0.0] reprice_final_mode=marketable_lmt reprice_final_marketable_bps=12.0 reprice_max_deviation_pct=1.25
+[CFG] deferred_wait_mode=carry deferred_wait_heartbeat_sec=30.0 deferred_post_open_wait_sec=30.0
+[CFG] require_price_hint_source=1 require_quote_ts=1
+[IB] connecting host=127.0.0.1 port=4002 client_id=41
+[IB] openOrderEnd
+[IB] managedAccounts=DUP561175
+[IB] nextValidId=133
+[IB] connected next_valid_id=133 managed_accounts=DUP561175
+[IB][ERROR] reqId=-1 code=2104 msg=Market data farm connection is OK:usfarm
+[IB][ERROR] reqId=-1 code=2107 msg=HMDS data farm connection is inactive but should be available upon demand.ushmds
+[IB][ERROR] reqId=-1 code=2158 msg=Sec-def data farm connection is OK:secdefil
+[IB] openOrderEnd
+[BROKER][optimal] orders=artifacts\execution_loop\optimal\orders.csv
+[BROKER][optimal][SUMMARY] sent=0 duplicate_skipped=0 errors=0 fills_csv=artifacts\execution_loop\optimal\fills.csv broker_log_json=artifacts\execution_loop\optimal\broker_log.json outcomes={"cancelled_after_ttl": 0, "cancelled_unfilled_cap": 0, "deferred_session_closed": 0, "failed": 0, "filled_now": 0, "partial": 0, "unknown": 0, "working": 0, "working_carry": 0}
+[BROKER][aggressive] orders=artifacts\execution_loop\aggressive\orders.csv
+[BROKER][aggressive][SUMMARY] sent=0 duplicate_skipped=0 errors=0 fills_csv=artifacts\execution_loop\aggressive\fills.csv broker_log_json=artifacts\execution_loop\aggressive\broker_log.json outcomes={"cancelled_after_ttl": 0, "cancelled_unfilled_cap": 0, "deferred_session_closed": 0, "failed": 0, "filled_now": 0, "partial": 0, "unknown": 0, "working": 0, "working_carry": 0}
+[FINAL] IBKR broker adapter complete
+
+[EXIT] code=0
+Press Enter to exit...
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> if ($LASTEXITCODE -ne 0) { throw 'run_broker_adapter_ibkr.py failed' }
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python -c "import ast; ast.parse(open(r'.\scripts\run_broker_reconcile_ibkr.py','rb').read())"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> if ($LASTEXITCODE -ne 0) { throw 'AST parse failed: scripts\run_broker_reconcile_ibkr.py' }
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_broker_reconcile_ibkr.py
+[CFG] execution_root=artifacts\execution_loop
+[CFG] reconcile_config_names=['optimal', 'aggressive']
+[CFG] ib_host=127.0.0.1 ib_port=4002 ib_client_id=42 ib_timeout_sec=20.0
+[CFG] ib_positions_timeout_sec=45.0 ib_positions_retries=2 ib_positions_settle_sec=2.0
+[CFG] ib_account_code=
+[CFG] reconcile_open_orders_mode=open
+[CFG] reconcile_broker_log_as_pending=1 pending_match_tolerance=1e-06
+[IB] connecting host=127.0.0.1 port=4002 client_id=42
+[IB] connectAck received
+[IB] managedAccounts=DUP561175
+[IB] nextValidId=9
+[STEP][optimal] reconcile
+[IB][ERROR] reqId=-1 code=2104 msg=Market data farm connection is OK:usfarm
+[IB][ERROR] reqId=-1 code=2107 msg=HMDS data farm connection is inactive but should be available upon demand.ushmds
+[IB][ERROR] reqId=-1 code=2158 msg=Sec-def data farm connection is OK:secdefil
+[LOCAL][optimal] source=portfolio_state.json rows=4 state_json_exists=1 orders_csv_exists=1 broker_log_json_exists=1
+[IB][POSITIONS] attempt=1/2 timeout_sec=45.0 settle_sec=2.0
+[IB] positionEnd
+[IB][POSITIONS] rows=10
+[IB] openOrderEnd
+[BROKER][optimal] positions=10 open_orders=0 pending_symbols=1 account=<all>
+[RECON][optimal][SUMMARY] symbols_total=14 exact_match=0 match_with_open_orders=0 covered_by_pending_orders=0 working_carry_pending_open=1 flatten_pending_open=0 drift=0 missing_at_broker=3 unexpected_at_broker=10 max_abs_drift_shares=296.00000000 max_abs_drift_after_pending=296.00000000
+[RECON][optimal][TOP]
+symbol               source  expected_shares  broker_position  effective_pending_net_qty  expected_after_pending  drift_shares  abs_drift_shares  drift_after_pending  abs_drift_after_pending           reconcile_status  positions_match  covered_by_pending  has_open_orders  has_pending_carry  effective_pending_order_count  broker_open_order_count  broker_open_order_net_qty  broker_open_order_remaining_qty  pending_order_count  pending_net_qty  pending_remaining_qty  target_shares  current_shares  delta_shares  broker_avg_cost broker_symbol broker_currency broker_exchange broker_primary_exchange broker_sec_type broker_account pending_actions pending_statuses pending_outcomes         pending_client_tags  last_price  market_value  source_priority  effective_pending_remaining_qty  expected_nonzero  broker_nonzero
+  HOOD portfolio_state.json              0.0          -296.00                        0.0                 -296.00       -296.00            296.00              -296.00                   296.00       unexpected_at_broker            False               False            False              False                              0                        0                        0.0                              0.0                    0              0.0                    0.0            NaN             NaN           NaN        66.849028          HOOD             USD          NASDAQ                                     STK      DUP561175             NaN              NaN              NaN                         NaN         NaN           NaN              NaN                              0.0             False            True
+   NEM portfolio_state.json              0.0          -208.00                        0.0                 -208.00       -208.00            208.00              -208.00                   208.00       unexpected_at_broker            False               False            False              False                              0                        0                        0.0                              0.0                    0              0.0                    0.0            NaN             NaN           NaN       105.013459           NEM             USD            NYSE                                     STK      DUP561175             NaN              NaN              NaN                         NaN         NaN           NaN              NaN                              0.0             False            True
+  INTC portfolio_state.json              0.0          -200.00                        0.0                 -200.00       -200.00            200.00              -200.00                   200.00       unexpected_at_broker            False               False            False              False                              0                        0                        0.0                              0.0                    0              0.0                    0.0            NaN             NaN           NaN        43.021055          INTC             USD          NASDAQ                                     STK      DUP561175             NaN              NaN              NaN                         NaN         NaN           NaN              NaN                              0.0             False            True
+  SMCI portfolio_state.json            129.0             0.00                        0.0                    0.00       -129.00            129.00              -129.00                   129.00          missing_at_broker            False               False            False              False                              0                        0                        0.0                              0.0                    0              0.0                    0.0          129.0           129.0           0.0              NaN           NaN             NaN             NaN                     NaN             NaN            NaN             NaN              NaN              NaN                         NaN       23.22       2995.38              1.0                              0.0              True           False
+  CRCL portfolio_state.json              0.0          -128.00                        0.0                 -128.00       -128.00            128.00              -128.00                   128.00       unexpected_at_broker            False               False            False              False                              0                        0                        0.0                              0.0                    0              0.0                    0.0            NaN             NaN           NaN        91.896055          CRCL             USD            NYSE                                     STK      DUP561175             NaN              NaN              NaN                         NaN         NaN           NaN              NaN                              0.0             False            True
+   NKE portfolio_state.json             68.0             0.00                        0.0                    0.00        -68.00             68.00               -68.00                    68.00          missing_at_broker            False               False            False              False                              0                        0                        0.0                              0.0                    0              0.0                    0.0           68.0            68.0           0.0              NaN           NaN             NaN             NaN                     NaN             NaN            NaN             NaN              NaN              NaN                         NaN       44.19       3004.92              1.0                              0.0              True           False
+  OKLO portfolio_state.json             59.0             0.00                       -1.0                   -1.00        -59.00             59.00               -60.00                    60.00 working_carry_pending_open            False               False            False               True                              1                        0                        0.0                              0.0                    1             -1.0                    1.0           59.0            59.0           0.0              NaN           NaN             NaN             NaN                     NaN             NaN            NaN            SELL        submitted    working_carry pe-1ad989c7c929b3d4c43a6219        0.00          0.00              1.0                              1.0              True           False
+  RKLB portfolio_state.json              0.0           -48.00                        0.0                  -48.00        -48.00             48.00               -48.00                    48.00       unexpected_at_broker            False               False            False              False                              0                        0                        0.0                              0.0                    0              0.0                    0.0            NaN             NaN           NaN        60.656888          RKLB             USD          NASDAQ                                     STK      DUP561175             NaN              NaN              NaN                         NaN         NaN           NaN              NaN                              0.0             False            True
+  SHOP portfolio_state.json              0.0           -33.00                        0.0                  -33.00        -33.00             33.00               -33.00                    33.00       unexpected_at_broker            False               False            False              False                              0                        0                        0.0                              0.0                    0              0.0                    0.0            NaN             NaN           NaN       113.881927          SHOP             USD          NASDAQ                                     STK      DUP561175             NaN              NaN              NaN                         NaN         NaN           NaN              NaN                              0.0             False            True
+  TSEM portfolio_state.json            -15.0             0.00                        0.0                    0.00         15.00             15.00                15.00                    15.00          missing_at_broker            False               False            False              False                              0                        0                        0.0                              0.0                    0              0.0                    0.0          -15.0           -15.0           0.0              NaN           NaN             NaN             NaN                     NaN             NaN            NaN             NaN              NaN              NaN                         NaN      197.80      -2967.00              1.0                              0.0              True           False
+  AMZN portfolio_state.json              0.0           -13.00                        0.0                  -13.00        -13.00             13.00               -13.00                    13.00       unexpected_at_broker            False               False            False              False                              0                        0                        0.0                              0.0                    0              0.0                    0.0            NaN             NaN           NaN       202.628269          AMZN             USD          NASDAQ                                     STK      DUP561175             NaN              NaN              NaN                         NaN         NaN           NaN              NaN                              0.0             False            True
+  NVDA portfolio_state.json              0.0           -12.00                        0.0                  -12.00        -12.00             12.00               -12.00                    12.00       unexpected_at_broker            False               False            False              False                              0                        0                        0.0                              0.0                    0              0.0                    0.0            NaN             NaN           NaN       167.621475          NVDA             USD          NASDAQ                                     STK      DUP561175             NaN              NaN              NaN                         NaN         NaN           NaN              NaN                              0.0             False            True
+  MSFT portfolio_state.json              0.0            11.00                        0.0                   11.00         11.00             11.00                11.00                    11.00       unexpected_at_broker            False               False            False              False                              0                        0                        0.0                              0.0                    0              0.0                    0.0            NaN             NaN           NaN       366.220000          MSFT             USD          NASDAQ                                     STK      DUP561175             NaN              NaN              NaN                         NaN         NaN           NaN              NaN                              0.0             False            True
+  AAPL portfolio_state.json              0.0             8.35                        0.0                    8.35          8.35              8.35                 8.35                     8.35       unexpected_at_broker            False               False            False              False                              0                        0                        0.0                              0.0                    0              0.0                    0.0            NaN             NaN           NaN       250.948683          AAPL             USD          NASDAQ                                     STK      DUP561175             NaN              NaN              NaN                         NaN         NaN           NaN              NaN                              0.0             False            True
+[ARTIFACT] artifacts\execution_loop\optimal\reconcile_report.json
+[ARTIFACT] artifacts\execution_loop\optimal\reconcile_diff.csv
+[ARTIFACT] artifacts\execution_loop\optimal\broker_positions.csv
+[ARTIFACT] artifacts\execution_loop\optimal\broker_open_orders.csv
+[ARTIFACT] artifacts\execution_loop\optimal\broker_pending.csv
+[STEP][aggressive] reconcile
+[LOCAL][aggressive] source=portfolio_state.json rows=4 state_json_exists=1 orders_csv_exists=1 broker_log_json_exists=1
+[IB][POSITIONS] attempt=1/2 timeout_sec=45.0 settle_sec=2.0
+[IB] positionEnd
+[IB][POSITIONS] rows=10
+[IB] openOrderEnd
+[BROKER][aggressive] positions=10 open_orders=0 pending_symbols=3 account=<all>
+[RECON][aggressive][SUMMARY] symbols_total=14 exact_match=0 match_with_open_orders=0 covered_by_pending_orders=0 working_carry_pending_open=3 flatten_pending_open=0 drift=0 missing_at_broker=1 unexpected_at_broker=10 max_abs_drift_shares=296.00000000 max_abs_drift_after_pending=296.00000000
+[RECON][aggressive][TOP]
+symbol               source  expected_shares  broker_position  effective_pending_net_qty  expected_after_pending  drift_shares  abs_drift_shares  drift_after_pending  abs_drift_after_pending           reconcile_status  positions_match  covered_by_pending  has_open_orders  has_pending_carry  effective_pending_order_count  broker_open_order_count  broker_open_order_net_qty  broker_open_order_remaining_qty  pending_order_count  pending_net_qty  pending_remaining_qty  target_shares  current_shares  delta_shares  broker_avg_cost broker_symbol broker_currency broker_exchange broker_primary_exchange broker_sec_type broker_account pending_actions pending_statuses pending_outcomes         pending_client_tags  last_price  market_value  source_priority  effective_pending_remaining_qty  expected_nonzero  broker_nonzero
+  HOOD portfolio_state.json              0.0          -296.00                        0.0                 -296.00       -296.00            296.00              -296.00                   296.00       unexpected_at_broker            False               False            False              False                              0                        0                        0.0                              0.0                    0              0.0                    0.0            NaN             NaN           NaN        66.849028          HOOD             USD          NASDAQ                                     STK      DUP561175             NaN              NaN              NaN                         NaN         NaN           NaN              NaN                              0.0             False            True
+   NEM portfolio_state.json              0.0          -208.00                        0.0                 -208.00       -208.00            208.00              -208.00                   208.00       unexpected_at_broker            False               False            False              False                              0                        0                        0.0                              0.0                    0              0.0                    0.0            NaN             NaN           NaN       105.013459           NEM             USD            NYSE                                     STK      DUP561175             NaN              NaN              NaN                         NaN         NaN           NaN              NaN                              0.0             False            True
+  INTC portfolio_state.json              0.0          -200.00                        0.0                 -200.00       -200.00            200.00              -200.00                   200.00       unexpected_at_broker            False               False            False              False                              0                        0                        0.0                              0.0                    0              0.0                    0.0            NaN             NaN           NaN        43.021055          INTC             USD          NASDAQ                                     STK      DUP561175             NaN              NaN              NaN                         NaN         NaN           NaN              NaN                              0.0             False            True
+  SMCI portfolio_state.json            139.0             0.00                        0.0                    0.00       -139.00            139.00              -139.00                   139.00          missing_at_broker            False               False            False              False                              0                        0                        0.0                              0.0                    0              0.0                    0.0          139.0           139.0           0.0              NaN           NaN             NaN             NaN                     NaN             NaN            NaN             NaN              NaN              NaN                         NaN       23.22       3227.58              1.0                              0.0              True           False
+  CRCL portfolio_state.json              0.0          -128.00                        0.0                 -128.00       -128.00            128.00              -128.00                   128.00       unexpected_at_broker            False               False            False              False                              0                        0                        0.0                              0.0                    0              0.0                    0.0            NaN             NaN           NaN        91.896055          CRCL             USD            NYSE                                     STK      DUP561175             NaN              NaN              NaN                         NaN         NaN           NaN              NaN                              0.0             False            True
+   NKE portfolio_state.json             73.0             0.00                        3.0                    3.00        -73.00             73.00               -70.00                    70.00 working_carry_pending_open            False               False            False               True                              1                        0                        0.0                              0.0                    1              3.0                    3.0           73.0            73.0           0.0              NaN           NaN             NaN             NaN                     NaN             NaN            NaN             BUY        submitted    working_carry pe-faeaad1bcfeefd3bf35c9158       44.19       3225.87              1.0                              3.0              True           False
+  OKLO portfolio_state.json             64.0             0.00                        3.0                    3.00        -64.00             64.00               -61.00                    61.00 working_carry_pending_open            False               False            False               True                              1                        0                        0.0                              0.0                    1              3.0                    3.0           64.0            64.0           0.0              NaN           NaN             NaN             NaN                     NaN             NaN            NaN             BUY        submitted    working_carry pe-aa93d42f54f619d95b49add5        0.00          0.00              1.0                              3.0              True           False
+  RKLB portfolio_state.json              0.0           -48.00                        0.0                  -48.00        -48.00             48.00               -48.00                    48.00       unexpected_at_broker            False               False            False              False                              0                        0                        0.0                              0.0                    0              0.0                    0.0            NaN             NaN           NaN        60.656888          RKLB             USD          NASDAQ                                     STK      DUP561175             NaN              NaN              NaN                         NaN         NaN           NaN              NaN                              0.0             False            True
+  SHOP portfolio_state.json              0.0           -33.00                        0.0                  -33.00        -33.00             33.00               -33.00                    33.00       unexpected_at_broker            False               False            False              False                              0                        0                        0.0                              0.0                    0              0.0                    0.0            NaN             NaN           NaN       113.881927          SHOP             USD          NASDAQ                                     STK      DUP561175             NaN              NaN              NaN                         NaN         NaN           NaN              NaN                              0.0             False            True
+  TSEM portfolio_state.json            -16.0             0.00                       -1.0                   -1.00         16.00             16.00                15.00                    15.00 working_carry_pending_open            False               False            False               True                              1                        0                        0.0                              0.0                    1             -1.0                    1.0          -16.0           -16.0           0.0              NaN           NaN             NaN             NaN                     NaN             NaN            NaN            SELL        submitted    working_carry pe-c28d0dac3401425da6238a63      197.80      -3164.80              1.0                              1.0              True           False
+  AMZN portfolio_state.json              0.0           -13.00                        0.0                  -13.00        -13.00             13.00               -13.00                    13.00       unexpected_at_broker            False               False            False              False                              0                        0                        0.0                              0.0                    0              0.0                    0.0            NaN             NaN           NaN       202.628269          AMZN             USD          NASDAQ                                     STK      DUP561175             NaN              NaN              NaN                         NaN         NaN           NaN              NaN                              0.0             False            True
+  NVDA portfolio_state.json              0.0           -12.00                        0.0                  -12.00        -12.00             12.00               -12.00                    12.00       unexpected_at_broker            False               False            False              False                              0                        0                        0.0                              0.0                    0              0.0                    0.0            NaN             NaN           NaN       167.621475          NVDA             USD          NASDAQ                                     STK      DUP561175             NaN              NaN              NaN                         NaN         NaN           NaN              NaN                              0.0             False            True
+  MSFT portfolio_state.json              0.0            11.00                        0.0                   11.00         11.00             11.00                11.00                    11.00       unexpected_at_broker            False               False            False              False                              0                        0                        0.0                              0.0                    0              0.0                    0.0            NaN             NaN           NaN       366.220000          MSFT             USD          NASDAQ                                     STK      DUP561175             NaN              NaN              NaN                         NaN         NaN           NaN              NaN                              0.0             False            True
+  AAPL portfolio_state.json              0.0             8.35                        0.0                    8.35          8.35              8.35                 8.35                     8.35       unexpected_at_broker            False               False            False              False                              0                        0                        0.0                              0.0                    0              0.0                    0.0            NaN             NaN           NaN       250.948683          AAPL             USD          NASDAQ                                     STK      DUP561175             NaN              NaN              NaN                         NaN         NaN           NaN              NaN                              0.0             False            True
+[ARTIFACT] artifacts\execution_loop\aggressive\reconcile_report.json
+[ARTIFACT] artifacts\execution_loop\aggressive\reconcile_diff.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\broker_positions.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\broker_open_orders.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\broker_pending.csv
+[FINAL] IBKR reconcile complete
+
+[EXIT] code=0
+
+
+
+
+
+
+date,symbol,price,price_source,is_priced,target_weight,target_notional,target_shares_raw,current_shares,target_shares,raw_delta_shares,delta_shares,order_side,order_notional,order_notional_abs,estimated_commission,estimated_slippage,estimated_total_cost,skip_reason
+2026-04-02,NKE,44.19,target_live_snapshot,1,0.05,3244.3701041000013,73.41864910839394,73.0,73.0,0.0,0.0,HOLD,0.0,0.0,0.0,0.0,0.0,already_at_target
+2026-04-02,OKLO,,unpriced,0,0.0,0.0,0.0,64.0,64.0,0.0,0.0,HOLD,0.0,0.0,0.0,0.0,0.0,legacy_symbol_not_in_target_unpriced
+2026-04-02,SMCI,23.22,target_live_snapshot,1,0.05,3244.3701041000013,139.72308803186314,139.0,139.0,0.0,0.0,HOLD,0.0,0.0,0.0,0.0,0.0,already_at_target
+2026-04-02,TSEM,197.8,target_live_snapshot,1,-0.05,-3244.3701041000013,-16.40227555156716,-16.0,-16.0,0.0,0.0,HOLD,0.0,0.0,0.0,0.0,0.0,already_at_target
+
+
+
+
+
+{
+  "broker_account_id": "DUP561175",
+  "broker_name": "MEXEM",
+  "broker_platform": "IBKR",
+  "config": "aggressive",
+  "created_at_utc": "2026-03-31T19:32:38Z",
+  "orders": {
+    "25fe3f2b9ed68e136f00566f77b3c64f71fa32b496a2e2fb1f843d86123faa55": {
+      "broker_order_id": "",
+      "broker_symbol": "INTC",
+      "client_order_id": "pe-25fe3f2b9ed68e136f00566f",
+      "config": "aggressive",
+      "date": "2026-03-25",
+      "fill_notional": 0.0,
+      "filled_at": "",
+      "filled_avg_price": 0.0,
+      "filled_qty": 0.0,
+      "mode": "ibkr_gateway",
+      "order_notional": 1179.5,
+      "perm_id": 0,
+      "qty": 25.0,
+      "remaining_qty": 25.0,
+      "request": {
+        "account": "DUP561175",
+        "anchor_price": 47.18,
+        "cap_price": 46.6,
+        "client_id": 62,
+        "contract_details_attempts": 1,
+        "contract_details_fallback_used": 0,
+        "contract_details_mode": "full",
+        "final_limit_price": 47.13,
+        "final_mode": "marketable_lmt",
+        "final_step": 5,
+        "host": "127.0.0.1",
+        "outside_rth": 1,
+        "port": 4002,
+        "reprice_enabled": 1,
+        "reprice_final_marketable_bps": 12.0,
+        "reprice_final_mode": "marketable_lmt",
+        "reprice_max_deviation_pct": 1.25,
+        "reprice_steps_bps": [
+          15.0,
+          10.0,
+          5.0,
+          0.0
+        ],
+        "reprice_wait_sec": 8.0,
+        "reprices_used": 4,
+        "tif": "DAY"
+      },
+      "response": {
+        "error": "Final capped price was not filled; order cancelled",
+        "error_code": 0,
+        "error_string": "",
+        "outcome": "failed"
+      },
+      "side": "SELL",
+      "source_order_path": "artifacts\\execution_loop\\aggressive\\orders.csv",
+      "status": "cancelled_unfilled_cap",
+      "submitted_at": "2026-03-31T19:35:25Z",
+      "symbol": "INTC",
+      "updated_at_utc": "2026-03-31T19:35:25Z"
+    },
+    "31ea9aae8b10588ee51c8dc569ecceafe87e42f418d141f03fc07dc549def26a": {
+      "broker_order_id": "",
+      "broker_symbol": "HOOD",
+      "client_order_id": "pe-31ea9aae8b10588ee51c8dc5",
+      "config": "aggressive",
+      "date": "2026-03-25",
+      "fill_notional": 0.0,
+      "filled_at": "",
+      "filled_avg_price": 0.0,
+      "filled_qty": 0.0,
+      "mode": "ibkr_gateway",
+      "order_notional": 3700.0,
+      "perm_id": 0,
+      "qty": 37.0,
+      "remaining_qty": 37.0,
+      "request": {
+        "account": "DUP561175",
+        "anchor_price": 100.0,
+        "cap_price": 98.75,
+        "client_id": 62,
+        "contract_details_attempts": 1,
+        "contract_details_fallback_used": 0,
+        "contract_details_mode": "full",
+        "final_limit_price": 99.88,
+        "final_mode": "marketable_lmt",
+        "final_step": 5,
+        "host": "127.0.0.1",
+        "outside_rth": 1,
+        "port": 4002,
+        "reprice_enabled": 1,
+        "reprice_final_marketable_bps": 12.0,
+        "reprice_final_mode": "marketable_lmt",
+        "reprice_max_deviation_pct": 1.25,
+        "reprice_steps_bps": [
+          15.0,
+          10.0,
+          5.0,
+          0.0
+        ],
+        "reprice_wait_sec": 8.0,
+        "reprices_used": 4,
+        "tif": "DAY"
+      },
+      "response": {
+        "error": "Final capped price was not filled; order cancelled",
+        "error_code": 0,
+        "error_string": "",
+        "outcome": "failed"
+      },
+      "side": "SELL",
+      "source_order_path": "artifacts\\execution_loop\\aggressive\\orders.csv",
+      "status": "cancelled_unfilled_cap",
+      "submitted_at": "2026-03-31T19:33:30Z",
+      "symbol": "HOOD",
+      "updated_at_utc": "2026-03-31T19:33:30Z"
+    },
+    "636c46d7e21f1758c51d9422a15b2750416560a58b7af9e462b1818306a4700a": {
+      "broker_order_id": "",
+      "broker_symbol": "NEM",
+      "client_order_id": "pe-636c46d7e21f1758c51d9422",
+      "config": "aggressive",
+      "date": "2026-03-25",
+      "fill_notional": 0.0,
+      "filled_at": "",
+      "filled_avg_price": 0.0,
+      "filled_qty": 0.0,
+      "mode": "ibkr_gateway",
+      "order_notional": 1624.32,
+      "perm_id": 0,
+      "qty": 16.0,
+      "remaining_qty": 16.0,
+      "request": {
+        "account": "DUP561175",
+        "anchor_price": 101.52,
+        "cap_price": 100.26,
+        "client_id": 62,
+        "contract_details_attempts": 1,
+        "contract_details_fallback_used": 0,
+        "contract_details_mode": "full",
+        "final_limit_price": 101.4,
+        "final_mode": "marketable_lmt",
+        "final_step": 5,
+        "host": "127.0.0.1",
+        "outside_rth": 1,
+        "port": 4002,
+        "reprice_enabled": 1,
+        "reprice_final_marketable_bps": 12.0,
+        "reprice_final_mode": "marketable_lmt",
+        "reprice_max_deviation_pct": 1.25,
+        "reprice_steps_bps": [
+          15.0,
+          10.0,
+          5.0,
+          0.0
+        ],
+        "reprice_wait_sec": 8.0,
+        "reprices_used": 4,
+        "tif": "DAY"
+      },
+      "response": {
+        "error": "IBKR API error code=202: Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 104.92186. Please submit your order <br>using a limit price that is closer to the current market price of 108.1.",
+        "error_code": 202,
+        "error_string": "Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 104.92186. Please submit your order <br>using a limit price that is closer to the current market price of 108.1.",
+        "outcome": "failed"
+      },
+      "side": "SELL",
+      "source_order_path": "artifacts\\execution_loop\\aggressive\\orders.csv",
+      "status": "error_api_202",
+      "submitted_at": "2026-03-31T19:34:34Z",
+      "symbol": "NEM",
+      "updated_at_utc": "2026-03-31T19:34:34Z"
+    },
+    "a93cad7d2b2704038acd0599c3e8067f0b153f6337926533491c70eea8abfd5c": {
+      "broker_order_id": "",
+      "broker_symbol": "SHOP",
+      "client_order_id": "pe-a93cad7d2b2704038acd0599",
+      "config": "aggressive",
+      "date": "2026-03-25",
+      "fill_notional": 0.0,
+      "filled_at": "",
+      "filled_avg_price": 0.0,
+      "filled_qty": 0.0,
+      "mode": "ibkr_gateway",
+      "order_notional": 300.0,
+      "perm_id": 0,
+      "qty": 3.0,
+      "remaining_qty": 3.0,
+      "request": {
+        "account": "DUP561175",
+        "anchor_price": 100.0,
+        "cap_price": 98.75,
+        "client_id": 62,
+        "contract_details_attempts": 1,
+        "contract_details_fallback_used": 0,
+        "contract_details_mode": "full",
+        "final_limit_price": 99.88,
+        "final_mode": "marketable_lmt",
+        "final_step": 5,
+        "host": "127.0.0.1",
+        "outside_rth": 1,
+        "port": 4002,
+        "reprice_enabled": 1,
+        "reprice_final_marketable_bps": 12.0,
+        "reprice_final_mode": "marketable_lmt",
+        "reprice_max_deviation_pct": 1.25,
+        "reprice_steps_bps": [
+          15.0,
+          10.0,
+          5.0,
+          0.0
+        ],
+        "reprice_wait_sec": 8.0,
+        "reprices_used": 4,
+        "tif": "DAY"
+      },
+      "response": {
+        "error": "IBKR API error code=202: Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 115.093748. Please submit your order <br>using a limit price that is closer to the current market price of 118.58.",
+        "error_code": 202,
+        "error_string": "Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 115.093748. Please submit your order <br>using a limit price that is closer to the current market price of 118.58.",
+        "outcome": "failed"
+      },
+      "side": "SELL",
+      "source_order_path": "artifacts\\execution_loop\\aggressive\\orders.csv",
+      "status": "error_api_202",
+      "submitted_at": "2026-03-31T19:36:30Z",
+      "symbol": "SHOP",
+      "updated_at_utc": "2026-03-31T19:36:30Z"
+    },
+    "aa93d42f54f619d95b49add5ddf10f087d9f69626d67c8fc32493268ebe4d56e": {
+      "broker_order_id": "130",
+      "broker_symbol": "OKLO",
+      "client_order_id": "pe-aa93d42f54f619d95b49add5",
+      "config": "aggressive",
+      "date": "2026-04-01",
+      "fill_notional": 0.0,
+      "filled_at": "",
+      "filled_avg_price": 48.13,
+      "filled_qty": 0.0,
+      "mode": "ibkr_gateway",
+      "order_notional": 144.39,
+      "perm_id": 1110514264,
+      "qty": 3.0,
+      "remaining_qty": 3.0,
+      "request": {
+        "account": "",
+        "anchor_price": 48.13,
+        "broker_symbol": "OKLO",
+        "cap_price": 48.730000000000004,
+        "client_id": 41,
+        "client_tag": "pe-aa93d42f54f619d95b49add5",
+        "contract_currency": "USD",
+        "contract_details_mode": "resolved",
+        "contract_details_req_id": 800002,
+        "contract_details_retries": 1,
+        "contract_exchange": "SMART",
+        "contract_local_symbol": "OKLO",
+        "contract_min_tick": 0.01,
+        "contract_primary_exchange": "NYSE",
+        "contract_raw_min_tick": 0.01,
+        "deferred_until": "2026-04-06 04:00:00 US/Eastern",
+        "final_limit_price": 48.2,
+        "final_mode": "passive_lmt",
+        "final_step": 1,
+        "host": "127.0.0.1",
+        "ib_399_message": "Order Message: BUY 3 OKLO NYSE Your order will not be placed at the exchange until 2026-04-06 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute \"Fill/Trigger Outside RTH.\"",
+        "order_side": "BUY",
+        "outside_rth": 1,
+        "port": 4002,
+        "price_hint": 48.13,
+        "qty": 3.0,
+        "reprice_enabled": 1,
+        "reprice_final_marketable_bps": 12.0,
+        "reprice_final_mode": "marketable_lmt",
+        "reprice_max_deviation_pct": 1.25,
+        "reprice_steps_bps": [
+          15.0,
+          10.0,
+          5.0,
+          0.0
+        ],
+        "reprice_wait_sec": 8.0,
+        "reprices_used": 0,
+        "submitted_order": {
+          "account": "",
+          "exchange": "SMART",
+          "lmtPrice": 48.2,
+          "orderRef": "pe-aa93d42f54f619d95b49add5",
+          "orderType": "LMT",
+          "outsideRth": 1,
+          "primaryExchange": "",
+          "tif": "DAY",
+          "totalQuantity": 3.0
+        },
+        "tif": "DAY"
+      },
+      "response": {
+        "avg_fill_price": 0.0,
+        "deferred_message": "IB deferred order until 2026-04-06 04:00:00 US/Eastern; leaving live at broker",
+        "fills": [],
+        "ib_order_id": 130,
+        "last_fill_price": 0.0,
+        "outcome": "working_carry",
+        "perm_id": 1110514264,
+        "status": "Submitted"
+      },
+      "side": "BUY",
+      "source_order_path": "artifacts\\execution_loop\\aggressive\\orders.csv",
+      "status": "submitted",
+      "submitted_at": "2026-04-04T14:04:08Z",
+      "symbol": "OKLO",
+      "updated_at_utc": "2026-04-04T14:04:08Z"
+    },
+    "b9b60a162cc9e44f96fb9e67dde7257a26e59ccf84ffb5f453602d60a3b779e5": {
+      "broker_order_id": "",
+      "broker_symbol": "RKLB",
+      "client_order_id": "pe-b9b60a162cc9e44f96fb9e67",
+      "config": "aggressive",
+      "date": "2026-03-25",
+      "fill_notional": 0.0,
+      "filled_at": "",
+      "filled_avg_price": 0.0,
+      "filled_qty": 0.0,
+      "mode": "ibkr_gateway",
+      "order_notional": 437.28,
+      "perm_id": 0,
+      "qty": 6.0,
+      "remaining_qty": 6.0,
+      "request": {
+        "account": "DUP561175",
+        "anchor_price": 72.88,
+        "cap_price": 71.97,
+        "client_id": 62,
+        "contract_details_attempts": 1,
+        "contract_details_fallback_used": 0,
+        "contract_details_mode": "full",
+        "final_limit_price": 72.8,
+        "final_mode": "marketable_lmt",
+        "final_step": 5,
+        "host": "127.0.0.1",
+        "outside_rth": 1,
+        "port": 4002,
+        "reprice_enabled": 1,
+        "reprice_final_marketable_bps": 12.0,
+        "reprice_final_mode": "marketable_lmt",
+        "reprice_max_deviation_pct": 1.25,
+        "reprice_steps_bps": [
+          15.0,
+          10.0,
+          5.0,
+          0.0
+        ],
+        "reprice_wait_sec": 8.0,
+        "reprices_used": 4,
+        "tif": "DAY"
+      },
+      "response": {
+        "error": "Final capped price was not filled; order cancelled",
+        "error_code": 0,
+        "error_string": "",
+        "outcome": "failed"
+      },
+      "side": "SELL",
+      "source_order_path": "artifacts\\execution_loop\\aggressive\\orders.csv",
+      "status": "cancelled_unfilled_cap",
+      "submitted_at": "2026-03-31T19:36:17Z",
+      "symbol": "RKLB",
+      "updated_at_utc": "2026-03-31T19:36:17Z"
+    },
+    "c28d0dac3401425da6238a63cf840ccd1a62abf4c64897b6416ce5d6d2bd1d2b": {
+      "broker_order_id": "132",
+      "broker_symbol": "TSEM",
+      "client_order_id": "pe-c28d0dac3401425da6238a63",
+      "config": "aggressive",
+      "date": "2026-04-01",
+      "fill_notional": 0.0,
+      "filled_at": "",
+      "filled_avg_price": 197.8,
+      "filled_qty": 0.0,
+      "mode": "ibkr_gateway",
+      "order_notional": 197.8,
+      "perm_id": 1110514266,
+      "qty": 1.0,
+      "remaining_qty": 1.0,
+      "request": {
+        "account": "",
+        "anchor_price": 197.8,
+        "broker_symbol": "TSEM",
+        "cap_price": 195.33,
+        "client_id": 41,
+        "client_tag": "pe-c28d0dac3401425da6238a63",
+        "contract_currency": "USD",
+        "contract_details_mode": "resolved",
+        "contract_details_req_id": 800004,
+        "contract_details_retries": 1,
+        "contract_exchange": "SMART",
+        "contract_local_symbol": "TSEM",
+        "contract_min_tick": 0.01,
+        "contract_primary_exchange": "NASDAQ",
+        "contract_raw_min_tick": 0.01,
+        "deferred_until": "2026-04-06 04:00:00 US/Eastern",
+        "final_limit_price": 197.51,
+        "final_mode": "passive_lmt",
+        "final_step": 1,
+        "host": "127.0.0.1",
+        "ib_399_message": "Order Message: SELL 1 TSEM NASDAQ.NMS Your order will not be placed at the exchange until 2026-04-06 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute \"Fill/Trigger Outside RTH.\"",
+        "order_side": "SELL",
+        "outside_rth": 1,
+        "port": 4002,
+        "price_hint": 197.8,
+        "qty": 1.0,
+        "reprice_enabled": 1,
+        "reprice_final_marketable_bps": 12.0,
+        "reprice_final_mode": "marketable_lmt",
+        "reprice_max_deviation_pct": 1.25,
+        "reprice_steps_bps": [
+          15.0,
+          10.0,
+          5.0,
+          0.0
+        ],
+        "reprice_wait_sec": 8.0,
+        "reprices_used": 0,
+        "submitted_order": {
+          "account": "",
+          "exchange": "SMART",
+          "lmtPrice": 197.51,
+          "orderRef": "pe-c28d0dac3401425da6238a63",
+          "orderType": "LMT",
+          "outsideRth": 1,
+          "primaryExchange": "",
+          "tif": "DAY",
+          "totalQuantity": 1.0
+        },
+        "tif": "DAY"
+      },
+      "response": {
+        "avg_fill_price": 0.0,
+        "deferred_message": "IB deferred order until 2026-04-06 04:00:00 US/Eastern; leaving live at broker",
+        "fills": [],
+        "ib_order_id": 132,
+        "last_fill_price": 0.0,
+        "outcome": "working_carry",
+        "perm_id": 1110514266,
+        "status": "Submitted"
+      },
+      "side": "SELL",
+      "source_order_path": "artifacts\\execution_loop\\aggressive\\orders.csv",
+      "status": "submitted",
+      "submitted_at": "2026-04-04T14:04:10Z",
+      "symbol": "TSEM",
+      "updated_at_utc": "2026-04-04T14:04:10Z"
+    },
+    "cd80eff9db5e57bd8af7e0127c9001bc81667deaac6010469bfa2063973a2548": {
+      "broker_order_id": "",
+      "broker_symbol": "CRCL",
+      "client_order_id": "pe-cd80eff9db5e57bd8af7e012",
+      "config": "aggressive",
+      "date": "2026-03-25",
+      "fill_notional": 0.0,
+      "filled_at": "",
+      "filled_avg_price": 0.0,
+      "filled_qty": 0.0,
+      "mode": "ibkr_gateway",
+      "order_notional": 1661.76,
+      "perm_id": 0,
+      "qty": 16.0,
+      "remaining_qty": 16.0,
+      "request": {
+        "account": "DUP561175",
+        "anchor_price": 103.86,
+        "cap_price": 102.57,
+        "client_id": 62,
+        "contract_details_attempts": 1,
+        "contract_details_fallback_used": 0,
+        "contract_details_mode": "full",
+        "final_limit_price": 103.74,
+        "final_mode": "marketable_lmt",
+        "final_step": 5,
+        "host": "127.0.0.1",
+        "outside_rth": 1,
+        "port": 4002,
+        "reprice_enabled": 1,
+        "reprice_final_marketable_bps": 12.0,
+        "reprice_final_mode": "marketable_lmt",
+        "reprice_max_deviation_pct": 1.25,
+        "reprice_steps_bps": [
+          15.0,
+          10.0,
+          5.0,
+          0.0
+        ],
+        "reprice_wait_sec": 8.0,
+        "reprices_used": 4,
+        "tif": "DAY"
+      },
+      "response": {
+        "error": "Final capped price was not filled; order cancelled",
+        "error_code": 0,
+        "error_string": "",
+        "outcome": "failed"
+      },
+      "side": "SELL",
+      "source_order_path": "artifacts\\execution_loop\\aggressive\\orders.csv",
+      "status": "cancelled_unfilled_cap",
+      "submitted_at": "2026-03-31T19:34:21Z",
+      "symbol": "CRCL",
+      "updated_at_utc": "2026-03-31T19:34:21Z"
+    },
+    "faeaad1bcfeefd3bf35c9158b7d4a908fedae5d3bb2b4e292cc38b9101d346b8": {
+      "broker_order_id": "131",
+      "broker_symbol": "NKE",
+      "client_order_id": "pe-faeaad1bcfeefd3bf35c9158",
+      "config": "aggressive",
+      "date": "2026-04-01",
+      "fill_notional": 0.0,
+      "filled_at": "",
+      "filled_avg_price": 44.19,
+      "filled_qty": 0.0,
+      "mode": "ibkr_gateway",
+      "order_notional": 132.57,
+      "perm_id": 1110514265,
+      "qty": 3.0,
+      "remaining_qty": 3.0,
+      "request": {
+        "account": "",
+        "anchor_price": 44.19,
+        "broker_symbol": "NKE",
+        "cap_price": 44.74,
+        "client_id": 41,
+        "client_tag": "pe-faeaad1bcfeefd3bf35c9158",
+        "contract_currency": "USD",
+        "contract_details_mode": "resolved",
+        "contract_details_req_id": 800003,
+        "contract_details_retries": 1,
+        "contract_exchange": "SMART",
+        "contract_local_symbol": "NKE",
+        "contract_min_tick": 0.01,
+        "contract_primary_exchange": "NYSE",
+        "contract_raw_min_tick": 0.01,
+        "deferred_until": "2026-04-06 04:00:00 US/Eastern",
+        "final_limit_price": 44.25,
+        "final_mode": "passive_lmt",
+        "final_step": 1,
+        "host": "127.0.0.1",
+        "ib_399_message": "Order Message: BUY 3 NKE NYSE Your order will not be placed at the exchange until 2026-04-06 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute \"Fill/Trigger Outside RTH.\"",
+        "order_side": "BUY",
+        "outside_rth": 1,
+        "port": 4002,
+        "price_hint": 44.19,
+        "qty": 3.0,
+        "reprice_enabled": 1,
+        "reprice_final_marketable_bps": 12.0,
+        "reprice_final_mode": "marketable_lmt",
+        "reprice_max_deviation_pct": 1.25,
+        "reprice_steps_bps": [
+          15.0,
+          10.0,
+          5.0,
+          0.0
+        ],
+        "reprice_wait_sec": 8.0,
+        "reprices_used": 0,
+        "submitted_order": {
+          "account": "",
+          "exchange": "SMART",
+          "lmtPrice": 44.25,
+          "orderRef": "pe-faeaad1bcfeefd3bf35c9158",
+          "orderType": "LMT",
+          "outsideRth": 1,
+          "primaryExchange": "",
+          "tif": "DAY",
+          "totalQuantity": 3.0
+        },
+        "tif": "DAY"
+      },
+      "response": {
+        "avg_fill_price": 0.0,
+        "deferred_message": "IB deferred order until 2026-04-06 04:00:00 US/Eastern; leaving live at broker",
+        "fills": [],
+        "ib_order_id": 131,
+        "last_fill_price": 0.0,
+        "outcome": "working_carry",
+        "perm_id": 1110514265,
+        "status": "Submitted"
+      },
+      "side": "BUY",
+      "source_order_path": "artifacts\\execution_loop\\aggressive\\orders.csv",
+      "status": "submitted",
+      "submitted_at": "2026-04-04T14:04:09Z",
+      "symbol": "NKE",
+      "updated_at_utc": "2026-04-04T14:04:09Z"
+    }
+  },
+  "updated_at_utc": "2026-04-05T16:26:31Z"
+}
+
+
+
+
+
+
+
+
+
+
+date,symbol,price,price_source,is_priced,target_weight,target_notional,target_shares_raw,current_shares,target_shares,raw_delta_shares,delta_shares,order_side,order_notional,order_notional_abs,estimated_commission,estimated_slippage,estimated_total_cost,skip_reason
+2026-04-02,NKE,44.19,target_live_snapshot,1,0.05,3016.3731472,68.25917961529603,68.0,68.0,0.0,0.0,HOLD,0.0,0.0,0.0,0.0,0.0,already_at_target
+2026-04-02,OKLO,,unpriced,0,0.0,0.0,0.0,59.0,59.0,0.0,0.0,HOLD,0.0,0.0,0.0,0.0,0.0,legacy_symbol_not_in_target_unpriced
+2026-04-02,SMCI,23.22,target_live_snapshot,1,0.05,3016.3731472,129.90409763995996,129.0,129.0,0.0,0.0,HOLD,0.0,0.0,0.0,0.0,0.0,already_at_target
+2026-04-02,TSEM,197.8,live_snapshot,1,0.0,0.0,0.0,-15.0,-15.0,0.0,0.0,HOLD,0.0,0.0,0.0,0.0,0.0,legacy_symbol_not_in_target
+
+
+
+
+
+
+
+{
+  "broker_account_id": "DUP561175",
+  "broker_name": "MEXEM",
+  "broker_platform": "IBKR",
+  "config": "optimal",
+  "created_at_utc": "2026-03-31T19:31:07Z",
+  "orders": {
+    "0524b18d9009d906b6f0b4a9113f508452034ebae3d5d953766aa1c35122dae9": {
+      "broker_order_id": "79",
+      "broker_symbol": "AAPL",
+      "client_order_id": "pe-0524b18d9009d906b6f0b4a9",
+      "config": "optimal",
+      "date": "2026-03-27",
+      "fill_notional": 254.22,
+      "filled_at": "2026-04-01T18:32:49Z",
+      "filled_avg_price": 254.22,
+      "filled_qty": 1.0,
+      "mode": "ibkr_gateway",
+      "order_notional": 254.71,
+      "perm_id": 1746756815,
+      "qty": 1.0,
+      "remaining_qty": 0.0,
+      "request": {
+        "account": "",
+        "anchor_price": 254.71,
+        "ask": 254.71,
+        "bid": 254.68,
+        "cap_price": 257.89,
+        "client_id": 41,
+        "close_price": 253.79,
+        "contract_details_mode": "fallback_submit",
+        "contract_details_req_id": 800006,
+        "contract_details_retries": 3,
+        "contract_min_tick": 0.01,
+        "fallback_reason": "nan",
+        "final_limit_price": 254.32,
+        "final_mode": "passive_lmt",
+        "final_step": 1,
+        "host": "127.0.0.1",
+        "last": 254.69,
+        "mid": 254.695,
+        "model_price_reference": 219.5,
+        "outside_rth": 1,
+        "port": 4002,
+        "price_context": {
+          "ask": 254.71,
+          "bid": 254.68,
+          "close_price": 253.79,
+          "fallback_reason": "nan",
+          "last": 254.69,
+          "mid": 254.695,
+          "model_price_reference": 219.5,
+          "price_deviation_vs_model": 16.041002277904333,
+          "price_hint_source": "ib_ask",
+          "quote_market_data_type": 3,
+          "quote_provider": "ib",
+          "quote_timeframe": "DELAYED",
+          "quote_ts": "2026-04-01T18:18:09Z",
+          "spread_bps": 1.177879424409633
+        },
+        "price_deviation_vs_model": 16.041002277904333,
+        "price_hint_source": "ib_ask",
+        "quote_provider": "ib",
+        "quote_timeframe": "DELAYED",
+        "quote_ts": "2026-04-01T18:18:09Z",
+        "reprice_enabled": 1,
+        "reprice_final_marketable_bps": 12.0,
+        "reprice_final_mode": "marketable_lmt",
+        "reprice_max_deviation_pct": 1.25,
+        "reprice_steps_bps": [
+          15.0,
+          10.0,
+          5.0,
+          0.0
+        ],
+        "reprice_wait_sec": 8.0,
+        "reprices_used": 0,
+        "spread_bps": 1.177879424409633,
+        "tif": "DAY"
+      },
+      "response": {
+        "avg_fill_price": 254.22,
+        "fills": [],
+        "ib_order_id": 79,
+        "last_fill_price": 254.22,
+        "outcome": "filled_now",
+        "perm_id": 1746756815,
+        "status": "Filled"
+      },
+      "side": "BUY",
+      "source_order_path": "artifacts\\execution_loop\\optimal\\orders.csv",
+      "status": "filled",
+      "submitted_at": "2026-04-01T18:32:48Z",
+      "symbol": "AAPL",
+      "updated_at_utc": "2026-04-01T18:32:49Z"
+    },
+    "1ad989c7c929b3d4c43a621902440571dcc433d4aceb2fc4175d382cc42ee873": {
+      "broker_order_id": "129",
+      "broker_symbol": "OKLO",
+      "client_order_id": "pe-1ad989c7c929b3d4c43a6219",
+      "config": "optimal",
+      "date": "2026-04-01",
+      "fill_notional": 0.0,
+      "filled_at": "",
+      "filled_avg_price": 48.13,
+      "filled_qty": 0.0,
+      "mode": "ibkr_gateway",
+      "order_notional": 48.13,
+      "perm_id": 1110514263,
+      "qty": 1.0,
+      "remaining_qty": 1.0,
+      "request": {
+        "account": "",
+        "anchor_price": 48.13,
+        "broker_symbol": "OKLO",
+        "cap_price": 47.53,
+        "client_id": 41,
+        "client_tag": "pe-1ad989c7c929b3d4c43a6219",
+        "contract_currency": "USD",
+        "contract_details_mode": "resolved",
+        "contract_details_req_id": 800001,
+        "contract_details_retries": 1,
+        "contract_exchange": "SMART",
+        "contract_local_symbol": "OKLO",
+        "contract_min_tick": 0.01,
+        "contract_primary_exchange": "NYSE",
+        "contract_raw_min_tick": 0.01,
+        "deferred_until": "2026-04-06 04:00:00 US/Eastern",
+        "final_limit_price": 48.06,
+        "final_mode": "passive_lmt",
+        "final_step": 1,
+        "host": "127.0.0.1",
+        "ib_399_message": "Order Message: SELL 1 OKLO NYSE Your order will not be placed at the exchange until 2026-04-06 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute \"Fill/Trigger Outside RTH.\"",
+        "order_side": "SELL",
+        "outside_rth": 1,
+        "port": 4002,
+        "price_hint": 48.13,
+        "qty": 1.0,
+        "reprice_enabled": 1,
+        "reprice_final_marketable_bps": 12.0,
+        "reprice_final_mode": "marketable_lmt",
+        "reprice_max_deviation_pct": 1.25,
+        "reprice_steps_bps": [
+          15.0,
+          10.0,
+          5.0,
+          0.0
+        ],
+        "reprice_wait_sec": 8.0,
+        "reprices_used": 0,
+        "submitted_order": {
+          "account": "",
+          "exchange": "SMART",
+          "lmtPrice": 48.06,
+          "orderRef": "pe-1ad989c7c929b3d4c43a6219",
+          "orderType": "LMT",
+          "outsideRth": 1,
+          "primaryExchange": "",
+          "tif": "DAY",
+          "totalQuantity": 1.0
+        },
+        "tif": "DAY"
+      },
+      "response": {
+        "avg_fill_price": 0.0,
+        "deferred_message": "IB deferred order until 2026-04-06 04:00:00 US/Eastern; leaving live at broker",
+        "fills": [],
+        "ib_order_id": 129,
+        "last_fill_price": 0.0,
+        "outcome": "working_carry",
+        "perm_id": 1110514263,
+        "status": "Submitted"
+      },
+      "side": "SELL",
+      "source_order_path": "artifacts\\execution_loop\\optimal\\orders.csv",
+      "status": "submitted",
+      "submitted_at": "2026-04-04T14:04:08Z",
+      "symbol": "OKLO",
+      "updated_at_utc": "2026-04-04T14:04:08Z"
+    },
+    "45228bea7200d998cae3eeefa513395a45f9d9fcdce142f9b3325f588ab4da46": {
+      "broker_order_id": "",
+      "broker_symbol": "NVDA",
+      "client_order_id": "pe-45228bea7200d998cae3eeef",
+      "config": "optimal",
+      "date": "2026-03-27",
+      "fill_notional": 0.0,
+      "filled_at": "",
+      "filled_avg_price": 0.0,
+      "filled_qty": 0.0,
+      "mode": "ibkr_gateway",
+      "order_notional": 118.4,
+      "perm_id": 0,
+      "qty": 1.0,
+      "remaining_qty": 1.0,
+      "request": {
+        "account": "DUP561175",
+        "anchor_price": 118.4,
+        "cap_price": 116.93,
+        "client_id": 62,
+        "contract_details_attempts": 1,
+        "contract_details_fallback_used": 0,
+        "contract_details_mode": "full",
+        "final_limit_price": 118.26,
+        "final_mode": "marketable_lmt",
+        "final_step": 5,
+        "host": "127.0.0.1",
+        "outside_rth": 1,
+        "port": 4002,
+        "reprice_enabled": 1,
+        "reprice_final_marketable_bps": 12.0,
+        "reprice_final_mode": "marketable_lmt",
+        "reprice_max_deviation_pct": 1.25,
+        "reprice_steps_bps": [
+          15.0,
+          10.0,
+          5.0,
+          0.0
+        ],
+        "reprice_wait_sec": 8.0,
+        "reprices_used": 4,
+        "tif": "DAY"
+      },
+      "response": {
+        "error": "IBKR API error code=202: Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 168.942636. Please submit your order <br>using a limit price that is closer to the current market price of 174.06.",
+        "error_code": 202,
+        "error_string": "Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 168.942636. Please submit your order <br>using a limit price that is closer to the current market price of 174.06.",
+        "outcome": "failed"
+      },
+      "side": "SELL",
+      "source_order_path": "artifacts\\execution_loop\\optimal\\orders.csv",
+      "status": "error_api_202",
+      "submitted_at": "2026-03-31T19:32:25Z",
+      "symbol": "NVDA",
+      "updated_at_utc": "2026-03-31T19:32:25Z"
+    },
+    "55b5ecd5fcf8a14e96d55d09ee8a7129cfc18164b2bd250da77ea97c8abc2e65": {
+      "broker_order_id": "80",
+      "broker_symbol": "MSFT",
+      "client_order_id": "pe-55b5ecd5fcf8a14e96d55d09",
+      "config": "optimal",
+      "date": "2026-03-27",
+      "fill_notional": 369.08,
+      "filled_at": "2026-04-01T18:32:56Z",
+      "filled_avg_price": 369.08,
+      "filled_qty": 1.0,
+      "mode": "ibkr_gateway",
+      "order_notional": 370.29,
+      "perm_id": 1746756816,
+      "qty": 1.0,
+      "remaining_qty": 0.0,
+      "request": {
+        "account": "",
+        "anchor_price": 370.29,
+        "ask": 370.29,
+        "bid": 370.24,
+        "cap_price": 374.91,
+        "client_id": 41,
+        "close_price": 370.17,
+        "contract_details_mode": "fallback_submit",
+        "contract_details_req_id": 800012,
+        "contract_details_retries": 3,
+        "contract_min_tick": 0.01,
+        "fallback_reason": "nan",
+        "final_limit_price": 369.73,
+        "final_mode": "passive_lmt",
+        "final_step": 1,
+        "host": "127.0.0.1",
+        "last": 370.26,
+        "mid": 370.265,
+        "model_price_reference": 428.1,
+        "outside_rth": 1,
+        "port": 4002,
+        "price_context": {
+          "ask": 370.29,
+          "bid": 370.24,
+          "close_price": 370.17,
+          "fallback_reason": "nan",
+          "last": 370.26,
+          "mid": 370.265,
+          "model_price_reference": 428.1,
+          "price_deviation_vs_model": 13.50385423966363,
+          "price_hint_source": "ib_ask",
+          "quote_market_data_type": 3,
+          "quote_provider": "ib",
+          "quote_timeframe": "DELAYED",
+          "quote_ts": "2026-04-01T18:18:10Z",
+          "spread_bps": 1.3503841843007407
+        },
+        "price_deviation_vs_model": 13.50385423966363,
+        "price_hint_source": "ib_ask",
+        "quote_provider": "ib",
+        "quote_timeframe": "DELAYED",
+        "quote_ts": "2026-04-01T18:18:10Z",
+        "reprice_enabled": 1,
+        "reprice_final_marketable_bps": 12.0,
+        "reprice_final_mode": "marketable_lmt",
+        "reprice_max_deviation_pct": 1.25,
+        "reprice_steps_bps": [
+          15.0,
+          10.0,
+          5.0,
+          0.0
+        ],
+        "reprice_wait_sec": 8.0,
+        "reprices_used": 0,
+        "spread_bps": 1.3503841843007407,
+        "tif": "DAY"
+      },
+      "response": {
+        "avg_fill_price": 369.08,
+        "fills": [],
+        "ib_order_id": 80,
+        "last_fill_price": 369.08,
+        "outcome": "filled_now",
+        "perm_id": 1746756816,
+        "status": "Filled"
+      },
+      "side": "BUY",
+      "source_order_path": "artifacts\\execution_loop\\optimal\\orders.csv",
+      "status": "filled",
+      "submitted_at": "2026-04-01T18:32:55Z",
+      "symbol": "MSFT",
+      "updated_at_utc": "2026-04-01T18:32:56Z"
+    },
+    "8da82c599802e250b50499b02b47be7cca1c4933922c205a1c5648a4b3a610d3": {
+      "broker_order_id": "",
+      "broker_symbol": "AAPL",
+      "client_order_id": "pe-8da82c599802e250b50499b0",
+      "config": "optimal",
+      "date": "2026-03-27",
+      "fill_notional": 0.0,
+      "filled_at": "",
+      "filled_avg_price": 0.0,
+      "filled_qty": 0.0,
+      "mode": "ibkr_gateway",
+      "order_notional": 219.5,
+      "perm_id": 0,
+      "qty": 1.0,
+      "remaining_qty": 1.0,
+      "request": {
+        "account": "DUP561175",
+        "anchor_price": 219.5,
+        "cap_price": 222.24,
+        "client_id": 62,
+        "contract_details_attempts": 1,
+        "contract_details_fallback_used": 0,
+        "contract_details_mode": "full",
+        "final_limit_price": 219.76,
+        "final_mode": "marketable_lmt",
+        "final_step": 5,
+        "host": "127.0.0.1",
+        "outside_rth": 1,
+        "port": 4002,
+        "reprice_enabled": 1,
+        "reprice_final_marketable_bps": 12.0,
+        "reprice_final_mode": "marketable_lmt",
+        "reprice_max_deviation_pct": 1.25,
+        "reprice_steps_bps": [
+          15.0,
+          10.0,
+          5.0,
+          0.0
+        ],
+        "reprice_wait_sec": 8.0,
+        "reprices_used": 4,
+        "tif": "DAY"
+      },
+      "response": {
+        "error": "Final capped price was not filled; order cancelled",
+        "error_code": 0,
+        "error_string": "",
+        "outcome": "failed"
+      },
+      "side": "BUY",
+      "source_order_path": "artifacts\\execution_loop\\optimal\\orders.csv",
+      "status": "cancelled_unfilled_cap",
+      "submitted_at": "2026-03-31T19:31:59Z",
+      "symbol": "AAPL",
+      "updated_at_utc": "2026-03-31T19:31:59Z"
+    },
+    "b88591f05813660c0f31d4d44937292d46ec7f8f218e56aefbc2cdd801fd8736": {
+      "broker_order_id": "",
+      "broker_symbol": "AMZN",
+      "client_order_id": "pe-b88591f05813660c0f31d4d4",
+      "config": "optimal",
+      "date": "2026-03-27",
+      "fill_notional": 0.0,
+      "filled_at": "",
+      "filled_avg_price": 0.0,
+      "filled_qty": 0.0,
+      "mode": "ibkr_gateway",
+      "order_notional": 201.7,
+      "perm_id": 0,
+      "qty": 1.0,
+      "remaining_qty": 1.0,
+      "request": {
+        "account": "DUP561175",
+        "anchor_price": 201.7,
+        "cap_price": 199.18,
+        "client_id": 62,
+        "contract_details_attempts": 1,
+        "contract_details_fallback_used": 0,
+        "contract_details_mode": "full",
+        "final_limit_price": 201.46,
+        "final_mode": "marketable_lmt",
+        "final_step": 5,
+        "host": "127.0.0.1",
+        "outside_rth": 1,
+        "port": 4002,
+        "reprice_enabled": 1,
+        "reprice_final_marketable_bps": 12.0,
+        "reprice_final_mode": "marketable_lmt",
+        "reprice_max_deviation_pct": 1.25,
+        "reprice_steps_bps": [
+          15.0,
+          10.0,
+          5.0,
+          0.0
+        ],
+        "reprice_wait_sec": 8.0,
+        "reprices_used": 4,
+        "tif": "DAY"
+      },
+      "response": {
+        "error": "IBKR API error code=202: Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 202.865106. Please submit your order <br>using a limit price that is closer to the current market price of 209.01.",
+        "error_code": 202,
+        "error_string": "Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 202.865106. Please submit your order <br>using a limit price that is closer to the current market price of 209.01.",
+        "outcome": "failed"
+      },
+      "side": "SELL",
+      "source_order_path": "artifacts\\execution_loop\\optimal\\orders.csv",
+      "status": "error_api_202",
+      "submitted_at": "2026-03-31T19:32:38Z",
+      "symbol": "AMZN",
+      "updated_at_utc": "2026-03-31T19:32:38Z"
+    },
+    "d8f1f793174cedbf2eeba1e39ddb83376106c4a0204eefbcd7d9f6662038b40e": {
+      "broker_order_id": "",
+      "broker_symbol": "MSFT",
+      "client_order_id": "pe-d8f1f793174cedbf2eeba1e3",
+      "config": "optimal",
+      "date": "2026-03-27",
+      "fill_notional": 0.0,
+      "filled_at": "",
+      "filled_avg_price": 0.0,
+      "filled_qty": 0.0,
+      "mode": "ibkr_gateway",
+      "order_notional": 428.1,
+      "perm_id": 0,
+      "qty": 1.0,
+      "remaining_qty": 1.0,
+      "request": {
+        "account": "DUP561175",
+        "anchor_price": 428.1,
+        "cap_price": 433.45,
+        "client_id": 62,
+        "contract_details_attempts": 1,
+        "contract_details_fallback_used": 0,
+        "contract_details_mode": "full",
+        "final_limit_price": 428.61,
+        "final_mode": "marketable_lmt",
+        "final_step": 5,
+        "host": "127.0.0.1",
+        "outside_rth": 1,
+        "port": 4002,
+        "reprice_enabled": 1,
+        "reprice_final_marketable_bps": 12.0,
+        "reprice_final_mode": "marketable_lmt",
+        "reprice_max_deviation_pct": 1.25,
+        "reprice_steps_bps": [
+          15.0,
+          10.0,
+          5.0,
+          0.0
+        ],
+        "reprice_wait_sec": 8.0,
+        "reprices_used": 4,
+        "tif": "DAY"
+      },
+      "response": {
+        "error": "IBKR API error code=202: Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 382.144162. Please submit your order <br>using a limit price that is closer to the current market price of 371.23.",
+        "error_code": 202,
+        "error_string": "Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 382.144162. Please submit your order <br>using a limit price that is closer to the current market price of 371.23.",
+        "outcome": "failed"
+      },
+      "side": "BUY",
+      "source_order_path": "artifacts\\execution_loop\\optimal\\orders.csv",
+      "status": "error_api_202",
+      "submitted_at": "2026-03-31T19:32:12Z",
+      "symbol": "MSFT",
+      "updated_at_utc": "2026-03-31T19:32:12Z"
+    }
+  },
+  "updated_at_utc": "2026-04-05T16:26:31Z"
+}
