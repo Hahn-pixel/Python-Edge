@@ -17,6 +17,8 @@ CONFIG_NAMES = [x.strip() for x in str(os.getenv("CONFIG_NAMES", "optimal|aggres
 REQUIRE_ANY_LIVE_ACTIVE_NAMES = str(os.getenv("REQUIRE_ANY_LIVE_ACTIVE_NAMES", "1")).strip().lower() not in {"0", "false", "no", "off"}
 REQUIRE_FRESH_FREEZE_DATE_MATCH = str(os.getenv("REQUIRE_FRESH_FREEZE_DATE_MATCH", "1")).strip().lower() not in {"0", "false", "no", "off"}
 RUN_BROKER_HANDOFF = str(os.getenv("RUN_BROKER_HANDOFF", "1")).strip().lower() not in {"0", "false", "no", "off"}
+RUN_BROKER_ADAPTER = str(os.getenv("RUN_BROKER_ADAPTER", "1")).strip().lower() not in {"0", "false", "no", "off"}
+RUN_BROKER_RECONCILE = str(os.getenv("RUN_BROKER_RECONCILE", "1")).strip().lower() not in {"0", "false", "no", "off"}
 REQUIRE_FREEZE_UNIVERSE_FILTER = str(os.getenv("REQUIRE_FREEZE_UNIVERSE_FILTER", "1")).strip().lower() not in {"0", "false", "no", "off"}
 MIN_FREEZE_UNIVERSE_SURVIVAL_RATIO = float(os.getenv("MIN_FREEZE_UNIVERSE_SURVIVAL_RATIO", "0.90"))
 REQUIRE_FREEZE_LIVE_GATE_PASSED = str(os.getenv("REQUIRE_FREEZE_LIVE_GATE_PASSED", "0")).strip().lower() not in {"0", "false", "no", "off"}
@@ -258,45 +260,41 @@ def _diagnose_universe_stage() -> Dict[str, Any]:
 
 def _diagnose_live_alpha_against_universe(universe_diag: Dict[str, Any]) -> Dict[str, Any]:
     live_df, live_symbols, live_date, alpha_col_count, live_path = _load_live_alpha_snapshot()
-    universe_symbols = set(universe_diag["selected_symbols"])
-    universe_all_symbols = set(universe_diag["all_symbols"])
-    universe_date = universe_diag["date"]
-    present = sorted(universe_symbols & live_symbols)
-    missing = sorted(universe_symbols - live_symbols)
-    extra_vs_selected = sorted(live_symbols - universe_symbols)
-    extra_vs_all = sorted(live_symbols - universe_all_symbols)
-    requested = len(universe_symbols)
-    present_count = len(present)
-    missing_count = len(missing)
-    extra_selected_count = len(extra_vs_selected)
-    extra_all_count = len(extra_vs_all)
-    survival_ratio = (present_count / requested) if requested > 0 else 0.0
+    selected_symbols = set(universe_diag.get("selected_symbols", set()))
+    all_symbols = set(universe_diag.get("all_symbols", set()))
+    universe_date = universe_diag.get("date")
+
+    present = sorted(selected_symbols & live_symbols)
+    missing = sorted(selected_symbols - live_symbols)
+    extra_vs_selected = sorted(live_symbols - selected_symbols)
+    extra_vs_all = sorted(live_symbols - all_symbols)
+    date_match = bool(universe_date is not None and live_date is not None and pd.Timestamp(universe_date).normalize() == pd.Timestamp(live_date).normalize())
+
     print(
         "[DIAG][LIVE_ALPHA] "
-        f"snapshot={live_path} current_date={(live_date.date().isoformat() if live_date is not None else 'NA')} rows_current={len(live_df)} symbols_current={len(live_symbols)} alpha_cols={alpha_col_count}"
+        f"snapshot={live_path} current_rows={len(live_df)} current_symbols={len(live_symbols)} alpha_col_count={alpha_col_count} "
+        f"current_date={(live_date.date().isoformat() if live_date is not None else 'NA')} date_match_vs_universe={int(date_match)}"
     )
     print(
-        "[DIAG][SURVIVAL] "
-        f"universe_requested_selected={requested} universe_all_symbols_current={len(universe_all_symbols)} live_symbols_current={len(live_symbols)} "
-        f"present_in_live_alpha={present_count} missing_in_live_alpha={missing_count} extra_live_alpha_vs_selected={extra_selected_count} extra_live_alpha_vs_all={extra_all_count} survival_ratio={survival_ratio:.4f}"
+        "[DIAG][LIVE_ALPHA][COVERAGE] "
+        f"universe_selected_current={len(selected_symbols)} present_in_live_alpha={len(present)} missing_from_live_alpha={len(missing)} "
+        f"extra_vs_selected={len(extra_vs_selected)} extra_vs_all={len(extra_vs_all)}"
     )
-    if universe_date is not None and live_date is not None and universe_date != live_date:
-        print("[DIAG][SURVIVAL][WARN] " f"date mismatch universe_date={universe_date.date().isoformat()} live_alpha_date={live_date.date().isoformat()}")
-    _print_symbol_preview("[DIAG][SURVIVAL][MISSING_TOP]", missing)
-    _print_symbol_preview("[DIAG][SURVIVAL][EXTRA_VS_SELECTED_TOP]", extra_vs_selected)
-    _print_symbol_preview("[DIAG][SURVIVAL][EXTRA_VS_ALL_TOP]", extra_vs_all)
+    _print_symbol_preview("[DIAG][LIVE_ALPHA][MISSING_TOP]", missing)
+    _print_symbol_preview("[DIAG][LIVE_ALPHA][EXTRA_VS_SELECTED_TOP]", extra_vs_selected)
+    _print_symbol_preview("[DIAG][LIVE_ALPHA][EXTRA_VS_ALL_TOP]", extra_vs_all)
+
     payload = {
-        "universe_requested_selected": requested,
-        "universe_all_symbols_current": len(universe_all_symbols),
+        "universe_date": universe_date.date().isoformat() if universe_date is not None else None,
+        "live_date": live_date.date().isoformat() if live_date is not None else None,
+        "date_match_vs_universe": bool(date_match),
+        "universe_selected_current": len(selected_symbols),
         "live_symbols_current": len(live_symbols),
-        "present_in_live_alpha": present_count,
-        "missing_in_live_alpha": missing_count,
-        "extra_live_alpha_vs_selected": extra_selected_count,
-        "extra_live_alpha_vs_all": extra_all_count,
-        "survival_ratio": survival_ratio,
-        "universe_current_date": universe_date.date().isoformat() if universe_date is not None else None,
-        "live_alpha_current_date": live_date.date().isoformat() if live_date is not None else None,
-        "universe_symbol_col": str(universe_diag.get("symbol_col")),
+        "present_in_live_alpha": len(present),
+        "missing_from_live_alpha": len(missing),
+        "extra_vs_selected": len(extra_vs_selected),
+        "extra_vs_all": len(extra_vs_all),
+        "universe_symbol_col": universe_diag.get("symbol_col"),
         "universe_date_col": universe_diag.get("date_col"),
         "universe_selected_col": universe_diag.get("selected_col"),
         "alpha_col_count": alpha_col_count,
@@ -403,7 +401,11 @@ def _freeze_gate_allows_execution_from_diag(freeze_diag: Dict[str, Any]) -> bool
 def main() -> int:
     _enable_line_buffering()
     print(f"[CFG] configs={CONFIG_NAMES}")
-    print(f"[CFG] require_any_live_active_names={int(REQUIRE_ANY_LIVE_ACTIVE_NAMES)} require_fresh_freeze_date_match={int(REQUIRE_FRESH_FREEZE_DATE_MATCH)} run_broker_handoff={int(RUN_BROKER_HANDOFF)}")
+    print(
+        f"[CFG] require_any_live_active_names={int(REQUIRE_ANY_LIVE_ACTIVE_NAMES)} "
+        f"require_fresh_freeze_date_match={int(REQUIRE_FRESH_FREEZE_DATE_MATCH)} "
+        f"run_broker_handoff={int(RUN_BROKER_HANDOFF)} run_broker_adapter={int(RUN_BROKER_ADAPTER)} run_broker_reconcile={int(RUN_BROKER_RECONCILE)}"
+    )
     print(f"[CFG] require_freeze_universe_filter={int(REQUIRE_FREEZE_UNIVERSE_FILTER)} min_freeze_universe_survival_ratio={MIN_FREEZE_UNIVERSE_SURVIVAL_RATIO:.4f}")
     print(f"[CFG] require_freeze_live_gate_passed={int(REQUIRE_FREEZE_LIVE_GATE_PASSED)} require_any_replay_gate_pass={int(REQUIRE_ANY_REPLAY_GATE_PASS)}")
 
@@ -433,9 +435,18 @@ def main() -> int:
 
     print("[STEP] execution loop")
     _run_step("scripts/run_execution_loop.py")
+
     if RUN_BROKER_HANDOFF:
         print("[STEP] broker handoff")
         _run_step("scripts/run_broker_handoff.py")
+
+    if RUN_BROKER_ADAPTER:
+        print("[STEP] broker adapter")
+        _run_step("scripts/run_broker_adapter_ibkr.py")
+
+    if RUN_BROKER_RECONCILE:
+        print("[STEP] broker reconcile")
+        _run_step("scripts/run_broker_reconcile_ibkr.py")
 
     print("[FINAL] daily cycle complete")
     return 0
