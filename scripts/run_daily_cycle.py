@@ -23,6 +23,7 @@ REQUIRE_FREEZE_UNIVERSE_FILTER = str(os.getenv("REQUIRE_FREEZE_UNIVERSE_FILTER",
 MIN_FREEZE_UNIVERSE_SURVIVAL_RATIO = float(os.getenv("MIN_FREEZE_UNIVERSE_SURVIVAL_RATIO", "0.90"))
 REQUIRE_FREEZE_LIVE_GATE_PASSED = str(os.getenv("REQUIRE_FREEZE_LIVE_GATE_PASSED", "0")).strip().lower() not in {"0", "false", "no", "off"}
 REQUIRE_ANY_REPLAY_GATE_PASS = str(os.getenv("REQUIRE_ANY_REPLAY_GATE_PASS", "1")).strip().lower() not in {"0", "false", "no", "off"}
+CHILD_PAUSE_ON_EXIT = str(os.getenv("CHILD_PAUSE_ON_EXIT", "0")).strip().lower()
 
 UNIVERSE_SNAPSHOT_FILE = Path(os.getenv("UNIVERSE_SNAPSHOT_FILE", "artifacts/daily_cycle/universe/universe_snapshot.parquet"))
 UNIVERSE_SUMMARY_FILE = Path(os.getenv("UNIVERSE_SUMMARY_FILE", "artifacts/daily_cycle/universe/universe_summary.json"))
@@ -77,13 +78,20 @@ def _must_exist(path_like: Path, label: str) -> Path:
     return path
 
 
+def _child_env() -> Dict[str, str]:
+    env = os.environ.copy()
+    env["PAUSE_ON_EXIT"] = CHILD_PAUSE_ON_EXIT
+    return env
+
+
 def _run_step(script_rel_path: str) -> None:
     script_path = ROOT / script_rel_path
     if not script_path.exists():
         raise FileNotFoundError(f"Script not found: {script_path}")
     cmd = [sys.executable, str(script_path)]
     print(f"[RUN] {' '.join(cmd)}")
-    completed = subprocess.run(cmd, cwd=str(ROOT), env=os.environ.copy())
+    print(f"[RUN][ENV] PAUSE_ON_EXIT={CHILD_PAUSE_ON_EXIT}")
+    completed = subprocess.run(cmd, cwd=str(ROOT), env=_child_env())
     if completed.returncode != 0:
         raise RuntimeError(f"Step failed: {script_rel_path} rc={completed.returncode}")
 
@@ -408,6 +416,7 @@ def main() -> int:
     )
     print(f"[CFG] require_freeze_universe_filter={int(REQUIRE_FREEZE_UNIVERSE_FILTER)} min_freeze_universe_survival_ratio={MIN_FREEZE_UNIVERSE_SURVIVAL_RATIO:.4f}")
     print(f"[CFG] require_freeze_live_gate_passed={int(REQUIRE_FREEZE_LIVE_GATE_PASSED)} require_any_replay_gate_pass={int(REQUIRE_ANY_REPLAY_GATE_PASS)}")
+    print(f"[CFG] child_pause_on_exit={CHILD_PAUSE_ON_EXIT}")
 
     print("[STEP] universe builder")
     _run_step("scripts/run_universe_builder.py")
