@@ -45,6 +45,8 @@ ALIGN_STATE_CASH_MODE = str(os.getenv("ALIGN_STATE_CASH_MODE", "preserve_nav")).
 SKIP_LEGACY_SYMBOLS_NOT_IN_TARGET = str(os.getenv("SKIP_LEGACY_SYMBOLS_NOT_IN_TARGET", "1")).strip().lower() not in {"0", "false", "no", "off"}
 USE_STATE_PRICE_FALLBACK_FOR_LEGACY = str(os.getenv("USE_STATE_PRICE_FALLBACK_FOR_LEGACY", "1")).strip().lower() not in {"0", "false", "no", "off"}
 USE_STATE_PRICE_FALLBACK_FOR_MTM = str(os.getenv("USE_STATE_PRICE_FALLBACK_FOR_MTM", "1")).strip().lower() not in {"0", "false", "no", "off"}
+USE_BROKER_POSITIONS_PRICE_FALLBACK_FOR_LEGACY = str(os.getenv("USE_BROKER_POSITIONS_PRICE_FALLBACK_FOR_LEGACY", "1")).strip().lower() not in {"0", "false", "no", "off"}
+USE_BROKER_POSITIONS_PRICE_FALLBACK_FOR_MTM = str(os.getenv("USE_BROKER_POSITIONS_PRICE_FALLBACK_FOR_MTM", "1")).strip().lower() not in {"0", "false", "no", "off"}
 SANITIZE_STATE_PRICES = str(os.getenv("SANITIZE_STATE_PRICES", "1")).strip().lower() not in {"0", "false", "no", "off"}
 STATE_FALLBACK_PRICE_TOLERANCE = float(os.getenv("STATE_FALLBACK_PRICE_TOLERANCE", "0.000001"))
 PERSIST_DEFAULT_FALLBACK_TO_STATE = str(os.getenv("PERSIST_DEFAULT_FALLBACK_TO_STATE", "0")).strip().lower() not in {"0", "false", "no", "off"}
@@ -69,11 +71,14 @@ BROKER_PRICE_COL_CANDIDATES = [
     "last_price",
     "price",
     "avgCost",
+    "avg_cost",
     "averageCost",
     "average_cost",
     "costBasisPrice",
     "cost_basis_price",
 ]
+BROKER_POSITION_COL_CANDIDATES = ["position", "shares", "qty", "quantity"]
+BROKER_SYMBOL_COL_CANDIDATES = ["symbol", "ticker", "broker_symbol"]
 
 
 @dataclass(frozen=True)
@@ -91,7 +96,14 @@ class PriceLookupResult:
     source: str
     used_default_fallback: int
     used_state_fallback: int
+    used_broker_positions_fallback: int
     is_priced: int
+
+
+@dataclass(frozen=True)
+class BrokerFallbackMaps:
+    price_by_symbol: Dict[str, float]
+    shares_by_symbol: Dict[str, float]
 
 
 def _enable_line_buffering() -> None:
@@ -314,19 +326,87 @@ def _build_live_price_map(price_df: pd.DataFrame, price_col: str) -> Dict[str, f
     return dict(zip(symbols, prices))
 
 
-def _lookup_price(symbol: str, live_price_map: Dict[str, float], state: dict, allow_state_fallback: bool, allow_default_fallback: bool) -> PriceLookupResult:
+def _empty_broker_fallback_maps() -> BrokerFallbackMaps:
+    return BrokerFallbackMaps(price_by_symbol={}, shares_by_symbol={})
+
+
+def _find_broker_col(df: pd.DataFrame, candidates: List[str]) -> str | None:
+    for col in candidates:
+        if col in df.columns:
+            return col
+    return None
+
+
+def _load_broker_fallback_maps(broker_positions_csv: Path) -> BrokerFallbackMaps:
+    if not broker_positions_csv.exists():
+        return _empty_broker_fallback_maps()
+    try:
+        df = pd.read_csv(broker_positions_csv)
+    except Exception:
+        return _empty_broker_fallback_maps()
+    if df.empty:
+        return _empty_broker_fallback_maps()
+    symbol_col = _find_broker_col(df, BROKER_SYMBOL_COL_CANDIDATES)
+    shares_col = _find_broker_col(df, BROKER_POSITION_COL_CANDIDATES)
+    if symbol_col is None:
+        return _empty_broker_fallback_maps()
+    broker_price_col = _find_broker_col(df, BROKER_PRICE_COL_CANDIDATES)
+    work = df.copy()
+    work[symbol_col] = work[symbol_col].astype(str).str.strip().str.upper()
+    work = work.loc[work[symbol_col].ne("") & work[symbol_col].ne("NAN")].copy()
+    if shares_col is not None:
+        work[shares_col] = pd.to_numeric(work[shares_col], errors="coerce").fillna(0.0)
+    else:
+        work["__shares__"] = 0.0
+        shares_col = "__shares__"
+    if broker_price_col is not None:
+        work[broker_price_col] = pd.to_numeric(work[broker_price_col], errors="coerce")
+    else:
+        work["__broker_price__"] = float("nan")
+        broker_price_col = "__broker_price__"
+    work = work.sort_values([symbol_col]).drop_duplicates(subset=[symbol_col], keep="first")
+    price_by_symbol: Dict[str, float] = {}
+    shares_by_symbol: Dict[str, float] = {}
+    for _, row in work.iterrows():
+        sym = str(row[symbol_col])
+        shares = float(pd.to_numeric(pd.Series([row[shares_col]]), errors="coerce").iloc[0])
+        shares_by_symbol[sym] = shares
+        try:
+            price = float(row[broker_price_col])
+        except Exception:
+            price = float("nan")
+        if math.isfinite(price) and price > 0.0:
+            price_by_symbol[sym] = price
+    return BrokerFallbackMaps(price_by_symbol=price_by_symbol, shares_by_symbol=shares_by_symbol)
+
+
+def _lookup_price(
+    symbol: str,
+    live_price_map: Dict[str, float],
+    state: dict,
+    broker_fallback_maps: BrokerFallbackMaps,
+    allow_state_fallback: bool,
+    allow_broker_positions_fallback: bool,
+    allow_default_fallback: bool,
+) -> PriceLookupResult:
     live_value = live_price_map.get(symbol)
     if live_value is not None:
         price = float(live_value)
         if math.isfinite(price) and price > 0.0:
-            return PriceLookupResult(price=price, source="live_snapshot", used_default_fallback=0, used_state_fallback=0, is_priced=1)
+            return PriceLookupResult(price=price, source="live_snapshot", used_default_fallback=0, used_state_fallback=0, used_broker_positions_fallback=0, is_priced=1)
     if allow_state_fallback:
         state_price = _extract_state_last_price(state, symbol)
         if math.isfinite(state_price) and state_price > 0.0:
-            return PriceLookupResult(price=state_price, source="state_last_price", used_default_fallback=0, used_state_fallback=1, is_priced=1)
+            return PriceLookupResult(price=state_price, source="state_last_price", used_default_fallback=0, used_state_fallback=1, used_broker_positions_fallback=0, is_priced=1)
+    if allow_broker_positions_fallback:
+        broker_price = broker_fallback_maps.price_by_symbol.get(symbol)
+        if broker_price is not None:
+            price = float(broker_price)
+            if math.isfinite(price) and price > 0.0:
+                return PriceLookupResult(price=price, source="broker_positions_price", used_default_fallback=0, used_state_fallback=0, used_broker_positions_fallback=1, is_priced=1)
     if allow_default_fallback:
-        return PriceLookupResult(price=float(DEFAULT_PRICE_FALLBACK), source="default_fallback", used_default_fallback=1, used_state_fallback=0, is_priced=1)
-    return PriceLookupResult(price=float("nan"), source="unpriced", used_default_fallback=0, used_state_fallback=0, is_priced=0)
+        return PriceLookupResult(price=float(DEFAULT_PRICE_FALLBACK), source="default_fallback", used_default_fallback=1, used_state_fallback=0, used_broker_positions_fallback=0, is_priced=1)
+    return PriceLookupResult(price=float("nan"), source="unpriced", used_default_fallback=0, used_state_fallback=0, used_broker_positions_fallback=0, is_priced=0)
 
 
 def _round_shares(target_shares: float, fractional_enabled: bool) -> float:
@@ -391,12 +471,20 @@ def _empty_order_diag() -> Dict[str, int]:
         "symbol_only_in_state": 0,
         "symbol_only_in_target": 0,
         "legacy_state_price_fallback": 0,
+        "legacy_broker_positions_price_fallback": 0,
         "legacy_default_price_fallback": 0,
         "legacy_unpriced": 0,
     }
 
 
-def _build_orders(target: pd.DataFrame, state: dict, price_df: pd.DataFrame, price_col: str, current_date: pd.Timestamp) -> Tuple[pd.DataFrame, Dict[str, int]]:
+def _build_orders(
+    target: pd.DataFrame,
+    state: dict,
+    price_df: pd.DataFrame,
+    price_col: str,
+    current_date: pd.Timestamp,
+    broker_fallback_maps: BrokerFallbackMaps,
+) -> Tuple[pd.DataFrame, Dict[str, int]]:
     rows: List[Dict[str, object]] = []
     diag = _empty_order_diag()
     live_price_map = _build_live_price_map(price_df, price_col)
@@ -421,11 +509,20 @@ def _build_orders(target: pd.DataFrame, state: dict, price_df: pd.DataFrame, pri
             target_shares = float(row["target_shares"])
             is_priced = 1
         else:
-            price_lookup = _lookup_price(symbol, live_price_map=live_price_map, state=state, allow_state_fallback=USE_STATE_PRICE_FALLBACK_FOR_LEGACY, allow_default_fallback=False)
+            price_lookup = _lookup_price(
+                symbol,
+                live_price_map=live_price_map,
+                state=state,
+                broker_fallback_maps=broker_fallback_maps,
+                allow_state_fallback=USE_STATE_PRICE_FALLBACK_FOR_LEGACY,
+                allow_broker_positions_fallback=USE_BROKER_POSITIONS_PRICE_FALLBACK_FOR_LEGACY,
+                allow_default_fallback=False,
+            )
             price = float(price_lookup.price) if price_lookup.is_priced else float("nan")
             price_source = price_lookup.source
             is_priced = int(price_lookup.is_priced)
             diag["legacy_state_price_fallback"] += int(price_lookup.used_state_fallback)
+            diag["legacy_broker_positions_price_fallback"] += int(price_lookup.used_broker_positions_fallback)
             diag["legacy_default_price_fallback"] += int(price_lookup.used_default_fallback)
             diag["legacy_unpriced"] += int(1 - price_lookup.is_priced)
             target_weight = 0.0
@@ -516,21 +613,36 @@ def _build_orders(target: pd.DataFrame, state: dict, price_df: pd.DataFrame, pri
     return orders, diag
 
 
-def _mark_positions_to_market(positions: Dict[str, dict], price_df: pd.DataFrame, price_col: str) -> Tuple[Dict[str, dict], pd.DataFrame, int, int, int]:
+def _mark_positions_to_market(
+    positions: Dict[str, dict],
+    price_df: pd.DataFrame,
+    price_col: str,
+    broker_fallback_maps: BrokerFallbackMaps,
+) -> Tuple[Dict[str, dict], pd.DataFrame, int, int, int, int]:
     live_price_map = _build_live_price_map(price_df, price_col)
     updated: Dict[str, dict] = {}
     rows: List[Dict[str, object]] = []
     default_fallback_count = 0
     state_fallback_count = 0
+    broker_positions_fallback_count = 0
     unpriced_count = 0
     state_wrapper = {"positions": positions}
     for symbol, pos in positions.items():
         shares = float(pos.get("shares", 0.0))
         if abs(shares) < 1e-12:
             continue
-        price_lookup = _lookup_price(symbol, live_price_map=live_price_map, state=state_wrapper, allow_state_fallback=USE_STATE_PRICE_FALLBACK_FOR_MTM, allow_default_fallback=False)
+        price_lookup = _lookup_price(
+            symbol,
+            live_price_map=live_price_map,
+            state=state_wrapper,
+            broker_fallback_maps=broker_fallback_maps,
+            allow_state_fallback=USE_STATE_PRICE_FALLBACK_FOR_MTM,
+            allow_broker_positions_fallback=USE_BROKER_POSITIONS_PRICE_FALLBACK_FOR_MTM,
+            allow_default_fallback=False,
+        )
         default_fallback_count += int(price_lookup.used_default_fallback)
         state_fallback_count += int(price_lookup.used_state_fallback)
+        broker_positions_fallback_count += int(price_lookup.used_broker_positions_fallback)
         is_priced = int(price_lookup.is_priced)
         unpriced_count += int(1 - is_priced)
         if is_priced:
@@ -567,7 +679,7 @@ def _mark_positions_to_market(positions: Dict[str, dict], price_df: pd.DataFrame
             mtm_df = mtm_df.sort_values(["_mv_sort", "symbol"], ascending=[False, True]).drop(columns=["_mv_sort"]).reset_index(drop=True)
         else:
             mtm_df = mtm_df.sort_values(["symbol"], ascending=[True]).reset_index(drop=True)
-    return updated, mtm_df, default_fallback_count, state_fallback_count, unpriced_count
+    return updated, mtm_df, default_fallback_count, state_fallback_count, broker_positions_fallback_count, unpriced_count
 
 
 def _pick_broker_price_from_row(row: pd.Series) -> Tuple[float, str]:
@@ -589,13 +701,15 @@ def _broker_positions_to_state_positions(broker_positions_csv: Path, price_df: p
         if ALIGN_STATE_REQUIRE_BROKER_POSITIONS:
             raise RuntimeError(f"broker_positions.csv is empty: {broker_positions_csv}")
         return {}, 0.0, 0, 0, 0, 0, 0
-    if "symbol" not in df.columns or "position" not in df.columns:
+    symbol_col = _find_broker_col(df, BROKER_SYMBOL_COL_CANDIDATES)
+    shares_col = _find_broker_col(df, BROKER_POSITION_COL_CANDIDATES)
+    if symbol_col is None or shares_col is None:
         raise RuntimeError(f"broker_positions.csv missing symbol/position columns: {broker_positions_csv}")
     df = df.copy()
-    df["symbol"] = df["symbol"].astype(str).str.upper()
-    df["position"] = pd.to_numeric(df["position"], errors="coerce").fillna(0.0)
-    df = df.loc[df["symbol"] != ""].copy()
-    df = df.groupby("symbol", as_index=False).first()
+    df[symbol_col] = df[symbol_col].astype(str).str.upper()
+    df[shares_col] = pd.to_numeric(df[shares_col], errors="coerce").fillna(0.0)
+    df = df.loc[df[symbol_col] != ""].copy()
+    df = df.groupby(symbol_col, as_index=False).first()
     live_price_map = _build_live_price_map(price_df, price_col)
     positions: Dict[str, dict] = {}
     market_value = 0.0
@@ -605,8 +719,8 @@ def _broker_positions_to_state_positions(broker_positions_csv: Path, price_df: p
     live_snapshot_count = 0
     unpriced_count = 0
     for _, row in df.iterrows():
-        symbol = str(row["symbol"])
-        shares = float(pd.to_numeric(pd.Series([row["position"]]), errors="coerce").iloc[0])
+        symbol = str(row[symbol_col])
+        shares = float(pd.to_numeric(pd.Series([row[shares_col]]), errors="coerce").iloc[0])
         if abs(shares) <= 1e-12:
             continue
         broker_price, broker_source = _pick_broker_price_from_row(row)
@@ -645,13 +759,14 @@ def _broker_positions_to_state_positions(broker_positions_csv: Path, price_df: p
     return positions, market_value, default_fallback_count, state_fallback_count, broker_price_count, live_snapshot_count, unpriced_count
 
 
-def _sanitize_state_prices(state: dict, price_df: pd.DataFrame, price_col: str) -> Tuple[dict, Dict[str, int]]:
+def _sanitize_state_prices(state: dict, price_df: pd.DataFrame, price_col: str, broker_fallback_maps: BrokerFallbackMaps) -> Tuple[dict, Dict[str, int]]:
     diag = {
         "state_prices_sanitized": 0,
         "state_prices_updated_from_live": 0,
+        "state_prices_updated_from_broker_positions": 0,
         "state_prices_cleared_default_like": 0,
-        "state_prices_still_default_like": 0,
         "state_positions_missing_live_price": 0,
+        "state_positions_missing_broker_price": 0,
     }
     if not SANITIZE_STATE_PRICES:
         return state, diag
@@ -674,9 +789,12 @@ def _sanitize_state_prices(state: dict, price_df: pd.DataFrame, price_col: str) 
         except Exception:
             state_price = float("nan")
         live_price = live_price_map.get(symbol)
+        broker_price = broker_fallback_maps.price_by_symbol.get(symbol)
         has_live = live_price is not None and math.isfinite(float(live_price)) and float(live_price) > 0.0
+        has_broker = broker_price is not None and math.isfinite(float(broker_price)) and float(broker_price) > 0.0
         suspicious_default_like = math.isfinite(state_price) and abs(state_price - float(DEFAULT_PRICE_FALLBACK)) <= tol
-        if has_live and (not math.isfinite(state_price) or state_price <= 0.0 or suspicious_default_like):
+        needs_repair = suspicious_default_like or (not math.isfinite(state_price) or state_price <= 0.0)
+        if has_live and needs_repair:
             live_value = float(live_price)
             pos["last_price"] = live_value
             pos["market_value"] = float(shares * live_value)
@@ -684,6 +802,16 @@ def _sanitize_state_prices(state: dict, price_df: pd.DataFrame, price_col: str) 
             pos["is_priced"] = 1
             diag["state_prices_sanitized"] += 1
             diag["state_prices_updated_from_live"] += 1
+        elif has_broker and needs_repair:
+            broker_value = float(broker_price)
+            pos["last_price"] = broker_value
+            pos["market_value"] = float(shares * broker_value)
+            pos["price_source"] = "sanitized_broker_positions"
+            pos["is_priced"] = 1
+            diag["state_prices_sanitized"] += 1
+            diag["state_prices_updated_from_broker_positions"] += 1
+            if not has_live:
+                diag["state_positions_missing_live_price"] += 1
         elif suspicious_default_like:
             pos["last_price"] = None
             pos["market_value"] = None
@@ -692,17 +820,20 @@ def _sanitize_state_prices(state: dict, price_df: pd.DataFrame, price_col: str) 
             diag["state_prices_sanitized"] += 1
             diag["state_prices_cleared_default_like"] += 1
             diag["state_positions_missing_live_price"] += int(not has_live)
-        elif not has_live and (not math.isfinite(state_price) or state_price <= 0.0):
+            diag["state_positions_missing_broker_price"] += int(not has_broker)
+        elif needs_repair and not has_live and not has_broker:
             pos["last_price"] = None
             pos["market_value"] = None
             pos["price_source"] = "unpriced_state"
             pos["is_priced"] = 0
             diag["state_positions_missing_live_price"] += 1
+            diag["state_positions_missing_broker_price"] += 1
     return new_state, diag
 
 
-def _maybe_align_state_once(state: dict, paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, current_date: pd.Timestamp) -> Tuple[dict, Dict[str, object]]:
+def _maybe_align_state_once(state: dict, paths: ConfigPaths, price_df: pd.DataFrame, price_col: str) -> Tuple[dict, Dict[str, object], BrokerFallbackMaps]:
     _, _, _, _, broker_positions_csv, alignment_marker_json = _state_paths(paths.execution_dir)
+    broker_fallback_maps = _load_broker_fallback_maps(broker_positions_csv)
     diag: Dict[str, object] = {
         "alignment_requested": int(ALIGN_STATE_FROM_BROKER_ONCE),
         "alignment_applied": 0,
@@ -714,12 +845,13 @@ def _maybe_align_state_once(state: dict, paths: ConfigPaths, price_df: pd.DataFr
         "alignment_broker_price_count": 0,
         "alignment_live_snapshot_price_count": 0,
         "alignment_unpriced_count": 0,
+        "broker_positions_fallback_symbols": int(len(broker_fallback_maps.price_by_symbol)),
     }
     if not ALIGN_STATE_FROM_BROKER_ONCE:
-        return state, diag
+        return state, diag, broker_fallback_maps
     if alignment_marker_json.exists():
         diag["alignment_reason"] = "already_applied"
-        return state, diag
+        return state, diag, broker_fallback_maps
     positions, market_value, default_fallback_count, state_fallback_count, broker_price_count, live_snapshot_count, unpriced_count = _broker_positions_to_state_positions(broker_positions_csv, price_df, price_col)
     aligned_state = json.loads(json.dumps(state))
     aligned_state["config"] = paths.name
@@ -732,9 +864,8 @@ def _maybe_align_state_once(state: dict, paths: ConfigPaths, price_df: pd.DataFr
         cash = float(nav - market_value)
     aligned_state["cash"] = float(cash)
     aligned_state["nav"] = float(nav)
-    aligned_state["last_rebalanced_date"] = str(current_date.date())
+    aligned_state["last_rebalanced_date"] = None
     aligned_state["state_alignment"] = {
-        "applied_at_date": str(current_date.date()),
         "source": str(broker_positions_csv),
         "cash_mode": ALIGN_STATE_CASH_MODE,
         "positions_count": int(len(positions)),
@@ -748,7 +879,6 @@ def _maybe_align_state_once(state: dict, paths: ConfigPaths, price_df: pd.DataFr
         "unpriced_count": int(unpriced_count),
     }
     alignment_marker_payload = {
-        "applied_at_date": str(current_date.date()),
         "config": paths.name,
         "source": str(broker_positions_csv),
         "cash_mode": ALIGN_STATE_CASH_MODE,
@@ -779,10 +909,18 @@ def _maybe_align_state_once(state: dict, paths: ConfigPaths, price_df: pd.DataFr
             "alignment_unpriced_count": int(unpriced_count),
         }
     )
-    return aligned_state, diag
+    return aligned_state, diag, broker_fallback_maps
 
 
-def _apply_orders_to_state(state: dict, orders: pd.DataFrame, config_name: str, current_date: pd.Timestamp, price_df: pd.DataFrame, price_col: str) -> Tuple[dict, pd.DataFrame, int, int, int]:
+def _apply_orders_to_state(
+    state: dict,
+    orders: pd.DataFrame,
+    config_name: str,
+    current_date: pd.Timestamp,
+    price_df: pd.DataFrame,
+    price_col: str,
+    broker_fallback_maps: BrokerFallbackMaps,
+) -> Tuple[dict, pd.DataFrame, int, int, int, int]:
     new_state = json.loads(json.dumps(state))
     positions = new_state.setdefault("positions", {})
     cash = float(new_state.get("cash", ACCOUNT_NAV))
@@ -814,7 +952,7 @@ def _apply_orders_to_state(state: dict, orders: pd.DataFrame, config_name: str, 
             }
     cash -= total_estimated_cost
 
-    mtm_positions, mtm_df, mtm_default_fallback_count, mtm_state_fallback_count, mtm_unpriced_count = _mark_positions_to_market(positions, price_df, price_col)
+    mtm_positions, mtm_df, mtm_default_fallback_count, mtm_state_fallback_count, mtm_broker_positions_fallback_count, mtm_unpriced_count = _mark_positions_to_market(positions, price_df, price_col, broker_fallback_maps)
     market_value = float(_num(mtm_df["market_value"]).fillna(0.0).sum()) if len(mtm_df) else 0.0
     new_state["positions"] = mtm_positions
     new_state["config"] = config_name
@@ -822,7 +960,7 @@ def _apply_orders_to_state(state: dict, orders: pd.DataFrame, config_name: str, 
     new_state["nav"] = float(cash + market_value)
     new_state["last_rebalanced_date"] = str(current_date.date())
     new_state["last_estimated_trading_cost"] = total_estimated_cost
-    return new_state, mtm_df, mtm_default_fallback_count, mtm_state_fallback_count, mtm_unpriced_count
+    return new_state, mtm_df, mtm_default_fallback_count, mtm_state_fallback_count, mtm_broker_positions_fallback_count, mtm_unpriced_count
 
 
 def _append_execution_log(execution_log_csv: Path, log_row: Dict[str, object]) -> None:
@@ -871,6 +1009,7 @@ def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, 
                 "fallback_price_rows": 0,
                 "mtm_default_fallback_count": 0,
                 "mtm_state_fallback_count": 0,
+                "mtm_broker_positions_fallback_count": 0,
                 "mtm_unpriced_count": 0,
                 "fractional_enabled_effective": int(fractional_enabled),
                 "risk_dropped_price_below_min": 0,
@@ -887,6 +1026,7 @@ def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, 
                 "diag_symbol_only_in_state": 0,
                 "diag_symbol_only_in_target": 0,
                 "diag_legacy_state_price_fallback": 0,
+                "diag_legacy_broker_positions_price_fallback": 0,
                 "diag_legacy_default_price_fallback": 0,
                 "diag_legacy_unpriced": 0,
                 "estimated_commission_total": 0.0,
@@ -899,31 +1039,35 @@ def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, 
                 "alignment_broker_price_count": 0,
                 "alignment_live_snapshot_price_count": 0,
                 "alignment_unpriced_count": 0,
+                "broker_positions_fallback_symbols": 0,
                 "state_prices_sanitized": 0,
                 "state_prices_updated_from_live": 0,
+                "state_prices_updated_from_broker_positions": 0,
                 "state_prices_cleared_default_like": 0,
                 "state_positions_missing_live_price": 0,
+                "state_positions_missing_broker_price": 0,
             },
         )
         print(f"[ARTIFACT] {execution_log_csv}")
         return
 
     state = _load_state(paths.name, state_json)
-    state, alignment_diag = _maybe_align_state_once(state, paths, price_df, price_col, current_date)
-    state, sanitation_diag = _sanitize_state_prices(state, price_df, price_col)
+    state, alignment_diag, broker_fallback_maps = _maybe_align_state_once(state, paths, price_df, price_col)
+    state, sanitation_diag = _sanitize_state_prices(state, price_df, price_col, broker_fallback_maps)
     if sanitation_diag.get("state_prices_sanitized", 0) > 0:
         _save_state(state, state_json)
     starting_nav = float(state.get("nav", ACCOUNT_NAV))
     starting_cash = float(state.get("cash", ACCOUNT_NAV))
     print(
         f"[EXEC][{paths.name}][ALIGN] requested={alignment_diag.get('alignment_requested', 0)} applied={alignment_diag.get('alignment_applied', 0)} "
-        f"reason={alignment_diag.get('alignment_reason', '')} marker={alignment_diag.get('alignment_marker_json', '')}"
+        f"reason={alignment_diag.get('alignment_reason', '')} marker={alignment_diag.get('alignment_marker_json', '')} broker_fallback_symbols={alignment_diag.get('broker_positions_fallback_symbols', 0)}"
     )
     print(
         f"[EXEC][{paths.name}][STATE_SANITY] sanitized={sanitation_diag.get('state_prices_sanitized', 0)} "
         f"updated_from_live={sanitation_diag.get('state_prices_updated_from_live', 0)} "
+        f"updated_from_broker_positions={sanitation_diag.get('state_prices_updated_from_broker_positions', 0)} "
         f"cleared_default_like={sanitation_diag.get('state_prices_cleared_default_like', 0)} "
-        f"missing_live_price={sanitation_diag.get('state_positions_missing_live_price', 0)}"
+        f"missing_live_price={sanitation_diag.get('state_positions_missing_live_price', 0)} missing_broker_price={sanitation_diag.get('state_positions_missing_broker_price', 0)}"
     )
 
     target, merged_missing, risk_counters = _build_target_table(book, price_df, price_col, starting_nav, fractional_enabled=fractional_enabled)
@@ -942,7 +1086,7 @@ def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, 
             ]
         )
         order_diag = _empty_order_diag()
-        mtm_positions, mtm_df, mtm_default_fallback_count, mtm_state_fallback_count, mtm_unpriced_count = _mark_positions_to_market(state.get("positions", {}), price_df, price_col)
+        mtm_positions, mtm_df, mtm_default_fallback_count, mtm_state_fallback_count, mtm_broker_positions_fallback_count, mtm_unpriced_count = _mark_positions_to_market(state.get("positions", {}), price_df, price_col, broker_fallback_maps)
         next_state = json.loads(json.dumps(state))
         next_state["positions"] = mtm_positions
         next_state["config"] = paths.name
@@ -953,8 +1097,8 @@ def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, 
         target["bootstrap_only_skip"] = 1
         skip_reason_value = "aligned_state_bootstrap_only"
     else:
-        orders, order_diag = _build_orders(target, state, price_df, price_col, current_date)
-        next_state, mtm_df, mtm_default_fallback_count, mtm_state_fallback_count, mtm_unpriced_count = _apply_orders_to_state(state, orders, paths.name, current_date, price_df, price_col)
+        orders, order_diag = _build_orders(target, state, price_df, price_col, current_date, broker_fallback_maps)
+        next_state, mtm_df, mtm_default_fallback_count, mtm_state_fallback_count, mtm_broker_positions_fallback_count, mtm_unpriced_count = _apply_orders_to_state(state, orders, paths.name, current_date, price_df, price_col, broker_fallback_maps)
         skip_reason_value = ""
 
     target.to_csv(paths.execution_dir / "target_book.csv", index=False)
@@ -990,6 +1134,7 @@ def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, 
         "fallback_price_rows": fallback_price_rows,
         "mtm_default_fallback_count": mtm_default_fallback_count,
         "mtm_state_fallback_count": mtm_state_fallback_count,
+        "mtm_broker_positions_fallback_count": mtm_broker_positions_fallback_count,
         "mtm_unpriced_count": mtm_unpriced_count,
         "nav_recon_error": nav_recon_error,
         "realized_trade_cash_flow": realized_trade_cash_flow,
@@ -1008,6 +1153,7 @@ def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, 
         "diag_symbol_only_in_state": int(order_diag.get("symbol_only_in_state", 0)),
         "diag_symbol_only_in_target": int(order_diag.get("symbol_only_in_target", 0)),
         "diag_legacy_state_price_fallback": int(order_diag.get("legacy_state_price_fallback", 0)),
+        "diag_legacy_broker_positions_price_fallback": int(order_diag.get("legacy_broker_positions_price_fallback", 0)),
         "diag_legacy_default_price_fallback": int(order_diag.get("legacy_default_price_fallback", 0)),
         "diag_legacy_unpriced": int(order_diag.get("legacy_unpriced", 0)),
         "estimated_commission_total": estimated_commission_total,
@@ -1024,10 +1170,13 @@ def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, 
         "alignment_broker_price_count": int(alignment_diag.get("alignment_broker_price_count", 0) or 0),
         "alignment_live_snapshot_price_count": int(alignment_diag.get("alignment_live_snapshot_price_count", 0) or 0),
         "alignment_unpriced_count": int(alignment_diag.get("alignment_unpriced_count", 0) or 0),
+        "broker_positions_fallback_symbols": int(alignment_diag.get("broker_positions_fallback_symbols", 0) or 0),
         "state_prices_sanitized": int(sanitation_diag.get("state_prices_sanitized", 0)),
         "state_prices_updated_from_live": int(sanitation_diag.get("state_prices_updated_from_live", 0)),
+        "state_prices_updated_from_broker_positions": int(sanitation_diag.get("state_prices_updated_from_broker_positions", 0)),
         "state_prices_cleared_default_like": int(sanitation_diag.get("state_prices_cleared_default_like", 0)),
         "state_positions_missing_live_price": int(sanitation_diag.get("state_positions_missing_live_price", 0)),
+        "state_positions_missing_broker_price": int(sanitation_diag.get("state_positions_missing_broker_price", 0)),
     }
     _append_execution_log(execution_log_csv, log_row)
 
@@ -1036,7 +1185,8 @@ def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, 
         f"cash_after={cash_after:.2f} market_value_after={market_value_after:.2f} nav_recon_error={nav_recon_error:.6f} "
         f"order_count={order_count} active_names={live_active_names} gross_target={gross_target:.4f} "
         f"price_col={price_col} merged_missing_prices={merged_missing} fallback_price_rows={fallback_price_rows} "
-        f"mtm_default_fallback_count={mtm_default_fallback_count} mtm_state_fallback_count={mtm_state_fallback_count} mtm_unpriced_count={mtm_unpriced_count} "
+        f"mtm_default_fallback_count={mtm_default_fallback_count} mtm_state_fallback_count={mtm_state_fallback_count} "
+        f"mtm_broker_positions_fallback_count={mtm_broker_positions_fallback_count} mtm_unpriced_count={mtm_unpriced_count} "
         f"fractional_enabled_effective={int(fractional_enabled)} bootstrap_only={int(bootstrap_only)} skip_reason={skip_reason_value}"
     )
     print(
@@ -1056,6 +1206,7 @@ def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, 
         f"symbol_only_in_state={order_diag.get('symbol_only_in_state', 0)} "
         f"symbol_only_in_target={order_diag.get('symbol_only_in_target', 0)} "
         f"legacy_state_price_fallback={order_diag.get('legacy_state_price_fallback', 0)} "
+        f"legacy_broker_positions_price_fallback={order_diag.get('legacy_broker_positions_price_fallback', 0)} "
         f"legacy_default_price_fallback={order_diag.get('legacy_default_price_fallback', 0)} "
         f"legacy_unpriced={order_diag.get('legacy_unpriced', 0)}"
     )
@@ -1100,8 +1251,12 @@ def main() -> int:
     )
     print(
         f"[CFG] use_state_price_fallback_for_legacy={int(USE_STATE_PRICE_FALLBACK_FOR_LEGACY)} "
-        f"use_state_price_fallback_for_mtm={int(USE_STATE_PRICE_FALLBACK_FOR_MTM)} sanitize_state_prices={int(SANITIZE_STATE_PRICES)} "
-        f"persist_default_fallback_to_state={int(PERSIST_DEFAULT_FALLBACK_TO_STATE)}"
+        f"use_state_price_fallback_for_mtm={int(USE_STATE_PRICE_FALLBACK_FOR_MTM)} "
+        f"use_broker_positions_price_fallback_for_legacy={int(USE_BROKER_POSITIONS_PRICE_FALLBACK_FOR_LEGACY)} "
+        f"use_broker_positions_price_fallback_for_mtm={int(USE_BROKER_POSITIONS_PRICE_FALLBACK_FOR_MTM)}"
+    )
+    print(
+        f"[CFG] sanitize_state_prices={int(SANITIZE_STATE_PRICES)} persist_default_fallback_to_state={int(PERSIST_DEFAULT_FALLBACK_TO_STATE)}"
     )
 
     feature_df = _load_live_feature_frame()
