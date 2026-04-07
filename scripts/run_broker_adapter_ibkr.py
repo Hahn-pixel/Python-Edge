@@ -980,9 +980,16 @@ def run_ladder_order(app: IBKRApp, prepared: PreparedOrder, contract: Contract, 
             return ib_entry, None, reprices_used, request_debug
         if retryable_202 is not None:
             clipped = clip_limit_from_202(prepared, limit_price, retryable_202)
+
             if clipped is not None and abs(clipped - limit_price) > 1e-9:
-                print(f"[BROKER][LADDER][202] symbol={prepared.symbol} step={step_idx + 1} next_limit_price={clipped:.4f}")
-                prices = prices[: step_idx + 1] + [clipped] + prices[step_idx + 1 :]
+                print(
+                    f"[BROKER][LADDER][202_OVERRIDE] symbol={prepared.symbol} "
+                    f"step={step_idx + 1} next_limit_price={clipped:.4f} "
+                    f"(broker guided)"
+                )
+
+                prices = prices[: step_idx + 1] + [clipped]
+
                 reprices_used += 1
                 continue
         if not is_last_step:
