@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import queue
 import sys
@@ -32,34 +33,186 @@ for p in [ROOT, SRC_DIR]:
     if ps not in sys.path:
         sys.path.insert(0, ps)
 
+PAUSE_ON_EXIT = str(os.getenv("PAUSE_ON_EXIT", "auto")).strip().lower()
+EXECUTION_ROOT = Path(os.getenv("EXECUTION_ROOT", "artifacts/execution_loop"))
+CONFIG_NAMES = [x.strip() for x in str(os.getenv("CONFIG_NAMES", "optimal|aggressive")).split("|") if x.strip()]
+IB_HOST = str(os.getenv("IB_HOST", "127.0.0.1")).strip()
+IB_PORT = int(os.getenv("IB_PORT", "4002"))
+IB_CLIENT_ID = int(os.getenv("IB_CLIENT_ID", "61"))
+IB_ACCOUNT_CODE = str(os.getenv("IB_ACCOUNT_CODE", "")).strip()
+IB_TIMEOUT_SEC = float(os.getenv("IB_TIMEOUT_SEC", "20.0"))
+IB_OPEN_ORDERS_TIMEOUT_SEC = float(os.getenv("IB_OPEN_ORDERS_TIMEOUT_SEC", str(IB_TIMEOUT_SEC)))
+IB_POSITIONS_TIMEOUT_SEC = float(os.getenv("IB_POSITIONS_TIMEOUT_SEC", str(IB_TIMEOUT_SEC)))
+DRIFT_TOLERANCE_SHARES = float(os.getenv("DRIFT_TOLERANCE_SHARES", "0.000001"))
+TOPK_PRINT = int(os.getenv("TOPK_PRINT", "50"))
+PREFER_STATE_OVER_ORDERS = str(os.getenv("PREFER_STATE_OVER_ORDERS", "1")).strip().lower() not in {"0", "false", "no", "off"}
+REQUIRE_BROKER_REFRESH = str(os.getenv("REQUIRE_BROKER_REFRESH", "1")).strip().lower() not in {"0", "false", "no", "off"}
+ALLOW_EXISTING_BROKER_POSITIONS_CSV = str(os.getenv("ALLOW_EXISTING_BROKER_POSITIONS_CSV", "1")).strip().lower() not in {"0", "false", "no", "off"}
+CLEANUP_PREVIEW_MODE = str(os.getenv("CLEANUP_PREVIEW_MODE", "1")).strip().lower() not in {"0", "false", "no", "off"}
+CLEANUP_INCLUDE_UNEXPECTED = str(os.getenv("CLEANUP_INCLUDE_UNEXPECTED", "1")).strip().lower() not in {"0", "false", "no", "off"}
+CLEANUP_INCLUDE_DRIFT = str(os.getenv("CLEANUP_INCLUDE_DRIFT", "1")).strip().lower() not in {"0", "false", "no", "off"}
+CLEANUP_ONLY_SYMBOLS = {x.strip().upper() for x in str(os.getenv("CLEANUP_ONLY_SYMBOLS", "")).split("|") if x.strip()}
+CLEANUP_EXCLUDE_SYMBOLS = {x.strip().upper() for x in str(os.getenv("CLEANUP_EXCLUDE_SYMBOLS", "")).split("|") if x.strip()}
+CLEANUP_MIN_ABS_SHARES = float(os.getenv("CLEANUP_MIN_ABS_SHARES", "1.0"))
+BROKER_PRICE_COLS = [
+    "marketPrice",
+    "market_price",
+    "markPrice",
+    "mark_price",
+    "lastPrice",
+    "last_price",
+    "price",
+    "avgCost",
+    "avg_cost",
+    "averageCost",
+    "average_cost",
+    "costBasisPrice",
+    "cost_basis_price",
+]
 
-# Double-click runnable.
-# Never auto-close.
+
+@dataclass(frozen=True)
+class ConfigPaths:
+    name: str
+    execution_dir: Path
+    state_json: Path
+    orders_csv: Path
+    broker_positions_csv: Path
+    broker_open_orders_csv: Path
+    broker_pending_csv: Path
+    reconcile_csv: Path
+    reconcile_summary_json: Path
+    cleanup_preview_csv: Path
 
 
-def _env_flag(name: str, default: str = "0") -> bool:
-    return str(os.getenv(name, default)).strip().lower() not in {"0", "false", "no", "off", ""}
+class IBReconApp(EWrapper, EClient):
+    def __init__(self) -> None:
+        EClient.__init__(self, self)
+        self._thread: Optional[threading.Thread] = None
+        self._next_valid_id_q: "queue.Queue[int]" = queue.Queue()
+        self._managed_accounts_q: "queue.Queue[str]" = queue.Queue()
+        self._open_orders_end = threading.Event()
+        self._positions_end = threading.Event()
+        self._errors: List[Dict[str, Any]] = []
+        self.open_orders: List[Dict[str, Any]] = []
+        self.positions_rows: List[Dict[str, Any]] = []
+
+    def start_network_loop(self) -> None:
+        if self._thread is not None and self._thread.is_alive():
+            return
+        self._thread = threading.Thread(target=self.run, name="ibapi-network", daemon=True)
+        self._thread.start()
+
+    def error(self, reqId: int, errorCode: int, errorString: str, advancedOrderRejectJson: str = "") -> None:
+        row = {
+            "ts_utc": utc_now_iso(),
+            "reqId": int(reqId or 0),
+            "errorCode": int(errorCode or 0),
+            "errorString": str(errorString or ""),
+            "advancedOrderRejectJson": str(advancedOrderRejectJson or ""),
+        }
+        self._errors.append(row)
+        print(f"[IB][ERR] reqId={row['reqId']} code={row['errorCode']} msg={row['errorString']}")
+
+    def nextValidId(self, orderId: OrderId) -> None:
+        self._next_valid_id_q.put(int(orderId))
+
+    def managedAccounts(self, accountsList: str) -> None:
+        self._managed_accounts_q.put(str(accountsList or ""))
+
+    def openOrder(self, orderId: OrderId, contract: Contract, order: Order, orderState) -> None:
+        self.open_orders.append(
+            {
+                "ib_order_id": int(orderId),
+                "symbol": str(getattr(contract, "symbol", "") or ""),
+                "localSymbol": str(getattr(contract, "localSymbol", "") or ""),
+                "exchange": str(getattr(contract, "exchange", "") or ""),
+                "primaryExchange": str(getattr(contract, "primaryExchange", "") or ""),
+                "currency": str(getattr(contract, "currency", "") or ""),
+                "secType": str(getattr(contract, "secType", "") or ""),
+                "action": str(getattr(order, "action", "") or ""),
+                "orderType": str(getattr(order, "orderType", "") or ""),
+                "totalQuantity": float(to_float(getattr(order, "totalQuantity", 0.0))),
+                "lmtPrice": float(to_float(getattr(order, "lmtPrice", 0.0))),
+                "auxPrice": float(to_float(getattr(order, "auxPrice", 0.0))),
+                "tif": str(getattr(order, "tif", "") or ""),
+                "outsideRth": int(bool(getattr(order, "outsideRth", False))),
+                "account": str(getattr(order, "account", "") or ""),
+                "orderRef": str(getattr(order, "orderRef", "") or ""),
+                "status": str(getattr(orderState, "status", "") or ""),
+            }
+        )
+
+    def openOrderEnd(self) -> None:
+        self._open_orders_end.set()
+        print("[IB] openOrderEnd")
+
+    def position(self, account: str, contract: Contract, position: float, avgCost: float) -> None:
+        self.positions_rows.append(
+            {
+                "account": str(account or ""),
+                "symbol": str(getattr(contract, "symbol", "") or ""),
+                "localSymbol": str(getattr(contract, "localSymbol", "") or ""),
+                "exchange": str(getattr(contract, "exchange", "") or ""),
+                "primaryExchange": str(getattr(contract, "primaryExchange", "") or ""),
+                "currency": str(getattr(contract, "currency", "") or ""),
+                "secType": str(getattr(contract, "secType", "") or ""),
+                "position": float(to_float(position)),
+                "avgCost": float(to_float(avgCost)),
+            }
+        )
+
+    def positionEnd(self) -> None:
+        self._positions_end.set()
+        print("[IB] positionEnd")
+
+    def wait_for_next_valid_id(self, timeout_sec: float) -> int:
+        return int(self._next_valid_id_q.get(timeout=timeout_sec))
+
+    def wait_for_managed_accounts(self, timeout_sec: float) -> str:
+        return str(self._managed_accounts_q.get(timeout=timeout_sec))
+
+    def wait_until_open_orders_end(self, timeout_sec: float) -> None:
+        if not self._open_orders_end.wait(timeout_sec):
+            raise TimeoutError(f"Timed out waiting for openOrderEnd after {timeout_sec:.1f}s")
+
+    def wait_until_positions_end(self, timeout_sec: float) -> None:
+        if not self._positions_end.wait(timeout_sec):
+            raise TimeoutError(f"Timed out waiting for positionEnd after {timeout_sec:.1f}s")
 
 
-def _enable_line_buffering() -> None:
-    try:
-        sys.stdout.reconfigure(line_buffering=True)
-    except Exception:
-        pass
-    try:
-        sys.stderr.reconfigure(line_buffering=True)
-    except Exception:
-        pass
+def enable_line_buffering() -> None:
+    for stream_name in ["stdout", "stderr"]:
+        stream = getattr(sys, stream_name, None)
+        if stream is None:
+            continue
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            try:
+                reconfigure(line_buffering=True)
+            except Exception:
+                pass
 
 
-def _should_pause() -> bool:
-    if _env_flag("PYTHON_EDGE_NO_PAUSE", "0"):
+def should_pause() -> bool:
+    if PAUSE_ON_EXIT in {"0", "false", "no", "off"}:
         return False
-    return True
+    if PAUSE_ON_EXIT in {"1", "true", "yes", "on"}:
+        return True
+    stdin_obj = getattr(sys, "stdin", None)
+    stdout_obj = getattr(sys, "stdout", None)
+    return bool(
+        stdin_obj
+        and stdout_obj
+        and hasattr(stdin_obj, "isatty")
+        and hasattr(stdout_obj, "isatty")
+        and stdin_obj.isatty()
+        and stdout_obj.isatty()
+    )
 
 
-def _safe_exit(code: int) -> None:
-    if _should_pause():
+def safe_exit(code: int) -> None:
+    if should_pause():
         try:
             print("")
             print(f"[EXIT] code={code}")
@@ -69,985 +222,424 @@ def _safe_exit(code: int) -> None:
     raise SystemExit(code)
 
 
-def _utc_now_iso() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+def utc_now_iso() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
-def _num_scalar(value: Any, default: float = 0.0) -> float:
+def to_float(value: Any) -> float:
     try:
         if value is None:
-            return float(default)
-        if isinstance(value, str) and not value.strip():
-            return float(default)
+            return 0.0
         return float(value)
     except Exception:
-        return float(default)
+        return 0.0
 
 
-def _norm_symbol(value: Any) -> str:
-    return str(value or "").strip().upper()
+def normalize_symbol(symbol: Any) -> str:
+    return str(symbol or "").strip().upper()
 
 
-def _safe_write_text(path: Path, text: str, encoding: str = "utf-8") -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + f".{os.getpid()}.tmp")
-    with tmp.open("w", encoding=encoding, newline="") as fh:
-        fh.write(text)
-        fh.flush()
-        try:
-            os.fsync(fh.fileno())
-        except Exception:
-            pass
-    os.replace(tmp, path)
+def normalize_side(side: str) -> str:
+    out = str(side or "").strip().upper()
+    if out not in {"BUY", "SELL", "HOLD"}:
+        return "HOLD"
+    return out
 
 
-RECONCILE_CONFIG_NAMES = [
-    x.strip()
-    for x in str(os.getenv("RECONCILE_CONFIG_NAMES", os.getenv("CONFIG_NAMES", "optimal|aggressive"))).split("|")
-    if x.strip()
-]
-EXECUTION_ROOT = Path(os.getenv("EXECUTION_ROOT", "artifacts/execution_loop"))
-IB_HOST = str(os.getenv("IB_HOST", "127.0.0.1")).strip()
-IB_PORT = int(os.getenv("IB_PORT", "4002"))
-IB_CLIENT_ID = int(os.getenv("RECONCILE_IB_CLIENT_ID", os.getenv("IB_CLIENT_ID", "42")))
-IB_TIMEOUT_SEC = float(os.getenv("IB_TIMEOUT_SEC", "20.0"))
-IB_POSITIONS_TIMEOUT_SEC = float(os.getenv("IB_POSITIONS_TIMEOUT_SEC", str(max(IB_TIMEOUT_SEC, 45.0))))
-IB_POSITIONS_RETRIES = int(os.getenv("IB_POSITIONS_RETRIES", "2"))
-IB_POSITIONS_SETTLE_SEC = float(os.getenv("IB_POSITIONS_SETTLE_SEC", "2.0"))
-BROKER_ACCOUNT_ID = str(os.getenv("BROKER_ACCOUNT_ID", "")).strip()
-IB_ACCOUNT_CODE = str(os.getenv("IB_ACCOUNT_CODE", BROKER_ACCOUNT_ID)).strip()
-TOPK_PRINT = int(os.getenv("TOPK_PRINT", "50"))
-REQ_OPEN_ORDERS_MODE = str(os.getenv("RECONCILE_OPEN_ORDERS_MODE", "open")).strip().lower()
-RECONCILE_BROKER_LOG_AS_PENDING = _env_flag("RECONCILE_BROKER_LOG_AS_PENDING", "1")
-RECONCILE_PENDING_MATCH_TOLERANCE = float(os.getenv("RECONCILE_PENDING_MATCH_TOLERANCE", "0.000001"))
+def must_exist(path: Path, label: str) -> None:
+    if not path.exists():
+        raise FileNotFoundError(f"{label} not found: {path}")
 
 
-@dataclass(frozen=True)
-class ConfigPaths:
-    name: str
-    execution_dir: Path
-    state_json: Path
-    orders_csv: Path
-    fills_csv: Path
-    broker_log_json: Path
-    report_json: Path
-    diff_csv: Path
-    broker_positions_csv: Path
-    broker_open_orders_csv: Path
-    broker_pending_csv: Path
-
-
-@dataclass(frozen=True)
-class LocalExpectedSource:
-    source: str
-    rows: pd.DataFrame
-
-
-class IBKRReconApp(EWrapper, EClient):
-    def __init__(self) -> None:
-        EClient.__init__(self, self)
-        self._network_thread: Optional[threading.Thread] = None
-        self._next_valid_id_queue: queue.Queue[int] = queue.Queue()
-        self._managed_accounts_queue: queue.Queue[str] = queue.Queue()
-        self._errors: List[Dict[str, Any]] = []
-        self.done_open_orders = False
-        self.done_positions = False
-        self.positions_request_started_at: Optional[float] = None
-        self.positions_last_callback_at: Optional[float] = None
-        self.open_orders_last_callback_at: Optional[float] = None
-        self.orders_by_ib_id: Dict[int, Dict[str, Any]] = {}
-        self.position_rows: List[Dict[str, Any]] = []
-
-    def start_network_loop(self) -> None:
-        if self._network_thread is not None and self._network_thread.is_alive():
-            return
-        self._network_thread = threading.Thread(target=self.run, name="IBKRReconNetwork", daemon=True)
-        self._network_thread.start()
-
-    def error(self, reqId: int, errorCode: int, errorString: str, advancedOrderRejectJson: str = "") -> None:
-        payload = {
-            "req_id": int(reqId or 0),
-            "error_code": int(errorCode or 0),
-            "error_string": str(errorString or ""),
-            "advanced": str(advancedOrderRejectJson or ""),
-            "ts": _utc_now_iso(),
-        }
-        self._errors.append(payload)
-        print(f"[IB][ERROR] reqId={payload['req_id']} code={payload['error_code']} msg={payload['error_string']}")
-
-    def connectAck(self) -> None:
-        print("[IB] connectAck received")
-
-    def nextValidId(self, orderId: int) -> None:
-        try:
-            self._next_valid_id_queue.put_nowait(int(orderId))
-        except Exception:
-            pass
-        print(f"[IB] nextValidId={int(orderId)}")
-
-    def managedAccounts(self, accountsList: str) -> None:
-        try:
-            self._managed_accounts_queue.put_nowait(str(accountsList or ""))
-        except Exception:
-            pass
-        print(f"[IB] managedAccounts={accountsList}")
-
-    def openOrder(self, orderId: OrderId, contract: Contract, order: Order, orderState) -> None:
-        self.open_orders_last_callback_at = time.time()
-        entry = self.orders_by_ib_id.setdefault(
-            int(orderId),
-            {
-                "ib_order_id": int(orderId),
-                "account": str(getattr(order, "account", "") or ""),
-                "symbol": str(getattr(contract, "symbol", "") or ""),
-                "broker_symbol": str(getattr(contract, "localSymbol", "") or getattr(contract, "symbol", "") or ""),
-                "sec_type": str(getattr(contract, "secType", "") or ""),
-                "currency": str(getattr(contract, "currency", "") or ""),
-                "exchange": str(getattr(contract, "exchange", "") or ""),
-                "primary_exchange": str(getattr(contract, "primaryExchange", "") or ""),
-                "status": str(getattr(orderState, "status", "") or ""),
-                "action": str(getattr(order, "action", "") or ""),
-                "total_qty": _num_scalar(getattr(order, "totalQuantity", 0.0)),
-                "filled_qty": 0.0,
-                "remaining_qty": _num_scalar(getattr(order, "totalQuantity", 0.0)),
-                "lmt_price": _num_scalar(getattr(order, "lmtPrice", 0.0)),
-                "aux_price": _num_scalar(getattr(order, "auxPrice", 0.0)),
-                "order_type": str(getattr(order, "orderType", "") or ""),
-                "tif": str(getattr(order, "tif", "") or ""),
-                "outside_rth": int(bool(getattr(order, "outsideRth", False))),
-                "perm_id": int(getattr(order, "permId", 0) or 0),
-                "client_tag": str(getattr(order, "orderRef", "") or ""),
-                "submitted_at_utc": _utc_now_iso(),
-                "avg_fill_price": 0.0,
-                "last_fill_price": 0.0,
-            },
-        )
-        entry["account"] = str(getattr(order, "account", "") or entry.get("account", ""))
-        entry["symbol"] = str(getattr(contract, "symbol", "") or entry.get("symbol", ""))
-        entry["broker_symbol"] = str(getattr(contract, "localSymbol", "") or getattr(contract, "symbol", "") or entry.get("broker_symbol", ""))
-        entry["sec_type"] = str(getattr(contract, "secType", "") or entry.get("sec_type", ""))
-        entry["currency"] = str(getattr(contract, "currency", "") or entry.get("currency", ""))
-        entry["exchange"] = str(getattr(contract, "exchange", "") or entry.get("exchange", ""))
-        entry["primary_exchange"] = str(getattr(contract, "primaryExchange", "") or entry.get("primary_exchange", ""))
-        entry["status"] = str(getattr(orderState, "status", "") or entry.get("status", ""))
-        entry["action"] = str(getattr(order, "action", "") or entry.get("action", ""))
-        entry["total_qty"] = _num_scalar(getattr(order, "totalQuantity", entry.get("total_qty", 0.0)))
-        entry["lmt_price"] = _num_scalar(getattr(order, "lmtPrice", entry.get("lmt_price", 0.0)))
-        entry["aux_price"] = _num_scalar(getattr(order, "auxPrice", entry.get("aux_price", 0.0)))
-        entry["order_type"] = str(getattr(order, "orderType", "") or entry.get("order_type", ""))
-        entry["tif"] = str(getattr(order, "tif", "") or entry.get("tif", ""))
-        entry["outside_rth"] = int(bool(getattr(order, "outsideRth", entry.get("outside_rth", False))))
-        entry["perm_id"] = int(getattr(order, "permId", entry.get("perm_id", 0)) or 0)
-        entry["client_tag"] = str(getattr(order, "orderRef", "") or entry.get("client_tag", ""))
-
-    def openOrderEnd(self) -> None:
-        self.done_open_orders = True
-        print("[IB] openOrderEnd")
-
-    def orderStatus(
-        self,
-        orderId: OrderId,
-        status: str,
-        filled: float,
-        remaining: float,
-        avgFillPrice: float,
-        permId: int,
-        parentId: int,
-        lastFillPrice: float,
-        clientId: int,
-        whyHeld: str,
-        mktCapPrice: float,
-    ) -> None:
-        entry = self.orders_by_ib_id.setdefault(
-            int(orderId),
-            {
-                "ib_order_id": int(orderId),
-                "account": "",
-                "symbol": "",
-                "broker_symbol": "",
-                "sec_type": "",
-                "currency": "",
-                "exchange": "",
-                "primary_exchange": "",
-                "status": str(status or ""),
-                "action": "",
-                "total_qty": float(filled or 0.0) + float(remaining or 0.0),
-                "filled_qty": float(filled or 0.0),
-                "remaining_qty": float(remaining or 0.0),
-                "lmt_price": 0.0,
-                "aux_price": 0.0,
-                "order_type": "",
-                "tif": "",
-                "outside_rth": 0,
-                "perm_id": int(permId or 0),
-                "client_tag": "",
-                "submitted_at_utc": _utc_now_iso(),
-                "avg_fill_price": float(avgFillPrice or 0.0),
-                "last_fill_price": float(lastFillPrice or 0.0),
-            },
-        )
-        entry["status"] = str(status or entry.get("status", ""))
-        entry["filled_qty"] = float(filled or 0.0)
-        entry["remaining_qty"] = float(remaining or 0.0)
-        entry["avg_fill_price"] = float(avgFillPrice or 0.0)
-        entry["last_fill_price"] = float(lastFillPrice or 0.0)
-        entry["perm_id"] = int(permId or entry.get("perm_id", 0) or 0)
-
-    def position(self, account: str, contract: Contract, position: float, avgCost: float) -> None:
-        self.positions_last_callback_at = time.time()
-        self.position_rows.append(
-            {
-                "account": str(account or ""),
-                "symbol": str(getattr(contract, "symbol", "") or ""),
-                "broker_symbol": str(getattr(contract, "localSymbol", "") or getattr(contract, "symbol", "") or ""),
-                "sec_type": str(getattr(contract, "secType", "") or ""),
-                "currency": str(getattr(contract, "currency", "") or ""),
-                "exchange": str(getattr(contract, "exchange", "") or ""),
-                "primary_exchange": str(getattr(contract, "primaryExchange", "") or ""),
-                "position": _num_scalar(position),
-                "avg_cost": _num_scalar(avgCost),
-            }
-        )
-
-    def positionEnd(self) -> None:
-        self.done_positions = True
-        self.positions_last_callback_at = time.time()
-        print("[IB] positionEnd")
-
-    def wait_for_next_valid_id(self, timeout_sec: float) -> int:
-        return int(self._next_valid_id_queue.get(timeout=timeout_sec))
-
-    def wait_for_managed_accounts(self, timeout_sec: float) -> str:
-        return str(self._managed_accounts_queue.get(timeout=timeout_sec))
-
-    def wait_until_open_orders_end(self, timeout_sec: float) -> None:
-        deadline = time.time() + timeout_sec
-        while time.time() < deadline:
-            if self.done_open_orders:
-                return
-            time.sleep(0.1)
-        raise TimeoutError("Timed out waiting for openOrderEnd")
-
-    def wait_until_positions_end(self, timeout_sec: float, settle_sec: float) -> None:
-        deadline = time.time() + timeout_sec
-        while time.time() < deadline:
-            if self.done_positions:
-                return
-            if self.positions_request_started_at is not None and self.positions_last_callback_at is not None:
-                if self.positions_last_callback_at >= self.positions_request_started_at:
-                    idle_sec = time.time() - self.positions_last_callback_at
-                    if idle_sec >= settle_sec:
-                        print(
-                            "[IB][WARN] positionEnd not received; using settled position snapshot "
-                            f"rows={len(self.position_rows)} idle_sec={idle_sec:.2f}"
-                        )
-                        return
-            time.sleep(0.1)
-        raise TimeoutError("Timed out waiting for positionEnd")
-
-
-def _config_paths(name: str) -> ConfigPaths:
-    execution_dir = EXECUTION_ROOT / name
+def cfg_paths(config_name: str) -> ConfigPaths:
+    base = EXECUTION_ROOT / config_name
     return ConfigPaths(
-        name=name,
-        execution_dir=execution_dir,
-        state_json=execution_dir / "portfolio_state.json",
-        orders_csv=execution_dir / "orders.csv",
-        fills_csv=execution_dir / "fills.csv",
-        broker_log_json=execution_dir / "broker_log.json",
-        report_json=execution_dir / "reconcile_report.json",
-        diff_csv=execution_dir / "reconcile_diff.csv",
-        broker_positions_csv=execution_dir / "broker_positions.csv",
-        broker_open_orders_csv=execution_dir / "broker_open_orders.csv",
-        broker_pending_csv=execution_dir / "broker_pending.csv",
+        name=config_name,
+        execution_dir=base,
+        state_json=base / "portfolio_state.json",
+        orders_csv=base / "orders.csv",
+        broker_positions_csv=base / "broker_positions.csv",
+        broker_open_orders_csv=base / "broker_open_orders.csv",
+        broker_pending_csv=base / "broker_pending.csv",
+        reconcile_csv=base / "broker_reconcile.csv",
+        reconcile_summary_json=base / "broker_reconcile_summary.json",
+        cleanup_preview_csv=base / "broker_cleanup_preview.csv",
     )
 
 
-def _bootstrap_connection() -> IBKRReconApp:
-    app = IBKRReconApp()
-    print(f"[IB] connecting host={IB_HOST} port={IB_PORT} client_id={IB_CLIENT_ID}")
-    app.connect(IB_HOST, IB_PORT, clientId=IB_CLIENT_ID)
-    app.start_network_loop()
-    _ = app.wait_for_next_valid_id(timeout_sec=IB_TIMEOUT_SEC)
-    managed_accounts = app.wait_for_managed_accounts(timeout_sec=IB_TIMEOUT_SEC)
-    if IB_ACCOUNT_CODE:
-        account_list = [x.strip() for x in managed_accounts.split(",") if x.strip()]
-        if IB_ACCOUNT_CODE not in account_list:
-            raise RuntimeError(
-                f"IB_ACCOUNT_CODE={IB_ACCOUNT_CODE!r} not present in managed accounts: {managed_accounts!r}"
-            )
-    return app
-
-
-def _refresh_open_orders(app: IBKRReconApp) -> pd.DataFrame:
-    app.done_open_orders = False
-    app.open_orders_last_callback_at = None
-    if REQ_OPEN_ORDERS_MODE == "all":
-        app.reqAllOpenOrders()
-    else:
-        app.reqOpenOrders()
-    app.wait_until_open_orders_end(timeout_sec=IB_TIMEOUT_SEC)
-    rows = list(app.orders_by_ib_id.values())
-    df = pd.DataFrame(rows)
-    if not len(df):
-        return pd.DataFrame(
-            columns=[
-                "account", "symbol", "broker_symbol", "sec_type", "currency", "exchange",
-                "primary_exchange", "status", "action", "total_qty", "filled_qty", "remaining_qty",
-                "lmt_price", "aux_price", "order_type", "tif", "outside_rth", "perm_id",
-                "client_tag", "ib_order_id", "submitted_at_utc", "avg_fill_price", "last_fill_price",
-            ]
+def load_state_positions(state_json: Path) -> pd.DataFrame:
+    must_exist(state_json, "portfolio_state.json")
+    payload = json.loads(state_json.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise RuntimeError(f"Invalid state JSON: {state_json}")
+    positions = payload.get("positions", {})
+    if not isinstance(positions, dict):
+        raise RuntimeError(f"Invalid positions object in state JSON: {state_json}")
+    rows: List[Dict[str, Any]] = []
+    for symbol, pos in positions.items():
+        if not isinstance(pos, dict):
+            continue
+        rows.append(
+            {
+                "symbol": normalize_symbol(symbol),
+                "expected_shares_state": float(to_float(pos.get("shares", 0.0))),
+                "state_last_price": float(to_float(pos.get("last_price", 0.0))),
+                "state_market_value": float(to_float(pos.get("market_value", 0.0))),
+                "state_price_source": str(pos.get("price_source", "") or ""),
+                "state_is_priced": int(bool(pos.get("is_priced", False))),
+            }
         )
-    if IB_ACCOUNT_CODE and "account" in df.columns:
-        df = df[df["account"].astype(str).str.strip() == IB_ACCOUNT_CODE].copy()
-    df["symbol"] = df.get("symbol", pd.Series(dtype="object")).astype(str).str.upper()
-    df["broker_symbol"] = df.get("broker_symbol", pd.Series(dtype="object")).astype(str)
-    df = df.sort_values(["symbol", "ib_order_id"], ascending=[True, True]).reset_index(drop=True)
-    return df
+    df = pd.DataFrame(rows)
+    if df.empty:
+        return pd.DataFrame(columns=["symbol", "expected_shares_state", "state_last_price", "state_market_value", "state_price_source", "state_is_priced"])
+    return df.sort_values(["symbol"]).reset_index(drop=True)
 
 
-def _refresh_positions_once(app: IBKRReconApp) -> pd.DataFrame:
-    app.done_positions = False
-    app.position_rows = []
-    app.positions_request_started_at = time.time()
-    app.positions_last_callback_at = None
+def load_orders_targets(orders_csv: Path) -> pd.DataFrame:
+    must_exist(orders_csv, "orders.csv")
+    df = pd.read_csv(orders_csv)
+    if df.empty:
+        return pd.DataFrame(columns=["symbol", "expected_shares_orders", "price_hint", "price_source_orders"])
+    if "symbol" not in df.columns:
+        raise RuntimeError(f"orders.csv missing symbol column: {orders_csv}")
+    if "target_shares" not in df.columns:
+        return pd.DataFrame(columns=["symbol", "expected_shares_orders", "price_hint", "price_source_orders"])
+    out = df.copy()
+    out["symbol"] = out["symbol"].astype(str).map(normalize_symbol)
+    out["target_shares"] = pd.to_numeric(out["target_shares"], errors="coerce").fillna(0.0)
+    price_col = "price" if "price" in out.columns else None
+    source_col = "price_source" if "price_source" in out.columns else None
+    agg = out.groupby("symbol", as_index=False).agg(expected_shares_orders=("target_shares", "sum"))
+    if price_col is not None:
+        first_price = out.groupby("symbol", as_index=False).agg(price_hint=(price_col, "first"))
+        agg = agg.merge(first_price, on="symbol", how="left")
+    else:
+        agg["price_hint"] = 0.0
+    if source_col is not None:
+        first_source = out.groupby("symbol", as_index=False).agg(price_source_orders=(source_col, "first"))
+        agg = agg.merge(first_source, on="symbol", how="left")
+    else:
+        agg["price_source_orders"] = ""
+    return agg.sort_values(["symbol"]).reset_index(drop=True)
+
+
+def save_df(df: pd.DataFrame, path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(path, index=False)
+
+
+def refresh_open_orders(app: IBReconApp) -> pd.DataFrame:
+    app.open_orders = []
+    app._open_orders_end.clear()
+    app.reqOpenOrders()
+    app.wait_until_open_orders_end(timeout_sec=IB_OPEN_ORDERS_TIMEOUT_SEC)
+    df = pd.DataFrame(app.open_orders)
+    if df.empty:
+        return pd.DataFrame(columns=["ib_order_id", "symbol", "localSymbol", "exchange", "primaryExchange", "currency", "secType", "action", "orderType", "totalQuantity", "lmtPrice", "auxPrice", "tif", "outsideRth", "account", "orderRef", "status"])
+    df["symbol"] = df["symbol"].astype(str).map(normalize_symbol)
+    return df.sort_values(["symbol", "ib_order_id"]).reset_index(drop=True)
+
+
+def refresh_positions(app: IBReconApp) -> pd.DataFrame:
+    app.positions_rows = []
+    app._positions_end.clear()
     app.reqPositions()
-    app.wait_until_positions_end(timeout_sec=IB_POSITIONS_TIMEOUT_SEC, settle_sec=IB_POSITIONS_SETTLE_SEC)
+    app.wait_until_positions_end(timeout_sec=IB_POSITIONS_TIMEOUT_SEC)
     try:
         app.cancelPositions()
     except Exception:
         pass
-
-    df = pd.DataFrame(app.position_rows)
-    if not len(df):
-        return pd.DataFrame(
-            columns=[
-                "account", "symbol", "broker_symbol", "sec_type", "currency", "exchange",
-                "primary_exchange", "position", "avg_cost",
-            ]
-        )
-    if IB_ACCOUNT_CODE and "account" in df.columns:
-        df = df[df["account"].astype(str).str.strip() == IB_ACCOUNT_CODE].copy()
-    df["symbol"] = df.get("symbol", pd.Series(dtype="object")).astype(str).str.upper()
-    df["broker_symbol"] = df.get("broker_symbol", pd.Series(dtype="object")).astype(str)
-    df["position"] = pd.to_numeric(df.get("position", 0.0), errors="coerce").fillna(0.0)
-    df["avg_cost"] = pd.to_numeric(df.get("avg_cost", 0.0), errors="coerce").fillna(0.0)
-    df = (
-        df.groupby(["account", "symbol", "broker_symbol", "sec_type", "currency", "exchange", "primary_exchange"], dropna=False, as_index=False)
-        .agg(position=("position", "sum"), avg_cost=("avg_cost", "last"))
-        .sort_values(["symbol", "broker_symbol"], ascending=[True, True])
-        .reset_index(drop=True)
+    df = pd.DataFrame(app.positions_rows)
+    if df.empty:
+        return pd.DataFrame(columns=["account", "symbol", "localSymbol", "exchange", "primaryExchange", "currency", "secType", "position", "avgCost"])
+    df["symbol"] = df["symbol"].astype(str).map(normalize_symbol)
+    df["position"] = pd.to_numeric(df["position"], errors="coerce").fillna(0.0)
+    df["avgCost"] = pd.to_numeric(df["avgCost"], errors="coerce")
+    df = df.groupby("symbol", as_index=False).agg(
+        account=("account", "first"),
+        localSymbol=("localSymbol", "first"),
+        exchange=("exchange", "first"),
+        primaryExchange=("primaryExchange", "first"),
+        currency=("currency", "first"),
+        secType=("secType", "first"),
+        position=("position", "sum"),
+        avgCost=("avgCost", "first"),
     )
-    return df
+    return df.sort_values(["symbol"]).reset_index(drop=True)
 
 
-def _refresh_positions(app: IBKRReconApp) -> pd.DataFrame:
-    last_exc: Optional[Exception] = None
-    for attempt in range(1, IB_POSITIONS_RETRIES + 1):
-        try:
-            print(
-                f"[IB][POSITIONS] attempt={attempt}/{IB_POSITIONS_RETRIES} "
-                f"timeout_sec={IB_POSITIONS_TIMEOUT_SEC} settle_sec={IB_POSITIONS_SETTLE_SEC}"
-            )
-            df = _refresh_positions_once(app)
-            print(f"[IB][POSITIONS] rows={len(df)}")
-            return df
-        except TimeoutError as exc:
-            last_exc = exc
-            try:
-                app.cancelPositions()
-            except Exception:
-                pass
-            received_rows = len(app.position_rows)
-            print(
-                f"[IB][WARN] reqPositions timeout attempt={attempt}/{IB_POSITIONS_RETRIES} "
-                f"received_rows={received_rows}"
-            )
-            if received_rows > 0:
-                print("[IB][WARN] Using partial position snapshot because at least one position callback was received.")
-                df = pd.DataFrame(app.position_rows)
-                if IB_ACCOUNT_CODE and "account" in df.columns:
-                    df = df[df["account"].astype(str).str.strip() == IB_ACCOUNT_CODE].copy()
-                if len(df):
-                    df["symbol"] = df.get("symbol", pd.Series(dtype="object")).astype(str).str.upper()
-                    df["broker_symbol"] = df.get("broker_symbol", pd.Series(dtype="object")).astype(str)
-                    df["position"] = pd.to_numeric(df.get("position", 0.0), errors="coerce").fillna(0.0)
-                    df["avg_cost"] = pd.to_numeric(df.get("avg_cost", 0.0), errors="coerce").fillna(0.0)
-                    df = (
-                        df.groupby(["account", "symbol", "broker_symbol", "sec_type", "currency", "exchange", "primary_exchange"], dropna=False, as_index=False)
-                        .agg(position=("position", "sum"), avg_cost=("avg_cost", "last"))
-                        .sort_values(["symbol", "broker_symbol"], ascending=[True, True])
-                        .reset_index(drop=True)
-                    )
-                else:
-                    df = pd.DataFrame(
-                        columns=[
-                            "account", "symbol", "broker_symbol", "sec_type", "currency", "exchange",
-                            "primary_exchange", "position", "avg_cost",
-                        ]
-                    )
-                return df
-            if attempt < IB_POSITIONS_RETRIES:
-                time.sleep(1.5)
-                continue
-    if last_exc is not None:
-        raise last_exc
-    raise RuntimeError("Unexpected positions refresh failure")
+def load_or_refresh_broker_positions(paths: ConfigPaths, app: Optional[IBReconApp]) -> pd.DataFrame:
+    if app is not None:
+        df = refresh_positions(app)
+        save_df(df, paths.broker_positions_csv)
+        return df
+    if ALLOW_EXISTING_BROKER_POSITIONS_CSV and paths.broker_positions_csv.exists():
+        df = pd.read_csv(paths.broker_positions_csv)
+        if "symbol" in df.columns:
+            df["symbol"] = df["symbol"].astype(str).map(normalize_symbol)
+        return df
+    raise RuntimeError(f"Broker positions unavailable for config={paths.name}")
 
 
-def _load_portfolio_state(state_json: Path) -> LocalExpectedSource:
-    with state_json.open("r", encoding="utf-8") as fh:
-        payload = json.load(fh)
-    if not isinstance(payload, dict):
-        raise RuntimeError(f"Invalid portfolio state json at {state_json}")
-    positions = payload.get("positions", {})
-    if positions is None:
-        positions = {}
-    if not isinstance(positions, dict):
-        raise RuntimeError(f"State positions must be a dict at {state_json}")
-    rows: List[Dict[str, Any]] = []
-    for symbol, pos in positions.items():
-        symbol_norm = _norm_symbol(symbol)
-        if not symbol_norm:
-            continue
-        pos_dict = pos if isinstance(pos, dict) else {}
-        expected_shares = _num_scalar(pos_dict.get("shares", 0.0))
-        rows.append(
-            {
-                "symbol": symbol_norm,
-                "expected_shares": expected_shares,
-                "source_priority": 1,
-                "source": "portfolio_state.json",
-                "target_shares": expected_shares,
-                "current_shares": _num_scalar(pos_dict.get("shares", expected_shares)),
-                "delta_shares": 0.0,
-                "last_price": _num_scalar(pos_dict.get("last_price", 0.0)),
-                "market_value": _num_scalar(pos_dict.get("market_value", 0.0)),
-            }
-        )
-    df = pd.DataFrame(rows)
-    if not len(df):
-        df = pd.DataFrame(columns=[
-            "symbol", "expected_shares", "source_priority", "source", "target_shares",
-            "current_shares", "delta_shares", "last_price", "market_value",
-        ])
-    else:
-        df = df.sort_values(["symbol"], ascending=[True]).reset_index(drop=True)
-    return LocalExpectedSource(source="portfolio_state.json", rows=df)
+def load_or_refresh_open_orders(paths: ConfigPaths, app: Optional[IBReconApp]) -> pd.DataFrame:
+    if app is not None:
+        df = refresh_open_orders(app)
+        save_df(df, paths.broker_open_orders_csv)
+        return df
+    if paths.broker_open_orders_csv.exists():
+        df = pd.read_csv(paths.broker_open_orders_csv)
+        if "symbol" in df.columns:
+            df["symbol"] = df["symbol"].astype(str).map(normalize_symbol)
+        return df
+    return pd.DataFrame(columns=["symbol", "status", "action", "totalQuantity", "lmtPrice", "orderRef"])
 
 
-def _compute_expected_from_orders(orders_csv: Path) -> LocalExpectedSource:
-    if not orders_csv.exists():
-        raise RuntimeError(f"Missing orders.csv fallback at {orders_csv}")
-    df = pd.read_csv(orders_csv)
-    if not len(df):
-        out = pd.DataFrame(columns=[
-            "symbol", "expected_shares", "source_priority", "source", "target_shares",
-            "current_shares", "delta_shares", "price", "date", "order_side", "skip_reason",
-        ])
-        return LocalExpectedSource(source="orders.csv", rows=out)
-
-    df = df.copy()
-    if "symbol" not in df.columns:
-        raise RuntimeError(f"orders.csv missing required column 'symbol': {orders_csv}")
-
-    df["symbol"] = df["symbol"].astype(str).str.strip().str.upper()
-    df = df[df["symbol"] != ""].copy()
-
-    for col in ["target_shares", "current_shares", "delta_shares", "price"]:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors="coerce")
-
-    if "__row_order__" not in df.columns:
-        df["__row_order__"] = range(len(df))
-
-    if "date" in df.columns:
-        date_rank = pd.to_datetime(df["date"], errors="coerce")
-        df["__date_rank__"] = date_rank
-    else:
-        df["__date_rank__"] = pd.NaT
-
-    df = df.sort_values(["symbol", "__date_rank__", "__row_order__"], ascending=[True, True, True]).reset_index(drop=True)
-
-    rows: List[Dict[str, Any]] = []
-    for symbol, g in df.groupby("symbol", sort=True):
-        row = g.iloc[-1]
-        target_shares_present = "target_shares" in g.columns and pd.notna(row.get("target_shares"))
-        current_shares_present = "current_shares" in g.columns and pd.notna(row.get("current_shares"))
-        delta_shares_present = "delta_shares" in g.columns and pd.notna(row.get("delta_shares"))
-
-        target_shares = _num_scalar(row.get("target_shares", 0.0)) if target_shares_present else 0.0
-        current_shares = _num_scalar(row.get("current_shares", 0.0)) if current_shares_present else 0.0
-        delta_shares = _num_scalar(row.get("delta_shares", 0.0)) if delta_shares_present else 0.0
-
-        if target_shares_present:
-            expected_shares = target_shares
-            source_formula = "target_shares"
-        elif current_shares_present and delta_shares_present:
-            expected_shares = current_shares + delta_shares
-            source_formula = "current_shares + delta_shares"
-        elif delta_shares_present:
-            expected_shares = delta_shares
-            source_formula = "delta_shares"
-        else:
-            expected_shares = 0.0
-            source_formula = "missing_shares_columns"
-
-        rows.append(
-            {
-                "symbol": symbol,
-                "expected_shares": float(expected_shares),
-                "source_priority": 2,
-                "source": "orders.csv",
-                "source_formula": source_formula,
-                "target_shares": target_shares if target_shares_present else None,
-                "current_shares": current_shares if current_shares_present else None,
-                "delta_shares": delta_shares if delta_shares_present else None,
-                "price": _num_scalar(row.get("price", 0.0)),
-                "date": str(row.get("date", "") or ""),
-                "order_side": str(row.get("order_side", "") or ""),
-                "skip_reason": str(row.get("skip_reason", "") or ""),
-            }
-        )
-
-    out = pd.DataFrame(rows)
-    out = out.sort_values(["symbol"], ascending=[True]).reset_index(drop=True)
-    return LocalExpectedSource(source="orders.csv", rows=out)
-
-
-def _load_local_expected(paths: ConfigPaths) -> LocalExpectedSource:
-    if paths.state_json.exists():
-        return _load_portfolio_state(paths.state_json)
-    return _compute_expected_from_orders(paths.orders_csv)
-
-
-def _load_broker_pending(paths: ConfigPaths) -> pd.DataFrame:
-    if not RECONCILE_BROKER_LOG_AS_PENDING or not paths.broker_log_json.exists():
-        return pd.DataFrame(
-            columns=[
-                "symbol", "pending_order_count", "pending_net_qty", "pending_remaining_qty",
-                "pending_actions", "pending_statuses", "pending_outcomes", "pending_client_tags",
-            ]
-        )
-    payload = json.loads(paths.broker_log_json.read_text(encoding="utf-8"))
-    orders_obj = payload.get("orders", {}) if isinstance(payload, dict) else {}
-    if not isinstance(orders_obj, dict):
-        raise RuntimeError(f"broker_log.json orders must be an object: {paths.broker_log_json}")
-
-    active_statuses = {"presubmitted", "submitted", "pending_submit", "pendingcancel", "pending_cancel", "api_pending"}
-    active_outcomes = {"working", "working_carry"}
-    rows: List[Dict[str, Any]] = []
-    for _, entry in orders_obj.items():
-        if not isinstance(entry, dict):
-            continue
-        symbol = _norm_symbol(entry.get("symbol", ""))
-        if not symbol:
-            continue
-        status = str(entry.get("status", "") or "").strip().lower()
-        response = entry.get("response", {}) if isinstance(entry.get("response", {}), dict) else {}
-        outcome = str(response.get("outcome", "") or entry.get("outcome", "") or "").strip().lower()
-        if status not in active_statuses and outcome not in active_outcomes:
-            continue
-        side = str(entry.get("side", "") or "").strip().upper()
-        remaining_qty = _num_scalar(entry.get("remaining_qty", 0.0))
-        signed_remaining = remaining_qty if side == "BUY" else -remaining_qty
-        rows.append(
-            {
-                "symbol": symbol,
-                "pending_order_count": 1,
-                "pending_net_qty": signed_remaining,
-                "pending_remaining_qty": remaining_qty,
-                "pending_actions": side,
-                "pending_statuses": status,
-                "pending_outcomes": outcome,
-                "pending_client_tags": str(entry.get("client_order_id", "") or ""),
-            }
-        )
-    df = pd.DataFrame(rows)
-    if not len(df):
-        return pd.DataFrame(
-            columns=[
-                "symbol", "pending_order_count", "pending_net_qty", "pending_remaining_qty",
-                "pending_actions", "pending_statuses", "pending_outcomes", "pending_client_tags",
-            ]
-        )
-    df = (
-        df.groupby("symbol", as_index=False)
-        .agg(
-            pending_order_count=("pending_order_count", "sum"),
-            pending_net_qty=("pending_net_qty", "sum"),
-            pending_remaining_qty=("pending_remaining_qty", "sum"),
-            pending_actions=("pending_actions", lambda s: "|".join(sorted({str(x) for x in s if str(x)}))),
-            pending_statuses=("pending_statuses", lambda s: "|".join(sorted({str(x) for x in s if str(x)}))),
-            pending_outcomes=("pending_outcomes", lambda s: "|".join(sorted({str(x) for x in s if str(x)}))),
-            pending_client_tags=("pending_client_tags", lambda s: "|".join(sorted({str(x) for x in s if str(x)}))),
-        )
-        .sort_values(["symbol"], ascending=[True])
-        .reset_index(drop=True)
+def build_pending_from_open_orders(open_orders_df: pd.DataFrame) -> pd.DataFrame:
+    if open_orders_df.empty:
+        return pd.DataFrame(columns=["symbol", "pending_side", "pending_qty", "pending_status", "pending_order_refs"])
+    work = open_orders_df.copy()
+    work["symbol"] = work["symbol"].astype(str).map(normalize_symbol)
+    work["status_norm"] = work["status"].astype(str).str.strip().str.lower()
+    work = work.loc[work["status_norm"].isin({"presubmitted", "submitted", "pendingsubmit", "pendingcancel", "api_pending"})].copy()
+    if work.empty:
+        return pd.DataFrame(columns=["symbol", "pending_side", "pending_qty", "pending_status", "pending_order_refs"])
+    work["action"] = work["action"].astype(str).map(normalize_side)
+    work["signed_qty"] = work.apply(lambda r: abs(to_float(r.get("totalQuantity", 0.0))) * (1.0 if r["action"] == "BUY" else -1.0 if r["action"] == "SELL" else 0.0), axis=1)
+    grouped = work.groupby("symbol", as_index=False).agg(
+        pending_signed_qty=("signed_qty", "sum"),
+        pending_status=("status", lambda s: "|".join(sorted({str(x) for x in s if str(x)}))),
+        pending_order_refs=("orderRef", lambda s: "|".join(sorted({str(x) for x in s if str(x)}))),
     )
-    return df
+    grouped["pending_side"] = grouped["pending_signed_qty"].map(lambda x: "BUY" if x > 0 else "SELL" if x < 0 else "HOLD")
+    grouped["pending_qty"] = grouped["pending_signed_qty"].abs()
+    return grouped[["symbol", "pending_side", "pending_qty", "pending_status", "pending_order_refs"]].sort_values(["symbol"]).reset_index(drop=True)
 
 
-def _build_reconcile_diff(
-    local_source: LocalExpectedSource,
-    broker_positions: pd.DataFrame,
-    broker_open_orders: pd.DataFrame,
-    broker_pending: pd.DataFrame,
-) -> pd.DataFrame:
-    local_df = local_source.rows.copy()
-    if not len(local_df):
-        local_df = pd.DataFrame(columns=["symbol", "expected_shares", "source", "source_priority"])
-    if "symbol" not in local_df.columns:
-        local_df["symbol"] = pd.Series(dtype="object")
-    local_df["symbol"] = local_df["symbol"].astype(str).str.upper()
-    local_df["expected_shares"] = pd.to_numeric(local_df.get("expected_shares", 0.0), errors="coerce").fillna(0.0)
-
-    broker_positions_agg = broker_positions.copy()
-    if not len(broker_positions_agg):
-        broker_positions_agg = pd.DataFrame(columns=["symbol", "broker_position"])
-    else:
-        broker_positions_agg = (
-            broker_positions_agg.groupby("symbol", as_index=False)
-            .agg(
-                broker_position=("position", "sum"),
-                broker_avg_cost=("avg_cost", "last"),
-                broker_symbol=("broker_symbol", "last"),
-                broker_currency=("currency", "last"),
-                broker_exchange=("exchange", "last"),
-                broker_primary_exchange=("primary_exchange", "last"),
-                broker_sec_type=("sec_type", "last"),
-                broker_account=("account", "last"),
-            )
-            .sort_values(["symbol"], ascending=[True])
-            .reset_index(drop=True)
-        )
-
-    open_orders_agg = broker_open_orders.copy()
-    if not len(open_orders_agg):
-        open_orders_agg = pd.DataFrame(columns=["symbol", "broker_open_order_count", "broker_open_order_net_qty"])
-    else:
-        if "remaining_qty" not in open_orders_agg.columns:
-            open_orders_agg["remaining_qty"] = 0.0
-        open_orders_agg["remaining_qty"] = pd.to_numeric(open_orders_agg["remaining_qty"], errors="coerce").fillna(0.0)
-        signed_remaining = open_orders_agg["remaining_qty"].where(
-            open_orders_agg.get("action", pd.Series(dtype="object")).astype(str).str.upper() == "BUY",
-            -open_orders_agg["remaining_qty"],
-        )
-        open_orders_agg = open_orders_agg.assign(__signed_remaining__=signed_remaining)
-        open_orders_agg = (
-            open_orders_agg.groupby("symbol", as_index=False)
-            .agg(
-                broker_open_order_count=("ib_order_id", "count"),
-                broker_open_order_net_qty=("__signed_remaining__", "sum"),
-                broker_open_order_remaining_qty=("remaining_qty", "sum"),
-                broker_open_order_actions=("action", lambda s: "|".join(sorted({str(x) for x in s if str(x)}))),
-                broker_open_order_statuses=("status", lambda s: "|".join(sorted({str(x) for x in s if str(x)}))),
-            )
-            .sort_values(["symbol"], ascending=[True])
-            .reset_index(drop=True)
-        )
-
-    pending_agg = broker_pending.copy()
-    if not len(pending_agg):
-        pending_agg = pd.DataFrame(columns=["symbol", "pending_order_count", "pending_net_qty", "pending_remaining_qty"])
-
-    merged = pd.merge(local_df, broker_positions_agg, on="symbol", how="outer")
-    merged = pd.merge(merged, open_orders_agg, on="symbol", how="outer")
-    merged = pd.merge(merged, pending_agg, on="symbol", how="outer")
-
-    defaults = {
-        "expected_shares": 0.0,
-        "broker_position": 0.0,
-        "broker_open_order_count": 0,
-        "broker_open_order_net_qty": 0.0,
-        "broker_open_order_remaining_qty": 0.0,
-        "pending_order_count": 0,
-        "pending_net_qty": 0.0,
-        "pending_remaining_qty": 0.0,
-    }
-    for col, default in defaults.items():
-        if col not in merged.columns:
-            merged[col] = default
-    if "source" not in merged.columns:
-        merged["source"] = local_source.source
-
-    merged["expected_shares"] = pd.to_numeric(merged["expected_shares"], errors="coerce").fillna(0.0)
+def merge_expected_and_broker(state_df: pd.DataFrame, orders_df: pd.DataFrame, broker_df: pd.DataFrame, pending_df: pd.DataFrame) -> pd.DataFrame:
+    merged = pd.merge(state_df, orders_df, on="symbol", how="outer")
+    merged = pd.merge(merged, broker_df.rename(columns={"position": "broker_position", "avgCost": "broker_avg_cost"}), on="symbol", how="outer")
+    merged = pd.merge(merged, pending_df, on="symbol", how="left")
+    if "expected_shares_state" not in merged.columns:
+        merged["expected_shares_state"] = 0.0
+    if "expected_shares_orders" not in merged.columns:
+        merged["expected_shares_orders"] = 0.0
+    if "broker_position" not in merged.columns:
+        merged["broker_position"] = 0.0
+    merged["expected_shares_state"] = pd.to_numeric(merged["expected_shares_state"], errors="coerce").fillna(0.0)
+    merged["expected_shares_orders"] = pd.to_numeric(merged["expected_shares_orders"], errors="coerce").fillna(0.0)
     merged["broker_position"] = pd.to_numeric(merged["broker_position"], errors="coerce").fillna(0.0)
-    merged["broker_open_order_count"] = pd.to_numeric(merged["broker_open_order_count"], errors="coerce").fillna(0).astype(int)
-    merged["broker_open_order_net_qty"] = pd.to_numeric(merged["broker_open_order_net_qty"], errors="coerce").fillna(0.0)
-    merged["broker_open_order_remaining_qty"] = pd.to_numeric(merged["broker_open_order_remaining_qty"], errors="coerce").fillna(0.0)
-    merged["pending_order_count"] = pd.to_numeric(merged["pending_order_count"], errors="coerce").fillna(0).astype(int)
-    merged["pending_net_qty"] = pd.to_numeric(merged["pending_net_qty"], errors="coerce").fillna(0.0)
-    merged["pending_remaining_qty"] = pd.to_numeric(merged["pending_remaining_qty"], errors="coerce").fillna(0.0)
-    merged["source"] = merged["source"].fillna(local_source.source).astype(str)
-
-    merged["has_open_orders"] = merged["broker_open_order_count"] > 0
-    merged["has_pending_carry"] = merged["pending_order_count"] > 0
-    merged["effective_pending_order_count"] = merged[["broker_open_order_count", "pending_order_count"]].max(axis=1)
-    merged["effective_pending_net_qty"] = merged["broker_open_order_net_qty"]
-    use_pending_mask = merged["effective_pending_net_qty"].abs() <= RECONCILE_PENDING_MATCH_TOLERANCE
-    merged.loc[use_pending_mask, "effective_pending_net_qty"] = merged.loc[use_pending_mask, "pending_net_qty"]
-    merged["effective_pending_remaining_qty"] = merged["broker_open_order_remaining_qty"]
-    use_pending_rem_mask = merged["effective_pending_remaining_qty"].abs() <= RECONCILE_PENDING_MATCH_TOLERANCE
-    merged.loc[use_pending_rem_mask, "effective_pending_remaining_qty"] = merged.loc[use_pending_rem_mask, "pending_remaining_qty"]
-    merged["expected_after_pending"] = merged["broker_position"] + merged["effective_pending_net_qty"]
+    merged["pending_qty"] = pd.to_numeric(merged.get("pending_qty", 0.0), errors="coerce").fillna(0.0)
+    merged["expected_shares"] = merged["expected_shares_state"] if PREFER_STATE_OVER_ORDERS else merged["expected_shares_orders"]
+    missing_state_mask = merged["expected_shares_state"].abs() <= DRIFT_TOLERANCE_SHARES
+    if PREFER_STATE_OVER_ORDERS:
+        merged.loc[missing_state_mask, "expected_shares"] = merged.loc[missing_state_mask, "expected_shares_orders"]
     merged["drift_shares"] = merged["broker_position"] - merged["expected_shares"]
     merged["abs_drift_shares"] = merged["drift_shares"].abs()
-    merged["drift_after_pending"] = merged["expected_after_pending"] - merged["expected_shares"]
+    merged["broker_has_position"] = merged["broker_position"].abs() > DRIFT_TOLERANCE_SHARES
+    merged["expected_has_position"] = merged["expected_shares"].abs() > DRIFT_TOLERANCE_SHARES
+    merged["pending_signed_qty"] = merged.apply(lambda r: float(r["pending_qty"]) * (1.0 if str(r.get("pending_side", "")) == "BUY" else -1.0 if str(r.get("pending_side", "")) == "SELL" else 0.0), axis=1)
+    merged["drift_after_pending"] = merged["broker_position"] + merged["pending_signed_qty"] - merged["expected_shares"]
     merged["abs_drift_after_pending"] = merged["drift_after_pending"].abs()
-    merged["positions_match"] = merged["abs_drift_shares"] <= RECONCILE_PENDING_MATCH_TOLERANCE
-    merged["covered_by_pending"] = merged["abs_drift_after_pending"] <= RECONCILE_PENDING_MATCH_TOLERANCE
-    merged["expected_nonzero"] = merged["expected_shares"].abs() > RECONCILE_PENDING_MATCH_TOLERANCE
-    merged["broker_nonzero"] = merged["broker_position"].abs() > RECONCILE_PENDING_MATCH_TOLERANCE
+    merged["drift"] = merged["abs_drift_shares"] > DRIFT_TOLERANCE_SHARES
+    merged["drift_after_pending_flag"] = merged["abs_drift_after_pending"] > DRIFT_TOLERANCE_SHARES
+    merged["missing_at_broker"] = merged["expected_has_position"] & ~merged["broker_has_position"]
+    merged["unexpected_at_broker"] = ~merged["expected_has_position"] & merged["broker_has_position"]
+    merged["pending_covers_drift"] = merged["drift"] & (~merged["drift_after_pending_flag"])
+    merged["issue_kind"] = merged.apply(classify_issue_kind, axis=1)
+    merged["cleanup_side"] = merged["broker_position"].map(lambda x: "SELL" if x > DRIFT_TOLERANCE_SHARES else "BUY" if x < -DRIFT_TOLERANCE_SHARES else "HOLD")
+    merged["cleanup_qty"] = merged["broker_position"].abs()
+    return merged.sort_values(["abs_drift_shares", "symbol"], ascending=[False, True]).reset_index(drop=True)
 
-    status: List[str] = []
-    for _, row in merged.iterrows():
-        expected_nonzero = bool(row["expected_nonzero"])
-        broker_nonzero = bool(row["broker_nonzero"])
-        positions_match = bool(row["positions_match"])
-        has_open_orders = bool(row["has_open_orders"])
-        has_pending_carry = bool(row["has_pending_carry"])
-        covered_by_pending = bool(row["covered_by_pending"])
-        if positions_match and not has_open_orders and not has_pending_carry:
-            status.append("match")
-        elif positions_match and (has_open_orders or has_pending_carry):
-            status.append("match_with_open_orders")
-        elif covered_by_pending and (has_open_orders or has_pending_carry):
-            status.append("covered_by_pending_orders")
-        elif expected_nonzero and not broker_nonzero and (has_open_orders or has_pending_carry):
-            status.append("working_carry_pending_open")
-        elif broker_nonzero and not expected_nonzero and (has_open_orders or has_pending_carry):
-            status.append("flatten_pending_open")
-        elif expected_nonzero and not broker_nonzero:
-            status.append("missing_at_broker")
-        elif broker_nonzero and not expected_nonzero:
-            status.append("unexpected_at_broker")
-        else:
-            status.append("drift")
-    merged["reconcile_status"] = status
 
-    preferred_cols = [
+def classify_issue_kind(row: pd.Series) -> str:
+    if bool(row.get("pending_covers_drift", False)):
+        return "pending_covers_drift"
+    if bool(row.get("missing_at_broker", False)):
+        return "missing_at_broker"
+    if bool(row.get("unexpected_at_broker", False)):
+        return "unexpected_at_broker"
+    if bool(row.get("drift", False)):
+        return "drift"
+    return "ok"
+
+
+def build_cleanup_preview(merged: pd.DataFrame) -> pd.DataFrame:
+    if merged.empty:
+        return pd.DataFrame(columns=["symbol", "cleanup_side", "cleanup_qty", "cleanup_reason", "broker_avg_cost", "broker_position", "expected_shares", "pending_side", "pending_qty"])
+    work = merged.copy()
+    mask = pd.Series(False, index=work.index)
+    if CLEANUP_INCLUDE_UNEXPECTED:
+        mask = mask | work["unexpected_at_broker"].fillna(False)
+    if CLEANUP_INCLUDE_DRIFT:
+        mask = mask | (work["drift"].fillna(False) & ~work["pending_covers_drift"].fillna(False))
+    work = work.loc[mask].copy()
+    work = work.loc[work["cleanup_qty"].abs() >= float(CLEANUP_MIN_ABS_SHARES)].copy()
+    if CLEANUP_ONLY_SYMBOLS:
+        work = work.loc[work["symbol"].astype(str).isin(CLEANUP_ONLY_SYMBOLS)].copy()
+    if CLEANUP_EXCLUDE_SYMBOLS:
+        work = work.loc[~work["symbol"].astype(str).isin(CLEANUP_EXCLUDE_SYMBOLS)].copy()
+    if work.empty:
+        return pd.DataFrame(columns=["symbol", "cleanup_side", "cleanup_qty", "cleanup_reason", "broker_avg_cost", "broker_position", "expected_shares", "pending_side", "pending_qty"])
+    work["cleanup_reason"] = work["issue_kind"].astype(str)
+    return work[[
         "symbol",
-        "source",
-        "expected_shares",
-        "broker_position",
-        "effective_pending_net_qty",
-        "expected_after_pending",
-        "drift_shares",
-        "abs_drift_shares",
-        "drift_after_pending",
-        "abs_drift_after_pending",
-        "reconcile_status",
-        "positions_match",
-        "covered_by_pending",
-        "has_open_orders",
-        "has_pending_carry",
-        "effective_pending_order_count",
-        "broker_open_order_count",
-        "broker_open_order_net_qty",
-        "broker_open_order_remaining_qty",
-        "pending_order_count",
-        "pending_net_qty",
-        "pending_remaining_qty",
-        "target_shares",
-        "current_shares",
-        "delta_shares",
-        "source_formula",
-        "date",
-        "order_side",
-        "skip_reason",
+        "cleanup_side",
+        "cleanup_qty",
+        "cleanup_reason",
         "broker_avg_cost",
-        "broker_symbol",
-        "broker_currency",
-        "broker_exchange",
-        "broker_primary_exchange",
-        "broker_sec_type",
-        "broker_account",
-        "broker_open_order_actions",
-        "broker_open_order_statuses",
-        "pending_actions",
-        "pending_statuses",
-        "pending_outcomes",
-        "pending_client_tags",
-        "price",
-        "last_price",
-        "market_value",
-    ]
-    final_cols = [c for c in preferred_cols if c in merged.columns] + [c for c in merged.columns if c not in preferred_cols]
-    merged = merged[final_cols].sort_values(["abs_drift_after_pending", "abs_drift_shares", "symbol"], ascending=[False, False, True]).reset_index(drop=True)
-    return merged
+        "broker_position",
+        "expected_shares",
+        "pending_side",
+        "pending_qty",
+        "pending_status",
+        "pending_order_refs",
+    ]].sort_values(["cleanup_qty", "symbol"], ascending=[False, True]).reset_index(drop=True)
 
 
-def _write_df_csv_safe(df: pd.DataFrame, path: Path) -> None:
-    csv_text = df.to_csv(index=False)
-    _safe_write_text(path, csv_text, encoding="utf-8")
-
-
-def _write_json_safe(payload: Dict[str, Any], path: Path) -> None:
-    _safe_write_text(path, json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-
-
-def _status_count(diff_df: pd.DataFrame, status: str) -> int:
-    return int((diff_df["reconcile_status"] == status).sum()) if len(diff_df) else 0
-
-
-def _build_report(
-    paths: ConfigPaths,
-    local_source: LocalExpectedSource,
-    broker_positions: pd.DataFrame,
-    broker_open_orders: pd.DataFrame,
-    broker_pending: pd.DataFrame,
-    diff_df: pd.DataFrame,
-    app: IBKRReconApp,
-) -> Dict[str, Any]:
-    exact_match_count = _status_count(diff_df, "match")
-    match_with_open_orders_count = _status_count(diff_df, "match_with_open_orders")
-    covered_by_pending_orders_count = _status_count(diff_df, "covered_by_pending_orders")
-    working_carry_pending_open_count = _status_count(diff_df, "working_carry_pending_open")
-    flatten_pending_open_count = _status_count(diff_df, "flatten_pending_open")
-    drift_count = _status_count(diff_df, "drift")
-    missing_at_broker_count = _status_count(diff_df, "missing_at_broker")
-    unexpected_at_broker_count = _status_count(diff_df, "unexpected_at_broker")
-    report = {
-        "generated_at_utc": _utc_now_iso(),
-        "config": paths.name,
-        "execution_dir": str(paths.execution_dir),
-        "broker": {
-            "host": IB_HOST,
-            "port": IB_PORT,
-            "client_id": IB_CLIENT_ID,
-            "account_code": IB_ACCOUNT_CODE,
-            "open_orders_mode": REQ_OPEN_ORDERS_MODE,
-            "positions_timeout_sec": IB_POSITIONS_TIMEOUT_SEC,
-            "positions_retries": IB_POSITIONS_RETRIES,
-            "positions_settle_sec": IB_POSITIONS_SETTLE_SEC,
-        },
-        "local_source": {
-            "source": local_source.source,
-            "state_json_exists": paths.state_json.exists(),
-            "orders_csv_exists": paths.orders_csv.exists(),
-            "broker_log_json_exists": paths.broker_log_json.exists(),
-            "local_rows": int(len(local_source.rows)),
-        },
-        "summary": {
-            "symbols_total": int(len(diff_df)),
-            "local_expected_symbols": int(len(local_source.rows)),
-            "broker_position_symbols": int(len(broker_positions)),
-            "broker_open_orders": int(len(broker_open_orders)),
-            "broker_pending_symbols": int(len(broker_pending)),
-            "exact_match_count": exact_match_count,
-            "match_with_open_orders_count": match_with_open_orders_count,
-            "covered_by_pending_orders_count": covered_by_pending_orders_count,
-            "working_carry_pending_open_count": working_carry_pending_open_count,
-            "flatten_pending_open_count": flatten_pending_open_count,
-            "drift_count": drift_count,
-            "missing_at_broker_count": missing_at_broker_count,
-            "unexpected_at_broker_count": unexpected_at_broker_count,
-            "max_abs_drift_shares": float(diff_df["abs_drift_shares"].max()) if len(diff_df) else 0.0,
-            "max_abs_drift_after_pending": float(diff_df["abs_drift_after_pending"].max()) if len(diff_df) else 0.0,
-            "sum_abs_drift_shares": float(diff_df["abs_drift_shares"].sum()) if len(diff_df) else 0.0,
-            "sum_abs_drift_after_pending": float(diff_df["abs_drift_after_pending"].sum()) if len(diff_df) else 0.0,
-        },
-        "top_drifts": diff_df.head(min(TOPK_PRINT, len(diff_df))).to_dict(orient="records") if len(diff_df) else [],
-        "artifacts": {
-            "reconcile_report_json": str(paths.report_json),
-            "reconcile_diff_csv": str(paths.diff_csv),
-            "broker_positions_csv": str(paths.broker_positions_csv),
-            "broker_open_orders_csv": str(paths.broker_open_orders_csv),
-            "broker_pending_csv": str(paths.broker_pending_csv),
-        },
-        "ib_errors": app._errors,
+def summary_from_merged(config_name: str, merged: pd.DataFrame, cleanup_df: pd.DataFrame) -> Dict[str, Any]:
+    drift_df = merged.loc[merged["drift"].fillna(False)].copy()
+    pending_covers = merged.loc[merged["pending_covers_drift"].fillna(False)].copy()
+    payload = {
+        "config": config_name,
+        "generated_at_utc": utc_now_iso(),
+        "symbols_total": int(len(merged)),
+        "drift": int(drift_df.shape[0]),
+        "missing_at_broker": int(merged["missing_at_broker"].fillna(False).sum()),
+        "unexpected_at_broker": int(merged["unexpected_at_broker"].fillna(False).sum()),
+        "pending_covers_drift": int(pending_covers.shape[0]),
+        "max_abs_drift_shares": float(merged["abs_drift_shares"].max()) if len(merged) else 0.0,
+        "cleanup_preview_rows": int(len(cleanup_df)),
+        "cleanup_preview_enabled": int(CLEANUP_PREVIEW_MODE),
     }
-    return report
+    return payload
 
 
-def _run_one_config(app: IBKRReconApp, paths: ConfigPaths) -> None:
-    print(f"[STEP][{paths.name}] reconcile")
+def print_top(tag: str, df: pd.DataFrame, cols: List[str]) -> None:
+    if df.empty:
+        print(f"{tag} none")
+        return
+    available = [c for c in cols if c in df.columns]
+    print(tag)
+    print(df[available].head(min(TOPK_PRINT, len(df))).to_string(index=False))
+
+
+def connect_app() -> IBReconApp:
+    app = IBReconApp()
+    print(f"[IB] connecting host={IB_HOST} port={IB_PORT} client_id={IB_CLIENT_ID}")
+    app.connect(IB_HOST, IB_PORT, clientId=IB_CLIENT_ID)
+    app.start_network_loop()
+    next_id = app.wait_for_next_valid_id(timeout_sec=IB_TIMEOUT_SEC)
+    managed = app.wait_for_managed_accounts(timeout_sec=IB_TIMEOUT_SEC)
+    print(f"[IB] connected next_valid_id={next_id} managed_accounts={managed}")
+    if IB_ACCOUNT_CODE:
+        accounts = [x.strip() for x in managed.split(",") if x.strip()]
+        if IB_ACCOUNT_CODE not in accounts:
+            raise RuntimeError(f"IB_ACCOUNT_CODE={IB_ACCOUNT_CODE!r} not present in managed accounts: {managed!r}")
+    return app
+
+
+def disconnect_app(app: Optional[IBReconApp]) -> None:
+    if app is None:
+        return
+    try:
+        if app.isConnected():
+            app.disconnect()
+    except Exception:
+        pass
+    time.sleep(0.25)
+
+
+def run_one_config(paths: ConfigPaths, app: Optional[IBReconApp]) -> None:
+    print(f"[RECON][{paths.name}] execution_dir={paths.execution_dir}")
     paths.execution_dir.mkdir(parents=True, exist_ok=True)
 
-    local_source = _load_local_expected(paths)
-    print(
-        f"[LOCAL][{paths.name}] source={local_source.source} rows={len(local_source.rows)} "
-        f"state_json_exists={int(paths.state_json.exists())} orders_csv_exists={int(paths.orders_csv.exists())} "
-        f"broker_log_json_exists={int(paths.broker_log_json.exists())}"
-    )
+    state_df = load_state_positions(paths.state_json)
+    orders_df = load_orders_targets(paths.orders_csv)
+    broker_df = load_or_refresh_broker_positions(paths, app)
+    open_orders_df = load_or_refresh_open_orders(paths, app)
+    pending_df = build_pending_from_open_orders(open_orders_df)
 
-    broker_positions = _refresh_positions(app)
-    broker_open_orders = _refresh_open_orders(app)
-    broker_pending = _load_broker_pending(paths)
+    save_df(open_orders_df, paths.broker_open_orders_csv)
+    save_df(pending_df, paths.broker_pending_csv)
 
-    print(
-        f"[BROKER][{paths.name}] positions={len(broker_positions)} open_orders={len(broker_open_orders)} "
-        f"pending_symbols={len(broker_pending)} account={IB_ACCOUNT_CODE or '<all>'}"
-    )
+    merged = merge_expected_and_broker(state_df, orders_df, broker_df, pending_df)
+    cleanup_df = build_cleanup_preview(merged) if CLEANUP_PREVIEW_MODE else pd.DataFrame()
+    summary = summary_from_merged(paths.name, merged, cleanup_df)
 
-    diff_df = _build_reconcile_diff(local_source, broker_positions, broker_open_orders, broker_pending)
-    report = _build_report(paths, local_source, broker_positions, broker_open_orders, broker_pending, diff_df, app)
-
-    _write_df_csv_safe(broker_positions, paths.broker_positions_csv)
-    _write_df_csv_safe(broker_open_orders, paths.broker_open_orders_csv)
-    _write_df_csv_safe(broker_pending, paths.broker_pending_csv)
-    _write_df_csv_safe(diff_df, paths.diff_csv)
-    _write_json_safe(report, paths.report_json)
-
-    exact_match_count = _status_count(diff_df, "match")
-    match_with_open_orders_count = _status_count(diff_df, "match_with_open_orders")
-    covered_by_pending_orders_count = _status_count(diff_df, "covered_by_pending_orders")
-    working_carry_pending_open_count = _status_count(diff_df, "working_carry_pending_open")
-    flatten_pending_open_count = _status_count(diff_df, "flatten_pending_open")
-    drift_count = _status_count(diff_df, "drift")
-    missing_at_broker_count = _status_count(diff_df, "missing_at_broker")
-    unexpected_at_broker_count = _status_count(diff_df, "unexpected_at_broker")
-    max_abs_drift = float(diff_df["abs_drift_shares"].max()) if len(diff_df) else 0.0
-    max_abs_drift_after_pending = float(diff_df["abs_drift_after_pending"].max()) if len(diff_df) else 0.0
+    save_df(merged, paths.reconcile_csv)
+    save_df(cleanup_df, paths.cleanup_preview_csv)
+    paths.reconcile_summary_json.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
 
     print(
-        f"[RECON][{paths.name}][SUMMARY] symbols_total={len(diff_df)} exact_match={exact_match_count} "
-        f"match_with_open_orders={match_with_open_orders_count} covered_by_pending_orders={covered_by_pending_orders_count} "
-        f"working_carry_pending_open={working_carry_pending_open_count} flatten_pending_open={flatten_pending_open_count} "
-        f"drift={drift_count} missing_at_broker={missing_at_broker_count} unexpected_at_broker={unexpected_at_broker_count} "
-        f"max_abs_drift_shares={max_abs_drift:.8f} max_abs_drift_after_pending={max_abs_drift_after_pending:.8f}"
+        f"[RECON][{paths.name}][SUMMARY] symbols_total={summary['symbols_total']} drift={summary['drift']} "
+        f"missing_at_broker={summary['missing_at_broker']} unexpected_at_broker={summary['unexpected_at_broker']} "
+        f"pending_covers_drift={summary['pending_covers_drift']} max_abs_drift_shares={summary['max_abs_drift_shares']:.8f} "
+        f"cleanup_preview_rows={summary['cleanup_preview_rows']}"
     )
 
-    if len(diff_df):
-        print(f"[RECON][{paths.name}][TOP]")
-        print(diff_df.head(min(TOPK_PRINT, len(diff_df))).to_string(index=False))
-
-    print(f"[ARTIFACT] {paths.report_json}")
-    print(f"[ARTIFACT] {paths.diff_csv}")
+    print_top(
+        f"[RECON][{paths.name}][TOP]",
+        merged.loc[merged["drift"].fillna(False)].copy(),
+        [
+            "symbol",
+            "expected_shares",
+            "broker_position",
+            "drift_shares",
+            "pending_side",
+            "pending_qty",
+            "drift_after_pending",
+            "issue_kind",
+            "broker_avg_cost",
+            "state_last_price",
+            "price_hint",
+        ],
+    )
+    print_top(
+        f"[RECON][{paths.name}][CLEANUP_PREVIEW]",
+        cleanup_df,
+        [
+            "symbol",
+            "cleanup_side",
+            "cleanup_qty",
+            "cleanup_reason",
+            "broker_avg_cost",
+            "broker_position",
+            "expected_shares",
+            "pending_side",
+            "pending_qty",
+        ],
+    )
     print(f"[ARTIFACT] {paths.broker_positions_csv}")
     print(f"[ARTIFACT] {paths.broker_open_orders_csv}")
     print(f"[ARTIFACT] {paths.broker_pending_csv}")
+    print(f"[ARTIFACT] {paths.reconcile_csv}")
+    print(f"[ARTIFACT] {paths.cleanup_preview_csv}")
+    print(f"[ARTIFACT] {paths.reconcile_summary_json}")
 
 
 def main() -> int:
-    _enable_line_buffering()
+    enable_line_buffering()
     print(f"[CFG] execution_root={EXECUTION_ROOT}")
-    print(f"[CFG] reconcile_config_names={RECONCILE_CONFIG_NAMES}")
-    print(f"[CFG] ib_host={IB_HOST} ib_port={IB_PORT} ib_client_id={IB_CLIENT_ID} ib_timeout_sec={IB_TIMEOUT_SEC}")
-    print(f"[CFG] ib_positions_timeout_sec={IB_POSITIONS_TIMEOUT_SEC} ib_positions_retries={IB_POSITIONS_RETRIES} ib_positions_settle_sec={IB_POSITIONS_SETTLE_SEC}")
-    print(f"[CFG] ib_account_code={IB_ACCOUNT_CODE}")
-    print(f"[CFG] reconcile_open_orders_mode={REQ_OPEN_ORDERS_MODE}")
-    print(f"[CFG] reconcile_broker_log_as_pending={int(RECONCILE_BROKER_LOG_AS_PENDING)} pending_match_tolerance={RECONCILE_PENDING_MATCH_TOLERANCE}")
+    print(f"[CFG] configs={CONFIG_NAMES}")
+    print(f"[CFG] ib_host={IB_HOST} ib_port={IB_PORT} ib_client_id={IB_CLIENT_ID} ib_account_code={IB_ACCOUNT_CODE}")
+    print(f"[CFG] require_broker_refresh={int(REQUIRE_BROKER_REFRESH)} allow_existing_broker_positions_csv={int(ALLOW_EXISTING_BROKER_POSITIONS_CSV)}")
+    print(f"[CFG] drift_tolerance_shares={DRIFT_TOLERANCE_SHARES:.8f} prefer_state_over_orders={int(PREFER_STATE_OVER_ORDERS)}")
+    print(f"[CFG] cleanup_preview_mode={int(CLEANUP_PREVIEW_MODE)} cleanup_include_unexpected={int(CLEANUP_INCLUDE_UNEXPECTED)} cleanup_include_drift={int(CLEANUP_INCLUDE_DRIFT)} cleanup_min_abs_shares={CLEANUP_MIN_ABS_SHARES:.8f}")
+    if CLEANUP_ONLY_SYMBOLS:
+        print(f"[CFG] cleanup_only_symbols={sorted(CLEANUP_ONLY_SYMBOLS)}")
+    if CLEANUP_EXCLUDE_SYMBOLS:
+        print(f"[CFG] cleanup_exclude_symbols={sorted(CLEANUP_EXCLUDE_SYMBOLS)}")
 
-    if not RECONCILE_CONFIG_NAMES:
-        raise RuntimeError("No reconcile configs provided. Set RECONCILE_CONFIG_NAMES or CONFIG_NAMES.")
-
-    app: Optional[IBKRReconApp] = None
+    app: Optional[IBReconApp] = None
     try:
-        app = _bootstrap_connection()
-        for name in RECONCILE_CONFIG_NAMES:
-            paths = _config_paths(name)
-            _run_one_config(app, paths)
+        if REQUIRE_BROKER_REFRESH:
+            app = connect_app()
+        for config_name in CONFIG_NAMES:
+            run_one_config(cfg_paths(config_name), app)
     finally:
-        if app is not None:
-            try:
-                if app.isConnected():
-                    app.disconnect()
-            except Exception:
-                pass
+        disconnect_app(app)
 
-    print("[FINAL] IBKR reconcile complete")
+    print("[FINAL] IBKR broker reconcile complete")
     return 0
 
 
@@ -1058,4 +650,4 @@ if __name__ == "__main__":
     except Exception:
         traceback.print_exc()
         rc = 1
-    _safe_exit(rc)
+    safe_exit(rc)

@@ -1,0 +1,105 @@
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_broker_reconcile_ibkr.py
+[CFG] execution_root=artifacts\execution_loop
+[CFG] configs=['optimal', 'aggressive']
+[CFG] ib_host=127.0.0.1 ib_port=4002 ib_client_id=61 ib_account_code=
+[CFG] require_broker_refresh=1 allow_existing_broker_positions_csv=1
+[CFG] drift_tolerance_shares=0.00000100 prefer_state_over_orders=1
+[CFG] cleanup_preview_mode=1 cleanup_include_unexpected=1 cleanup_include_drift=1 cleanup_min_abs_shares=1.00000000
+[IB] connecting host=127.0.0.1 port=4002 client_id=61
+[IB] connected next_valid_id=1 managed_accounts=DUP561175
+[RECON][optimal] execution_dir=artifacts\execution_loop\optimal
+[IB][ERR] reqId=-1 code=2104 msg=Market data farm connection is OK:usfarm
+[IB][ERR] reqId=-1 code=2107 msg=HMDS data farm connection is inactive but should be available upon demand.ushmds
+[IB][ERR] reqId=-1 code=2158 msg=Sec-def data farm connection is OK:secdefil
+[IB] positionEnd
+[IB] openOrderEnd
+[RECON][optimal][SUMMARY] symbols_total=16 drift=16 missing_at_broker=0 unexpected_at_broker=10 pending_covers_drift=0 max_abs_drift_shares=296.00000000 cleanup_preview_rows=16
+[RECON][optimal][TOP]
+symbol  expected_shares  broker_position  drift_shares pending_side  pending_qty  drift_after_pending           issue_kind  broker_avg_cost  state_last_price  price_hint
+  HOOD              0.0          -296.00       -296.00          NaN          0.0              -296.00 unexpected_at_broker        66.849028               NaN         NaN
+   NEM             49.0          -208.00       -257.00          NaN          0.0              -257.00                drift       105.013459            101.52         NaN
+  INTC              0.0          -200.00       -200.00          NaN          0.0              -200.00 unexpected_at_broker        43.021055               NaN         NaN
+  CRCL             48.0          -128.00       -176.00          NaN          0.0              -176.00                drift        91.896055            103.86         NaN
+  AXTI              0.0          -145.00       -145.00          NaN          0.0              -145.00 unexpected_at_broker        43.767041               NaN         NaN
+  AAOI              0.0           -50.00        -50.00          NaN          0.0               -50.00 unexpected_at_broker       110.757522               NaN         NaN
+  RKLB              0.0           -48.00        -48.00          NaN          0.0               -48.00 unexpected_at_broker        60.656888               NaN         NaN
+  SHOP              0.0           -33.00        -33.00          NaN          0.0               -33.00 unexpected_at_broker       113.881927               NaN         NaN
+  TSEM              0.0            29.00         29.00          NaN          0.0                29.00 unexpected_at_broker       190.362259               NaN         NaN
+  MSTR              0.0            23.00         23.00          NaN          0.0                23.00 unexpected_at_broker       122.213478               NaN         NaN
+  AMZN             -1.0           -13.00        -12.00          NaN          0.0               -12.00                drift       202.628269               NaN      203.01
+  NVDA             -1.0           -12.00        -11.00          NaN          0.0               -11.00                drift       167.621475               NaN      167.10
+  MSFT              1.0            11.00         10.00          NaN          0.0                10.00                drift       366.220000               NaN      363.69
+  AAPL              1.0             8.35          7.35          NaN          0.0                 7.35                drift       250.948683               NaN      248.63
+   NKE              0.0             7.00          7.00          NaN          0.0                 7.00 unexpected_at_broker        44.221257               NaN         NaN
+  OKLO              0.0             4.00          4.00          NaN          0.0                 4.00 unexpected_at_broker        48.420825               NaN         NaN
+[RECON][optimal][CLEANUP_PREVIEW]
+symbol cleanup_side  cleanup_qty       cleanup_reason  broker_avg_cost  broker_position  expected_shares pending_side  pending_qty
+  HOOD          BUY       296.00 unexpected_at_broker        66.849028          -296.00              0.0          NaN          0.0
+   NEM          BUY       208.00                drift       105.013459          -208.00             49.0          NaN          0.0
+  INTC          BUY       200.00 unexpected_at_broker        43.021055          -200.00              0.0          NaN          0.0
+  AXTI          BUY       145.00 unexpected_at_broker        43.767041          -145.00              0.0          NaN          0.0
+  CRCL          BUY       128.00                drift        91.896055          -128.00             48.0          NaN          0.0
+  AAOI          BUY        50.00 unexpected_at_broker       110.757522           -50.00              0.0          NaN          0.0
+  RKLB          BUY        48.00 unexpected_at_broker        60.656888           -48.00              0.0          NaN          0.0
+  SHOP          BUY        33.00 unexpected_at_broker       113.881927           -33.00              0.0          NaN          0.0
+  TSEM         SELL        29.00 unexpected_at_broker       190.362259            29.00              0.0          NaN          0.0
+  MSTR         SELL        23.00 unexpected_at_broker       122.213478            23.00              0.0          NaN          0.0
+  AMZN          BUY        13.00                drift       202.628269           -13.00             -1.0          NaN          0.0
+  NVDA          BUY        12.00                drift       167.621475           -12.00             -1.0          NaN          0.0
+  MSFT         SELL        11.00                drift       366.220000            11.00              1.0          NaN          0.0
+  AAPL         SELL         8.35                drift       250.948683             8.35              1.0          NaN          0.0
+   NKE         SELL         7.00 unexpected_at_broker        44.221257             7.00              0.0          NaN          0.0
+  OKLO         SELL         4.00 unexpected_at_broker        48.420825             4.00              0.0          NaN          0.0
+[ARTIFACT] artifacts\execution_loop\optimal\broker_positions.csv
+[ARTIFACT] artifacts\execution_loop\optimal\broker_open_orders.csv
+[ARTIFACT] artifacts\execution_loop\optimal\broker_pending.csv
+[ARTIFACT] artifacts\execution_loop\optimal\broker_reconcile.csv
+[ARTIFACT] artifacts\execution_loop\optimal\broker_cleanup_preview.csv
+[ARTIFACT] artifacts\execution_loop\optimal\broker_reconcile_summary.json
+[RECON][aggressive] execution_dir=artifacts\execution_loop\aggressive
+[IB] positionEnd
+[IB] openOrderEnd
+[RECON][aggressive][SUMMARY] symbols_total=16 drift=16 missing_at_broker=0 unexpected_at_broker=12 pending_covers_drift=0 max_abs_drift_shares=296.00000000 cleanup_preview_rows=16
+[RECON][aggressive][TOP]
+symbol  expected_shares  broker_position  drift_shares pending_side  pending_qty  drift_after_pending           issue_kind  broker_avg_cost  state_last_price  price_hint
+  HOOD              0.0          -296.00       -296.00          NaN          0.0              -296.00 unexpected_at_broker        66.849028               NaN       66.35
+   NEM             33.0          -208.00       -241.00          NaN          0.0              -241.00                drift       105.013459            101.52      104.26
+  INTC             39.0          -200.00       -239.00          NaN          0.0              -239.00                drift        43.021055             47.18       41.77
+  CRCL             32.0          -128.00       -160.00          NaN          0.0              -160.00                drift        91.896055            103.86       91.01
+  AXTI              0.0          -145.00       -145.00          NaN          0.0              -145.00 unexpected_at_broker        43.767041               NaN         NaN
+  RKLB             46.0           -48.00        -94.00          NaN          0.0               -94.00                drift        60.656888             72.88       58.90
+  AAOI              0.0           -50.00        -50.00          NaN          0.0               -50.00 unexpected_at_broker       110.757522               NaN         NaN
+  SHOP              0.0           -33.00        -33.00          NaN          0.0               -33.00 unexpected_at_broker       113.881927               NaN      112.05
+  TSEM              0.0            29.00         29.00          NaN          0.0                29.00 unexpected_at_broker       190.362259               NaN         NaN
+  MSTR              0.0            23.00         23.00          NaN          0.0                23.00 unexpected_at_broker       122.213478               NaN         NaN
+  AMZN              0.0           -13.00        -13.00          NaN          0.0               -13.00 unexpected_at_broker       202.628269               NaN         NaN
+  NVDA              0.0           -12.00        -12.00          NaN          0.0               -12.00 unexpected_at_broker       167.621475               NaN         NaN
+  MSFT              0.0            11.00         11.00          NaN          0.0                11.00 unexpected_at_broker       366.220000               NaN         NaN
+  AAPL              0.0             8.35          8.35          NaN          0.0                 8.35 unexpected_at_broker       250.948683               NaN         NaN
+   NKE              0.0             7.00          7.00          NaN          0.0                 7.00 unexpected_at_broker        44.221257               NaN         NaN
+  OKLO              0.0             4.00          4.00          NaN          0.0                 4.00 unexpected_at_broker        48.420825               NaN         NaN
+[RECON][aggressive][CLEANUP_PREVIEW]
+symbol cleanup_side  cleanup_qty       cleanup_reason  broker_avg_cost  broker_position  expected_shares pending_side  pending_qty
+  HOOD          BUY       296.00 unexpected_at_broker        66.849028          -296.00              0.0          NaN          0.0
+   NEM          BUY       208.00                drift       105.013459          -208.00             33.0          NaN          0.0
+  INTC          BUY       200.00                drift        43.021055          -200.00             39.0          NaN          0.0
+  AXTI          BUY       145.00 unexpected_at_broker        43.767041          -145.00              0.0          NaN          0.0
+  CRCL          BUY       128.00                drift        91.896055          -128.00             32.0          NaN          0.0
+  AAOI          BUY        50.00 unexpected_at_broker       110.757522           -50.00              0.0          NaN          0.0
+  RKLB          BUY        48.00                drift        60.656888           -48.00             46.0          NaN          0.0
+  SHOP          BUY        33.00 unexpected_at_broker       113.881927           -33.00              0.0          NaN          0.0
+  TSEM         SELL        29.00 unexpected_at_broker       190.362259            29.00              0.0          NaN          0.0
+  MSTR         SELL        23.00 unexpected_at_broker       122.213478            23.00              0.0          NaN          0.0
+  AMZN          BUY        13.00 unexpected_at_broker       202.628269           -13.00              0.0          NaN          0.0
+  NVDA          BUY        12.00 unexpected_at_broker       167.621475           -12.00              0.0          NaN          0.0
+  MSFT         SELL        11.00 unexpected_at_broker       366.220000            11.00              0.0          NaN          0.0
+  AAPL         SELL         8.35 unexpected_at_broker       250.948683             8.35              0.0          NaN          0.0
+   NKE         SELL         7.00 unexpected_at_broker        44.221257             7.00              0.0          NaN          0.0
+  OKLO         SELL         4.00 unexpected_at_broker        48.420825             4.00              0.0          NaN          0.0
+[ARTIFACT] artifacts\execution_loop\aggressive\broker_positions.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\broker_open_orders.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\broker_pending.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\broker_reconcile.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\broker_cleanup_preview.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\broker_reconcile_summary.json
+[FINAL] IBKR broker reconcile complete
