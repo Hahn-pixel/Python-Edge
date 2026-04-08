@@ -9,9 +9,9 @@ import sys
 import time
 import traceback
 from datetime import datetime, timezone
-from zoneinfo import ZoneInfo
 from pathlib import Path
 from typing import Any, Dict, List, Sequence, Tuple
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 from ibapi.contract import Contract
@@ -385,7 +385,7 @@ def parse_ib_deferred_until(err: BrokerErrorInfo | None) -> datetime | None:
     return naive.replace(tzinfo=tzinfo)
 
 
-def wait_until_session_open_or_state_change(app: IBKRApp, ib_order_id: int, ib_entry: dict, err: BrokerErrorInfo | None) -> dict:
+def wait_until_session_open_or_state_change(app: IBKRApp, prepared: PreparedOrder, ib_order_id: int, ib_entry: dict, err: BrokerErrorInfo | None) -> dict:
     deferred_dt = parse_ib_deferred_until(err)
     if deferred_dt is None:
         return ib_entry
@@ -395,38 +395,28 @@ def wait_until_session_open_or_state_change(app: IBKRApp, ib_order_id: int, ib_e
         return latest_ib_entry(app, ib_order_id, ib_entry)
 
     heartbeat = max(1.0, float(IB_DEFERRED_WAIT_HEARTBEAT_SEC))
-
     while True:
         latest = latest_ib_entry(app, ib_order_id, ib_entry)
         status = normalize_status(str(latest.get("status", "")))
         filled_qty = to_float(latest.get("filled_qty", 0.0))
         remaining_qty = to_float(latest.get("remaining_qty", max(0.0, prepared.qty - filled_qty)))
         outcome = classify_outcome(status, filled_qty, remaining_qty)
-
         if outcome in {"filled_now", "partial", "failed", "cancelled_after_ttl"}:
             return latest
-
         now_utc = datetime.now(timezone.utc)
         deferred_utc = deferred_dt.astimezone(timezone.utc)
         remaining_sec = (deferred_utc - now_utc).total_seconds()
-
         if remaining_sec <= 0:
             break
-
         sleep_sec = min(heartbeat, max(0.5, remaining_sec))
-
         print(
-            f"[BROKER][DEFERRED_WAIT] ib_order_id={ib_order_id} "
-            f"status={status} deferred_until={deferred_dt.isoformat()} "
-            f"remaining_sec={remaining_sec:.1f}"
+            f"[BROKER][DEFERRED_WAIT] ib_order_id={ib_order_id} status={status} deferred_until={deferred_dt.isoformat()} remaining_sec={remaining_sec:.1f}"
         )
-
         time.sleep(sleep_sec)
         ib_entry = latest
 
     end_time = time.time() + max(1.0, float(IB_DEFERRED_POST_OPEN_WAIT_SEC))
     latest = ib_entry
-
     while time.time() < end_time:
         time.sleep(max(0.25, IB_REPRICE_CANCEL_POLL_SLEEP_SEC))
         latest = latest_ib_entry(app, ib_order_id, latest)
@@ -434,15 +424,11 @@ def wait_until_session_open_or_state_change(app: IBKRApp, ib_order_id: int, ib_e
         filled_qty = to_float(latest.get("filled_qty", 0.0))
         remaining_qty = to_float(latest.get("remaining_qty", max(0.0, prepared.qty - filled_qty)))
         outcome = classify_outcome(status, filled_qty, remaining_qty)
-
         print(
-            f"[BROKER][DEFERRED_POST_OPEN] ib_order_id={ib_order_id} "
-            f"status={status} filled_qty={filled_qty:.8f} remaining_qty={remaining_qty:.8f} outcome={outcome}"
+            f"[BROKER][DEFERRED_POST_OPEN] ib_order_id={ib_order_id} status={status} filled_qty={filled_qty:.8f} remaining_qty={remaining_qty:.8f} outcome={outcome}"
         )
-
         if outcome in {"filled_now", "partial", "failed", "cancelled_after_ttl"}:
             return latest
-
     return latest
 
 
@@ -466,10 +452,6 @@ def contract_for_symbol(symbol: str) -> Contract:
     if IB_PRIMARY_EXCHANGE:
         contract.primaryExchange = IB_PRIMARY_EXCHANGE
     return contract
-
-
-def poll_order_until_done(app: IBKRApp, ib_order_id: int, timeout_sec: float) -> dict:
-    return app.wait_for_order_terminalish(ib_order_id, timeout_sec=timeout_sec)
 
 
 def ib_cancel_order(app: IBKRApp, ib_order_id: int) -> None:
@@ -500,7 +482,7 @@ def cancel_and_poll_order(app: IBKRApp, ib_order_id: int, ib_entry: dict, cancel
     return {**final_entry, "cancel_reason": cancel_reason}
 
 
-def wait_for_fill_progress(app: IBKRApp, ib_order_id: int, initial_entry: dict) -> dict:
+def wait_for_fill_progress(app: IBKRApp, prepared: PreparedOrder, ib_order_id: int, initial_entry: dict) -> dict:
     total_attempts = max(1, int(math.ceil(IB_REPRICE_WAIT_SEC / max(0.25, IB_REPRICE_CANCEL_POLL_SLEEP_SEC))))
     last_signature = None
     entry = initial_entry
@@ -530,8 +512,7 @@ def wait_for_fill_progress(app: IBKRApp, ib_order_id: int, initial_entry: dict) 
         )
         if should_print:
             print(
-                f"[BROKER][POLL] ib_order_id={ib_order_id} step={poll_idx + 1}/{total_attempts} status={status} "
-                f"filled_qty={filled_qty:.8f} remaining_qty={remaining_qty:.8f} avg_fill_price={to_float(entry.get('avg_fill_price', 0.0)):.4f} outcome={outcome}"
+                f"[BROKER][POLL] ib_order_id={ib_order_id} step={poll_idx + 1}/{total_attempts} status={status} filled_qty={filled_qty:.8f} remaining_qty={remaining_qty:.8f} avg_fill_price={to_float(entry.get('avg_fill_price', 0.0)):.4f} outcome={outcome}"
             )
         last_signature = signature
         if outcome in {"filled_now", "partial", "failed"}:
@@ -702,27 +683,6 @@ def refresh_open_orders(app: IBKRApp) -> None:
     app.done_open_orders = False
     app.reqOpenOrders()
     app.wait_until_open_orders_end(timeout_sec=IB_OPEN_ORDERS_TIMEOUT_SEC)
-
-
-def order_debug_payload(contract: Contract, order: Order) -> Dict[str, Any]:
-    return {
-        "symbol": str(getattr(contract, "symbol", "") or ""),
-        "secType": str(getattr(contract, "secType", "") or ""),
-        "exchange": str(getattr(contract, "exchange", "") or ""),
-        "primaryExchange": str(getattr(contract, "primaryExchange", "") or ""),
-        "currency": str(getattr(contract, "currency", "") or ""),
-        "orderType": str(getattr(order, "orderType", "") or ""),
-        "action": str(getattr(order, "action", "") or ""),
-        "totalQuantity": float(to_float(getattr(order, "totalQuantity", 0.0))),
-        "lmtPrice": float(to_float(getattr(order, "lmtPrice", 0.0))),
-        "tif": str(getattr(order, "tif", "") or ""),
-        "outsideRth": int(bool(getattr(order, "outsideRth", False))),
-        "account": str(getattr(order, "account", "") or ""),
-        "orderRef": str(getattr(order, "orderRef", "") or ""),
-        "eTradeOnly": int(bool(getattr(order, "eTradeOnly", False))),
-        "firmQuoteOnly": int(bool(getattr(order, "firmQuoteOnly", False))),
-        "transmit": int(bool(getattr(order, "transmit", False))),
-    }
 
 
 def latest_ib_entry(app: IBKRApp, ib_order_id: int, default_entry: dict) -> dict:
@@ -958,8 +918,7 @@ def run_ladder_order(app: IBKRApp, prepared: PreparedOrder, contract: Contract, 
         }
         request_debug["submitted_order"] = order_payload
         print(
-            f"[BROKER][LADDER][SUBMIT] symbol={prepared.symbol} step={step_idx + 1}/{len(prices)} mode={step_mode} "
-            f"limit_price={limit_price:.4f} cap_price={cap_price:.4f} order={json.dumps(order_payload, ensure_ascii=False, sort_keys=True)}"
+            f"[BROKER][LADDER][SUBMIT] symbol={prepared.symbol} step={step_idx + 1}/{len(prices)} mode={step_mode} limit_price={limit_price:.4f} cap_price={cap_price:.4f} order={json.dumps(order_payload, ensure_ascii=False, sort_keys=True)}"
         )
         app.placeOrder(ib_order_id, contract, order)
         ib_entry = app.wait_for_order_terminalish(ib_order_id, timeout_sec=IB_TIMEOUT_SEC)
@@ -975,7 +934,7 @@ def run_ladder_order(app: IBKRApp, prepared: PreparedOrder, contract: Contract, 
                 "deferred_until": deferred_until,
                 "ib_399_message": str(deferred_399.error_string),
             })
-            final_entry = wait_until_session_open_or_state_change(app, ib_order_id, ib_entry, deferred_399)
+            final_entry = wait_until_session_open_or_state_change(app, prepared, ib_order_id, ib_entry, deferred_399)
             final_status = normalize_status(str(final_entry.get("status", "")))
             final_filled_qty = to_float(final_entry.get("filled_qty", 0.0))
             final_remaining_qty = to_float(final_entry.get("remaining_qty", max(0.0, prepared.qty - final_filled_qty)))
@@ -989,7 +948,7 @@ def run_ladder_order(app: IBKRApp, prepared: PreparedOrder, contract: Contract, 
                 message=f"IB deferred order until {deferred_until}; leaving live at broker" if deferred_until else "IB deferred order until later session; leaving live at broker",
             )
             return final_entry, issue, reprices_used, request_debug
-        ib_entry = wait_for_fill_progress(app, ib_order_id, ib_entry)
+        ib_entry = wait_for_fill_progress(app, prepared, ib_order_id, ib_entry)
         filled_qty = to_float(ib_entry.get("filled_qty", 0.0))
         remaining_qty = to_float(ib_entry.get("remaining_qty", max(0.0, prepared.qty - filled_qty)))
         outcome = classify_outcome(ib_entry.get("status", ""), filled_qty, remaining_qty)
@@ -1082,11 +1041,7 @@ def run_one_config(app: IBKRApp, paths: ConfigPaths, symbol_map: Dict[str, str],
                 outcome = str(final_entry.get("outcome", "unknown"))
                 outcome_counters[outcome] = int(outcome_counters.get(outcome, 0)) + 1
                 print(
-                    f"[BROKER][{paths.name}][SEND] symbol={prepared.symbol} broker_symbol={prepared.broker_symbol} side={prepared.order_side} "
-                    f"qty={prepared.qty:.8f} status={final_entry['status']} outcome={outcome} ib_order_id={final_entry['broker_order_id']} reprices_used={reprices_used} "
-                    f"contract_details_mode={contract_meta_debug.get('contract_details_mode', '')} price_hint={final_entry['price_hint']:.4f} "
-                    f"price_hint_source={final_entry.get('price_hint_source', '')} quote_ts={final_entry.get('quote_ts', '')} "
-                    f"model_ref={final_entry.get('model_price_reference', 0.0):.4f} dev_pct={final_entry.get('price_deviation_vs_model', 0.0):.2f}"
+                    f"[BROKER][{paths.name}][SEND] symbol={prepared.symbol} broker_symbol={prepared.broker_symbol} side={prepared.order_side} qty={prepared.qty:.8f} status={final_entry['status']} outcome={outcome} ib_order_id={final_entry['broker_order_id']} reprices_used={reprices_used} contract_details_mode={contract_meta_debug.get('contract_details_mode', '')} price_hint={final_entry['price_hint']:.4f} price_hint_source={final_entry.get('price_hint_source', '')} quote_ts={final_entry.get('quote_ts', '')} model_ref={final_entry.get('model_price_reference', 0.0):.4f} dev_pct={final_entry.get('price_deviation_vs_model', 0.0):.2f}"
                 )
                 continue
             if issue is None:

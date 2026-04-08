@@ -1,0 +1,69 @@
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_broker_cleanup_send_ibkr.py
+[CFG] execution_root=artifacts\execution_loop
+[CFG] configs=['optimal']
+[CFG] cleanup_send_preview_only=0
+[CFG] cleanup_send_only_symbols=['AAOI', 'AXTI', 'TSEM']
+[CFG] cleanup_send_exclude_symbols=[]
+[CFG] cleanup_send_max_rows=3 cleanup_send_require_empty_pending_refs=1 cleanup_send_require_side=BUY|SELL
+[CLEANUP_SEND][optimal][SUMMARY] cleanup_rows=15 emitted_rows=3 preview_only=0 blocked_pending_refs_present=0 blocked_not_in_only_symbols=12 blocked_excluded_symbol=0 blocked_side_not_allowed=0 blocked_max_rows=0
+[CLEANUP_SEND][optimal][PLAN_TOP]
+date symbol order_side  delta_shares      price      price_source       price_hint_source             quote_ts  quote_provider quote_timeframe  model_price_reference  bid  ask  mid  last  close_price  spread_bps  price_deviation_vs_model fallback_reason  is_priced  target_weight  target_notional  target_shares_raw  current_shares  target_shares  raw_delta_shares  order_notional  order_notional_abs  estimated_commission  estimated_slippage  estimated_total_cost skip_reason cleanup_reason         cleanup_tag pending_order_refs
+       AXTI        BUY         145.0  43.767041 cleanup_send_plan cleanup_broker_avg_cost 2026-04-08T19:10:24Z cleanup_preview             N/A              43.767041  0.0  0.0  0.0   0.0          0.0         0.0                       0.0           drift          1            0.0              0.0                0.0          -145.0          -65.0             145.0             0.0                 0.0                   0.0                 0.0                   0.0                      drift broker_cleanup_send
+       AAOI        BUY          50.0 110.757522 cleanup_send_plan cleanup_broker_avg_cost 2026-04-08T19:10:24Z cleanup_preview             N/A             110.757522  0.0  0.0  0.0   0.0          0.0         0.0                       0.0           drift          1            0.0              0.0                0.0           -50.0          -24.0              50.0             0.0                 0.0                   0.0                 0.0                   0.0                      drift broker_cleanup_send
+       TSEM       SELL          29.0 190.362259 cleanup_send_plan cleanup_broker_avg_cost 2026-04-08T19:10:24Z cleanup_preview             N/A             190.362259  0.0  0.0  0.0   0.0          0.0         0.0                       0.0           drift          1            0.0              0.0                0.0            29.0          -15.0             -29.0             0.0                 0.0                   0.0                 0.0                   0.0                      drift broker_cleanup_send
+[ARTIFACT] artifacts\execution_loop\optimal\broker_cleanup_send_plan.csv
+[ARTIFACT] artifacts\execution_loop\optimal\broker_cleanup_send_summary.json
+[CLEANUP_SEND][RUN] C:\Users\Dmytro Govor\AppData\Local\Programs\Python\Python313\python.exe C:\Users\Dmytro Govor\Documents\Python-Edge\scripts\run_broker_adapter_ibkr.py config=optimal
+[CFG] execution_root=artifacts\execution_loop
+[CFG] configs=['optimal']
+[CFG] broker_name=MEXEM broker_platform=IBKR broker_account_id=
+[CFG] ib_host=127.0.0.1 ib_port=4002 ib_client_id=41 ib_account_code=
+[CFG] exchange=SMART primary_exchange= currency=USD sec_type=STK
+[CFG] outside_rth=1 reprice_enabled=1 reprice_wait_sec=8.0
+[CFG] reprice_steps_bps=[15.0, 10.0, 5.0, 0.0] reprice_final_mode=marketable_lmt reprice_final_marketable_bps=12.0 reprice_max_deviation_pct=1.25
+[CFG] deferred_wait_mode=carry deferred_wait_heartbeat_sec=30.0 deferred_post_open_wait_sec=30.0
+[CFG] require_price_hint_source=1 require_quote_ts=1 enforce_open_order_dup_guard=1
+[IB] connecting host=127.0.0.1 port=4002 client_id=41
+[IB] openOrderEnd
+[IB] managedAccounts=DUP561175
+[IB] nextValidId=160
+[IB] connected next_valid_id=160 managed_accounts=DUP561175
+[IB][ERROR] reqId=-1 code=2104 msg=Market data farm connection is OK:usfarm
+[IB][ERROR] reqId=-1 code=2107 msg=HMDS data farm connection is inactive but should be available upon demand.ushmds
+[IB][ERROR] reqId=-1 code=2158 msg=Sec-def data farm connection is OK:secdefil
+[IB] openOrderEnd
+[BROKER][optimal] orders=artifacts\execution_loop\optimal\orders.csv
+[IB] openOrderEnd
+[BROKER][optimal][SEND] symbol=AXTI broker_symbol=AXTI side=BUY qty=145.00000000 status=submitted outcome=working ib_order_id=157 reprices_used=0 contract_details_mode=resolved price_hint=43.7670 price_hint_source=cleanup_broker_avg_cost quote_ts=2026-04-08T19:10:24Z model_ref=43.7670 dev_pct=0.00
+[IB] openOrderEnd
+[BROKER][optimal][SEND] symbol=AAOI broker_symbol=AAOI side=BUY qty=50.00000000 status=submitted outcome=working ib_order_id=158 reprices_used=0 contract_details_mode=resolved price_hint=110.7575 price_hint_source=cleanup_broker_avg_cost quote_ts=2026-04-08T19:10:24Z model_ref=110.7575 dev_pct=0.00
+[IB] openOrderEnd
+[BROKER][LADDER][SUBMIT] symbol=TSEM step=1/4 mode=passive_lmt limit_price=190.0800 cap_price=187.9900 order={"account": "", "exchange": "SMART", "lmtPrice": 190.08, "orderRef": "pe-8696fb1a45badc6fe50b25e3", "orderType": "LMT", "outsideRth": 1, "primaryExchange": "", "tif": "DAY", "totalQuantity": 29.0}
+[IB][ERROR] reqId=160 code=202 msg=Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 196.100024. Please submit your order <br>using a limit price that is closer to the current market price of 202.04.
+[BROKER][POLL] ib_order_id=160 step=1/8 status=cancelled filled_qty=0.00000000 remaining_qty=29.00000000 avg_fill_price=0.0000 outcome=cancelled_after_ttl
+[BROKER][POLL] ib_order_id=160 step=5/8 status=cancelled filled_qty=0.00000000 remaining_qty=29.00000000 avg_fill_price=0.0000 outcome=cancelled_after_ttl
+[BROKER][POLL] ib_order_id=160 step=8/8 status=cancelled filled_qty=0.00000000 remaining_qty=29.00000000 avg_fill_price=0.0000 outcome=cancelled_after_ttl
+[BROKER][LADDER][202_OVERRIDE] symbol=TSEM step=1 next_limit_price=190.0700 (broker guided)
+[BROKER][LADDER][SUBMIT] symbol=TSEM step=2/2 mode=marketable_lmt limit_price=190.1800 cap_price=187.9900 order={"account": "", "exchange": "SMART", "lmtPrice": 190.18, "orderRef": "pe-8696fb1a45badc6fe50b25e3", "orderType": "LMT", "outsideRth": 1, "primaryExchange": "", "tif": "DAY", "totalQuantity": 29.0}
+[IB][ERROR] reqId=161 code=202 msg=Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 196.100024. Please submit your order <br>using a limit price that is closer to the current market price of 202.04.
+[BROKER][POLL] ib_order_id=161 step=1/8 status=cancelled filled_qty=0.00000000 remaining_qty=29.00000000 avg_fill_price=0.0000 outcome=cancelled_after_ttl
+[BROKER][POLL] ib_order_id=161 step=5/8 status=cancelled filled_qty=0.00000000 remaining_qty=29.00000000 avg_fill_price=0.0000 outcome=cancelled_after_ttl
+[BROKER][POLL] ib_order_id=161 step=8/8 status=cancelled filled_qty=0.00000000 remaining_qty=29.00000000 avg_fill_price=0.0000 outcome=cancelled_after_ttl
+[BROKER][LADDER][202_OVERRIDE] symbol=TSEM step=2 next_limit_price=190.1700 (broker guided)
+[BROKER][LADDER][SUBMIT] symbol=TSEM step=3/3 mode=marketable_lmt limit_price=190.2700 cap_price=187.9900 order={"account": "", "exchange": "SMART", "lmtPrice": 190.27, "orderRef": "pe-8696fb1a45badc6fe50b25e3", "orderType": "LMT", "outsideRth": 1, "primaryExchange": "", "tif": "DAY", "totalQuantity": 29.0}
+[IB][ERROR] reqId=162 code=202 msg=Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 196.100024. Please submit your order <br>using a limit price that is closer to the current market price of 202.04.
+[BROKER][POLL] ib_order_id=162 step=1/8 status=cancelled filled_qty=0.00000000 remaining_qty=29.00000000 avg_fill_price=0.0000 outcome=cancelled_after_ttl
+[BROKER][POLL] ib_order_id=162 step=5/8 status=cancelled filled_qty=0.00000000 remaining_qty=29.00000000 avg_fill_price=0.0000 outcome=cancelled_after_ttl
+[BROKER][POLL] ib_order_id=162 step=8/8 status=cancelled filled_qty=0.00000000 remaining_qty=29.00000000 avg_fill_price=0.0000 outcome=cancelled_after_ttl
+[BROKER][LADDER][202_OVERRIDE] symbol=TSEM step=3 next_limit_price=190.2600 (broker guided)
+[BROKER][LADDER][SUBMIT] symbol=TSEM step=4/4 mode=marketable_lmt limit_price=190.3700 cap_price=187.9900 order={"account": "", "exchange": "SMART", "lmtPrice": 190.37, "orderRef": "pe-8696fb1a45badc6fe50b25e3", "orderType": "LMT", "outsideRth": 1, "primaryExchange": "", "tif": "DAY", "totalQuantity": 29.0}
+[IB][ERROR] reqId=163 code=202 msg=Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 196.100024. Please submit your order <br>using a limit price that is closer to the current market price of 202.04.
+[BROKER][POLL] ib_order_id=163 step=1/8 status=cancelled filled_qty=0.00000000 remaining_qty=29.00000000 avg_fill_price=0.0000 outcome=cancelled_after_ttl
+[BROKER][POLL] ib_order_id=163 step=5/8 status=cancelled filled_qty=0.00000000 remaining_qty=29.00000000 avg_fill_price=0.0000 outcome=cancelled_after_ttl
+[BROKER][POLL] ib_order_id=163 step=8/8 status=cancelled filled_qty=0.00000000 remaining_qty=29.00000000 avg_fill_price=0.0000 outcome=cancelled_after_ttl
+[BROKER][LADDER][202_OVERRIDE] symbol=TSEM step=4 next_limit_price=190.3600 (broker guided)
+[BROKER][optimal][ERROR] symbol=TSEM side=SELL status=cancelled_unfilled_cap message=Order ladder exhausted without fill
+[BROKER][optimal][SUMMARY] sent=2 duplicate_skipped=0 errors=1 fills_csv=artifacts\execution_loop\optimal\fills.csv broker_log_json=artifacts\execution_loop\optimal\broker_log.json outcomes={"cancelled_after_ttl": 0, "cancelled_unfilled_cap": 1, "deferred_session_closed": 0, "failed": 0, "filled_now": 0, "partial": 0, "unknown": 0, "working": 2, "working_carry": 0}
+[FINAL] IBKR broker adapter complete
+[CLEANUP_SEND][optimal] original orders.csv restored from backup
+[FINAL] broker cleanup send complete
