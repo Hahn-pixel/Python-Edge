@@ -7,6 +7,7 @@ import subprocess
 import sys
 import traceback
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List
 
@@ -92,6 +93,10 @@ def _must_exist(path: Path, label: str) -> None:
 
 def _norm_symbol(value: object) -> str:
     return str(value or "").strip().upper()
+
+
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def _cfg_paths(config_name: str) -> ConfigPaths:
@@ -181,15 +186,31 @@ def _build_send_plan(paths: ConfigPaths, cleanup_df: pd.DataFrame) -> tuple[pd.D
         side = str(row["order_side"] or "").strip().upper()
         qty = abs(float(pd.to_numeric(pd.Series([row["delta_shares"]]), errors="coerce").iloc[0]))
         cleanup_reason = str(row.get("cleanup_reason", "") or "")
+        broker_avg_cost = float(pd.to_numeric(pd.Series([row.get("broker_avg_cost", 0.0)]), errors="coerce").fillna(0.0).iloc[0])
+        quote_ts = _utc_now_iso()
+        price_hint_source = "cleanup_broker_avg_cost" if broker_avg_cost > 0.0 else "cleanup_no_price"
         rows.append(
             {
                 "date": "",
                 "symbol": symbol,
                 "order_side": side,
                 "delta_shares": qty,
-                "price": pd.NA,
+                "price": broker_avg_cost if broker_avg_cost > 0.0 else pd.NA,
                 "price_source": "cleanup_send_plan",
-                "is_priced": 0,
+                "price_hint_source": price_hint_source,
+                "quote_ts": quote_ts,
+                "quote_provider": "cleanup_preview",
+                "quote_timeframe": "N/A",
+                "model_price_reference": broker_avg_cost if broker_avg_cost > 0.0 else 0.0,
+                "bid": 0.0,
+                "ask": 0.0,
+                "mid": 0.0,
+                "last": 0.0,
+                "close_price": 0.0,
+                "spread_bps": 0.0,
+                "price_deviation_vs_model": 0.0,
+                "fallback_reason": cleanup_reason,
+                "is_priced": 1 if broker_avg_cost > 0.0 else 0,
                 "target_weight": 0.0,
                 "target_notional": 0.0,
                 "target_shares_raw": 0.0,
