@@ -84,6 +84,7 @@ IB_DEFERRED_POST_OPEN_WAIT_SEC = float(os.getenv("IB_DEFERRED_POST_OPEN_WAIT_SEC
 IB_DEFERRED_WAIT_MODE = str(os.getenv("IB_DEFERRED_WAIT_MODE", "carry")).strip().lower() or "carry"
 REQUIRE_PRICE_HINT_SOURCE = str(os.getenv("REQUIRE_PRICE_HINT_SOURCE", "1")).strip().lower() not in {"0", "false", "no", "off"}
 REQUIRE_QUOTE_TS = str(os.getenv("REQUIRE_QUOTE_TS", "1")).strip().lower() not in {"0", "false", "no", "off"}
+ENFORCE_OPEN_ORDER_DUP_GUARD = str(os.getenv("ENFORCE_OPEN_ORDER_DUP_GUARD", "1")).strip().lower() not in {"0", "false", "no", "off"}
 REQUIRED_ORDER_COLUMNS = ["symbol", "order_side", "delta_shares"]
 RE_202_AGGR = re.compile(r"at or more aggressive than\s+([0-9]+(?:\.[0-9]+)?)", re.IGNORECASE)
 RE_202_MARKET = re.compile(r"current market price of\s+([0-9]+(?:\.[0-9]+)?)", re.IGNORECASE)
@@ -389,7 +390,6 @@ def wait_until_session_open_or_state_change(app: IBKRApp, ib_order_id: int, ib_e
     if deferred_dt is None:
         return ib_entry
 
-    # carry mode: do not block the process, just leave order live
     if IB_DEFERRED_WAIT_MODE != "block":
         print(f"[BROKER][DEFERRED_CARRY] ib_order_id={ib_order_id} deferred_until={deferred_dt.isoformat()} mode={IB_DEFERRED_WAIT_MODE}")
         return latest_ib_entry(app, ib_order_id, ib_entry)
@@ -398,10 +398,9 @@ def wait_until_session_open_or_state_change(app: IBKRApp, ib_order_id: int, ib_e
 
     while True:
         latest = latest_ib_entry(app, ib_order_id, ib_entry)
-
         status = normalize_status(str(latest.get("status", "")))
         filled_qty = to_float(latest.get("filled_qty", 0.0))
-        remaining_qty = to_float(latest.get("remaining_qty", 0.0))
+        remaining_qty = to_float(latest.get("remaining_qty", max(0.0, prepared.qty - filled_qty)))
         outcome = classify_outcome(status, filled_qty, remaining_qty)
 
         if outcome in {"filled_now", "partial", "failed", "cancelled_after_ttl"}:
@@ -425,24 +424,20 @@ def wait_until_session_open_or_state_change(app: IBKRApp, ib_order_id: int, ib_e
         time.sleep(sleep_sec)
         ib_entry = latest
 
-    # short post-open polling
     end_time = time.time() + max(1.0, float(IB_DEFERRED_POST_OPEN_WAIT_SEC))
     latest = ib_entry
 
     while time.time() < end_time:
         time.sleep(max(0.25, IB_REPRICE_CANCEL_POLL_SLEEP_SEC))
-
         latest = latest_ib_entry(app, ib_order_id, latest)
-
         status = normalize_status(str(latest.get("status", "")))
         filled_qty = to_float(latest.get("filled_qty", 0.0))
-        remaining_qty = to_float(latest.get("remaining_qty", 0.0))
+        remaining_qty = to_float(latest.get("remaining_qty", max(0.0, prepared.qty - filled_qty)))
         outcome = classify_outcome(status, filled_qty, remaining_qty)
 
         print(
             f"[BROKER][DEFERRED_POST_OPEN] ib_order_id={ib_order_id} "
-            f"status={status} filled_qty={filled_qty:.8f} "
-            f"remaining_qty={remaining_qty:.8f} outcome={outcome}"
+            f"status={status} filled_qty={filled_qty:.8f} remaining_qty={remaining_qty:.8f} outcome={outcome}"
         )
 
         if outcome in {"filled_now", "partial", "failed", "cancelled_after_ttl"}:
@@ -515,7 +510,7 @@ def wait_for_fill_progress(app: IBKRApp, ib_order_id: int, initial_entry: dict) 
         time.sleep(max(0.25, IB_REPRICE_CANCEL_POLL_SLEEP_SEC))
         entry = latest_ib_entry(app, ib_order_id, entry)
         filled_qty = to_float(entry.get("filled_qty", 0.0))
-        remaining_qty = to_float(entry.get("remaining_qty", 0.0))
+        remaining_qty = to_float(entry.get("remaining_qty", max(0.0, prepared.qty - filled_qty)))
         status = normalize_status(str(entry.get("status", "")))
         outcome = classify_outcome(status, filled_qty, remaining_qty)
         signature = (status, round(filled_qty, 8), round(remaining_qty, 8), round(to_float(entry.get("avg_fill_price", 0.0)), 8))
@@ -575,7 +570,6 @@ def resolve_contract_metadata(app: IBKRApp, prepared: PreparedOrder, req_id_seed
                     "contract_primary_exchange": str(best.get("primaryExchange", "")),
                     "contract_currency": str(best.get("currency", "")),
                     "contract_min_tick": float(min_tick),
-                        "contract_raw_min_tick": float(raw_min_tick),
                     "contract_raw_min_tick": float(raw_min_tick),
                     "contract_local_symbol": str(best.get("localSymbol", "")),
                 })
@@ -885,6 +879,31 @@ def build_error_entry(prepared: PreparedOrder, paths: ConfigPaths, issue: OrderI
     }
 
 
+def find_matching_open_order(app: IBKRApp, prepared: PreparedOrder) -> dict | None:
+    if not ENFORCE_OPEN_ORDER_DUP_GUARD:
+        return None
+    refresh_open_orders(app)
+    expected_symbol = normalize_symbol(prepared.broker_symbol)
+    expected_side = normalize_order_side(prepared.order_side)
+    expected_qty = float(prepared.qty)
+    expected_ref = str(prepared.client_tag)
+    for entry in list(app.orders_by_ib_id.values()):
+        if not isinstance(entry, dict):
+            continue
+        status = normalize_status(str(entry.get("status", "")))
+        if status not in {"presubmitted", "submitted", "pendingsubmit", "pendingcancel", "api_pending"}:
+            continue
+        order_ref = str(entry.get("orderRef", entry.get("order_ref", "")) or "")
+        symbol = normalize_symbol(str(entry.get("symbol", entry.get("local_symbol", "")) or ""))
+        side = normalize_order_side(str(entry.get("side", entry.get("action", prepared.order_side)) or prepared.order_side))
+        qty = abs(to_float(entry.get("qty", entry.get("total_quantity", prepared.qty))))
+        same_ref = bool(order_ref and order_ref == expected_ref)
+        same_shape = symbol == expected_symbol and side == expected_side and abs(qty - expected_qty) <= 1e-8
+        if same_ref or same_shape:
+            return entry
+    return None
+
+
 def run_ladder_order(app: IBKRApp, prepared: PreparedOrder, contract: Contract, contract_meta_debug: Dict[str, Any]) -> Tuple[dict | None, OrderIssue | None, int, Dict[str, Any]]:
     anchor_price = max(float(IB_LMT_PRICE_MIN_ABS), float(prepared.price))
     tick = max(float(prepared.min_tick), float(IB_LMT_PRICE_MIN_ABS))
@@ -906,7 +925,18 @@ def run_ladder_order(app: IBKRApp, prepared: PreparedOrder, contract: Contract, 
         "reprice_final_marketable_bps": float(IB_REPRICE_FINAL_MARKETABLE_BPS),
         "reprice_max_deviation_pct": float(IB_REPRICE_MAX_DEVIATION_PCT),
         "cap_price": float(cap_price),
+        "open_order_dup_guard": int(ENFORCE_OPEN_ORDER_DUP_GUARD),
     }
+    existing_open = find_matching_open_order(app, prepared)
+    if existing_open is not None:
+        request_debug.update({
+            "open_order_dup_guard_triggered": 1,
+            "existing_ib_order_id": existing_open.get("ib_order_id", ""),
+            "existing_status": str(existing_open.get("status", "")),
+        })
+        issue = OrderIssue(kind="duplicate_open_order", status="working", broker_error=None, message="Matching live broker order already exists; submit skipped")
+        return existing_open, issue, 0, request_debug
+    request_debug["open_order_dup_guard_triggered"] = 0
     reprices_used = 0
     last_entry: dict | None = None
     for step_idx, limit_price in enumerate(prices):
@@ -980,16 +1010,9 @@ def run_ladder_order(app: IBKRApp, prepared: PreparedOrder, contract: Contract, 
             return ib_entry, None, reprices_used, request_debug
         if retryable_202 is not None:
             clipped = clip_limit_from_202(prepared, limit_price, retryable_202)
-
             if clipped is not None and abs(clipped - limit_price) > 1e-9:
-                print(
-                    f"[BROKER][LADDER][202_OVERRIDE] symbol={prepared.symbol} "
-                    f"step={step_idx + 1} next_limit_price={clipped:.4f} "
-                    f"(broker guided)"
-                )
-
+                print(f"[BROKER][LADDER][202_OVERRIDE] symbol={prepared.symbol} step={step_idx + 1} next_limit_price={clipped:.4f} (broker guided)")
                 prices = prices[: step_idx + 1] + [clipped]
-
                 reprices_used += 1
                 continue
         if not is_last_step:
@@ -1048,8 +1071,8 @@ def run_one_config(app: IBKRApp, paths: ConfigPaths, symbol_map: Dict[str, str],
             prepared, contract, req_cursor, contract_meta_debug = resolve_contract_metadata(app, prepared0, req_cursor)
             request_debug: Dict[str, Any] = {}
             ib_entry, issue, reprices_used, request_debug = run_ladder_order(app, prepared, contract, contract_meta_debug)
-            if ib_entry is not None and (issue is None or issue.status == "working_carry"):
-                outcome_override = "working_carry" if issue is not None and issue.status == "working_carry" else ""
+            if ib_entry is not None and (issue is None or issue.status in {"working_carry", "working"}):
+                outcome_override = issue.status if issue is not None and issue.status in {"working_carry", "working"} else ""
                 final_entry = entry_from_ib(prepared, ib_entry, paths.orders_csv, request_debug, outcome_override)
                 if issue is not None:
                     final_entry["response"]["deferred_message"] = issue.message
@@ -1101,7 +1124,7 @@ def main() -> int:
     print(f"[CFG] outside_rth={int(IB_OUTSIDE_RTH)} reprice_enabled={int(IB_REPRICE_ENABLED)} reprice_wait_sec={IB_REPRICE_WAIT_SEC}")
     print(f"[CFG] reprice_steps_bps={IB_REPRICE_STEPS_BPS} reprice_final_mode={IB_REPRICE_FINAL_MODE} reprice_final_marketable_bps={IB_REPRICE_FINAL_MARKETABLE_BPS} reprice_max_deviation_pct={IB_REPRICE_MAX_DEVIATION_PCT}")
     print(f"[CFG] deferred_wait_mode={IB_DEFERRED_WAIT_MODE} deferred_wait_heartbeat_sec={IB_DEFERRED_WAIT_HEARTBEAT_SEC} deferred_post_open_wait_sec={IB_DEFERRED_POST_OPEN_WAIT_SEC}")
-    print(f"[CFG] require_price_hint_source={int(REQUIRE_PRICE_HINT_SOURCE)} require_quote_ts={int(REQUIRE_QUOTE_TS)}")
+    print(f"[CFG] require_price_hint_source={int(REQUIRE_PRICE_HINT_SOURCE)} require_quote_ts={int(REQUIRE_QUOTE_TS)} enforce_open_order_dup_guard={int(ENFORCE_OPEN_ORDER_DUP_GUARD)}")
     symbol_map = load_symbol_map()
     app = bootstrap_connection()
     try:
