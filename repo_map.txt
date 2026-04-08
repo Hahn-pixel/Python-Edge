@@ -4,11 +4,11 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/.gitattributes
 .gitignore
 https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/.gitignore
 
-console163.log
-https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console163.log
+console191.log
+https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console191.log
 
-console164.log
-https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console164.log
+console192.log
+https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console192.log
 
 deps_edges.txt
 https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/deps_edges.txt
@@ -27,6 +27,12 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/repo_map.txt
 
   scripts/run_broker_adapter_ibkr.py
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_broker_adapter_ibkr.py
+
+  scripts/run_broker_cleanup_emit.py
+  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_broker_cleanup_emit.py
+
+  scripts/run_broker_cleanup_send_ibkr.py
+  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_broker_cleanup_send_ibkr.py
 
   scripts/run_broker_handoff.py
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_broker_handoff.py
