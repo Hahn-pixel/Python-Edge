@@ -1,20 +1,56 @@
+# ========================
+# Python
+# ========================
 __pycache__/
 *.pyc
+
+# ========================
+# Virtual environments
+# ========================
 .venv/
 .env
+
+# ========================
+# Project data / artifacts
+# ========================
 data/
-artifacts/
-!artifacts/execution_loop/*
-outputs/logs/
-outputs/reports/
-*.zip
 models/
 cache/
-*.jsonl
-*.csv
+
+# ignore all artifacts
+artifacts/*
+
+# allow execution_loop
+!artifacts/execution_loop/
+!artifacts/execution_loop/**
+
+# ========================
+# Outputs
+# ========================
+outputs/logs/
+outputs/reports/
+
+# ========================
+# Logs
+# ========================
 *.log
 !console*.log
-github.txt
+
+# ========================
+# Data exports
+# ========================
+*.csv
+*.jsonl
+*.zip
+
+# ========================
+# Editors / backups
+# ========================
 nppBackup/
 *.bak
+
+# ========================
+# Misc
+# ========================
+github.txt
 README.md
