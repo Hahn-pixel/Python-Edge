@@ -308,6 +308,24 @@ def merged_request_debug(prepared: PreparedOrder, request_debug: Dict[str, Any])
     return {**base, **(request_debug or {})}
 
 
+def current_market_price_from_prepared(prepared: PreparedOrder) -> float:
+    row = prepared.source_row if isinstance(prepared.source_row, dict) else {}
+    candidates = [
+        to_float(row.get("bid", row.get("bid_price", 0.0))),
+        to_float(row.get("ask", row.get("ask_price", 0.0))),
+        to_float(row.get("mid", row.get("mid_price", 0.0))),
+        to_float(row.get("last", row.get("last_price", 0.0))),
+        to_float(row.get("close_price", 0.0)),
+        to_float(prepared.price),
+    ]
+    positives = [float(x) for x in candidates if float(x) > 0.0]
+    if not positives:
+        return 0.0
+    if normalize_order_side(prepared.order_side) == "SELL":
+        return max(positives)
+    return min(positives)
+
+
 def clip_limit_from_202(prepared: PreparedOrder, previous_limit: float, err: BrokerErrorInfo) -> float | None:
     msg = str(err.error_string or "")
     side = normalize_order_side(prepared.order_side)
@@ -315,23 +333,27 @@ def clip_limit_from_202(prepared: PreparedOrder, previous_limit: float, err: Bro
     m1 = RE_202_AGGR.search(msg)
     if m1:
         boundary = to_float(m1.group(1))
-    if boundary is None:
-        m2 = RE_202_MARKET.search(msg)
-        if m2:
-            boundary = to_float(m2.group(1))
+    market_from_202 = 0.0
+    m2 = RE_202_MARKET.search(msg)
+    if m2:
+        market_from_202 = to_float(m2.group(1))
+        if boundary is None:
+            boundary = market_from_202
     if boundary is None or boundary <= 0.0:
         return None
     tick = max(float(prepared.min_tick), float(IB_LMT_PRICE_MIN_ABS))
+    clip_ticks = max(1, int(IB_RETRY_202_CLIP_TICKS))
+    current_market_price = max(market_from_202, current_market_price_from_prepared(prepared))
     if side == "BUY":
-        clipped = boundary + tick * max(1, int(IB_RETRY_202_CLIP_TICKS))
+        clipped = boundary + tick * clip_ticks
         clipped = max(float(IB_LMT_PRICE_MIN_ABS), round_to_tick(clipped, tick, side))
         if clipped <= previous_limit:
             clipped = max(float(IB_LMT_PRICE_MIN_ABS), round_to_tick(previous_limit + tick, tick, side))
     else:
-        clipped = boundary - tick * max(1, int(IB_RETRY_202_CLIP_TICKS))
-        clipped = max(float(IB_LMT_PRICE_MIN_ABS), round_to_tick(clipped, tick, side))
-        if clipped >= previous_limit:
-            clipped = max(float(IB_LMT_PRICE_MIN_ABS), round_to_tick(previous_limit - tick, tick, side))
+        boundary_clip = boundary - tick * clip_ticks
+        market_clip = current_market_price - tick * clip_ticks if current_market_price > 0.0 else 0.0
+        clipped_raw = max(boundary_clip, market_clip) if market_clip > 0.0 else boundary_clip
+        clipped = max(float(IB_LMT_PRICE_MIN_ABS), round_to_tick(clipped_raw, tick, side))
     return clipped if clipped > 0.0 else None
 
 
