@@ -399,11 +399,23 @@ def build_order_for_price(prepared: PreparedOrder, limit_price: float, is_market
     order.outsideRth = bool(IB_OUTSIDE_RTH)
     order.account = IB_ACCOUNT_CODE
     order.orderRef = prepared.client_tag
+
     if is_market:
         order.orderType = "MKT"
     else:
         order.orderType = "LMT"
         order.lmtPrice = float(limit_price)
+
+    try:
+        order.eTradeOnly = False
+    except Exception:
+        pass
+
+    try:
+        order.firmQuoteOnly = False
+    except Exception:
+        pass
+
     return order
 
 
