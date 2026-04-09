@@ -196,13 +196,13 @@ def validate_price_context(symbol: str, side: str, prepared_price: float, price_
 
 
 def config_paths(config_name: str) -> ConfigPaths:
-    base = EXECUTION_ROOT / config_name
+    execution_dir = EXECUTION_ROOT / config_name
     return ConfigPaths(
-        config_name=config_name,
-        base_dir=base,
-        orders_csv=base / "orders.csv",
-        fills_csv=base / "fills.csv",
-        broker_log_json=base / "broker_log.json",
+        name=config_name,
+        execution_dir=execution_dir,
+        orders_csv=execution_dir / "orders.csv",
+        fills_csv=execution_dir / "fills.csv",
+        broker_log_json=execution_dir / "broker_log.json",
     )
 
 
@@ -305,7 +305,7 @@ def find_matching_open_order(app: IBKRApp, prepared: PreparedOrder) -> dict | No
     target_side = normalize_order_side(prepared.order_side)
     target_qty = float(prepared.qty)
     statuses_live = {"submitted", "presubmitted", "pending_submit", "submitted", "partial", "pendingcancel", "api_pending"}
-    for entry in reversed(app.open_orders_snapshot()):
+    for entry in reversed(list(app.orders_by_ib_id.values())):
         symbol = normalize_symbol(str(entry.get("symbol", "")))
         side = normalize_order_side(str(entry.get("action", entry.get("side", "")) or "HOLD"))
         status = normalize_status(str(entry.get("status", "")))
@@ -499,11 +499,11 @@ def deferred_until_from_399(err: BrokerErrorInfo) -> str:
 
 
 def cancel_and_poll_order(app: IBKRApp, ib_order_id: int, last_entry: dict | None, reason: str) -> dict:
-    app.cancelOrder(int(ib_order_id), "")
+    app.cancelOrder(int(ib_order_id))
     entry = last_entry or {}
     for _ in range(max(1, IB_REPRICE_CANCEL_POLL_ATTEMPTS)):
         time.sleep(max(0.1, IB_REPRICE_CANCEL_POLL_SLEEP_SEC))
-        entry = app.order_snapshot(int(ib_order_id)) or entry or {}
+        entry = app.orders_by_ib_id.get(int(ib_order_id), {}) or entry or {}
         status = normalize_status(str(entry.get("status", "")))
         if status in {"cancelled", "filled"}:
             break
@@ -520,7 +520,7 @@ def wait_for_fill_progress(app: IBKRApp, prepared: PreparedOrder, ib_order_id: i
     while time.time() < deadline:
         poll_count += 1
         time.sleep(1.0)
-        latest = app.order_snapshot(int(ib_order_id)) or entry
+        latest = app.orders_by_ib_id.get(int(ib_order_id), {}) or entry
         if latest:
             entry = dict(latest)
         filled_qty = to_float(entry.get("filled_qty", 0.0))
@@ -552,7 +552,7 @@ def wait_until_session_open_or_state_change(app: IBKRApp, prepared: PreparedOrde
     entry = dict(ib_entry or {})
     while time.time() < deadline:
         time.sleep(1.0)
-        latest = app.order_snapshot(int(ib_order_id)) or entry
+        latest = app.orders_by_ib_id.get(int(ib_order_id), {}) or entry
         if latest:
             entry = dict(latest)
         status = normalize_status(str(entry.get("status", "")))
@@ -847,6 +847,12 @@ def build_broker_log_entry(paths: ConfigPaths, prepared: PreparedOrder, broker_e
     remaining_qty = to_float(broker_entry.get("remaining_qty", max(0.0, prepared.qty - filled_qty)))
     avg_fill_price = to_float(broker_entry.get("avg_fill_price", 0.0))
     status = normalize_status(str(broker_entry.get("status", issue.status if issue else "submitted")))
+    ts_now = utc_now_iso()
+
+    fill_notional = 0.0
+    if filled_qty > 0.0 and avg_fill_price > 0.0:
+        fill_notional = float(filled_qty * avg_fill_price)
+
     entry = {
         "idempotency_key": prepared.idempotency_key,
         "config": prepared.config,
@@ -859,37 +865,65 @@ def build_broker_log_entry(paths: ConfigPaths, prepared: PreparedOrder, broker_e
         "status": status,
         "filled_qty": float(filled_qty),
         "remaining_qty": float(remaining_qty),
-        "avg_fill_price": float(avg_fill_price),
-        "ib_order_id": int(broker_entry.get("ib_order_id", 0) or 0),
+
+        "client_order_id": str(prepared.client_tag),
+        "broker_order_id": str(broker_entry.get("ib_order_id", 0) or 0),
         "perm_id": int(broker_entry.get("perm_id", 0) or 0),
-        "client_order_ref": str(broker_entry.get("client_order_ref", prepared.client_tag) or prepared.client_tag),
-        "issue_kind": issue.kind if issue else "",
-        "issue_message": format_issue_message(issue),
-        "broker_error_code": int(issue.broker_error.error_code if issue and issue.broker_error else 0),
-        "broker_error_string": str(issue.broker_error.error_string if issue and issue.broker_error else ""),
-        "request_debug": merged_request_debug(prepared, request_debug),
-        "source_row": prepared.source_row,
-        "ts_utc": utc_now_iso(),
-        "fills_csv": str(paths.fills_csv),
-        "broker_log_json": str(paths.broker_log_json),
+
+        "filled_avg_price": float(avg_fill_price),
+        "order_notional": float(prepared.order_notional),
+        "fill_notional": float(fill_notional),
+
+        "submitted_at": str(broker_entry.get("submitted_at", ts_now) or ts_now),
+        "filled_at": str(broker_entry.get("filled_at", ts_now if filled_qty > 0.0 else "") or ""),
+
+        "mode": "ibkr_gateway",
+        "source_order_path": str(paths.orders_csv),
+
+        "request": merged_request_debug(prepared, request_debug),
+        "response": {
+            "ib_order_id": int(broker_entry.get("ib_order_id", 0) or 0),
+            "perm_id": int(broker_entry.get("perm_id", 0) or 0),
+            "client_order_ref": str(broker_entry.get("client_order_ref", prepared.client_tag) or prepared.client_tag),
+            "status": status,
+            "filled_qty": float(filled_qty),
+            "remaining_qty": float(remaining_qty),
+            "avg_fill_price": float(avg_fill_price),
+            "issue_kind": issue.kind if issue else "",
+            "issue_message": format_issue_message(issue),
+            "broker_error_code": int(issue.broker_error.error_code if issue and issue.broker_error else 0),
+            "broker_error_string": str(issue.broker_error.error_string if issue and issue.broker_error else ""),
+            "ts_utc": ts_now,
+        },
+
+        "ts_utc": ts_now,
     }
     return entry
 
 
 def fill_entry_from_broker_log_entry(log_entry: dict) -> dict:
     return {
+        "idempotency_key": str(log_entry.get("idempotency_key", "")),
+        "client_order_id": str(log_entry.get("client_order_id", "")),
+        "broker_order_id": str(log_entry.get("broker_order_id", "")),
+        "perm_id": int(log_entry.get("perm_id", 0) or 0),
+        "config": str(log_entry.get("config", "")),
+        "source_order_path": str(log_entry.get("source_order_path", "")),
         "date": str(log_entry.get("date", "")),
         "symbol": str(log_entry.get("symbol", "")),
         "broker_symbol": str(log_entry.get("broker_symbol", "")),
         "side": str(log_entry.get("side", "")),
-        "qty": float(to_float(log_entry.get("filled_qty", 0.0))),
-        "avg_fill_price": float(to_float(log_entry.get("avg_fill_price", 0.0))),
-        "ib_order_id": int(log_entry.get("ib_order_id", 0) or 0),
-        "perm_id": int(log_entry.get("perm_id", 0) or 0),
-        "client_order_ref": str(log_entry.get("client_order_ref", "")),
+        "qty": float(to_float(log_entry.get("qty", 0.0))),
+        "filled_qty": float(to_float(log_entry.get("filled_qty", 0.0))),
+        "remaining_qty": float(to_float(log_entry.get("remaining_qty", 0.0))),
+        "price_hint": float(to_float(log_entry.get("price_hint", 0.0))),
+        "filled_avg_price": float(to_float(log_entry.get("filled_avg_price", 0.0))),
+        "order_notional": float(to_float(log_entry.get("order_notional", 0.0))),
+        "fill_notional": float(to_float(log_entry.get("fill_notional", 0.0))),
         "status": str(log_entry.get("status", "")),
-        "ts_utc": str(log_entry.get("ts_utc", utc_now_iso()) or utc_now_iso()),
-        "idempotency_key": str(log_entry.get("idempotency_key", "")),
+        "submitted_at": str(log_entry.get("submitted_at", "")),
+        "filled_at": str(log_entry.get("filled_at", "")),
+        "mode": str(log_entry.get("mode", "ibkr_gateway")),
     }
 
 
@@ -898,7 +932,15 @@ def submit_config(app: IBKRApp, config_name: str, symbol_map: Dict[str, str]) ->
     must_exist(paths.orders_csv, f"orders.csv for config={config_name}")
     if RESET_BROKER_LOG and paths.broker_log_json.exists():
         save_broker_log(paths.broker_log_json, [])
-    broker_log = load_broker_log(paths.broker_log_json)
+    broker_log = load_broker_log(
+        paths.broker_log_json,
+        config_name=config_name,
+        broker_name=BROKER_NAME,
+        broker_platform=BROKER_PLATFORM,
+        broker_account_id=BROKER_ACCOUNT_ID,
+        utc_now_iso=utc_now_iso,
+        reset=RESET_BROKER_LOG,
+    )
     df = load_orders_csv(paths.orders_csv)
     live_df = select_live_orders(df)
     prepared_orders = prepare_orders(config_name, live_df, symbol_map)
@@ -911,18 +953,18 @@ def submit_config(app: IBKRApp, config_name: str, symbol_map: Dict[str, str]) ->
         dup_status = existing_duplicate_status(broker_log, prepared.idempotency_key)
         if dup_status is not None:
             duplicate_skipped += 1
+            duplicate_entry = duplicate_fill_entry(prepared, dup_status, paths.orders_csv, broker_log)
+            append_or_replace_fills(paths.fills_csv, [duplicate_entry])
             print(f"[BROKER][{config_name}][DUPLICATE] symbol={prepared.symbol} side={prepared.order_side} qty={prepared.qty:.8f} status={dup_status}")
             continue
         try:
             broker_entry, issue, reprices_used, request_debug = submit_one_order(app, prepared, req_id_seed)
             req_id_seed += 100
             log_entry = build_broker_log_entry(paths, prepared, broker_entry, issue, request_debug)
-            upsert_broker_log_entry(broker_log, log_entry)
-            save_broker_log(paths.broker_log_json, broker_log)
+            upsert_broker_log_entry(broker_log, log_entry, utc_now_iso)
+            save_broker_log(paths.broker_log_json, broker_log, utc_now_iso)
             filled_qty = to_float(log_entry.get("filled_qty", 0.0))
-            if duplicate_fill_entry(paths.fills_csv, log_entry.get("idempotency_key", "")):
-                pass
-            elif filled_qty > 0.0:
+            if filled_qty > 0.0:
                 append_or_replace_fills(paths.fills_csv, [fill_entry_from_broker_log_entry(log_entry)])
             final_status = str(log_entry.get("status", issue.status if issue else "submitted"))
             print(
