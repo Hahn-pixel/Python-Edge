@@ -854,61 +854,91 @@ def submit_one_order(app: IBKRApp, prepared: PreparedOrder, req_id_seed: int) ->
     return last_entry, OrderIssue(kind="ladder_failed", status="cancelled_unfilled_cap", broker_error=None, message="Order ladder exhausted without fill"), reprices_used, request_debug
 
 
-def build_broker_log_entry(paths: ConfigPaths, prepared: PreparedOrder, broker_entry: dict, issue: OrderIssue | None, request_debug: Dict[str, Any]) -> dict:
+def build_broker_log_entry(
+    paths: ConfigPaths,
+    prepared: PreparedOrder,
+    broker_entry: dict,
+    issue: OrderIssue | None,
+    request_debug: Dict[str, Any],
+    ib_order_id_fallback: int = 0,
+) -> dict:
     filled_qty = to_float(broker_entry.get("filled_qty", 0.0))
     remaining_qty = to_float(broker_entry.get("remaining_qty", max(0.0, prepared.qty - filled_qty)))
-    avg_fill_price = to_float(broker_entry.get("avg_fill_price", 0.0))
-    status = normalize_status(str(broker_entry.get("status", issue.status if issue else "submitted")))
+    avg_fill_price = to_float(
+        broker_entry.get("avg_fill_price", broker_entry.get("last_fill_price", 0.0))
+    )
+    status_raw = str(broker_entry.get("status", issue.status if issue else "submitted"))
+    status_norm = normalize_status(status_raw)
     ts_now = utc_now_iso()
+
+    broker_order_id_int = int(broker_entry.get("ib_order_id", 0) or 0)
+    if broker_order_id_int <= 0:
+        broker_order_id_int = int(ib_order_id_fallback or 0)
+
+    perm_id_int = int(broker_entry.get("perm_id", 0) or 0)
 
     fill_notional = 0.0
     if filled_qty > 0.0 and avg_fill_price > 0.0:
         fill_notional = float(filled_qty * avg_fill_price)
 
+    if status_norm == "filled":
+        outcome = "filled_now"
+    elif status_norm == "partial":
+        outcome = "partial"
+    elif status_norm in {"submitted", "presubmitted", "working", "working_carry"}:
+        outcome = "working_carry" if issue and issue.status == "working_carry" else "working"
+    elif status_norm == "cancelled":
+        outcome = "cancelled"
+    else:
+        outcome = status_norm or "unknown"
+
+    submitted_at = str(broker_entry.get("submitted_at", ts_now) or ts_now)
+    filled_at = str(broker_entry.get("filled_at", ts_now if filled_qty > 0.0 else "") or "")
+
+    response_obj = {
+        "ib_order_id": broker_order_id_int,
+        "perm_id": perm_id_int,
+        "status": status_raw,
+        "outcome": outcome,
+        "fills": broker_entry.get("fills", []),
+        "avg_fill_price": float(avg_fill_price),
+        "last_fill_price": float(to_float(broker_entry.get("last_fill_price", avg_fill_price))),
+    }
+
+    if issue is not None:
+        if issue.status == "working_carry":
+            response_obj["deferred_message"] = format_issue_message(issue)
+        else:
+            response_obj["issue_kind"] = issue.kind
+            response_obj["issue_message"] = format_issue_message(issue)
+            if issue.broker_error is not None:
+                response_obj["broker_error_code"] = int(issue.broker_error.error_code)
+                response_obj["broker_error_string"] = str(issue.broker_error.error_string)
+
     entry = {
-        "idempotency_key": prepared.idempotency_key,
-        "config": prepared.config,
-        "date": prepared.order_date,
-        "symbol": prepared.symbol,
-        "broker_symbol": prepared.broker_symbol,
-        "side": prepared.order_side,
+        "idempotency_key": str(prepared.idempotency_key),
+        "client_order_id": str(prepared.client_tag),
+        "broker_order_id": str(broker_order_id_int) if broker_order_id_int > 0 else "",
+        "perm_id": perm_id_int,
+        "config": str(prepared.config),
+        "date": str(prepared.order_date),
+        "symbol": str(prepared.symbol),
+        "broker_symbol": str(prepared.broker_symbol),
+        "side": str(prepared.order_side),
         "qty": float(prepared.qty),
-        "price_hint": float(prepared.price),
-        "status": status,
         "filled_qty": float(filled_qty),
         "remaining_qty": float(remaining_qty),
-
-        "client_order_id": str(prepared.client_tag),
-        "broker_order_id": str(broker_entry.get("ib_order_id", 0) or 0),
-        "perm_id": int(broker_entry.get("perm_id", 0) or 0),
-
+        "price_hint": float(prepared.price),
         "filled_avg_price": float(avg_fill_price),
         "order_notional": float(prepared.order_notional),
         "fill_notional": float(fill_notional),
-
-        "submitted_at": str(broker_entry.get("submitted_at", ts_now) or ts_now),
-        "filled_at": str(broker_entry.get("filled_at", ts_now if filled_qty > 0.0 else "") or ""),
-
+        "status": status_norm,
+        "submitted_at": submitted_at,
+        "filled_at": filled_at,
         "mode": "ibkr_gateway",
         "source_order_path": str(paths.orders_csv),
-
         "request": merged_request_debug(prepared, request_debug),
-        "response": {
-            "ib_order_id": int(broker_entry.get("ib_order_id", 0) or 0),
-            "perm_id": int(broker_entry.get("perm_id", 0) or 0),
-            "client_order_ref": str(broker_entry.get("client_order_ref", prepared.client_tag) or prepared.client_tag),
-            "status": status,
-            "filled_qty": float(filled_qty),
-            "remaining_qty": float(remaining_qty),
-            "avg_fill_price": float(avg_fill_price),
-            "issue_kind": issue.kind if issue else "",
-            "issue_message": format_issue_message(issue),
-            "broker_error_code": int(issue.broker_error.error_code if issue and issue.broker_error else 0),
-            "broker_error_string": str(issue.broker_error.error_string if issue and issue.broker_error else ""),
-            "ts_utc": ts_now,
-        },
-
-        "ts_utc": ts_now,
+        "response": response_obj,
     }
     return entry
 
@@ -972,7 +1002,14 @@ def submit_config(app: IBKRApp, config_name: str, symbol_map: Dict[str, str]) ->
         try:
             broker_entry, issue, reprices_used, request_debug = submit_one_order(app, prepared, req_id_seed)
             req_id_seed += 100
-            log_entry = build_broker_log_entry(paths, prepared, broker_entry, issue, request_debug)
+            log_entry = build_broker_log_entry(
+                paths,
+                prepared,
+                broker_entry,
+                issue,
+                request_debug,
+                ib_order_id_fallback=int(broker_entry.get("ib_order_id", 0) or 0),
+            )
             upsert_broker_log_entry(broker_log, log_entry, utc_now_iso)
             save_broker_log(paths.broker_log_json, broker_log, utc_now_iso)
             filled_qty = to_float(log_entry.get("filled_qty", 0.0))
