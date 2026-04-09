@@ -1,0 +1,30 @@
+{
+  "config": "aggressive",
+  "generated_at": "2026-04-09T18:29:37.328116+00:00",
+  "preview_only": 0,
+  "cleanup_orders_csv": "artifacts\\execution_loop\\aggressive\\broker_cleanup_orders.csv",
+  "send_plan_csv": "artifacts\\execution_loop\\aggressive\\broker_cleanup_send_plan.csv",
+  "orders_csv": "artifacts\\execution_loop\\aggressive\\orders.csv",
+  "orders_backup_csv": "artifacts\\execution_loop\\aggressive\\orders_pre_cleanup_backup.csv",
+  "filters": {
+    "cleanup_send_only_symbols": [
+      "TSEM"
+    ],
+    "cleanup_send_exclude_symbols": [],
+    "cleanup_send_max_rows": 1,
+    "cleanup_send_require_empty_pending_refs": 1,
+    "cleanup_send_require_side": "SELL",
+    "cleanup_send_reason_tag": "broker_cleanup_send"
+  },
+  "counters": {
+    "cleanup_rows": 16,
+    "emitted_rows": 1,
+    "blocked_empty_symbol": 0,
+    "blocked_not_in_only_symbols": 15,
+    "blocked_excluded_symbol": 0,
+    "blocked_non_positive_qty": 0,
+    "blocked_side_not_allowed": 0,
+    "blocked_pending_refs_present": 0,
+    "blocked_max_rows": 0
+  }
+}

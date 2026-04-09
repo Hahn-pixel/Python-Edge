@@ -1,0 +1,68 @@
+{
+  "config": "optimal",
+  "nav": 57114.96548549999,
+  "cash": 54484.051810499994,
+  "last_rebalanced_date": "2026-04-07",
+  "positions": {
+    "OKLO": {
+      "shares": 59.0,
+      "last_price": 48.420825,
+      "market_value": 2856.828675,
+      "price_source": "state_last_price",
+      "is_priced": 1
+    },
+    "TSEM": {
+      "shares": -15.0,
+      "last_price": 187.01,
+      "market_value": -2805.1499999999996,
+      "price_source": "live_snapshot",
+      "is_priced": 1
+    },
+    "SMCI": {
+      "shares": 121.0,
+      "last_price": 22.185,
+      "market_value": 2684.3849999999998,
+      "price_source": "live_snapshot",
+      "is_priced": 1
+    },
+    "NKE": {
+      "shares": 63.0,
+      "last_price": 42.46,
+      "market_value": 2674.98,
+      "price_source": "live_snapshot",
+      "is_priced": 1
+    },
+    "AXTI": {
+      "shares": -65.0,
+      "last_price": 43.76,
+      "market_value": -2844.4,
+      "price_source": "live_snapshot",
+      "is_priced": 1
+    },
+    "AAOI": {
+      "shares": -24.0,
+      "last_price": 114.785,
+      "market_value": -2754.84,
+      "price_source": "live_snapshot",
+      "is_priced": 1
+    },
+    "MSTR": {
+      "shares": 23.0,
+      "last_price": 122.57,
+      "market_value": 2819.1099999999997,
+      "price_source": "live_snapshot",
+      "is_priced": 1
+    }
+  },
+  "last_estimated_trading_cost": 1.9827504999999996,
+  "state_alignment": {
+    "applied_at_date": "2026-04-01",
+    "source": "artifacts\\execution_loop\\optimal\\broker_positions.csv",
+    "cash_mode": "preserve_nav",
+    "positions_count": 10,
+    "market_value": -70735.3895,
+    "cash_after_alignment": 149315.36355399998,
+    "nav_after_alignment": 78579.97405399999,
+    "fallback_price_count": 1
+  }
+}

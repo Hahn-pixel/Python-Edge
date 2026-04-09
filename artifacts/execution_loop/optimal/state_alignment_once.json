@@ -1,0 +1,11 @@
+{
+  "applied_at_date": "2026-04-01",
+  "config": "optimal",
+  "source": "artifacts\\execution_loop\\optimal\\broker_positions.csv",
+  "cash_mode": "preserve_nav",
+  "positions_count": 10,
+  "market_value": -70735.3895,
+  "cash_after_alignment": 149315.36355399998,
+  "nav_after_alignment": 78579.97405399999,
+  "fallback_price_count": 1
+}

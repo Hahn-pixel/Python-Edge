@@ -1,0 +1,12 @@
+{
+  "config": "aggressive",
+  "generated_at_utc": "2026-04-08T16:30:15Z",
+  "symbols_total": 18,
+  "drift": 18,
+  "missing_at_broker": 2,
+  "unexpected_at_broker": 11,
+  "pending_covers_drift": 0,
+  "max_abs_drift_shares": 296.0,
+  "cleanup_preview_rows": 16,
+  "cleanup_preview_enabled": 1
+}

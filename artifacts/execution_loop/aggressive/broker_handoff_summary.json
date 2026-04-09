@@ -1,0 +1,14 @@
+{
+  "config": "aggressive",
+  "fallback_needed": 0,
+  "ib_only": 3,
+  "ib_rows": 3,
+  "ib_total": 3,
+  "live_rows": 3,
+  "massive_rows": 0,
+  "massive_used": 0,
+  "price_sanity_fail": 0,
+  "rows": 7,
+  "symbols": 3,
+  "updated": 3
+}

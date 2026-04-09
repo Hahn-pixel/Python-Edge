@@ -1,0 +1,68 @@
+{
+  "config": "aggressive",
+  "nav": 61289.18456425003,
+  "cash": 52250.78176425002,
+  "last_rebalanced_date": "2026-04-07",
+  "positions": {
+    "OKLO": {
+      "shares": 64.0,
+      "last_price": 48.420825,
+      "market_value": 3098.9328,
+      "price_source": "state_last_price",
+      "is_priced": 1
+    },
+    "NKE": {
+      "shares": 68.0,
+      "last_price": 42.46,
+      "market_value": 2887.28,
+      "price_source": "live_snapshot",
+      "is_priced": 1
+    },
+    "TSEM": {
+      "shares": -15.0,
+      "last_price": 187.01,
+      "market_value": -2805.1499999999996,
+      "price_source": "live_snapshot",
+      "is_priced": 1
+    },
+    "SMCI": {
+      "shares": 130.0,
+      "last_price": 22.185,
+      "market_value": 2884.0499999999997,
+      "price_source": "live_snapshot",
+      "is_priced": 1
+    },
+    "AXTI": {
+      "shares": -70.0,
+      "last_price": 43.76,
+      "market_value": -3063.2,
+      "price_source": "live_snapshot",
+      "is_priced": 1
+    },
+    "AAOI": {
+      "shares": 26.0,
+      "last_price": 114.785,
+      "market_value": 2984.41,
+      "price_source": "live_snapshot",
+      "is_priced": 1
+    },
+    "HIMS": {
+      "shares": 157.0,
+      "last_price": 19.44,
+      "market_value": 3052.0800000000004,
+      "price_source": "live_snapshot",
+      "is_priced": 1
+    }
+  },
+  "last_estimated_trading_cost": 3.328659,
+  "state_alignment": {
+    "applied_at_date": "2026-04-01",
+    "source": "artifacts\\execution_loop\\aggressive\\broker_positions.csv",
+    "cash_mode": "preserve_nav",
+    "positions_count": 10,
+    "market_value": -70735.3895,
+    "cash_after_alignment": 153658.29661850003,
+    "nav_after_alignment": 82922.9071185,
+    "fallback_price_count": 1
+  }
+}
