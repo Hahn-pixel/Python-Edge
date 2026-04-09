@@ -4,7 +4,7 @@ __pycache__/
 .env
 data/
 artifacts/
-!artifacts/execution_loop
+!artifacts/execution_loop/*
 outputs/logs/
 outputs/reports/
 *.zip
