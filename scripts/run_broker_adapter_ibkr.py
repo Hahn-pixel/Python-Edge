@@ -727,15 +727,18 @@ def format_issue_message(issue: OrderIssue | None) -> str:
 def submit_one_order(app: IBKRApp, prepared: PreparedOrder, req_id_seed: int) -> Tuple[dict, OrderIssue | None, int, Dict[str, Any]]:
     prepared2, contract, req_id_seed2, contract_meta_debug = resolve_contract_metadata(app, prepared, req_id_seed)
     prepared = prepared2
+
     tick = max(float(prepared.min_tick), float(IB_LMT_PRICE_MIN_ABS))
     anchor_price = round_to_tick(float(prepared.price), tick, prepared.order_side)
     cap_price = build_cap_price(anchor_price, prepared.order_side, IB_REPRICE_MAX_DEVIATION_PCT, tick)
     prices = ladder_prices(anchor_price, prepared.order_side, tick) if IB_REPRICE_ENABLED else [anchor_price]
+
     if prices:
         if normalize_order_side(prepared.order_side) == "BUY":
             prices = [min(px, cap_price) for px in prices]
         else:
             prices = [max(px, cap_price) for px in prices]
+
     request_debug: Dict[str, Any] = {
         **contract_meta_debug,
         "anchor_price": float(anchor_price),
@@ -748,6 +751,7 @@ def submit_one_order(app: IBKRApp, prepared: PreparedOrder, req_id_seed: int) ->
         "cap_price": float(cap_price),
         "open_order_dup_guard": int(ENFORCE_OPEN_ORDER_DUP_GUARD),
     }
+
     existing_open = find_matching_open_order(app, prepared)
     if existing_open is not None:
         request_debug.update({
@@ -755,19 +759,28 @@ def submit_one_order(app: IBKRApp, prepared: PreparedOrder, req_id_seed: int) ->
             "existing_ib_order_id": existing_open.get("ib_order_id", ""),
             "existing_status": str(existing_open.get("status", "")),
         })
-        issue = OrderIssue(kind="duplicate_open_order", status="working", broker_error=None, message="Matching live broker order already exists; submit skipped")
+        issue = OrderIssue(
+            kind="duplicate_open_order",
+            status="working",
+            broker_error=None,
+            message="Matching live broker order already exists; submit skipped",
+        )
         return existing_open, issue, 0, request_debug
+
     request_debug["open_order_dup_guard_triggered"] = 0
     reprices_used = 0
     last_entry: dict | None = None
+
     price_idx = 0
     while price_idx < len(prices):
         limit_price = float(prices[price_idx])
         is_last_step = price_idx == len(prices) - 1
         step_mode = "marketable_lmt" if is_last_step and IB_REPRICE_FINAL_MODE == "marketable_lmt" else "passive_lmt"
+
         order = build_order_for_price(prepared, limit_price=limit_price, is_market=False)
         error_cursor_before_submit = len(app._errors)
         ib_order_id = app.allocate_order_id()
+
         order_payload = {
             "orderType": str(getattr(order, "orderType", "") or ""),
             "outsideRth": int(bool(getattr(order, "outsideRth", False))),
@@ -780,12 +793,21 @@ def submit_one_order(app: IBKRApp, prepared: PreparedOrder, req_id_seed: int) ->
             "orderRef": str(getattr(order, "orderRef", "") or ""),
         }
         request_debug["submitted_order"] = order_payload
+
         print(
-            f"[BROKER][LADDER][SUBMIT] symbol={prepared.symbol} step={price_idx + 1}/{len(prices)} mode={step_mode} limit_price={limit_price:.4f} cap_price={cap_price:.4f} order={json.dumps(order_payload, ensure_ascii=False, sort_keys=True)}"
+            f"[BROKER][LADDER][SUBMIT] symbol={prepared.symbol} "
+            f"step={price_idx + 1}/{len(prices)} mode={step_mode} "
+            f"limit_price={limit_price:.4f} cap_price={cap_price:.4f} "
+            f"order={json.dumps(order_payload, ensure_ascii=False, sort_keys=True)}"
         )
+
         app.placeOrder(ib_order_id, contract, order)
         ib_entry = app.wait_for_order_terminalish(ib_order_id, timeout_sec=IB_TIMEOUT_SEC)
+
         recent_errors = list(app._errors[error_cursor_before_submit:]) if len(app._errors) > error_cursor_before_submit else []
+        if recent_errors:
+            request_debug["recent_errors"] = recent_errors
+
         deferred_399 = detect_deferred_399(recent_errors)
         if deferred_399 is not None:
             deferred_until = deferred_until_from_399(deferred_399)
@@ -802,19 +824,32 @@ def submit_one_order(app: IBKRApp, prepared: PreparedOrder, req_id_seed: int) ->
             final_filled_qty = to_float(final_entry.get("filled_qty", 0.0))
             final_remaining_qty = to_float(final_entry.get("remaining_qty", max(0.0, prepared.qty - final_filled_qty)))
             final_outcome = classify_outcome(final_status, final_filled_qty, final_remaining_qty)
+            final_entry = dict(final_entry or {})
+            final_entry.setdefault("ib_order_id", int(ib_order_id))
+
             if final_outcome in {"filled_now", "partial"}:
                 return final_entry, None, reprices_used, request_debug
+
             issue = OrderIssue(
                 kind="session_deferred_399",
                 status="working_carry",
                 broker_error=deferred_399,
-                message=f"IB deferred order until {deferred_until}; leaving live at broker" if deferred_until else "IB deferred order until later session; leaving live at broker",
+                message=(
+                    f"IB deferred order until {deferred_until}; leaving live at broker"
+                    if deferred_until
+                    else "IB deferred order until later session; leaving live at broker"
+                ),
             )
             return final_entry, issue, reprices_used, request_debug
+
         ib_entry = wait_for_fill_progress(app, prepared, ib_order_id, ib_entry)
+        ib_entry = dict(ib_entry or {})
+        ib_entry.setdefault("ib_order_id", int(ib_order_id))
+
         filled_qty = to_float(ib_entry.get("filled_qty", 0.0))
         remaining_qty = to_float(ib_entry.get("remaining_qty", max(0.0, prepared.qty - filled_qty)))
         outcome = classify_outcome(ib_entry.get("status", ""), filled_qty, remaining_qty)
+
         retryable_202 = None
         if IB_RETRY_202_ENABLED and recent_errors:
             for err in reversed(recent_errors):
@@ -827,32 +862,83 @@ def submit_one_order(app: IBKRApp, prepared: PreparedOrder, req_id_seed: int) ->
                         ts_utc=str(err.get("ts_utc", utc_now_iso()) or utc_now_iso()),
                     )
                     break
+
         if outcome in {"filled_now", "partial"}:
-            request_debug.update({"reprices_used": reprices_used, "final_step": price_idx + 1, "final_limit_price": float(limit_price), "final_mode": step_mode})
+            request_debug.update({
+                "reprices_used": reprices_used,
+                "final_step": price_idx + 1,
+                "final_limit_price": float(limit_price),
+                "final_mode": step_mode,
+            })
             return ib_entry, None, reprices_used, request_debug
+
         if retryable_202 is not None:
             clipped = clip_limit_from_202(prepared, limit_price, retryable_202)
             if clipped is not None and abs(clipped - limit_price) > 1e-9:
-                print(f"[BROKER][LADDER][202_OVERRIDE] symbol={prepared.symbol} step={price_idx + 1} next_limit_price={clipped:.4f} (broker guided)")
+                print(
+                    f"[BROKER][LADDER][202_OVERRIDE] symbol={prepared.symbol} "
+                    f"step={price_idx + 1} next_limit_price={clipped:.4f} (broker guided)"
+                )
+                request_debug["broker_guided_override"] = {
+                    "from_limit_price": float(limit_price),
+                    "to_limit_price": float(clipped),
+                    "step_before_override": int(price_idx + 1),
+                    "broker_error_code": int(retryable_202.error_code),
+                    "broker_error_string": str(retryable_202.error_string),
+                }
                 prices = [float(clipped)]
                 reprices_used += 1
                 price_idx = 0
                 continue
+
         if not is_last_step:
-            cancel_and_poll_order(app, ib_order_id, ib_entry, f"reprice_step_{price_idx + 1}")
+            last_entry = cancel_and_poll_order(app, ib_order_id, ib_entry, f"reprice_step_{price_idx + 1}")
             reprices_used += 1
             price_idx += 1
             continue
+
         if IB_REPRICE_FINAL_MODE == "marketable_lmt":
             last_entry = cancel_and_poll_order(app, ib_order_id, ib_entry, "final_unfilled_cap")
-            request_debug.update({"reprices_used": reprices_used, "final_step": price_idx + 1, "final_limit_price": float(limit_price), "final_mode": step_mode})
-            issue = OrderIssue(kind="ladder_cap_cancelled", status="cancelled_unfilled_cap", broker_error=None, message="Final capped price was not filled; order cancelled")
+            last_entry = dict(last_entry or {})
+            last_entry.setdefault("ib_order_id", int(ib_order_id))
+            request_debug.update({
+                "reprices_used": reprices_used,
+                "final_step": price_idx + 1,
+                "final_limit_price": float(limit_price),
+                "final_mode": step_mode,
+            })
+            issue = OrderIssue(
+                kind="ladder_cap_cancelled",
+                status="cancelled_unfilled_cap",
+                broker_error=None,
+                message="Final capped price was not filled; order cancelled",
+            )
             return last_entry, issue, reprices_used, request_debug
-        request_debug.update({"reprices_used": reprices_used, "final_mode": "mkt_blocked_by_cap"})
-        return last_entry, OrderIssue(kind="mkt_disallowed_by_cap", status="cancelled_unfilled_cap", broker_error=None, message="MKT final step disabled because hard deviation cap must be preserved"), reprices_used, request_debug
-    request_debug.update({"reprices_used": reprices_used, "final_mode": "none"})
-    return last_entry, OrderIssue(kind="ladder_failed", status="cancelled_unfilled_cap", broker_error=None, message="Order ladder exhausted without fill"), reprices_used, request_debug
 
+        last_entry = dict(last_entry or ib_entry or {})
+        last_entry.setdefault("ib_order_id", int(ib_order_id))
+        request_debug.update({
+            "reprices_used": reprices_used,
+            "final_mode": "mkt_blocked_by_cap",
+        })
+        issue = OrderIssue(
+            kind="mkt_disallowed_by_cap",
+            status="cancelled_unfilled_cap",
+            broker_error=None,
+            message="MKT final step disabled because hard deviation cap must be preserved",
+        )
+        return last_entry, issue, reprices_used, request_debug
+
+    request_debug.update({
+        "reprices_used": reprices_used,
+        "final_mode": "none",
+    })
+    return last_entry or {}, OrderIssue(
+        kind="ladder_failed",
+        status="cancelled_unfilled_cap",
+        broker_error=None,
+        message="Order ladder exhausted without fill",
+    ), reprices_used, request_debug
 
 def build_broker_log_entry(
     paths: ConfigPaths,
