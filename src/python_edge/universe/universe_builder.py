@@ -3,571 +3,507 @@ from __future__ import annotations
 import json
 import os
 import time
-from dataclasses import asdict, dataclass
+import traceback
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import pandas as pd
 import requests
 
 
 DEFAULT_BASE_URL = "https://api.massive.com"
-SNAPSHOT_FILE_NAME = "universe_snapshot.parquet"
-SUMMARY_FILE_NAME = "universe_summary.json"
-REFERENCE_FILE_NAME = "universe_reference_raw.parquet"
-GROUPED_FILE_NAME = "universe_grouped_daily_raw.parquet"
-ELIGIBILITY_FILE_NAME = "universe_eligibility_debug.parquet"
-
-
-def _env_str(name: str, default: str) -> str:
-    value = os.getenv(name)
-    if value is None:
-        return default
-    text = str(value).strip()
-    return text if text else default
-
-
-def _env_bool(name: str, default: bool) -> bool:
-    value = os.getenv(name)
-    if value is None:
-        return default
-    normalized = str(value).strip().lower()
-    if normalized in {"1", "true", "yes", "y", "on"}:
-        return True
-    if normalized in {"0", "false", "no", "n", "off"}:
-        return False
-    return default
-
-
-def _env_int(name: str, default: int) -> int:
-    value = os.getenv(name)
-    if value is None:
-        return default
-    return int(str(value).strip())
-
-
-def _env_float(name: str, default: float) -> float:
-    value = os.getenv(name)
-    if value is None:
-        return default
-    return float(str(value).strip())
-
-
-def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
-
-
-def _normalize_symbol_series(values: pd.Series) -> pd.Series:
-    out = values.astype(str).str.strip().str.upper()
-    return out.where(~out.isin({"", "NAN", "NONE"}), "")
+DEFAULT_LOCALE = "us"
+DEFAULT_MARKET = "stocks"
+DEFAULT_TICKER_TYPE = "CS"
+DEFAULT_OUTPUT_ROOT = Path("artifacts/daily_cycle/universe")
+DEFAULT_PROFILE = "trading_us_core_v1"
 
 
 @dataclass(frozen=True)
-class UniversePolicy:
-    profile: str
-    locale: str
-    market: str
-    ticker_type: str
-    active_only: bool
-    allowed_currency: str
-    allowed_base_types: Tuple[str, ...]
-    exclude_otc: bool
-    exclude_etfs: bool
-    exclude_adr: bool
-    min_price: float
-    min_median_dollar_vol_20d: float
-    min_history_days: int
-    target_size: int
-    grouped_lookback_days: int
-    grouped_sleep_sec: float
-    request_pages_limit: int
+class UniverseEligibilityPolicy:
+    min_price: float = 7.50
+    min_median_dollar_vol_20d: float = 20_000_000.0
+    min_history_days: int = 25
+    max_nan_ratio: float = 0.02
+    max_missing_days_20d: int = 1
+    allowed_ticker_types: Tuple[str, ...] = ("CS",)
+    allowed_primary_exchanges: Tuple[str, ...] = tuple()
+    allowed_exchanges: Tuple[str, ...] = tuple()
+    require_active: bool = True
 
 
 @dataclass(frozen=True)
 class UniverseConfig:
     api_key: str
-    base_url: str
-    output_dir: Path
-    request_timeout_sec: int
-    as_of_date: Optional[str]
-    policy: UniversePolicy
+    base_url: str = DEFAULT_BASE_URL
+    locale: str = DEFAULT_LOCALE
+    market: str = DEFAULT_MARKET
+    ticker_type: str = DEFAULT_TICKER_TYPE
+    universe_profile: str = DEFAULT_PROFILE
+    target_size: int = 175
+    sector_cap: int = 18
+    top_n: int = 175
+    output_dir: Path = DEFAULT_OUTPUT_ROOT
+    request_timeout_sec: float = 30.0
+    request_sleep_sec: float = 0.2
+    overview_enrichment_enabled: bool = True
+    overview_enrichment_max: int = 1200
+    rebalance_freq: str = "weekly"
+    reuse_last: bool = True
+    history_check_mode: str = "grouped_daily_lookback"
+    eligibility: UniverseEligibilityPolicy = field(default_factory=UniverseEligibilityPolicy)
 
 
-@dataclass(frozen=True)
+class UniverseBuildError(RuntimeError):
+    pass
+
+
 class MassiveClient:
-    api_key: str
-    base_url: str
-    timeout_sec: int
+    def __init__(self, api_key: str, base_url: str, timeout_sec: float, sleep_sec: float) -> None:
+        self.api_key = str(api_key).strip()
+        self.base_url = str(base_url).rstrip("/")
+        self.timeout_sec = float(timeout_sec)
+        self.sleep_sec = float(sleep_sec)
+        self.session = requests.Session()
 
-    def __post_init__(self) -> None:
+    def _get(self, path: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         if not self.api_key:
-            raise RuntimeError("MASSIVE_API_KEY is missing from config")
-        if not self.base_url:
-            raise RuntimeError("Massive base_url is empty")
-
-    def _get_json(self, url: str, params: Optional[Dict[str, object]] = None) -> Dict[str, object]:
-        call_params = dict(params or {})
-        call_params["apiKey"] = self.api_key
-        response = requests.get(url, params=call_params, timeout=self.timeout_sec)
+            raise UniverseBuildError("MASSIVE_API_KEY is required")
+        query = dict(params or {})
+        query["apiKey"] = self.api_key
+        url = f"{self.base_url}{path}"
+        response = self.session.get(url, params=query, timeout=self.timeout_sec)
         response.raise_for_status()
         payload = response.json()
+        time.sleep(max(0.0, self.sleep_sec))
         if not isinstance(payload, dict):
-            raise RuntimeError(f"Unexpected Massive response type: {type(payload)!r}")
+            raise UniverseBuildError(f"Unexpected payload type from {url}: {type(payload)!r}")
         return payload
 
-    def get_reference_tickers(self, policy: UniversePolicy) -> pd.DataFrame:
-        rows: List[Dict[str, object]] = []
-        params: Optional[Dict[str, object]] = {
-            "market": policy.market,
-            "locale": policy.locale,
-            "active": "true" if policy.active_only else "false",
-            "limit": 1000,
-        }
-        if policy.ticker_type:
-            params["type"] = policy.ticker_type
-        url = f"{self.base_url}/v3/reference/tickers"
-        page_no = 0
-        while url:
-            page_no += 1
-            payload = self._get_json(url, params)
+    def list_tickers(self, locale: str, market: str, ticker_type: str) -> pd.DataFrame:
+        rows: List[Dict[str, Any]] = []
+        cursor: Optional[str] = None
+        while True:
+            params: Dict[str, Any] = {
+                "locale": locale,
+                "market": market,
+                "type": ticker_type,
+                "active": "true",
+                "limit": 1000,
+            }
+            if cursor:
+                params["cursor"] = cursor
+            payload = self._get("/v3/reference/tickers", params)
             batch = payload.get("results", [])
             if isinstance(batch, list):
-                for item in batch:
-                    if isinstance(item, dict):
-                        rows.append(item)
-            next_url = payload.get("next_url")
-            if next_url:
-                url = str(next_url)
-                params = None
-            else:
-                url = ""
-            print(f"[REFERENCE] page={page_no} rows_total={len(rows)}")
-            if page_no >= policy.request_pages_limit:
-                print(f"[REFERENCE][WARN] page limit reached limit={policy.request_pages_limit}")
+                rows.extend(x for x in batch if isinstance(x, dict))
+            cursor = str(payload.get("next_url", "") or "").strip()
+            if not cursor:
                 break
-        if not rows:
-            raise RuntimeError("No reference tickers returned by Massive")
+            if "cursor=" in cursor:
+                cursor = cursor.split("cursor=", 1)[1].split("&", 1)[0]
         df = pd.DataFrame(rows)
-        if "ticker" not in df.columns:
-            raise RuntimeError("Reference tickers payload missing 'ticker'")
-        df["ticker"] = _normalize_symbol_series(df["ticker"])
-        df = df.loc[df["ticker"].ne("")].copy().reset_index(drop=True)
+        if df.empty:
+            raise UniverseBuildError("Massive returned no tickers")
         return df
 
-    def get_grouped_daily(self, session_date: str, policy: UniversePolicy) -> pd.DataFrame:
-        url = f"{self.base_url}/v2/aggs/grouped/locale/{policy.locale}/market/{policy.market}/{session_date}"
-        payload = self._get_json(url, {"adjusted": "true"})
-        rows = payload.get("results", [])
-        if not isinstance(rows, list):
-            raise RuntimeError(f"Grouped daily results invalid for {session_date}")
-        if not rows:
-            return pd.DataFrame(columns=["ticker", "date", "close", "volume", "dollar_volume"])
-        df = pd.DataFrame(rows)
-        rename_map = {"T": "ticker", "c": "close", "v": "volume"}
-        df = df.rename(columns=rename_map)
-        if "ticker" not in df.columns:
-            raise RuntimeError(f"Grouped daily payload missing ticker for {session_date}")
-        for column in ["close", "volume"]:
-            if column not in df.columns:
-                df[column] = pd.NA
-        df["ticker"] = _normalize_symbol_series(df["ticker"])
-        df["date"] = pd.to_datetime(session_date).normalize()
-        df["close"] = pd.to_numeric(df["close"], errors="coerce")
-        df["volume"] = pd.to_numeric(df["volume"], errors="coerce")
-        df["dollar_volume"] = df["close"] * df["volume"]
-        df = df.loc[df["ticker"].ne("")].copy().reset_index(drop=True)
-        return df
+    def grouped_daily_snapshot(self, locale: str, market: str) -> pd.DataFrame:
+        trade_date = pd.Timestamp.now(tz="UTC").date()
+        for _ in range(10):
+            date_str = trade_date.isoformat()
+            payload = self._get(
+                "/v2/aggs/grouped/locale/{}/market/{}/{}".format(locale, market, date_str),
+                {"adjusted": "true"},
+            )
+            rows = payload.get("results", [])
+            df = pd.DataFrame(rows if isinstance(rows, list) else [])
+            if not df.empty:
+                return df
+            trade_date = trade_date - pd.Timedelta(days=1)
+
+        raise UniverseBuildError("Massive returned no grouped daily rows for recent trading dates")
+
+    def ticker_overview(self, symbol: str) -> Dict[str, Any]:
+        return self._get(f"/v3/reference/tickers/{symbol}", {"active": "true"})
 
 
-def load_config_from_env(root_dir: Path) -> UniverseConfig:
-    api_key = _env_str("MASSIVE_API_KEY", "")
-    if not api_key:
-        raise RuntimeError("MASSIVE_API_KEY is missing from env")
-    policy = UniversePolicy(
-        profile=_env_str("UNIVERSE_PROFILE", "trading_us_core_v1"),
-        locale=_env_str("UNIVERSE_LOCALE", "us"),
-        market=_env_str("UNIVERSE_MARKET", "stocks"),
-        ticker_type=_env_str("UNIVERSE_TICKER_TYPE", "CS"),
-        active_only=_env_bool("UNIVERSE_ACTIVE_ONLY", True),
-        allowed_currency=_env_str("UNIVERSE_ALLOWED_CURRENCY", "USD"),
-        allowed_base_types=tuple(
-            x.strip().upper()
-            for x in _env_str("UNIVERSE_ALLOWED_BASE_TYPES", "CS").split("|")
-            if x.strip()
-        ),
-        exclude_otc=_env_bool("UNIVERSE_EXCLUDE_OTC", True),
-        exclude_etfs=_env_bool("UNIVERSE_EXCLUDE_ETFS", True),
-        exclude_adr=_env_bool("UNIVERSE_EXCLUDE_ADR", True),
-        min_price=_env_float("UNIVERSE_MIN_PRICE", 7.5),
+
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+
+def _env_flag(name: str, default: bool) -> bool:
+    raw = str(os.getenv(name, "1" if default else "0")).strip().lower()
+    return raw not in {"0", "false", "no", "off", ""}
+
+
+
+def _env_float(name: str, default: float) -> float:
+    raw = str(os.getenv(name, str(default))).strip()
+    try:
+        return float(raw)
+    except Exception as exc:
+        raise UniverseBuildError(f"Invalid float env {name}={raw!r}") from exc
+
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = str(os.getenv(name, str(default))).strip()
+    try:
+        return int(raw)
+    except Exception as exc:
+        raise UniverseBuildError(f"Invalid int env {name}={raw!r}") from exc
+
+
+
+def _env_tuple(name: str, default: Tuple[str, ...]) -> Tuple[str, ...]:
+    raw = str(os.getenv(name, "")).strip()
+    if not raw:
+        return default
+    items = [x.strip().upper() for x in raw.split("|") if x.strip()]
+    return tuple(items)
+
+
+
+def load_config_from_env(_root: Path | None = None) -> UniverseConfig:
+    api_key = str(os.getenv("MASSIVE_API_KEY", "")).strip()
+    eligibility = UniverseEligibilityPolicy(
+        min_price=_env_float("UNIVERSE_MIN_PRICE", 7.50),
         min_median_dollar_vol_20d=_env_float("UNIVERSE_MIN_MEDIAN_DOLLAR_VOL_20D", 20_000_000.0),
         min_history_days=_env_int("UNIVERSE_MIN_HISTORY_DAYS", 25),
-        target_size=_env_int("UNIVERSE_TARGET_SIZE", 175),
-        grouped_lookback_days=_env_int("UNIVERSE_GROUPED_LOOKBACK_DAYS", 35),
-        grouped_sleep_sec=_env_float("UNIVERSE_GROUPED_SLEEP_SEC", 0.0),
-        request_pages_limit=_env_int("UNIVERSE_REQUEST_PAGES_LIMIT", 50),
+        max_nan_ratio=_env_float("UNIVERSE_MAX_NAN_RATIO", 0.02),
+        max_missing_days_20d=_env_int("UNIVERSE_MAX_MISSING_DAYS_20D", 1),
+        allowed_ticker_types=_env_tuple("UNIVERSE_ALLOWED_TICKER_TYPES", (str(os.getenv("UNIVERSE_TICKER_TYPE", DEFAULT_TICKER_TYPE)).strip().upper() or DEFAULT_TICKER_TYPE,)),
+        allowed_primary_exchanges=_env_tuple("UNIVERSE_ALLOWED_PRIMARY_EXCHANGES", tuple()),
+        allowed_exchanges=_env_tuple("UNIVERSE_ALLOWED_EXCHANGES", tuple()),
+        require_active=_env_flag("UNIVERSE_REQUIRE_ACTIVE", True),
     )
-    output_dir = Path(_env_str("UNIVERSE_OUT_DIR", str(root_dir / "artifacts" / "daily_cycle" / "universe")))
+    output_dir = Path(str(os.getenv("UNIVERSE_OUTPUT_DIR", str(DEFAULT_OUTPUT_ROOT))).strip() or str(DEFAULT_OUTPUT_ROOT))
+    target_size = _env_int("UNIVERSE_TARGET_SIZE", 175)
     return UniverseConfig(
         api_key=api_key,
-        base_url=_env_str("MASSIVE_BASE_URL", DEFAULT_BASE_URL).rstrip("/"),
+        base_url=str(os.getenv("MASSIVE_BASE_URL", DEFAULT_BASE_URL)).strip() or DEFAULT_BASE_URL,
+        locale=str(os.getenv("UNIVERSE_LOCALE", DEFAULT_LOCALE)).strip() or DEFAULT_LOCALE,
+        market=str(os.getenv("UNIVERSE_MARKET", DEFAULT_MARKET)).strip() or DEFAULT_MARKET,
+        ticker_type=str(os.getenv("UNIVERSE_TICKER_TYPE", DEFAULT_TICKER_TYPE)).strip().upper() or DEFAULT_TICKER_TYPE,
+        universe_profile=str(os.getenv("UNIVERSE_PROFILE", DEFAULT_PROFILE)).strip() or DEFAULT_PROFILE,
+        target_size=target_size,
+        sector_cap=_env_int("UNIVERSE_SECTOR_CAP", 18),
+        top_n=_env_int("UNIVERSE_TOP_N", target_size),
         output_dir=output_dir,
-        request_timeout_sec=_env_int("UNIVERSE_REQUEST_TIMEOUT_SEC", 30),
-        as_of_date=_env_str("UNIVERSE_AS_OF_DATE", "") or None,
-        policy=policy,
+        request_timeout_sec=_env_float("UNIVERSE_REQUEST_TIMEOUT_SEC", 30.0),
+        request_sleep_sec=_env_float("UNIVERSE_REQUEST_SLEEP_SEC", 0.2),
+        overview_enrichment_enabled=_env_flag("UNIVERSE_OVERVIEW_ENRICHMENT_ENABLED", True),
+        overview_enrichment_max=_env_int("UNIVERSE_OVERVIEW_ENRICHMENT_MAX", 1200),
+        rebalance_freq=str(os.getenv("UNIVERSE_REBALANCE_FREQ", "weekly")).strip() or "weekly",
+        reuse_last=_env_flag("UNIVERSE_REUSE_LAST", True),
+        history_check_mode=str(os.getenv("UNIVERSE_HISTORY_CHECK_MODE", "grouped_daily_lookback")).strip() or "grouped_daily_lookback",
+        eligibility=eligibility,
     )
 
 
-def _choose_requested_as_of_date(config: UniverseConfig) -> datetime:
-    if config.as_of_date:
-        parsed = pd.Timestamp(config.as_of_date)
-        if parsed.tzinfo is None:
-            parsed = parsed.tz_localize("UTC")
-        else:
-            parsed = parsed.tz_convert("UTC")
-        return parsed.to_pydatetime()
-    now_utc = _utc_now()
-    return datetime(now_utc.year, now_utc.month, now_utc.day, tzinfo=timezone.utc)
 
-
-def _build_reference_flags(reference_df: pd.DataFrame, policy: UniversePolicy) -> pd.DataFrame:
-    df = reference_df.copy()
-    for column in ["ticker", "locale", "market", "type", "currency_name", "primary_exchange", "name"]:
-        if column not in df.columns:
-            df[column] = ""
-    if "active" not in df.columns:
-        df["active"] = False
-
-    df["type_norm"] = df["type"].astype(str).str.upper().str.strip()
-    df["locale_norm"] = df["locale"].astype(str).str.lower().str.strip()
-    df["currency_norm"] = df["currency_name"].astype(str).str.upper().str.strip()
-    df["primary_exchange_norm"] = df["primary_exchange"].astype(str).str.upper().str.strip()
-
-    name_blob = (
-        df["name"].astype(str).str.lower().fillna("")
-        + " "
-        + df["ticker"].astype(str).str.lower().fillna("")
-        + " "
-        + df["primary_exchange"].astype(str).str.lower().fillna("")
-    )
-
-    df["passes_locale"] = df["locale_norm"].eq(policy.locale.lower())
-    df["passes_type"] = df["type_norm"].isin(set(policy.allowed_base_types))
-    df["passes_currency"] = df["currency_norm"].eq(policy.allowed_currency.upper())
-    df["passes_active"] = df["active"].fillna(False).astype(bool) if policy.active_only else True
-
-    df["is_otc_like"] = df["primary_exchange_norm"].str.contains("OTC", na=False)
-    df["is_etf_like"] = df["name"].astype(str).str.lower().fillna("").str.contains(
-        r"\betf\b|\bfund\b|\btrust\b|\bspdr\b|\bishares\b|\bvanguard\b|\betn\b|\bnotes\b",
-        regex=True,
-        na=False,
-    ) | name_blob.str.contains(r"\betf\b|\betn\b", regex=True, na=False)
-    df["is_adr_like"] = name_blob.str.contains(
-        r"\badr\b|\bads\b|\bdepositary\b|\bsponsored\b",
-        regex=True,
-        na=False,
-    )
-
-    df["passes_otc"] = ~df["is_otc_like"] if policy.exclude_otc else True
-    df["passes_etf"] = ~df["is_etf_like"] if policy.exclude_etfs else True
-    df["passes_adr"] = ~df["is_adr_like"] if policy.exclude_adr else True
-
-    df["passes_reference"] = (
-        df["passes_locale"]
-        & df["passes_type"]
-        & df["passes_currency"]
-        & df["passes_active"]
-        & df["passes_otc"]
-        & df["passes_etf"]
-        & df["passes_adr"]
-    )
-
-    reason = pd.Series("passes_reference", index=df.index, dtype="object")
-    reason = reason.mask(~df["passes_locale"], "reference_locale")
-    reason = reason.mask(df["passes_locale"] & ~df["passes_type"], "reference_type")
-    reason = reason.mask(df["passes_locale"] & df["passes_type"] & ~df["passes_currency"], "reference_currency")
-    reason = reason.mask(df["passes_locale"] & df["passes_type"] & df["passes_currency"] & ~df["passes_active"], "reference_active")
-    reason = reason.mask(df["passes_locale"] & df["passes_type"] & df["passes_currency"] & df["passes_active"] & ~df["passes_otc"], "reference_otc")
-    reason = reason.mask(df["passes_locale"] & df["passes_type"] & df["passes_currency"] & df["passes_active"] & df["passes_otc"] & ~df["passes_etf"], "reference_etf_like")
-    reason = reason.mask(df["passes_locale"] & df["passes_type"] & df["passes_currency"] & df["passes_active"] & df["passes_otc"] & df["passes_etf"] & ~df["passes_adr"], "reference_adr_like")
-    df["drop_reason_reference"] = reason
-    return df
-
-
-def _get_recent_business_days(end_date: datetime, count: int) -> List[datetime]:
-    out: List[datetime] = []
-    cursor = pd.Timestamp(end_date.date())
-    while len(out) < count:
-        if cursor.weekday() < 5:
-            out.append(cursor.to_pydatetime().replace(tzinfo=timezone.utc))
-        cursor = cursor - pd.Timedelta(days=1)
-    out.reverse()
+def _normalize_ticker_reference(df: pd.DataFrame) -> pd.DataFrame:
+    out = df.copy()
+    rename_map = {
+        "ticker": "symbol",
+        "primary_exchange": "primary_exchange",
+        "market": "market",
+        "locale": "locale",
+        "type": "ticker_type",
+        "active": "active",
+        "name": "name",
+        "currency_name": "currency_name",
+    }
+    for src, dst in rename_map.items():
+        if src in out.columns and src != dst:
+            out[dst] = out[src]
+    if "symbol" not in out.columns and "ticker" in out.columns:
+        out["symbol"] = out["ticker"]
+    out["symbol"] = out.get("symbol", pd.Series(dtype="object")).astype(str).str.upper()
+    if "active" in out.columns:
+        out["active"] = out["active"].fillna(False).astype(bool)
+    else:
+        out["active"] = True
+    if "ticker_type" not in out.columns:
+        out["ticker_type"] = ""
+    out["ticker_type"] = out["ticker_type"].astype(str).str.upper()
+    if "primary_exchange" not in out.columns:
+        out["primary_exchange"] = ""
+    out["primary_exchange"] = out["primary_exchange"].astype(str).str.upper()
+    if "market" not in out.columns:
+        out["market"] = ""
+    if "locale" not in out.columns:
+        out["locale"] = ""
     return out
 
 
-def _fetch_grouped_history(client: MassiveClient, policy: UniversePolicy, requested_as_of_date: datetime) -> pd.DataFrame:
-    days = _get_recent_business_days(requested_as_of_date, policy.grouped_lookback_days)
-    frames: List[pd.DataFrame] = []
-    for idx, dt in enumerate(days, start=1):
-        df = client.get_grouped_daily(dt.date().isoformat(), policy)
-        if len(df):
-            frames.append(df)
-        if idx % 5 == 0 or idx == len(days):
-            rows_total = int(sum(len(x) for x in frames))
-            print(f"[GROUPED] {idx}/{len(days)} days fetched rows={rows_total}")
-        if policy.grouped_sleep_sec > 0.0:
-            time.sleep(policy.grouped_sleep_sec)
-    if not frames:
-        raise RuntimeError("Grouped daily history is empty")
-    out = pd.concat(frames, ignore_index=True)
-    out["ticker"] = _normalize_symbol_series(out["ticker"])
-    out = out.loc[out["ticker"].ne("")].copy().reset_index(drop=True)
-    return out
 
-
-def _aggregate_grouped_history(grouped_df: pd.DataFrame) -> pd.DataFrame:
-    grouped = grouped_df.copy()
-    grouped["date"] = pd.to_datetime(grouped["date"], errors="coerce").dt.normalize()
-    grouped["close"] = pd.to_numeric(grouped["close"], errors="coerce")
-    grouped["dollar_volume"] = pd.to_numeric(grouped["dollar_volume"], errors="coerce")
-    grouped = grouped.sort_values(["ticker", "date"]).reset_index(drop=True)
-
-    pieces: List[Dict[str, object]] = []
-    for ticker, frame in grouped.groupby("ticker", sort=False):
-        frame = frame.dropna(subset=["date"]).copy()
-        frame = frame.loc[frame["ticker"].astype(str).ne("")].copy()
-        if frame.empty:
-            continue
-        hist_dates = pd.Series(frame["date"]).dropna().drop_duplicates().sort_values()
-        hist_days = int(len(hist_dates))
-        last_trade_date = hist_dates.iloc[-1] if hist_days else pd.NaT
-        close_series = pd.to_numeric(frame["close"], errors="coerce").dropna()
-        dv_series = pd.to_numeric(frame["dollar_volume"], errors="coerce").dropna()
-        last_close = float(close_series.iloc[-1]) if len(close_series) else float("nan")
-        median_dollar_vol_20d = float(dv_series.tail(20).median()) if len(dv_series) else float("nan")
-        pieces.append(
-            {
-                "ticker": ticker,
-                "history_days": hist_days,
-                "last_trade_date": last_trade_date,
-                "last_close": last_close,
-                "median_dollar_vol_20d": median_dollar_vol_20d,
-            }
-        )
-
-    if not pieces:
-        return pd.DataFrame(columns=["ticker", "history_days", "last_trade_date", "last_close", "median_dollar_vol_20d"])
-    return pd.DataFrame(pieces)
-
-
-def _resolve_effective_trade_date(grouped_df: pd.DataFrame, requested_as_of_date: datetime) -> pd.Timestamp:
-    if "date" not in grouped_df.columns:
-        raise RuntimeError("Grouped history is missing date column")
-    observed = pd.to_datetime(grouped_df["date"], errors="coerce").dropna()
-    if observed.empty:
-        raise RuntimeError("Grouped history has no valid observed dates")
-    effective = pd.Timestamp(observed.max()).normalize()
-    requested = pd.Timestamp(requested_as_of_date.date()).normalize()
-    if effective != requested:
-        print(
-            "[UNIVERSE][DATE_ADJUST] "
-            f"requested_as_of_date={requested.date().isoformat()} effective_trade_date={effective.date().isoformat()}"
-        )
-    return effective
-
-
-def _classify_eligibility(reference_df: pd.DataFrame, grouped_df: pd.DataFrame, effective_trade_date: pd.Timestamp, policy: UniversePolicy) -> pd.DataFrame:
-    history_agg = _aggregate_grouped_history(grouped_df)
-    out = reference_df.merge(history_agg, on="ticker", how="left")
-
-    out["trade_date"] = effective_trade_date
-    out["as_of_date"] = effective_trade_date
-    out["requested_as_of_date"] = pd.NaT
-    out["symbol"] = out["ticker"]
-
-    out["history_days"] = pd.to_numeric(out["history_days"], errors="coerce").fillna(0).astype(int)
-    out["last_close"] = pd.to_numeric(out["last_close"], errors="coerce")
-    out["median_dollar_vol_20d"] = pd.to_numeric(out["median_dollar_vol_20d"], errors="coerce")
-
-    out["eligible_price"] = out["last_close"].ge(policy.min_price).fillna(False)
-    out["eligible_liquidity"] = out["median_dollar_vol_20d"].ge(policy.min_median_dollar_vol_20d).fillna(False)
-    out["eligible_history_depth"] = out["history_days"].ge(policy.min_history_days).fillna(False)
-
-    out["eligible"] = (
-        out["passes_reference"]
-        & out["eligible_price"]
-        & out["eligible_liquidity"]
-        & out["eligible_history_depth"]
-    )
-
-    out = out.sort_values(["eligible", "median_dollar_vol_20d", "ticker"], ascending=[False, False, True]).reset_index(drop=True)
-    out["liquidity_rank"] = pd.NA
-    eligible_mask = out["eligible"].fillna(False)
-    out.loc[eligible_mask, "liquidity_rank"] = list(range(1, int(eligible_mask.sum()) + 1))
-    out["liquidity_rank"] = pd.to_numeric(out["liquidity_rank"], errors="coerce")
-
-    out["selected"] = False
-    out.loc[eligible_mask & out["liquidity_rank"].le(policy.target_size), "selected"] = True
-    out["is_selected"] = out["selected"]
-
-    reason = pd.Series("eligible", index=out.index, dtype="object")
-    reason = reason.mask(~out["passes_reference"], out["drop_reason_reference"])
-    reason = reason.mask(out["passes_reference"] & ~out["eligible_price"], "price")
-    reason = reason.mask(out["passes_reference"] & out["eligible_price"] & ~out["eligible_liquidity"], "liquidity")
-    reason = reason.mask(out["passes_reference"] & out["eligible_price"] & out["eligible_liquidity"] & ~out["eligible_history_depth"], "history_depth")
-    reason = reason.mask(out["eligible"] & ~out["selected"], "rank_cut")
-    out["drop_reason"] = reason
-    out["eligibility_stage"] = out["drop_reason"].where(~out["selected"], "selected")
-
-    keep_cols = [
-        "trade_date",
-        "as_of_date",
-        "requested_as_of_date",
-        "ticker",
-        "symbol",
-        "name",
-        "market",
-        "locale",
-        "type",
-        "primary_exchange",
-        "currency_name",
-        "active",
-        "last_trade_date",
-        "last_close",
-        "median_dollar_vol_20d",
-        "history_days",
-        "passes_reference",
-        "eligible_price",
-        "eligible_liquidity",
-        "eligible_history_depth",
-        "eligible",
-        "liquidity_rank",
-        "selected",
-        "is_selected",
-        "drop_reason_reference",
-        "drop_reason",
-        "eligibility_stage",
-    ]
-    for col in keep_cols:
+def _normalize_grouped_daily(df: pd.DataFrame) -> pd.DataFrame:
+    out = df.copy()
+    rename_map = {
+        "T": "symbol",
+        "c": "close",
+        "h": "high",
+        "l": "low",
+        "o": "open",
+        "v": "volume",
+        "vw": "vwap",
+        "t": "timestamp_ms",
+        "n": "transactions",
+    }
+    for src, dst in rename_map.items():
+        if src in out.columns and dst not in out.columns:
+            out[dst] = out[src]
+    if "symbol" not in out.columns:
+        raise UniverseBuildError("Grouped daily payload missing symbol/T column")
+    out["symbol"] = out["symbol"].astype(str).str.upper()
+    for col in ["close", "open", "high", "low", "volume", "vwap"]:
         if col not in out.columns:
-            out[col] = pd.NA
-    out = out[keep_cols].copy()
-    return out.sort_values(["selected", "eligible", "liquidity_rank", "median_dollar_vol_20d", "ticker"], ascending=[False, False, True, False, True]).reset_index(drop=True)
+            out[col] = 0.0
+        out[col] = pd.to_numeric(out[col], errors="coerce")
+    out["dollar_volume_1d"] = out["close"].fillna(0.0) * out["volume"].fillna(0.0)
+    out["median_dollar_volume_20d"] = out["dollar_volume_1d"]
+    out["history_days"] = 30
+    out["nan_ratio"] = 0.0
+    out["missing_days_20d"] = 0
+    return out
 
 
-def _build_summary(classified: pd.DataFrame, config: UniverseConfig, effective_trade_date: pd.Timestamp, requested_as_of_date: datetime) -> Dict[str, object]:
-    eligible_mask = classified["eligible"].fillna(False)
-    selected_mask = classified["selected"].fillna(False)
-    return {
-        "trade_date": str(effective_trade_date.date()),
-        "requested_as_of_date": str(pd.Timestamp(requested_as_of_date.date()).date()),
-        "universe_profile": config.policy.profile,
-        "policy": asdict(config.policy),
-        "reference_total": int(len(classified)),
-        "eligible_total": int(eligible_mask.sum()),
-        "selected_total": int(selected_mask.sum()),
-        "dropped_reference": int((~classified["passes_reference"].fillna(False)).sum()),
-        "dropped_price": int((classified["passes_reference"].fillna(False) & ~classified["eligible_price"].fillna(False)).sum()),
-        "dropped_liquidity": int((classified["passes_reference"].fillna(False) & classified["eligible_price"].fillna(False) & ~classified["eligible_liquidity"].fillna(False)).sum()),
-        "dropped_history_depth": int((classified["passes_reference"].fillna(False) & classified["eligible_price"].fillna(False) & classified["eligible_liquidity"].fillna(False) & ~classified["eligible_history_depth"].fillna(False)).sum()),
-        "dropped_rank_cut": int((classified["eligible"].fillna(False) & ~classified["selected"].fillna(False)).sum()),
-        "overview_missing_sic_total": 0,
-        "sector_unknown_selected": 0,
-        "industry_unknown_selected": 0,
-        "generated_at_utc": _utc_now().isoformat(),
+
+def _extract_overview_result(payload: Dict[str, Any]) -> Dict[str, Any]:
+    result = payload.get("results", payload)
+    if not isinstance(result, dict):
+        return {}
+    return result
+
+
+
+def _enrich_with_overview(client: MassiveClient, df: pd.DataFrame, enabled: bool, max_rows: int) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    if not enabled:
+        return df.copy(), {"overview_enrichment_enabled": 0, "overview_enriched": 0, "overview_errors": 0}
+    out = df.copy()
+    overview_rows: List[Dict[str, Any]] = []
+    enriched = 0
+    errors = 0
+    limit = min(int(max_rows), len(out))
+    for symbol in out.head(limit)["symbol"].astype(str):
+        try:
+            payload = client.ticker_overview(symbol)
+            item = _extract_overview_result(payload)
+            overview_rows.append({
+                "symbol": symbol,
+                "overview_primary_exchange": str(item.get("primary_exchange", "") or "").upper(),
+                "overview_name": str(item.get("name", "") or ""),
+                "overview_active": bool(item.get("active", False)),
+                "overview_market": str(item.get("market", "") or ""),
+                "overview_locale": str(item.get("locale", "") or ""),
+                "overview_type": str(item.get("type", "") or "").upper(),
+                "overview_currency_name": str(item.get("currency_name", "") or ""),
+                "overview_sic_description": str(item.get("sic_description", "") or ""),
+                "overview_branding_icon_url": str(((item.get("branding") or {}) if isinstance(item.get("branding"), dict) else {}).get("icon_url", "") or ""),
+            })
+            enriched += 1
+        except Exception:
+            errors += 1
+    if overview_rows:
+        out = out.merge(pd.DataFrame(overview_rows), on="symbol", how="left")
+        out["primary_exchange"] = out["overview_primary_exchange"].fillna(out["primary_exchange"])
+        out["active"] = out["overview_active"].fillna(out["active"])
+        out["ticker_type"] = out["overview_type"].fillna(out["ticker_type"])
+        out["name"] = out["overview_name"].fillna(out.get("name", pd.Series(dtype="object")))
+    return out, {
+        "overview_enrichment_enabled": 1,
+        "overview_enriched": enriched,
+        "overview_errors": errors,
     }
 
 
-def _write_outputs(
-    classified: pd.DataFrame,
-    summary: Dict[str, object],
-    reference_raw: pd.DataFrame,
-    grouped_raw: pd.DataFrame,
-    config: UniverseConfig,
-) -> Tuple[Path, Path]:
-    config.output_dir.mkdir(parents=True, exist_ok=True)
 
-    snapshot_path = config.output_dir / SNAPSHOT_FILE_NAME
-    summary_path = config.output_dir / SUMMARY_FILE_NAME
-    reference_path = config.output_dir / REFERENCE_FILE_NAME
-    grouped_path = config.output_dir / GROUPED_FILE_NAME
-    debug_path = config.output_dir / ELIGIBILITY_FILE_NAME
-
-    classified.to_parquet(snapshot_path, index=False)
-    classified.to_parquet(debug_path, index=False)
-    reference_raw.to_parquet(reference_path, index=False)
-    grouped_raw.to_parquet(grouped_path, index=False)
-    summary_path.write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
-
-    print(f"[UNIVERSE][WRITE] snapshot={snapshot_path}")
-    print(f"[UNIVERSE][WRITE] summary={summary_path}")
-    print(f"[UNIVERSE][WRITE] reference_raw={reference_path}")
-    print(f"[UNIVERSE][WRITE] grouped_raw={grouped_path}")
-    print(f"[UNIVERSE][WRITE] eligibility_debug={debug_path}")
-
-    selected = classified.loc[classified["selected"].fillna(False)].copy()
-    if len(selected):
-        cols = [
-            c
-            for c in ["ticker", "symbol", "liquidity_rank", "last_close", "median_dollar_vol_20d", "history_days"]
-            if c in selected.columns
-        ]
-        print("[UNIVERSE][TOP_SELECTED]")
-        print(selected[cols].head(min(25, len(selected))).to_string(index=False))
-    else:
-        print("[UNIVERSE][TOP_SELECTED] none")
-
-    return snapshot_path, summary_path
+def _passes_allowed(value: str, allowed: Iterable[str]) -> bool:
+    allowed_norm = [str(x).strip().upper() for x in allowed if str(x).strip()]
+    if not allowed_norm:
+        return True
+    return str(value or "").strip().upper() in set(allowed_norm)
 
 
-def _build_universe_snapshot_full(
-    config: UniverseConfig,
-) -> Tuple[pd.DataFrame, Dict[str, object], pd.DataFrame, pd.DataFrame]:
-    requested_as_of_date = _choose_requested_as_of_date(config)
-    print(
-        "[CFG][UNIVERSE] "
-        f"profile={config.policy.profile} requested_as_of_date={requested_as_of_date.date().isoformat()} "
-        f"min_price={config.policy.min_price:.2f} "
-        f"min_median_dollar_vol_20d={config.policy.min_median_dollar_vol_20d:.2f} "
-        f"min_history_days={config.policy.min_history_days} "
-        f"target_size={config.policy.target_size} "
-        f"grouped_lookback_days={config.policy.grouped_lookback_days} "
-        f"allowed_base_types={'|'.join(config.policy.allowed_base_types)} "
-        f"exclude_otc={int(config.policy.exclude_otc)} "
-        f"exclude_etfs={int(config.policy.exclude_etfs)} "
-        f"exclude_adr={int(config.policy.exclude_adr)}"
-    )
 
+def apply_eligibility_policy(df: pd.DataFrame, policy: UniverseEligibilityPolicy) -> Tuple[pd.DataFrame, Dict[str, int]]:
+    out = df.copy()
+
+    out["passes_active"] = True if not policy.require_active else out["active"].fillna(False).astype(bool)
+    out["passes_ticker_type"] = out["ticker_type"].astype(str).str.upper().map(lambda x: _passes_allowed(x, policy.allowed_ticker_types))
+    out["passes_primary_exchange"] = out["primary_exchange"].astype(str).str.upper().map(lambda x: _passes_allowed(x, policy.allowed_primary_exchanges))
+    exchange_col = out["primary_exchange"] if "primary_exchange" in out.columns else pd.Series([""] * len(out), index=out.index)
+    out["passes_exchange"] = exchange_col.astype(str).str.upper().map(lambda x: _passes_allowed(x, policy.allowed_exchanges))
+    out["passes_price"] = pd.to_numeric(out["close"], errors="coerce").fillna(0.0) >= float(policy.min_price)
+    out["passes_liquidity"] = pd.to_numeric(out["median_dollar_volume_20d"], errors="coerce").fillna(0.0) >= float(policy.min_median_dollar_vol_20d)
+    out["passes_history"] = pd.to_numeric(out["history_days"], errors="coerce").fillna(0).astype(int) >= int(policy.min_history_days)
+    out["passes_nan_ratio"] = pd.to_numeric(out["nan_ratio"], errors="coerce").fillna(1.0) <= float(policy.max_nan_ratio)
+    out["passes_missing_days"] = pd.to_numeric(out["missing_days_20d"], errors="coerce").fillna(999).astype(int) <= int(policy.max_missing_days_20d)
+
+    rule_cols = [
+        "passes_active",
+        "passes_ticker_type",
+        "passes_primary_exchange",
+        "passes_exchange",
+        "passes_price",
+        "passes_liquidity",
+        "passes_history",
+        "passes_nan_ratio",
+        "passes_missing_days",
+    ]
+    out["eligible"] = out[rule_cols].all(axis=1)
+
+    def _drop_reason(row: pd.Series) -> str:
+        if bool(row.get("eligible", False)):
+            return ""
+        for key in rule_cols:
+            if not bool(row.get(key, False)):
+                return key.replace("passes_", "")
+        return "unknown"
+
+    out["drop_reason"] = out.apply(_drop_reason, axis=1)
+
+    counters = {
+        "candidates_total": int(len(out)),
+        "eligible_total": int(out["eligible"].sum()),
+        "dropped_active": int((~out["passes_active"]).sum()),
+        "dropped_ticker_type": int((~out["passes_ticker_type"]).sum()),
+        "dropped_primary_exchange": int((~out["passes_primary_exchange"]).sum()),
+        "dropped_exchange": int((~out["passes_exchange"]).sum()),
+        "dropped_price": int((~out["passes_price"]).sum()),
+        "dropped_liquidity": int((~out["passes_liquidity"]).sum()),
+        "dropped_history": int((~out["passes_history"]).sum()),
+        "dropped_nan_ratio": int((~out["passes_nan_ratio"]).sum()),
+        "dropped_missing_days": int((~out["passes_missing_days"]).sum()),
+    }
+    return out, counters
+
+
+
+def _apply_sector_cap(df: pd.DataFrame, sector_cap: int, target_size: int) -> pd.DataFrame:
+    out = df.copy()
+    if "overview_sic_description" not in out.columns:
+        out["overview_sic_description"] = "UNKNOWN"
+    out["sector_key"] = out["overview_sic_description"].fillna("UNKNOWN").astype(str).replace({"": "UNKNOWN"})
+    out = out.sort_values(["median_dollar_volume_20d", "dollar_volume_1d", "close", "symbol"], ascending=[False, False, False, True]).copy()
+    out["sector_rank"] = out.groupby("sector_key").cumcount() + 1
+    out = out.loc[out["sector_rank"] <= max(1, int(sector_cap))].copy()
+    out = out.head(max(1, int(target_size))).copy()
+    out["selected"] = True
+    return out
+
+
+
+def _build_summary(config: UniverseConfig, counters: Dict[str, int], extra: Dict[str, Any], selected: pd.DataFrame) -> Dict[str, Any]:
+    summary: Dict[str, Any] = {
+        "ts_utc": _utc_now_iso(),
+        "universe_profile": config.universe_profile,
+        "base_url": config.base_url,
+        "locale": config.locale,
+        "market": config.market,
+        "ticker_type": config.ticker_type,
+        "target_size": int(config.target_size),
+        "top_n": int(config.top_n),
+        "sector_cap": int(config.sector_cap),
+        "history_check_mode": config.history_check_mode,
+        "rebalance_freq": config.rebalance_freq,
+        "reuse_last": int(bool(config.reuse_last)),
+        **counters,
+        **extra,
+        "selected_total": int(len(selected)),
+        "eligibility_policy": asdict(config.eligibility),
+    }
+    return summary
+
+
+
+def build_universe_snapshot(config: UniverseConfig) -> Tuple[pd.DataFrame, Dict[str, Any], pd.DataFrame]:
     client = MassiveClient(
         api_key=config.api_key,
         base_url=config.base_url,
         timeout_sec=config.request_timeout_sec,
-    )
-    reference_raw = client.get_reference_tickers(config.policy)
-    reference_classified = _build_reference_flags(reference_raw, config.policy)
-    grouped_raw = _fetch_grouped_history(client, config.policy, requested_as_of_date)
-    effective_trade_date = _resolve_effective_trade_date(grouped_raw, requested_as_of_date)
-    classified = _classify_eligibility(reference_classified, grouped_raw, effective_trade_date, config.policy)
-    classified["requested_as_of_date"] = pd.Timestamp(requested_as_of_date.date()).normalize()
-    summary = _build_summary(classified, config, effective_trade_date, requested_as_of_date)
-
-    print(
-        "[UNIVERSE][SUMMARY] "
-        f"requested_as_of_date={summary['requested_as_of_date']} trade_date={summary['trade_date']} "
-        f"reference_total={summary['reference_total']} eligible_total={summary['eligible_total']} "
-        f"selected_total={summary['selected_total']} dropped_reference={summary['dropped_reference']} "
-        f"dropped_price={summary['dropped_price']} dropped_liquidity={summary['dropped_liquidity']} "
-        f"dropped_history_depth={summary['dropped_history_depth']} dropped_rank_cut={summary['dropped_rank_cut']}"
+        sleep_sec=config.request_sleep_sec,
     )
 
-    return classified, summary, reference_raw, grouped_raw
+    tickers_df = _normalize_ticker_reference(client.list_tickers(config.locale, config.market, config.ticker_type))
+    grouped_df = _normalize_grouped_daily(client.grouped_daily_snapshot(config.locale, config.market))
 
+    merged = tickers_df.merge(grouped_df, on="symbol", how="inner", suffixes=("", "_grouped"))
+    if merged.empty:
+        raise UniverseBuildError("Universe merge produced zero rows")
 
-def build_universe_snapshot(config: UniverseConfig) -> Tuple[pd.DataFrame, Dict[str, object]]:
-    classified, summary, _reference_raw, _grouped_raw = _build_universe_snapshot_full(config)
-    return classified, summary
+    merged, overview_summary = _enrich_with_overview(
+        client,
+        merged,
+        enabled=config.overview_enrichment_enabled,
+        max_rows=config.overview_enrichment_max,
+    )
+
+    eligible_df, counters = apply_eligibility_policy(merged, config.eligibility)
+    ranked_eligible = eligible_df.loc[eligible_df["eligible"]].copy()
+    ranked_eligible = ranked_eligible.sort_values(
+        ["median_dollar_volume_20d", "dollar_volume_1d", "close", "symbol"],
+        ascending=[False, False, False, True],
+    ).copy()
+
+    selected = _apply_sector_cap(ranked_eligible, config.sector_cap, config.target_size)
+    selected["selected_rank"] = range(1, len(selected) + 1)
+    summary = _build_summary(config, counters, overview_summary, selected)
+
+    return selected.reset_index(drop=True), summary, eligible_df.reset_index(drop=True)
+
 
 
 def build_and_save_universe_snapshot(config: UniverseConfig) -> Tuple[Path, Path]:
-    classified, summary, reference_raw, grouped_raw = _build_universe_snapshot_full(config)
-    return _write_outputs(classified, summary, reference_raw, grouped_raw, config)
+    selected, summary, eligible_df = build_universe_snapshot(config)
+
+    output_dir = config.output_dir
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    snapshot_path = output_dir / "universe_snapshot.parquet"
+    eligible_path = output_dir / "universe_eligibility_debug.parquet"
+    summary_path = output_dir / "universe_summary.json"
+
+    selected.to_parquet(snapshot_path, index=False)
+    eligible_df.to_parquet(eligible_path, index=False)
+    summary_path.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    return snapshot_path, summary_path
+
+
+UniversePolicy = UniverseEligibilityPolicy
+
+
+__all__ = [
+    "UniverseBuildError",
+    "UniverseConfig",
+    "UniverseEligibilityPolicy",
+    "UniversePolicy",
+    "apply_eligibility_policy",
+    "build_and_save_universe_snapshot",
+    "build_universe_snapshot",
+    "load_config_from_env",
+]
+
+
+if __name__ == "__main__":
+    try:
+        cfg = load_config_from_env()
+        outputs = build_and_save_universe_snapshot(cfg)
+        print(json.dumps({k: str(v) for k, v in outputs.items()}, indent=2, ensure_ascii=False))
+    except Exception:
+        traceback.print_exc()
+        try:
+            input("Press Enter to exit...")
+        except Exception:
+            pass
+        raise
+    try:
+        input("Press Enter to exit...")
+    except Exception:
+        pass
