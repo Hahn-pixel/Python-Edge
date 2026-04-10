@@ -808,6 +808,38 @@ def submit_one_order(app: IBKRApp, prepared: PreparedOrder, req_id_seed: int) ->
         if recent_errors:
             request_debug["recent_errors"] = recent_errors
 
+        retryable_202 = None
+        if IB_RETRY_202_ENABLED and recent_errors:
+            for err in reversed(recent_errors):
+                if int(err.get("errorCode", 0) or 0) == 202:
+                    retryable_202 = BrokerErrorInfo(
+                        req_id=int(err.get("reqId", 0) or 0),
+                        error_code=int(err.get("errorCode", 0) or 0),
+                        error_string=str(err.get("errorString", "") or ""),
+                        advanced_order_reject_json=str(err.get("advancedOrderRejectJson", "") or ""),
+                        ts_utc=str(err.get("ts_utc", utc_now_iso()) or utc_now_iso()),
+                    )
+                    break
+
+        if retryable_202 is not None:
+            clipped = clip_limit_from_202(prepared, limit_price, retryable_202)
+            if clipped is not None and abs(clipped - limit_price) > 1e-9:
+                print(
+                    f"[BROKER][LADDER][202_OVERRIDE] symbol={prepared.symbol} "
+                    f"step={price_idx + 1} next_limit_price={clipped:.4f} (broker guided)"
+                )
+                request_debug["broker_guided_override"] = {
+                    "from_limit_price": float(limit_price),
+                    "to_limit_price": float(clipped),
+                    "step_before_override": int(price_idx + 1),
+                    "broker_error_code": int(retryable_202.error_code),
+                    "broker_error_string": str(retryable_202.error_string),
+                }
+                prices = [float(clipped)]
+                reprices_used += 1
+                price_idx = 0
+                continue
+
         deferred_399 = detect_deferred_399(recent_errors)
         if deferred_399 is not None:
             deferred_until = deferred_until_from_399(deferred_399)
@@ -850,19 +882,6 @@ def submit_one_order(app: IBKRApp, prepared: PreparedOrder, req_id_seed: int) ->
         remaining_qty = to_float(ib_entry.get("remaining_qty", max(0.0, prepared.qty - filled_qty)))
         outcome = classify_outcome(ib_entry.get("status", ""), filled_qty, remaining_qty)
 
-        retryable_202 = None
-        if IB_RETRY_202_ENABLED and recent_errors:
-            for err in reversed(recent_errors):
-                if int(err.get("errorCode", 0) or 0) == 202:
-                    retryable_202 = BrokerErrorInfo(
-                        req_id=int(err.get("reqId", 0) or 0),
-                        error_code=int(err.get("errorCode", 0) or 0),
-                        error_string=str(err.get("errorString", "") or ""),
-                        advanced_order_reject_json=str(err.get("advancedOrderRejectJson", "") or ""),
-                        ts_utc=str(err.get("ts_utc", utc_now_iso()) or utc_now_iso()),
-                    )
-                    break
-
         if outcome in {"filled_now", "partial"}:
             request_debug.update({
                 "reprices_used": reprices_used,
@@ -871,25 +890,6 @@ def submit_one_order(app: IBKRApp, prepared: PreparedOrder, req_id_seed: int) ->
                 "final_mode": step_mode,
             })
             return ib_entry, None, reprices_used, request_debug
-
-        if retryable_202 is not None:
-            clipped = clip_limit_from_202(prepared, limit_price, retryable_202)
-            if clipped is not None and abs(clipped - limit_price) > 1e-9:
-                print(
-                    f"[BROKER][LADDER][202_OVERRIDE] symbol={prepared.symbol} "
-                    f"step={price_idx + 1} next_limit_price={clipped:.4f} (broker guided)"
-                )
-                request_debug["broker_guided_override"] = {
-                    "from_limit_price": float(limit_price),
-                    "to_limit_price": float(clipped),
-                    "step_before_override": int(price_idx + 1),
-                    "broker_error_code": int(retryable_202.error_code),
-                    "broker_error_string": str(retryable_202.error_string),
-                }
-                prices = [float(clipped)]
-                reprices_used += 1
-                price_idx = 0
-                continue
 
         if not is_last_step:
             last_entry = cancel_and_poll_order(app, ib_order_id, ib_entry, f"reprice_step_{price_idx + 1}")
@@ -910,7 +910,7 @@ def submit_one_order(app: IBKRApp, prepared: PreparedOrder, req_id_seed: int) ->
             issue = OrderIssue(
                 kind="ladder_cap_cancelled",
                 status="cancelled_unfilled_cap",
-                broker_error=None,
+                broker_error=retryable_202,
                 message="Final capped price was not filled; order cancelled",
             )
             return last_entry, issue, reprices_used, request_debug
@@ -924,7 +924,7 @@ def submit_one_order(app: IBKRApp, prepared: PreparedOrder, req_id_seed: int) ->
         issue = OrderIssue(
             kind="mkt_disallowed_by_cap",
             status="cancelled_unfilled_cap",
-            broker_error=None,
+            broker_error=retryable_202,
             message="MKT final step disabled because hard deviation cap must be preserved",
         )
         return last_entry, issue, reprices_used, request_debug
@@ -939,6 +939,7 @@ def submit_one_order(app: IBKRApp, prepared: PreparedOrder, req_id_seed: int) ->
         broker_error=None,
         message="Order ladder exhausted without fill",
     ), reprices_used, request_debug
+    
 
 def build_broker_log_entry(
     paths: ConfigPaths,
