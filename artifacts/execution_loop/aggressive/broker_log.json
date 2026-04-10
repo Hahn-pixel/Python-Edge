@@ -877,7 +877,7 @@
       "updated_at_utc": "2026-04-06T16:42:38Z"
     },
     "b0fd02fe350a4a6b460e764e840dbbbb02070c9bcb05883bf2d12ff81a044385": {
-      "broker_order_id": "185",
+      "broker_order_id": "188",
       "broker_symbol": "TSEM",
       "client_order_id": "pe-b0fd02fe350a4a6b460e764e",
       "config": "aggressive",
@@ -888,17 +888,17 @@
       "filled_qty": 0.0,
       "mode": "ibkr_gateway",
       "order_notional": 0.0,
-      "perm_id": 634900809,
+      "perm_id": 505869606,
       "qty": 29.0,
       "remaining_qty": 29.0,
       "request": {
         "anchor_price": 190.37,
         "broker_guided_override": {
           "broker_error_code": 202,
-          "broker_error_string": "Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 194.401474. Please submit your order <br>using a limit price that is closer to the current market price of 200.29.",
-          "from_limit_price": 190.09,
-          "step_before_override": 1,
-          "to_limit_price": 200.27
+          "broker_error_string": "Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 199.778598. Please submit your order <br>using a limit price that is closer to the current market price of 205.83.",
+          "from_limit_price": 190.18,
+          "step_before_override": 2,
+          "to_limit_price": 205.81
         },
         "broker_symbol": "TSEM",
         "cap_price": 188.0,
@@ -912,7 +912,7 @@
         "contract_min_tick": 0.01,
         "contract_primary_exchange": "NASDAQ",
         "contract_raw_min_tick": 0.01,
-        "final_limit_price": 200.27,
+        "final_limit_price": 205.81,
         "final_mode": "marketable_lmt",
         "final_step": 1,
         "open_order_dup_guard": 1,
@@ -924,9 +924,9 @@
           {
             "advancedOrderRejectJson": "",
             "errorCode": 202,
-            "errorString": "Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 194.401474. Please submit your order <br>using a limit price that is closer to the current market price of 200.29.",
-            "reqId": 184,
-            "ts_utc": "2026-04-09T19:01:24Z"
+            "errorString": "Order Canceled - reason:We cannot accept an order at a limit price at or more aggressive than 199.778598. Please submit your order <br>using a limit price that is closer to the current market price of 205.83.",
+            "reqId": 187,
+            "ts_utc": "2026-04-10T14:36:15Z"
           }
         ],
         "reprice_enabled": 1,
@@ -940,11 +940,11 @@
           0.0
         ],
         "reprice_wait_sec": 8.0,
-        "reprices_used": 1,
+        "reprices_used": 2,
         "submitted_order": {
           "account": "",
           "exchange": "SMART",
-          "lmtPrice": 200.27,
+          "lmtPrice": 205.81,
           "orderRef": "pe-b0fd02fe350a4a6b460e764e",
           "orderType": "LMT",
           "outsideRth": 1,
@@ -955,21 +955,22 @@
       },
       "response": {
         "avg_fill_price": 0.0,
+        "error": "Final capped price was not filled; order cancelled",
         "fills": [],
-        "ib_order_id": 185,
+        "ib_order_id": 188,
         "issue_kind": "ladder_cap_cancelled",
         "issue_message": "Final capped price was not filled; order cancelled",
         "last_fill_price": 0.0,
-        "outcome": "cancelled",
-        "perm_id": 634900809,
+        "outcome": "failed",
+        "perm_id": 505869606,
         "status": "Cancelled"
       },
       "side": "SELL",
       "source_order_path": "artifacts\\execution_loop\\aggressive\\orders.csv",
       "status": "cancelled",
-      "submitted_at": "2026-04-09T19:01:34Z",
+      "submitted_at": "2026-04-10T14:36:26Z",
       "symbol": "TSEM",
-      "updated_at_utc": "2026-04-09T19:01:34Z"
+      "updated_at_utc": "2026-04-10T14:36:26Z"
     },
     "b9b60a162cc9e44f96fb9e67dde7257a26e59ccf84ffb5f453602d60a3b779e5": {
       "broker_order_id": "",
@@ -1332,5 +1333,5 @@
       "updated_at_utc": "2026-04-04T14:04:09Z"
     }
   },
-  "updated_at_utc": "2026-04-09T19:01:34Z"
+  "updated_at_utc": "2026-04-10T14:36:26Z"
 }
