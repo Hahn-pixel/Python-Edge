@@ -515,6 +515,83 @@
       "symbol": "AAOI",
       "updated_at_utc": "2026-04-06T16:42:42Z"
     },
+    "5e65acd2a963dad45c8173ee7c57bd4be0623081b91d429bcc2033ef0365b206": {
+      "broker_order_id": "204",
+      "broker_symbol": "APLS",
+      "client_order_id": "pe-5e65acd2a963dad45c8173ee",
+      "config": "aggressive",
+      "date": "2026-04-10",
+      "fill_notional": 40.74,
+      "filled_at": "2026-04-10T19:13:46Z",
+      "filled_avg_price": 40.74,
+      "filled_qty": 1.0,
+      "mode": "ibkr_gateway",
+      "order_notional": 40.73,
+      "perm_id": 505869622,
+      "qty": 1.0,
+      "remaining_qty": 0.0,
+      "request": {
+        "anchor_price": 40.730000000000004,
+        "broker_symbol": "APLS",
+        "cap_price": 40.230000000000004,
+        "client_tag": "pe-5e65acd2a963dad45c8173ee",
+        "contract_currency": "USD",
+        "contract_details_mode": "resolved",
+        "contract_details_req_id": 1001,
+        "contract_details_retries": 1,
+        "contract_exchange": "SMART",
+        "contract_local_symbol": "APLS",
+        "contract_min_tick": 0.01,
+        "contract_primary_exchange": "NASDAQ",
+        "contract_raw_min_tick": 0.01,
+        "final_limit_price": 40.67,
+        "final_mode": "passive_lmt",
+        "final_step": 1,
+        "open_order_dup_guard": 1,
+        "open_order_dup_guard_triggered": 0,
+        "order_side": "SELL",
+        "price_hint": 40.73,
+        "qty": 1.0,
+        "reprice_enabled": 1,
+        "reprice_final_marketable_bps": 12.0,
+        "reprice_final_mode": "marketable_lmt",
+        "reprice_max_deviation_pct": 1.25,
+        "reprice_steps_bps": [
+          15.0,
+          10.0,
+          5.0,
+          0.0
+        ],
+        "reprice_wait_sec": 8.0,
+        "reprices_used": 0,
+        "submitted_order": {
+          "account": "",
+          "exchange": "SMART",
+          "lmtPrice": 40.67,
+          "orderRef": "pe-5e65acd2a963dad45c8173ee",
+          "orderType": "LMT",
+          "outsideRth": 1,
+          "primaryExchange": "",
+          "tif": "DAY",
+          "totalQuantity": 1.0
+        }
+      },
+      "response": {
+        "avg_fill_price": 40.74,
+        "fills": [],
+        "ib_order_id": 204,
+        "last_fill_price": 40.74,
+        "outcome": "filled_now",
+        "perm_id": 505869622,
+        "status": "Filled"
+      },
+      "side": "SELL",
+      "source_order_path": "artifacts\\execution_loop\\aggressive\\orders.csv",
+      "status": "filled",
+      "submitted_at": "2026-04-10T19:13:46Z",
+      "symbol": "APLS",
+      "updated_at_utc": "2026-04-10T19:13:46Z"
+    },
     "636c46d7e21f1758c51d9422a15b2750416560a58b7af9e462b1818306a4700a": {
       "broker_order_id": "",
       "broker_symbol": "NEM",
@@ -1561,5 +1638,5 @@
       "updated_at_utc": "2026-04-04T14:04:09Z"
     }
   },
-  "updated_at_utc": "2026-04-10T18:28:14Z"
+  "updated_at_utc": "2026-04-10T19:13:46Z"
 }

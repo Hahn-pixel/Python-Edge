@@ -1,7 +1,7 @@
 {
   "config": "optimal",
-  "nav": 54743.912503499996,
-  "cash": 53285.258828499995,
+  "nav": 54806.441226999996,
+  "cash": 51400.13955199999,
   "last_rebalanced_date": "2026-04-10",
   "positions": {
     "OKLO": {
@@ -34,15 +34,15 @@
     },
     "AXTI": {
       "shares": -65.0,
-      "last_price": 66.32,
-      "market_value": -4310.799999999999,
+      "last_price": 65.405,
+      "market_value": -4251.325,
       "price_source": "live_snapshot",
       "is_priced": 1
     },
     "AAOI": {
       "shares": -24.0,
-      "last_price": 152.4,
-      "market_value": -3657.6000000000004,
+      "last_price": 153.0,
+      "market_value": -3672.0,
       "price_source": "live_snapshot",
       "is_priced": 1
     },
@@ -54,28 +54,28 @@
       "is_priced": 1
     },
     "APLS": {
-      "shares": 70.0,
-      "last_price": 40.705,
-      "market_value": 2849.35,
+      "shares": 67.0,
+      "last_price": 40.735,
+      "market_value": 2729.245,
       "price_source": "live_snapshot",
       "is_priced": 1
     },
     "CAR": {
-      "shares": 2.0,
-      "last_price": 279.52,
-      "market_value": 559.04,
+      "shares": 9.0,
+      "last_price": 286.615,
+      "market_value": 2579.535,
       "price_source": "live_snapshot",
       "is_priced": 1
     },
     "APTV": {
       "shares": -37.0,
-      "last_price": 59.77,
-      "market_value": -2211.4900000000002,
+      "last_price": 59.711,
+      "market_value": -2209.307,
       "price_source": "live_snapshot",
       "is_priced": 1
     }
   },
-  "last_estimated_trading_cost": 1.892982,
+  "last_estimated_trading_cost": 1.0192765,
   "state_alignment": {
     "applied_at_date": "2026-04-01",
     "source": "artifacts\\execution_loop\\optimal\\broker_positions.csv",

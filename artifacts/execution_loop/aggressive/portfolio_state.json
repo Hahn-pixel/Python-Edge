@@ -1,7 +1,7 @@
 {
   "config": "aggressive",
-  "nav": 60685.633605000025,
-  "cash": 49158.68580500002,
+  "nav": 60842.287494750024,
+  "cash": 49199.06469475002,
   "last_rebalanced_date": "2026-04-10",
   "positions": {
     "OKLO": {
@@ -34,15 +34,15 @@
     },
     "AXTI": {
       "shares": -70.0,
-      "last_price": 66.32,
-      "market_value": -4642.4,
+      "last_price": 65.405,
+      "market_value": -4578.35,
       "price_source": "live_snapshot",
       "is_priced": 1
     },
     "AAOI": {
       "shares": 26.0,
-      "last_price": 152.4,
-      "market_value": 3962.4,
+      "last_price": 153.0,
+      "market_value": 3978.0,
       "price_source": "live_snapshot",
       "is_priced": 1
     },
@@ -54,28 +54,28 @@
       "is_priced": 1
     },
     "APLS": {
-      "shares": 75.0,
-      "last_price": 40.705,
-      "market_value": 3052.875,
+      "shares": 74.0,
+      "last_price": 40.735,
+      "market_value": 3014.39,
       "price_source": "live_snapshot",
       "is_priced": 1
     },
     "CAR": {
       "shares": 10.0,
-      "last_price": 279.52,
-      "market_value": 2795.2,
+      "last_price": 286.615,
+      "market_value": 2866.15,
       "price_source": "live_snapshot",
       "is_priced": 1
     },
     "AXON": {
       "shares": -8.0,
-      "last_price": 344.79,
-      "market_value": -2758.32,
+      "last_price": 344.27,
+      "market_value": -2754.16,
       "price_source": "live_snapshot",
       "is_priced": 1
     }
   },
-  "last_estimated_trading_cost": 2.34095925,
+  "last_estimated_trading_cost": 0.35611024999999996,
   "state_alignment": {
     "applied_at_date": "2026-04-01",
     "source": "artifacts\\execution_loop\\aggressive\\broker_positions.csv",
