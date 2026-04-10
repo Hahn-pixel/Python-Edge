@@ -948,12 +948,16 @@ def build_broker_log_entry(
     request_debug: Dict[str, Any],
     ib_order_id_fallback: int = 0,
 ) -> dict:
+    broker_entry = dict(broker_entry or {})
+
     filled_qty = to_float(broker_entry.get("filled_qty", 0.0))
-    remaining_qty = to_float(broker_entry.get("remaining_qty", max(0.0, prepared.qty - filled_qty)))
+    remaining_qty = to_float(
+        broker_entry.get("remaining_qty", max(0.0, prepared.qty - filled_qty))
+    )
     avg_fill_price = to_float(
         broker_entry.get("avg_fill_price", broker_entry.get("last_fill_price", 0.0))
     )
-    status_raw = str(broker_entry.get("status", issue.status if issue else "submitted"))
+    status_raw = str(broker_entry.get("status", issue.status if issue else "submitted") or "")
     status_norm = normalize_status(status_raw)
     ts_now = utc_now_iso()
 
@@ -974,7 +978,14 @@ def build_broker_log_entry(
     elif status_norm in {"submitted", "presubmitted", "working", "working_carry"}:
         outcome = "working_carry" if issue and issue.status == "working_carry" else "working"
     elif status_norm == "cancelled":
-        outcome = "cancelled"
+        if issue and issue.kind == "ladder_cap_cancelled":
+            outcome = "failed"
+        elif issue and issue.kind == "mkt_disallowed_by_cap":
+            outcome = "failed"
+        elif issue and issue.broker_error and issue.broker_error.error_code == 202:
+            outcome = "cancelled_202_after_override"
+        else:
+            outcome = "cancelled"
     else:
         outcome = status_norm or "unknown"
 
@@ -995,11 +1006,12 @@ def build_broker_log_entry(
         if issue.status == "working_carry":
             response_obj["deferred_message"] = format_issue_message(issue)
         else:
+            response_obj["error"] = issue.message
             response_obj["issue_kind"] = issue.kind
             response_obj["issue_message"] = format_issue_message(issue)
             if issue.broker_error is not None:
-                response_obj["broker_error_code"] = int(issue.broker_error.error_code)
-                response_obj["broker_error_string"] = str(issue.broker_error.error_string)
+                response_obj["error_code"] = int(issue.broker_error.error_code)
+                response_obj["error_string"] = str(issue.broker_error.error_string)
 
     entry = {
         "idempotency_key": str(prepared.idempotency_key),
@@ -1058,8 +1070,7 @@ def fill_entry_from_broker_log_entry(log_entry: dict) -> dict:
 def submit_config(app: IBKRApp, config_name: str, symbol_map: Dict[str, str]) -> None:
     paths = config_paths(config_name)
     must_exist(paths.orders_csv, f"orders.csv for config={config_name}")
-    if RESET_BROKER_LOG and paths.broker_log_json.exists():
-        save_broker_log(paths.broker_log_json, [])
+
     broker_log = load_broker_log(
         paths.broker_log_json,
         config_name=config_name,
@@ -1069,52 +1080,81 @@ def submit_config(app: IBKRApp, config_name: str, symbol_map: Dict[str, str]) ->
         utc_now_iso=utc_now_iso,
         reset=RESET_BROKER_LOG,
     )
+
     df = load_orders_csv(paths.orders_csv)
     live_df = select_live_orders(df)
     prepared_orders = prepare_orders(config_name, live_df, symbol_map)
-    print(f"[CFG] config={config_name} orders_total={len(df)} live_orders={len(live_df)} prepared_orders={len(prepared_orders)} orders_csv={paths.orders_csv}")
+
+    print(
+        f"[CFG] config={config_name} orders_total={len(df)} "
+        f"live_orders={len(live_df)} prepared_orders={len(prepared_orders)} "
+        f"orders_csv={paths.orders_csv}"
+    )
+
     req_id_seed = 1000
     sent = 0
     duplicate_skipped = 0
     errors = 0
+
     for prepared in prepared_orders:
         dup_status = existing_duplicate_status(broker_log, prepared.idempotency_key)
         if dup_status is not None:
             duplicate_skipped += 1
             duplicate_entry = duplicate_fill_entry(prepared, dup_status, paths.orders_csv, broker_log)
             append_or_replace_fills(paths.fills_csv, [duplicate_entry])
-            print(f"[BROKER][{config_name}][DUPLICATE] symbol={prepared.symbol} side={prepared.order_side} qty={prepared.qty:.8f} status={dup_status}")
+            print(
+                f"[BROKER][{config_name}][DUPLICATE] "
+                f"symbol={prepared.symbol} side={prepared.order_side} "
+                f"qty={prepared.qty:.8f} status={dup_status}"
+            )
             continue
+
         try:
             broker_entry, issue, reprices_used, request_debug = submit_one_order(app, prepared, req_id_seed)
             req_id_seed += 100
+
+            broker_entry = dict(broker_entry or {})
+            ib_order_id_fallback = int(broker_entry.get("ib_order_id", 0) or 0)
+
             log_entry = build_broker_log_entry(
-                paths,
-                prepared,
-                broker_entry,
-                issue,
-                request_debug,
-                ib_order_id_fallback=int(broker_entry.get("ib_order_id", 0) or 0),
+                paths=paths,
+                prepared=prepared,
+                broker_entry=broker_entry,
+                issue=issue,
+                request_debug=request_debug,
+                ib_order_id_fallback=ib_order_id_fallback,
             )
+
             upsert_broker_log_entry(broker_log, log_entry, utc_now_iso)
             save_broker_log(paths.broker_log_json, broker_log, utc_now_iso)
+
             filled_qty = to_float(log_entry.get("filled_qty", 0.0))
             if filled_qty > 0.0:
                 append_or_replace_fills(paths.fills_csv, [fill_entry_from_broker_log_entry(log_entry)])
+
             final_status = str(log_entry.get("status", issue.status if issue else "submitted"))
+            broker_order_id_print = str(log_entry.get("broker_order_id", "") or "")
             print(
-                f"[BROKER][{config_name}][SEND] symbol={prepared.symbol} broker_symbol={prepared.broker_symbol} side={prepared.order_side} qty={prepared.qty:.8f} status={final_status} ib_order_id={int(log_entry.get('ib_order_id', 0) or 0)}"
+                f"[BROKER][{config_name}][SEND] "
+                f"symbol={prepared.symbol} broker_symbol={prepared.broker_symbol} "
+                f"side={prepared.order_side} qty={prepared.qty:.8f} "
+                f"status={final_status} ib_order_id={broker_order_id_print}"
             )
+
             if issue is None or issue.status in {"filled", "partial", "working", "working_carry", "submitted"}:
                 sent += 1
             else:
                 errors += 1
+
         except Exception as exc:
             errors += 1
             traceback.print_exc()
             print(f"[BROKER][{config_name}][ERR] symbol={prepared.symbol} error={exc}")
+
     print(
-        f"[BROKER][{config_name}][SUMMARY] sent={sent} duplicate_skipped={duplicate_skipped} errors={errors} fills_csv={paths.fills_csv} broker_log_json={paths.broker_log_json}"
+        f"[BROKER][{config_name}][SUMMARY] "
+        f"sent={sent} duplicate_skipped={duplicate_skipped} errors={errors} "
+        f"fills_csv={paths.fills_csv} broker_log_json={paths.broker_log_json}"
     )
 
 
