@@ -803,6 +803,8 @@ def submit_one_order(app: IBKRApp, prepared: PreparedOrder, req_id_seed: int) ->
 
         app.placeOrder(ib_order_id, contract, order)
         ib_entry = app.wait_for_order_terminalish(ib_order_id, timeout_sec=IB_TIMEOUT_SEC)
+        ib_entry = dict(ib_entry or {})
+        ib_entry.setdefault("ib_order_id", int(ib_order_id))
 
         recent_errors = list(app._errors[error_cursor_before_submit:]) if len(app._errors) > error_cursor_before_submit else []
         if recent_errors:
