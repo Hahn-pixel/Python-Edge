@@ -265,6 +265,15 @@ def _normalize_grouped_daily(df: pd.DataFrame) -> pd.DataFrame:
         if col not in out.columns:
             out[col] = 0.0
         out[col] = pd.to_numeric(out[col], errors="coerce")
+    if "timestamp_ms" not in out.columns:
+        out["timestamp_ms"] = pd.NA
+    ts = pd.to_datetime(out["timestamp_ms"], unit="ms", utc=True, errors="coerce")
+    trade_date = ts.dt.strftime("%Y-%m-%d")
+    fallback_date = pd.Timestamp.now(tz="UTC").strftime("%Y-%m-%d")
+    out["trade_date"] = trade_date.fillna(fallback_date)
+    out["as_of_date"] = out["trade_date"]
+    out["date"] = out["trade_date"]
+    out["session_date"] = out["trade_date"]
     out["dollar_volume_1d"] = out["close"].fillna(0.0) * out["volume"].fillna(0.0)
     out["median_dollar_volume_20d"] = out["dollar_volume_1d"]
     out["history_days"] = 30
@@ -453,10 +462,15 @@ def build_universe_snapshot(config: UniverseConfig) -> Tuple[pd.DataFrame, Dict[
 
     selected = _apply_sector_cap(ranked_eligible, config.sector_cap, config.target_size)
     selected["selected_rank"] = range(1, len(selected) + 1)
+    if "trade_date" not in selected.columns:
+        fallback_date = pd.Timestamp.now(tz="UTC").strftime("%Y-%m-%d")
+        selected["trade_date"] = fallback_date
+        selected["as_of_date"] = fallback_date
+        selected["date"] = fallback_date
+        selected["session_date"] = fallback_date
     summary = _build_summary(config, counters, overview_summary, selected)
 
     return selected.reset_index(drop=True), summary, eligible_df.reset_index(drop=True)
-
 
 
 def build_and_save_universe_snapshot(config: UniverseConfig) -> Tuple[Path, Path]:

@@ -1,8 +1,8 @@
 {
   "config": "optimal",
-  "nav": 57114.96548549999,
-  "cash": 54484.051810499994,
-  "last_rebalanced_date": "2026-04-07",
+  "nav": 54743.912503499996,
+  "cash": 53285.258828499995,
+  "last_rebalanced_date": "2026-04-10",
   "positions": {
     "OKLO": {
       "shares": 59.0,
@@ -15,34 +15,34 @@
       "shares": -15.0,
       "last_price": 187.01,
       "market_value": -2805.1499999999996,
-      "price_source": "live_snapshot",
+      "price_source": "state_last_price",
       "is_priced": 1
     },
     "SMCI": {
       "shares": 121.0,
       "last_price": 22.185,
       "market_value": 2684.3849999999998,
-      "price_source": "live_snapshot",
+      "price_source": "state_last_price",
       "is_priced": 1
     },
     "NKE": {
       "shares": 63.0,
       "last_price": 42.46,
       "market_value": 2674.98,
-      "price_source": "live_snapshot",
+      "price_source": "state_last_price",
       "is_priced": 1
     },
     "AXTI": {
       "shares": -65.0,
-      "last_price": 43.76,
-      "market_value": -2844.4,
+      "last_price": 66.32,
+      "market_value": -4310.799999999999,
       "price_source": "live_snapshot",
       "is_priced": 1
     },
     "AAOI": {
       "shares": -24.0,
-      "last_price": 114.785,
-      "market_value": -2754.84,
+      "last_price": 152.4,
+      "market_value": -3657.6000000000004,
       "price_source": "live_snapshot",
       "is_priced": 1
     },
@@ -50,11 +50,32 @@
       "shares": 23.0,
       "last_price": 122.57,
       "market_value": 2819.1099999999997,
+      "price_source": "state_last_price",
+      "is_priced": 1
+    },
+    "APLS": {
+      "shares": 70.0,
+      "last_price": 40.705,
+      "market_value": 2849.35,
+      "price_source": "live_snapshot",
+      "is_priced": 1
+    },
+    "CAR": {
+      "shares": 2.0,
+      "last_price": 279.52,
+      "market_value": 559.04,
+      "price_source": "live_snapshot",
+      "is_priced": 1
+    },
+    "APTV": {
+      "shares": -37.0,
+      "last_price": 59.77,
+      "market_value": -2211.4900000000002,
       "price_source": "live_snapshot",
       "is_priced": 1
     }
   },
-  "last_estimated_trading_cost": 1.9827504999999996,
+  "last_estimated_trading_cost": 1.892982,
   "state_alignment": {
     "applied_at_date": "2026-04-01",
     "source": "artifacts\\execution_loop\\optimal\\broker_positions.csv",
