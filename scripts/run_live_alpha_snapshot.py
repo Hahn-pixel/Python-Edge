@@ -52,6 +52,9 @@ LIVE_ALPHA_PROXY_ENABLE = str(os.getenv("LIVE_ALPHA_PROXY_ENABLE", "1")).strip()
 LIVE_ALPHA_PROXY_TIMEOUT_SEC = int(os.getenv("LIVE_ALPHA_PROXY_TIMEOUT_SEC", str(LIVE_ALPHA_REQUEST_TIMEOUT_SEC)))
 LIVE_ALPHA_INTERACTION_ENABLE = str(os.getenv("LIVE_ALPHA_INTERACTION_ENABLE", "1")).strip().lower() not in {"0", "false", "no", "off"}
 LIVE_ALPHA_INTERACTION_TOP_K = int(os.getenv("LIVE_ALPHA_INTERACTION_TOP_K", "24"))
+LIVE_ALPHA_INTERACTION_GATES = tuple(
+    x.strip() for x in str(os.getenv("LIVE_ALPHA_INTERACTION_GATES", "oil_up|dollar_up|macro_risk_off")).split("|") if x.strip()
+)
 
 COMMODITY_PROXY_SYMBOLS: Tuple[str, ...] = ("GLD", "SLV", "USO", "DBC")
 INTERNATIONAL_PROXY_SYMBOLS: Tuple[str, ...] = ("EWJ", "EWH", "EWT", "VGK", "SPY")
@@ -439,7 +442,7 @@ def _add_interaction_layer(feature_panel: pd.DataFrame, alpha_frame: pd.DataFram
     if alpha_frame.empty:
         return alpha_frame, manifest
 
-    required_cols = ["oil_up", "global_risk_on", "vol_spike", "dollar_up", "yield_up", "macro_risk_off", "macro_risk_on"]
+    required_cols = list(LIVE_ALPHA_INTERACTION_GATES)
     missing = [c for c in required_cols if c not in feature_panel.columns]
     if missing:
         print(f"[INTERACTION][WARN] missing feature columns for interaction layer: {missing}")
@@ -460,7 +463,7 @@ def _add_interaction_layer(feature_panel: pd.DataFrame, alpha_frame: pd.DataFram
     if not candidate_alphas:
         return alpha_frame, manifest
 
-    gates = {
+    gates_all = {
         "oil_up": pd.to_numeric(feature_panel["oil_up"], errors="coerce").fillna(0.0).astype("float64"),
         "global_risk_on": pd.to_numeric(feature_panel["global_risk_on"], errors="coerce").fillna(0.0).astype("float64"),
         "vol_spike": pd.to_numeric(feature_panel["vol_spike"], errors="coerce").fillna(0.0).astype("float64"),
@@ -479,6 +482,13 @@ def _add_interaction_layer(feature_panel: pd.DataFrame, alpha_frame: pd.DataFram
         "macro_risk_off": "interaction_macro_risk_off",
         "macro_risk_on": "interaction_macro_risk_on",
     }
+
+    selected_gate_names = [g for g in LIVE_ALPHA_INTERACTION_GATES if g in gates_all]
+    if not selected_gate_names:
+        print(f"[INTERACTION][WARN] no enabled gates after filtering: {LIVE_ALPHA_INTERACTION_GATES}")
+        return alpha_frame, manifest
+
+    gates = {k: gates_all[k] for k in selected_gate_names}
 
     out = alpha_frame.copy()
     interaction_cols: Dict[str, pd.Series] = {}
@@ -513,13 +523,13 @@ def _add_interaction_layer(feature_panel: pd.DataFrame, alpha_frame: pd.DataFram
 
     if interaction_cols:
         out = pd.concat([out, pd.DataFrame(interaction_cols, index=out.index)], axis=1)
-        out = out.copy()  # defragment frame
+        out = out.copy()
 
     manifest_out = manifest.copy()
     if manifest_rows:
         manifest_out = pd.concat([manifest_out, pd.DataFrame(manifest_rows)], ignore_index=True, sort=False)
 
-    print(f"[INTERACTION] base_alpha_count={len(candidate_alphas)} added_columns={len(manifest_rows)}")
+    print(f"[INTERACTION] base_alpha_count={len(candidate_alphas)} enabled_gates={selected_gate_names} added_columns={len(manifest_rows)}")
     return out, manifest_out
 
 
@@ -545,7 +555,7 @@ def main() -> int:
     print(f"[CFG] live_alpha_out_dir={LIVE_ALPHA_OUT_DIR}")
     print(f"[CFG] live_alpha_scope={LIVE_ALPHA_SCOPE} survivor_top_n={LIVE_ALPHA_SURVIVOR_TOP_N}")
     print(f"[CFG] lookback_days={LIVE_ALPHA_LOOKBACK_DAYS} max_symbols={LIVE_ALPHA_MAX_SYMBOLS}")
-    print(f"[CFG] proxy_enable={int(LIVE_ALPHA_PROXY_ENABLE)} interaction_enable={int(LIVE_ALPHA_INTERACTION_ENABLE)} interaction_top_k={LIVE_ALPHA_INTERACTION_TOP_K}")
+    print(f"[CFG] proxy_enable={int(LIVE_ALPHA_PROXY_ENABLE)} interaction_enable={int(LIVE_ALPHA_INTERACTION_ENABLE)} interaction_top_k={LIVE_ALPHA_INTERACTION_TOP_K} interaction_gates={'|'.join(LIVE_ALPHA_INTERACTION_GATES)}")
 
     symbols, end_date = _load_selected_universe()
     print(f"[UNIVERSE] selected_symbols={len(symbols)} as_of_date={end_date}")
