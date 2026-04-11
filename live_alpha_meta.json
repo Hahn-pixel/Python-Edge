@@ -1,0 +1,18 @@
+{
+  "as_of_date": "2026-04-10",
+  "selected_symbols": 132,
+  "fetched_symbols": 132,
+  "rows_raw": 23760,
+  "rows_features": 23760,
+  "rows_snapshot": 23760,
+  "alpha_columns_kept": 1211,
+  "alpha_columns_dropped": 387,
+  "recipe_source": "default_priority+recent_default_priority",
+  "recipe_count_requested": 1901,
+  "proxy_enabled": 1,
+  "proxy_rows": 1620,
+  "proxy_symbols": 9,
+  "proxy_feature_rows": 180,
+  "proxy_feature_columns": 73,
+  "interaction_added": 48
+}
