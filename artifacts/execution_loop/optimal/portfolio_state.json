@@ -1,7 +1,7 @@
 {
   "config": "optimal",
-  "nav": 55204.74648199999,
-  "cash": 47261.77980699999,
+  "nav": 55204.032916,
+  "cash": 47223.146240999995,
   "last_rebalanced_date": "2026-04-10",
   "positions": {
     "OKLO": {
@@ -33,9 +33,9 @@
       "is_priced": 1
     },
     "AXTI": {
-      "shares": 42.0,
+      "shares": 43.0,
       "last_price": 64.18,
-      "market_value": 2695.5600000000004,
+      "market_value": 2759.7400000000002,
       "price_source": "live_snapshot",
       "is_priced": 1
     },
@@ -75,14 +75,14 @@
       "is_priced": 1
     },
     "APLD": {
-      "shares": -104.0,
+      "shares": -105.0,
       "last_price": 26.26,
-      "market_value": -2731.04,
+      "market_value": -2757.3,
       "price_source": "live_snapshot",
       "is_priced": 1
     }
   },
-  "last_estimated_trading_cost": 2.1397449999999996,
+  "last_estimated_trading_cost": 0.7135659999999999,
   "state_alignment": {
     "applied_at_date": "2026-04-01",
     "source": "artifacts\\execution_loop\\optimal\\broker_positions.csv",

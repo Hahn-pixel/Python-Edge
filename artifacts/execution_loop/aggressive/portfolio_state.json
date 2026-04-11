@@ -1,7 +1,7 @@
 {
   "config": "aggressive",
-  "nav": 60986.55940125003,
-  "cash": 42151.55660125003,
+  "nav": 60986.20546225003,
+  "cash": 42177.46266225003,
   "last_rebalanced_date": "2026-04-10",
   "positions": {
     "OKLO": {
@@ -82,14 +82,14 @@
       "is_priced": 1
     },
     "APLD": {
-      "shares": -115.0,
+      "shares": -116.0,
       "last_price": 26.26,
-      "market_value": -3019.9,
+      "market_value": -3046.1600000000003,
       "price_source": "live_snapshot",
       "is_priced": 1
     }
   },
-  "last_estimated_trading_cost": 3.0380935,
+  "last_estimated_trading_cost": 0.353939,
   "state_alignment": {
     "applied_at_date": "2026-04-01",
     "source": "artifacts\\execution_loop\\aggressive\\broker_positions.csv",

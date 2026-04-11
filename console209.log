@@ -1,58 +1,5 @@
-PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_daily_cycle.py
-[CFG] configs=['optimal', 'aggressive']
-[CFG] require_any_live_active_names=1 require_fresh_freeze_date_match=1 run_broker_handoff=1 run_broker_adapter=1 run_broker_reconcile=1
-[CFG] require_freeze_universe_filter=1 min_freeze_universe_survival_ratio=0.9000
-[CFG] require_freeze_live_gate_passed=0 require_any_replay_gate_pass=1
-[CFG] child_pause_on_exit=0
-[STEP] universe builder
-[RUN] C:\Users\Dmytro Govor\AppData\Local\Programs\Python\Python313\python.exe C:\Users\Dmytro Govor\Documents\Python-Edge\scripts\run_universe_builder.py
-[RUN][ENV] PAUSE_ON_EXIT=0
-[FINAL] universe builder complete snapshot=artifacts\daily_cycle\universe\universe_snapshot.parquet summary=artifacts\daily_cycle\universe\universe_summary.json
-[DIAG][UNIVERSE] snapshot=C:\Users\Dmytro Govor\Documents\Python-Edge\artifacts\daily_cycle\universe\universe_snapshot.parquet summary=C:\Users\Dmytro Govor\Documents\Python-Edge\artifacts\daily_cycle\universe\universe_summary.json rows_current=132 all_symbols_current=132 selected_symbols_current=132 symbol_col=symbol date_col=date selected_col=selected current_date=2026-04-10
-[DIAG][UNIVERSE][SUMMARY] eligible_total=516 selected_total=132 overview_missing_sic_total=None sector_unknown_selected=None industry_unknown_selected=None
-[STEP] live alpha snapshot
-[RUN] C:\Users\Dmytro Govor\AppData\Local\Programs\Python\Python313\python.exe C:\Users\Dmytro Govor\Documents\Python-Edge\scripts\run_live_alpha_snapshot.py
-[RUN][ENV] PAUSE_ON_EXIT=0
-[CFG] universe_snapshot_file=artifacts\daily_cycle\universe\universe_snapshot.parquet
-[CFG] live_alpha_out_dir=artifacts\live_alpha
-[CFG] live_alpha_scope=registry survivor_top_n=6
-[CFG] lookback_days=260 max_symbols=500
-[UNIVERSE][LOAD] snapshot=artifacts\daily_cycle\universe\universe_snapshot.parquet date_col=trade_date latest_date=2026-04-10 rows_current=132 selected_current=132 max_symbols=500
-[UNIVERSE] selected_symbols=132 as_of_date=2026-04-10
-[FETCH] 25/132 complete rows=4500 failed=0
-[FETCH] 50/132 complete rows=9000 failed=0
-[FETCH] 75/132 complete rows=13500 failed=0
-[FETCH] 100/132 complete rows=18000 failed=0
-[FETCH] 125/132 complete rows=22500 failed=0
-[FETCH] 132/132 complete rows=23760 failed=0
-[FETCH] final_symbols=132 rows=23760 failed_symbols=0
-[FACTORY] recipe_source=default_priority+recent_default_priority recipe_count=1901
-[OK] base_snapshot=artifacts\live_alpha\live_feature_snapshot.parquet
-[OK] live_alpha_snapshot=artifacts\live_alpha\live_alpha_snapshot.parquet
-[OK] manifest=artifacts\live_alpha\live_alpha_manifest.csv
-[OK] dropped=artifacts\live_alpha\live_alpha_dropped.csv
-[OK] meta=artifacts\live_alpha\live_alpha_meta.json
-[DIAG][LIVE_ALPHA] snapshot=C:\Users\Dmytro Govor\Documents\Python-Edge\artifacts\live_alpha\live_alpha_snapshot.parquet current_rows=132 current_symbols=132 alpha_col_count=1163 current_date=2026-04-10 date_match_vs_universe=1
-[DIAG][LIVE_ALPHA][COVERAGE] universe_selected_current=132 present_in_live_alpha=132 missing_from_live_alpha=0 extra_vs_selected=0 extra_vs_all=0
-[DIAG][LIVE_ALPHA][MISSING_TOP] none
-[DIAG][LIVE_ALPHA][EXTRA_VS_SELECTED_TOP] none
-[DIAG][LIVE_ALPHA][EXTRA_VS_ALL_TOP] none
-[ARTIFACT] C:\Users\Dmytro Govor\Documents\Python-Edge\artifacts\daily_cycle\universe_live_alpha_diagnostics.json
-[STEP] freeze runner
-[RUN] C:\Users\Dmytro Govor\AppData\Local\Programs\Python\Python313\python.exe C:\Users\Dmytro Govor\Documents\Python-Edge\scripts\run_freeze_runner.py
-[RUN][ENV] PAUSE_ON_EXIT=0
-[CFG] live_alpha_snapshot_file=artifacts\live_alpha\live_alpha_snapshot.parquet
-[CFG] universe_snapshot_file=artifacts\daily_cycle\universe\universe_snapshot.parquet
-[CFG] out_dir=artifacts\freeze_runner
-[CFG] require_universe_filter=1 require_universe_current_date_match=1 min_universe_survival_ratio=0.9000
-[CFG] auto_refresh_live_alpha_on_date_mismatch=1 live_alpha_refresh_script=scripts\run_live_alpha_snapshot.py
-[CFG] freeze_require_positive_replay_sharpe=0 freeze_min_replay_sharpe=0.0000 freeze_min_replay_cumret=0.0000 freeze_min_live_active_names=1
-[CFG] component_prefilter min_proxy_train_sharpe=0.0000 min_abs_mean_ic=0.000000 basket_candidate_pool=8 basket_max_combos=40
-[CFG] sign_source=last_fold require_recent_sign=0
-[CFG] frozen wf=120/20/20 components=4 weighting=ic
-[UNIVERSE_FILTER] applied=1 universe_selected_current=132 present_in_panel_current=132 missing_in_panel_current=0 survival_ratio_current=1.0000 panel_rows_before_filter=23760 panel_rows_after_filter=23760 live_snapshot_current_date=2026-04-10
-[DATA] rows=23760 symbols=132 alpha_cols=1163 first_date=2025-07-24 last_date=2026-04-10
-[FREEZE] last_completed_fold fold_id=3 train=2025-09-19..2026-03-12 test=2026-03-13..2026-04-10
+←[31;1mC:\Users\Dmytro Govor\AppData\Local\Programs\Python\Python313\Lib\site-packages\pandas\core\nanops.py:1661: ConstantInputWarning: An input array is constant; the correlation coefficient is not defined.←[0m
+←[31;1m  return spearmanr(a, b)[0]←[0m
 [COMPONENTS][ALL_CANDIDATES_TOP]
                                             alpha  train_abs_mean_ic  proxy_train_sharpe  train_sign_locked  last_fold_abs_mean_ic  last_fold_mean_ic  last_fold_sign_locked  effective_sign_locked sign_source_used
           alpha_gap_lag1_regime_breadth_rank_lag1           0.209678            0.394988                1.0               0.233234           0.037178                    1.0                    1.0     last_fold_ic
@@ -137,13 +84,13 @@ symbol    weight     score  side market_regime  long_budget  short_budget  turno
 [EXEC][optimal] loading freeze artifacts
 [EXEC][optimal][ALIGN] requested=0 applied=0 reason=not_requested marker=artifacts\execution_loop\optimal\state_alignment_once.json broker_fallback_symbols=19
 [EXEC][optimal][STATE_SANITY] sanitized=0 updated_from_live=0 updated_from_broker_positions=0 cleared_default_like=0 missing_live_price=0 missing_broker_price=0
-[EXEC][optimal] starting_nav=54806.44 ending_nav=55204.75 cash_after=47261.78 market_value_after=7942.97 nav_recon_error=0.000000 order_count=2 active_names=2 gross_target=0.1000 price_col=close merged_missing_prices=0 fallback_price_rows=0 mtm_default_fallback_count=0 mtm_state_fallback_count=5 mtm_broker_positions_fallback_count=0 mtm_unpriced_count=0 fractional_enabled_effective=0 bootstrap_only=0 skip_reason=
+[EXEC][optimal] starting_nav=55204.75 ending_nav=55204.03 cash_after=47223.15 market_value_after=7980.89 nav_recon_error=0.000000 order_count=2 active_names=2 gross_target=0.1000 price_col=close merged_missing_prices=0 fallback_price_rows=0 mtm_default_fallback_count=0 mtm_state_fallback_count=5 mtm_broker_positions_fallback_count=0 mtm_unpriced_count=0 fractional_enabled_effective=0 bootstrap_only=0 skip_reason=
 [EXEC][optimal][RISK] dropped_price_below_min=0 dropped_price_above_max=0 clipped_weight_cap=0 clipped_notional_cap=0
-[EXEC][optimal][DIAG] already_at_target=9 below_min_notional=0 rounded_to_zero_from_nonzero_target=0 entered_new_position=1 exited_position=0 increased_existing_position=0 decreased_existing_position=1 symbol_only_in_state=9 symbol_only_in_target=1 legacy_state_price_fallback=5 legacy_broker_positions_price_fallback=0 legacy_default_price_fallback=0 legacy_unpriced=0
-[EXEC][optimal][COST] estimated_commission_total=0.7000 estimated_slippage_total=1.4397 estimated_total_cost=2.1397
+[EXEC][optimal][DIAG] already_at_target=9 below_min_notional=0 rounded_to_zero_from_nonzero_target=0 entered_new_position=0 exited_position=0 increased_existing_position=2 decreased_existing_position=0 symbol_only_in_state=9 symbol_only_in_target=0 legacy_state_price_fallback=5 legacy_broker_positions_price_fallback=0 legacy_default_price_fallback=0 legacy_unpriced=0
+[EXEC][optimal][COST] estimated_commission_total=0.7000 estimated_slippage_total=0.0136 estimated_total_cost=0.7136
 [EXEC][optimal][ORDERS_TOP]
       date symbol      price         price_source  is_priced  target_weight  target_notional  target_shares_raw  current_shares  target_shares  raw_delta_shares  delta_shares order_side  order_notional  order_notional_abs  estimated_commission  estimated_slippage  estimated_total_cost                 skip_reason
-2026-04-10   AXTI  64.180000 target_live_snapshot          1           0.05      2740.322061          42.697446           -65.0           42.0             107.0         107.0        BUY         6867.26             6867.26                  0.35            1.030089              1.380089
+2026-04-10   AXTI  64.180000 target_live_snapshot          1           0.05      2760.237324          43.007749            42.0           43.0               1.0           1.0        BUY           64.18               64.18                  0.35            0.009627              0.359627
 2026-04-10   AAOI 150.600000        live_snapshot          1           0.00         0.000000           0.000000           -24.0          -24.0               0.0           0.0       HOLD            0.00                0.00                  0.00            0.000000              0.000000 legacy_symbol_not_in_target
 2026-04-10   APLS  40.790000        live_snapshot          1           0.00         0.000000           0.000000            67.0           67.0               0.0           0.0       HOLD            0.00                0.00                  0.00            0.000000              0.000000 legacy_symbol_not_in_target
 2026-04-10   APTV  59.711000     state_last_price          1           0.00         0.000000           0.000000           -37.0          -37.0               0.0           0.0       HOLD            0.00                0.00                  0.00            0.000000              0.000000 legacy_symbol_not_in_target
@@ -153,7 +100,7 @@ symbol    weight     score  side market_regime  long_budget  short_budget  turno
 2026-04-10   OKLO  48.420825     state_last_price          1           0.00         0.000000           0.000000            59.0           59.0               0.0           0.0       HOLD            0.00                0.00                  0.00            0.000000              0.000000 legacy_symbol_not_in_target
 2026-04-10   SMCI  22.185000     state_last_price          1           0.00         0.000000           0.000000           121.0          121.0               0.0           0.0       HOLD            0.00                0.00                  0.00            0.000000              0.000000 legacy_symbol_not_in_target
 2026-04-10   TSEM 187.010000     state_last_price          1           0.00         0.000000           0.000000           -15.0          -15.0               0.0           0.0       HOLD            0.00                0.00                  0.00            0.000000              0.000000 legacy_symbol_not_in_target
-2026-04-10   APLD  26.260000 target_live_snapshot          1          -0.05     -2740.322061        -104.353468             0.0         -104.0            -104.0        -104.0       SELL        -2731.04             2731.04                  0.35            0.409656              0.759656
+2026-04-10   APLD  26.260000 target_live_snapshot          1          -0.05     -2760.237324        -105.111855          -104.0         -105.0              -1.0          -1.0       SELL          -26.26               26.26                  0.35            0.003939              0.353939
 [ARTIFACT] artifacts\execution_loop\optimal\orders.csv
 [ARTIFACT] artifacts\execution_loop\optimal\positions_mark_to_market.csv
 [ARTIFACT] artifacts\execution_loop\optimal\portfolio_state.json
@@ -161,24 +108,24 @@ symbol    weight     score  side market_regime  long_budget  short_budget  turno
 [EXEC][aggressive] loading freeze artifacts
 [EXEC][aggressive][ALIGN] requested=0 applied=0 reason=not_requested marker=artifacts\execution_loop\aggressive\state_alignment_once.json broker_fallback_symbols=19
 [EXEC][aggressive][STATE_SANITY] sanitized=0 updated_from_live=0 updated_from_broker_positions=0 cleared_default_like=0 missing_live_price=0 missing_broker_price=0
-[EXEC][aggressive] starting_nav=60842.29 ending_nav=60986.56 cash_after=42151.56 market_value_after=18835.00 nav_recon_error=0.000000 order_count=3 active_names=3 gross_target=0.1500 price_col=close merged_missing_prices=0 fallback_price_rows=0 mtm_default_fallback_count=0 mtm_state_fallback_count=5 mtm_broker_positions_fallback_count=0 mtm_unpriced_count=0 fractional_enabled_effective=0 bootstrap_only=0 skip_reason=
+[EXEC][aggressive] starting_nav=60986.56 ending_nav=60986.21 cash_after=42177.46 market_value_after=18808.74 nav_recon_error=0.000000 order_count=1 active_names=3 gross_target=0.1500 price_col=close merged_missing_prices=0 fallback_price_rows=0 mtm_default_fallback_count=0 mtm_state_fallback_count=5 mtm_broker_positions_fallback_count=0 mtm_unpriced_count=0 fractional_enabled_effective=0 bootstrap_only=0 skip_reason=
 [EXEC][aggressive][RISK] dropped_price_below_min=0 dropped_price_above_max=0 clipped_weight_cap=3 clipped_notional_cap=0
-[EXEC][aggressive][DIAG] already_at_target=9 below_min_notional=0 rounded_to_zero_from_nonzero_target=0 entered_new_position=2 exited_position=0 increased_existing_position=0 decreased_existing_position=1 symbol_only_in_state=9 symbol_only_in_target=2 legacy_state_price_fallback=5 legacy_broker_positions_price_fallback=0 legacy_default_price_fallback=0 legacy_unpriced=0
-[EXEC][aggressive][COST] estimated_commission_total=1.0755 estimated_slippage_total=1.9626 estimated_total_cost=3.0381
+[EXEC][aggressive][DIAG] already_at_target=11 below_min_notional=0 rounded_to_zero_from_nonzero_target=0 entered_new_position=0 exited_position=0 increased_existing_position=1 decreased_existing_position=0 symbol_only_in_state=9 symbol_only_in_target=0 legacy_state_price_fallback=5 legacy_broker_positions_price_fallback=0 legacy_default_price_fallback=0 legacy_unpriced=0
+[EXEC][aggressive][COST] estimated_commission_total=0.3500 estimated_slippage_total=0.0039 estimated_total_cost=0.3539
 [EXEC][aggressive][ORDERS_TOP]
       date symbol      price         price_source  is_priced  target_weight  target_notional  target_shares_raw  current_shares  target_shares  raw_delta_shares  delta_shares order_side  order_notional  order_notional_abs  estimated_commission  estimated_slippage  estimated_total_cost                 skip_reason
-2026-04-10   AXTI  64.180000 target_live_snapshot          1           0.05      3042.114375          47.399725           -70.0           47.0             117.0         117.0        BUY         7509.06             7509.06              0.375453            1.126359              1.501812
-2026-04-10   SNDK 851.770000 target_live_snapshot          1           0.05      3042.114375           3.571521             0.0            3.0               3.0           3.0        BUY         2555.31             2555.31              0.350000            0.383296              0.733297
-2026-04-10   AAOI 150.600000        live_snapshot          1           0.00         0.000000           0.000000            26.0           26.0               0.0           0.0       HOLD            0.00                0.00              0.000000            0.000000              0.000000 legacy_symbol_not_in_target
-2026-04-10   APLS  40.790000        live_snapshot          1           0.00         0.000000           0.000000            74.0           74.0               0.0           0.0       HOLD            0.00                0.00              0.000000            0.000000              0.000000 legacy_symbol_not_in_target
-2026-04-10   AXON 345.940000        live_snapshot          1           0.00         0.000000           0.000000            -8.0           -8.0               0.0           0.0       HOLD            0.00                0.00              0.000000            0.000000              0.000000 legacy_symbol_not_in_target
-2026-04-10    CAR 299.940000        live_snapshot          1           0.00         0.000000           0.000000            10.0           10.0               0.0           0.0       HOLD            0.00                0.00              0.000000            0.000000              0.000000 legacy_symbol_not_in_target
-2026-04-10   HIMS  19.440000     state_last_price          1           0.00         0.000000           0.000000           157.0          157.0               0.0           0.0       HOLD            0.00                0.00              0.000000            0.000000              0.000000 legacy_symbol_not_in_target
-2026-04-10    NKE  42.460000     state_last_price          1           0.00         0.000000           0.000000            68.0           68.0               0.0           0.0       HOLD            0.00                0.00              0.000000            0.000000              0.000000 legacy_symbol_not_in_target
-2026-04-10   OKLO  48.420825     state_last_price          1           0.00         0.000000           0.000000            64.0           64.0               0.0           0.0       HOLD            0.00                0.00              0.000000            0.000000              0.000000 legacy_symbol_not_in_target
-2026-04-10   SMCI  22.185000     state_last_price          1           0.00         0.000000           0.000000           130.0          130.0               0.0           0.0       HOLD            0.00                0.00              0.000000            0.000000              0.000000 legacy_symbol_not_in_target
-2026-04-10   TSEM 187.010000     state_last_price          1           0.00         0.000000           0.000000           -15.0          -15.0               0.0           0.0       HOLD            0.00                0.00              0.000000            0.000000              0.000000 legacy_symbol_not_in_target
-2026-04-10   APLD  26.260000 target_live_snapshot          1          -0.05     -3042.114375        -115.845940             0.0         -115.0            -115.0        -115.0       SELL        -3019.90             3019.90              0.350000            0.452985              0.802985
+2026-04-10   AAOI 150.600000        live_snapshot          1           0.00          0.00000           0.000000            26.0           26.0               0.0           0.0       HOLD            0.00                0.00                  0.00            0.000000              0.000000 legacy_symbol_not_in_target
+2026-04-10   APLS  40.790000        live_snapshot          1           0.00          0.00000           0.000000            74.0           74.0               0.0           0.0       HOLD            0.00                0.00                  0.00            0.000000              0.000000 legacy_symbol_not_in_target
+2026-04-10   AXON 345.940000        live_snapshot          1           0.00          0.00000           0.000000            -8.0           -8.0               0.0           0.0       HOLD            0.00                0.00                  0.00            0.000000              0.000000 legacy_symbol_not_in_target
+2026-04-10   AXTI  64.180000 target_live_snapshot          1           0.05       3049.32797          47.512122            47.0           47.0               0.0           0.0       HOLD            0.00                0.00                  0.00            0.000000              0.000000           already_at_target
+2026-04-10    CAR 299.940000        live_snapshot          1           0.00          0.00000           0.000000            10.0           10.0               0.0           0.0       HOLD            0.00                0.00                  0.00            0.000000              0.000000 legacy_symbol_not_in_target
+2026-04-10   HIMS  19.440000     state_last_price          1           0.00          0.00000           0.000000           157.0          157.0               0.0           0.0       HOLD            0.00                0.00                  0.00            0.000000              0.000000 legacy_symbol_not_in_target
+2026-04-10    NKE  42.460000     state_last_price          1           0.00          0.00000           0.000000            68.0           68.0               0.0           0.0       HOLD            0.00                0.00                  0.00            0.000000              0.000000 legacy_symbol_not_in_target
+2026-04-10   OKLO  48.420825     state_last_price          1           0.00          0.00000           0.000000            64.0           64.0               0.0           0.0       HOLD            0.00                0.00                  0.00            0.000000              0.000000 legacy_symbol_not_in_target
+2026-04-10   SMCI  22.185000     state_last_price          1           0.00          0.00000           0.000000           130.0          130.0               0.0           0.0       HOLD            0.00                0.00                  0.00            0.000000              0.000000 legacy_symbol_not_in_target
+2026-04-10   SNDK 851.770000 target_live_snapshot          1           0.05       3049.32797           3.579990             3.0            3.0               0.0           0.0       HOLD            0.00                0.00                  0.00            0.000000              0.000000           already_at_target
+2026-04-10   TSEM 187.010000     state_last_price          1           0.00          0.00000           0.000000           -15.0          -15.0               0.0           0.0       HOLD            0.00                0.00                  0.00            0.000000              0.000000 legacy_symbol_not_in_target
+2026-04-10   APLD  26.260000 target_live_snapshot          1          -0.05      -3049.32797        -116.120639          -115.0         -116.0              -1.0          -1.0       SELL          -26.26               26.26                  0.35            0.003939              0.353939
 [ARTIFACT] artifacts\execution_loop\aggressive\orders.csv
 [ARTIFACT] artifacts\execution_loop\aggressive\positions_mark_to_market.csv
 [ARTIFACT] artifacts\execution_loop\aggressive\portfolio_state.json
@@ -196,10 +143,10 @@ symbol    weight     score  side market_regime  long_budget  short_budget  turno
 [CFG] enable_massive_fallback=1 massive_base_url=https://api.massive.com massive_timeout_sec=20.0
 [IB] connecting host=127.0.0.1 port=4002 client_id=51
 [IB] managedAccounts=DUP561175
-[IB] nextValidId=1
-[IB] connected next_valid_id=1 managed_accounts=DUP561175
-[HANDOFF][optimal] orders_csv=artifacts\execution_loop\optimal\orders.csv
-[IB][ERROR] reqId=-1 code=2104 msg=Market data farm connection is OK:usfarm
+[IB] nextValidId=1[IB] connected next_valid_id=1 managed_accounts=DUP561175
+
+[IB][ERROR] reqId=-1 code=2104 msg=Market data farm connection is OK:usfarm[HANDOFF][optimal] orders_csv=artifacts\execution_loop\optimal\orders.csv
+
 [IB][ERROR] reqId=-1 code=2107 msg=HMDS data farm connection is inactive but should be available upon demand.ushmds
 [IB][ERROR] reqId=-1 code=2158 msg=Sec-def data farm connection is OK:secdefil
 [HANDOFF][optimal] total_rows=11 live_rows=2 symbols=2
@@ -214,7 +161,7 @@ symbol    weight     score  side market_regime  long_budget  short_budget  turno
 [MASSIVE][SNAPSHOT] 2/2 symbol=AXTI bid=0.0000 ask=0.0000 last=0.0000 close=64.1800 timeframe=LIVE
 [HANDOFF][optimal][PREVIEW]
 symbol order_side  delta_shares  model_price_reference      price quote_provider quote_timeframe price_hint_source             quote_ts        fallback_reason  bid  ask  mid  last  close_price  spread_bps  price_deviation_vs_model
-  AXTI        BUY         107.0              64.180000  64.180000        massive            LIVE     massive_close 2026-04-11T00:00:00Z ib_delayed_without_bbo  0.0  0.0  0.0   0.0        64.18         0.0                       0.0
+  AXTI        BUY           1.0              64.180000  64.180000        massive            LIVE     massive_close 2026-04-11T00:00:00Z ib_delayed_without_bbo  0.0  0.0  0.0   0.0        64.18         0.0                       0.0
   AAOI       HOLD           0.0             150.600000 150.600000                                                                                               0.0  0.0  0.0   0.0         0.00         0.0                       0.0
   APLS       HOLD           0.0              40.790000  40.790000                                                                                               0.0  0.0  0.0   0.0         0.00         0.0                       0.0
   APTV       HOLD           0.0              59.711000  59.711000                                                                                               0.0  0.0  0.0   0.0         0.00         0.0                       0.0
@@ -224,74 +171,55 @@ symbol order_side  delta_shares  model_price_reference      price quote_provider
   OKLO       HOLD           0.0              48.420825  48.420825                                                                                               0.0  0.0  0.0   0.0         0.00         0.0                       0.0
   SMCI       HOLD           0.0              22.185000  22.185000                                                                                               0.0  0.0  0.0   0.0         0.00         0.0                       0.0
   TSEM       HOLD           0.0             187.010000 187.010000                                                                                               0.0  0.0  0.0   0.0         0.00         0.0                       0.0
-  APLD       SELL        -104.0              26.260000  26.260000        massive            LIVE     massive_close 2026-04-11T00:00:00Z ib_delayed_without_bbo  0.0  0.0  0.0   0.0        26.26         0.0                       0.0
+  APLD       SELL          -1.0              26.260000  26.260000        massive            LIVE     massive_close 2026-04-11T00:00:00Z ib_delayed_without_bbo  0.0  0.0  0.0   0.0        26.26         0.0                       0.0
 [HANDOFF][optimal][SUMMARY] updated=2 ib_rows=0 massive_rows=2 price_sanity_fail=0 orders_csv=artifacts\execution_loop\optimal\orders.csv summary_json=artifacts\execution_loop\optimal\broker_handoff_summary.json
 [HANDOFF][aggressive] orders_csv=artifacts\execution_loop\aggressive\orders.csv
-[HANDOFF][aggressive] total_rows=12 live_rows=3 symbols=3
+[HANDOFF][aggressive] total_rows=12 live_rows=1 symbols=1
 [IB][ERROR] reqId=900001 code=10167 msg=Requested market data is not subscribed. Displaying delayed market data.
-[IB][ERROR] reqId=900002 code=10167 msg=Requested market data is not subscribed. Displaying delayed market data.
-[IB][ERROR] reqId=900003 code=10167 msg=Requested market data is not subscribed. Displaying delayed market data.
-[HANDOFF][FALLBACK] symbols_needing_massive=3
+[HANDOFF][FALLBACK] symbols_needing_massive=1
 [HANDOFF][FALLBACK] symbol=APLD reason=ib_delayed_without_bbo
 [IB][ERROR] reqId=900001 code=300 msg=Can't find EId with tickerId:900001
-[HANDOFF][FALLBACK] symbol=AXTI reason=ib_delayed_without_bbo
-[IB][ERROR] reqId=900002 code=300 msg=Can't find EId with tickerId:900002
-[HANDOFF][FALLBACK] symbol=SNDK reason=ib_delayed_without_bbo
-[IB][ERROR] reqId=900003 code=300 msg=Can't find EId with tickerId:900003
-[MASSIVE][SNAPSHOT] 1/3 symbol=APLD bid=0.0000 ask=0.0000 last=0.0000 close=26.2600 timeframe=LIVE
-[MASSIVE][SNAPSHOT] 2/3 symbol=AXTI bid=0.0000 ask=0.0000 last=0.0000 close=64.1800 timeframe=LIVE
-[MASSIVE][SNAPSHOT] 3/3 symbol=SNDK bid=0.0000 ask=0.0000 last=0.0000 close=851.7700 timeframe=LIVE
+[MASSIVE][SNAPSHOT] 1/1 symbol=APLD bid=0.0000 ask=0.0000 last=0.0000 close=26.2600 timeframe=LIVE
 [HANDOFF][aggressive][PREVIEW]
 symbol order_side  delta_shares  model_price_reference      price quote_provider quote_timeframe price_hint_source             quote_ts        fallback_reason  bid  ask  mid  last  close_price  spread_bps  price_deviation_vs_model
-  AXTI        BUY         117.0              64.180000  64.180000        massive            LIVE     massive_close 2026-04-11T00:00:00Z ib_delayed_without_bbo  0.0  0.0  0.0   0.0        64.18         0.0                       0.0
-  SNDK        BUY           3.0             851.770000 851.770000        massive            LIVE     massive_close 2026-04-11T00:00:00Z ib_delayed_without_bbo  0.0  0.0  0.0   0.0       851.77         0.0                       0.0
   AAOI       HOLD           0.0             150.600000 150.600000                                                                                               0.0  0.0  0.0   0.0         0.00         0.0                       0.0
   APLS       HOLD           0.0              40.790000  40.790000                                                                                               0.0  0.0  0.0   0.0         0.00         0.0                       0.0
   AXON       HOLD           0.0             345.940000 345.940000                                                                                               0.0  0.0  0.0   0.0         0.00         0.0                       0.0
+  AXTI       HOLD           0.0              64.180000  64.180000                                                                                               0.0  0.0  0.0   0.0         0.00         0.0                       0.0
    CAR       HOLD           0.0             299.940000 299.940000                                                                                               0.0  0.0  0.0   0.0         0.00         0.0                       0.0
   HIMS       HOLD           0.0              19.440000  19.440000                                                                                               0.0  0.0  0.0   0.0         0.00         0.0                       0.0
    NKE       HOLD           0.0              42.460000  42.460000                                                                                               0.0  0.0  0.0   0.0         0.00         0.0                       0.0
   OKLO       HOLD           0.0              48.420825  48.420825                                                                                               0.0  0.0  0.0   0.0         0.00         0.0                       0.0
   SMCI       HOLD           0.0              22.185000  22.185000                                                                                               0.0  0.0  0.0   0.0         0.00         0.0                       0.0
+  SNDK       HOLD           0.0             851.770000 851.770000                                                                                               0.0  0.0  0.0   0.0         0.00         0.0                       0.0
   TSEM       HOLD           0.0             187.010000 187.010000                                                                                               0.0  0.0  0.0   0.0         0.00         0.0                       0.0
-  APLD       SELL        -115.0              26.260000  26.260000        massive            LIVE     massive_close 2026-04-11T00:00:00Z ib_delayed_without_bbo  0.0  0.0  0.0   0.0        26.26         0.0                       0.0
-[HANDOFF][aggressive][SUMMARY] updated=3 ib_rows=0 massive_rows=3 price_sanity_fail=0 orders_csv=artifacts\execution_loop\aggressive\orders.csv summary_json=artifacts\execution_loop\aggressive\broker_handoff_summary.json
+  APLD       SELL          -1.0              26.260000  26.260000        massive            LIVE     massive_close 2026-04-11T00:00:00Z ib_delayed_without_bbo  0.0  0.0  0.0   0.0        26.26         0.0                       0.0
+[HANDOFF][aggressive][SUMMARY] updated=1 ib_rows=0 massive_rows=1 price_sanity_fail=0 orders_csv=artifacts\execution_loop\aggressive\orders.csv summary_json=artifacts\execution_loop\aggressive\broker_handoff_summary.json
 [FINAL] broker handoff complete
 [STEP] broker adapter
 [RUN] C:\Users\Dmytro Govor\AppData\Local\Programs\Python\Python313\python.exe C:\Users\Dmytro Govor\Documents\Python-Edge\scripts\run_broker_adapter_ibkr.py
 [RUN][ENV] PAUSE_ON_EXIT=0
 [ENV] broker=MEXEM platform=IBKR host=127.0.0.1 port=4002 client_id=41 account= execution_root=artifacts\execution_loop configs=optimal|aggressive
 [IB] connecting host=127.0.0.1 port=4002 client_id=41
+[IB] openOrderEnd
 [IB] managedAccounts=DUP561175
-[IB] nextValidId=205
+[IB] nextValidId=211[IB] ready next_valid_id=211 managed_accounts=DUP561175
+
 [IB][ERROR] reqId=-1 code=2104 msg=Market data farm connection is OK:usfarm
-[IB] ready next_valid_id=205 managed_accounts=DUP561175
 [IB][ERROR] reqId=-1 code=2107 msg=HMDS data farm connection is inactive but should be available upon demand.ushmds
 [IB][ERROR] reqId=-1 code=2158 msg=Sec-def data farm connection is OK:secdefil
 [IB] openOrderEnd
 [CFG] config=optimal orders_total=11 live_orders=2 prepared_orders=2 orders_csv=artifacts\execution_loop\optimal\orders.csv
-[BROKER][LADDER][SUBMIT] symbol=AXTI step=1/4 mode=passive_lmt limit_price=64.2700 cap_price=64.9800 order={"account": "", "exchange": "SMART", "lmtPrice": 64.27, "orderRef": "pe-5451a3f1ba999d3aaf0041bc", "orderType": "LMT", "outsideRth": 1, "primaryExchange": "", "tif": "DAY", "totalQuantity": 107.0}
-[IB][ERROR] reqId=205 code=399 msg=Order Message: BUY 107 AXTI NASDAQ.NMS Your order will not be placed at the exchange until 2026-04-13 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute "Fill/Trigger Outside RTH."
-[BROKER][optimal][SEND] symbol=AXTI broker_symbol=AXTI side=BUY qty=107.00000000 status=submitted ib_order_id=205
-[BROKER][LADDER][SUBMIT] symbol=APLD step=1/4 mode=passive_lmt limit_price=26.2300 cap_price=25.9400 order={"account": "", "exchange": "SMART", "lmtPrice": 26.23, "orderRef": "pe-bfa8822c9e5eef0318db09ba", "orderType": "LMT", "outsideRth": 1, "primaryExchange": "", "tif": "DAY", "totalQuantity": 104.0}
-[IB][ERROR] reqId=206 code=399 msg=Order Message: SELL 104 APLD NASDAQ.NMS Your order will not be placed at the exchange until 2026-04-13 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute "Fill/Trigger Outside RTH."
-[IB][POLL] symbol=APLD order_id=206 poll=1 status=submitted filled_qty=0.00000000 remaining_qty=104.00000000
-[IB][ERROR] reqId=206 code=202 msg=Order Canceled - reason:
-[BROKER][LADDER][SUBMIT] symbol=APLD step=2/4 mode=passive_lmt limit_price=26.2400 cap_price=25.9400 order={"account": "", "exchange": "SMART", "lmtPrice": 26.240000000000002, "orderRef": "pe-bfa8822c9e5eef0318db09ba", "orderType": "LMT", "outsideRth": 1, "primaryExchange": "", "tif": "DAY", "totalQuantity": 104.0}
-[IB][ERROR] reqId=207 code=399 msg=Order Message: SELL 104 APLD NASDAQ.NMS Your order will not be placed at the exchange until 2026-04-13 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute "Fill/Trigger Outside RTH."
-[BROKER][optimal][SEND] symbol=APLD broker_symbol=APLD side=SELL qty=104.00000000 status=submitted ib_order_id=207
+[BROKER][LADDER][SUBMIT] symbol=AXTI step=1/4 mode=passive_lmt limit_price=64.2700 cap_price=64.9800 order={"account": "", "exchange": "SMART", "lmtPrice": 64.27, "orderRef": "pe-20578213ec444a9aab9a6f85", "orderType": "LMT", "outsideRth": 1, "primaryExchange": "", "tif": "DAY", "totalQuantity": 1.0}
+[IB][ERROR] reqId=211 code=399 msg=Order Message: BUY 1 AXTI NASDAQ.NMS Your order will not be placed at the exchange until 2026-04-13 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute "Fill/Trigger Outside RTH."
+[BROKER][optimal][SEND] symbol=AXTI broker_symbol=AXTI side=BUY qty=1.00000000 status=submitted ib_order_id=211
+[BROKER][LADDER][SUBMIT] symbol=APLD step=1/4 mode=passive_lmt limit_price=26.2300 cap_price=25.9400 order={"account": "", "exchange": "SMART", "lmtPrice": 26.23, "orderRef": "pe-46af92e4b3872ff86b71e864", "orderType": "LMT", "outsideRth": 1, "primaryExchange": "", "tif": "DAY", "totalQuantity": 1.0}
+[IB][ERROR] reqId=212 code=399 msg=Order Message: SELL 1 APLD NASDAQ.NMS Your order will not be placed at the exchange until 2026-04-13 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute "Fill/Trigger Outside RTH."
+[BROKER][optimal][SEND] symbol=APLD broker_symbol=APLD side=SELL qty=1.00000000 status=submitted ib_order_id=212
 [BROKER][optimal][SUMMARY] sent=2 duplicate_skipped=0 errors=0 fills_csv=artifacts\execution_loop\optimal\fills.csv broker_log_json=artifacts\execution_loop\optimal\broker_log.json
-[CFG] config=aggressive orders_total=12 live_orders=3 prepared_orders=3 orders_csv=artifacts\execution_loop\aggressive\orders.csv
-[BROKER][LADDER][SUBMIT] symbol=AXTI step=1/4 mode=passive_lmt limit_price=64.2700 cap_price=64.9800 order={"account": "", "exchange": "SMART", "lmtPrice": 64.27, "orderRef": "pe-bf16a0b5a4ff9a1b9fd73761", "orderType": "LMT", "outsideRth": 1, "primaryExchange": "", "tif": "DAY", "totalQuantity": 117.0}
-[IB][ERROR] reqId=208 code=399 msg=Order Message: BUY 117 AXTI NASDAQ.NMS Your order will not be placed at the exchange until 2026-04-13 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute "Fill/Trigger Outside RTH."
-[BROKER][aggressive][SEND] symbol=AXTI broker_symbol=AXTI side=BUY qty=117.00000000 status=submitted ib_order_id=208
-[BROKER][LADDER][SUBMIT] symbol=SNDK step=1/4 mode=passive_lmt limit_price=853.0400 cap_price=862.4100 order={"account": "", "exchange": "SMART", "lmtPrice": 853.04, "orderRef": "pe-330ab597c24e02b810ff20b6", "orderType": "LMT", "outsideRth": 1, "primaryExchange": "", "tif": "DAY", "totalQuantity": 3.0}
-[IB][ERROR] reqId=209 code=399 msg=Order Message: BUY 3 SNDK NASDAQ.NMS Your order will not be placed at the exchange until 2026-04-13 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute "Fill/Trigger Outside RTH."
-[BROKER][aggressive][SEND] symbol=SNDK broker_symbol=SNDK side=BUY qty=3.00000000 status=submitted ib_order_id=209
-[BROKER][LADDER][SUBMIT] symbol=APLD step=1/4 mode=passive_lmt limit_price=26.2300 cap_price=25.9400 order={"account": "", "exchange": "SMART", "lmtPrice": 26.23, "orderRef": "pe-5cc3987949511365bb4e20d2", "orderType": "LMT", "outsideRth": 1, "primaryExchange": "", "tif": "DAY", "totalQuantity": 115.0}
-[IB][ERROR] reqId=210 code=399 msg=Order Message: SELL 115 APLD NASDAQ.NMS Your order will not be placed at the exchange until 2026-04-13 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute "Fill/Trigger Outside RTH."
-[BROKER][aggressive][SEND] symbol=APLD broker_symbol=APLD side=SELL qty=115.00000000 status=submitted ib_order_id=210
-[BROKER][aggressive][SUMMARY] sent=3 duplicate_skipped=0 errors=0 fills_csv=artifacts\execution_loop\aggressive\fills.csv broker_log_json=artifacts\execution_loop\aggressive\broker_log.json
+[CFG] config=aggressive orders_total=12 live_orders=1 prepared_orders=1 orders_csv=artifacts\execution_loop\aggressive\orders.csv
+[BROKER][aggressive][SEND] symbol=APLD broker_symbol=APLD side=SELL qty=1.00000000 status=submitted ib_order_id=
+[BROKER][aggressive][SUMMARY] sent=1 duplicate_skipped=0 errors=0 fills_csv=artifacts\execution_loop\aggressive\fills.csv broker_log_json=artifacts\execution_loop\aggressive\broker_log.json
 [FINAL] IBKR broker adapter complete
 [STEP] broker reconcile
 [RUN] C:\Users\Dmytro Govor\AppData\Local\Programs\Python\Python313\python.exe C:\Users\Dmytro Govor\Documents\Python-Edge\scripts\run_broker_reconcile_ibkr.py
@@ -304,9 +232,9 @@ symbol order_side  delta_shares  model_price_reference      price quote_provider
 [CFG] cleanup_preview_mode=1 cleanup_include_unexpected=1 cleanup_include_drift=1 cleanup_min_abs_shares=1.00000000
 [IB] connecting host=127.0.0.1 port=4002 client_id=61
 [IB][ERR] reqId=-1 code=2104 msg=Market data farm connection is OK:usfarm
-[IB] connected next_valid_id=11 managed_accounts=DUP561175
-[IB][ERR] reqId=-1 code=2107 msg=HMDS data farm connection is inactive but should be available upon demand.ushmds
+[IB][ERR] reqId=-1 code=2107 msg=HMDS data farm connection is inactive but should be available upon demand.ushmds[IB] connected next_valid_id=11 managed_accounts=DUP561175
 [IB][ERR] reqId=-1 code=2158 msg=Sec-def data farm connection is OK:secdefil
+
 [RECON][optimal] execution_dir=artifacts\execution_loop\optimal
 [IB] positionEnd
 [IB] openOrderEnd
@@ -316,10 +244,10 @@ symbol  expected_shares  broker_position  drift_shares pending_side  pending_qty
   HOOD              0.0          -296.00       -296.00          NaN          0.0              -296.00 unexpected_at_broker        66.849028               NaN         NaN
    NEM              0.0          -208.00       -208.00          NaN          0.0              -208.00 unexpected_at_broker       105.013459               NaN         NaN
   INTC              0.0          -200.00       -200.00          NaN          0.0              -200.00 unexpected_at_broker        43.021055               NaN         NaN
-  AXTI             42.0          -145.00       -187.00          NaN          0.0              -187.00                drift        43.767041         64.180000   64.180000
+  AXTI             43.0          -145.00       -188.00          NaN          0.0              -188.00                drift        43.767041         64.180000   64.180000
   CRCL              0.0          -128.00       -128.00          NaN          0.0              -128.00 unexpected_at_broker        91.896055               NaN         NaN
   SMCI            121.0             0.00       -121.00          NaN          0.0              -121.00    missing_at_broker              NaN         22.185000   22.185000
-  APLD           -104.0             0.00        104.00          NaN          0.0               104.00    missing_at_broker              NaN         26.260000   26.260000
+  APLD           -105.0             0.00        105.00          NaN          0.0               105.00    missing_at_broker              NaN         26.260000   26.260000
   APLS             67.0           141.00         74.00          NaN          0.0                74.00                drift        40.743779         40.790000   40.790000
    NKE             63.0             7.00        -56.00          NaN          0.0               -56.00                drift        44.221257         42.460000   42.460000
   OKLO             59.0             4.00        -55.00          NaN          0.0               -55.00                drift        48.420825         48.420825   48.420825
@@ -338,7 +266,7 @@ symbol cleanup_side  cleanup_qty       cleanup_reason  broker_avg_cost  broker_p
   HOOD          BUY       296.00 unexpected_at_broker        66.849028          -296.00              0.0          NaN          0.0
    NEM          BUY       208.00 unexpected_at_broker       105.013459          -208.00              0.0          NaN          0.0
   INTC          BUY       200.00 unexpected_at_broker        43.021055          -200.00              0.0          NaN          0.0
-  AXTI          BUY       145.00                drift        43.767041          -145.00             42.0          NaN          0.0
+  AXTI          BUY       145.00                drift        43.767041          -145.00             43.0          NaN          0.0
   APLS         SELL       141.00                drift        40.743779           141.00             67.0          NaN          0.0
   CRCL          BUY       128.00 unexpected_at_broker        91.896055          -128.00              0.0          NaN          0.0
   AAOI          BUY        50.00                drift       110.757522           -50.00            -24.0          NaN          0.0
@@ -371,7 +299,7 @@ symbol  expected_shares  broker_position  drift_shares pending_side  pending_qty
   HIMS            157.0             0.00       -157.00          NaN          0.0              -157.00    missing_at_broker              NaN         19.440000   19.440000
   SMCI            130.0             0.00       -130.00          NaN          0.0              -130.00    missing_at_broker              NaN         22.185000   22.185000
   CRCL              0.0          -128.00       -128.00          NaN          0.0              -128.00 unexpected_at_broker        91.896055               NaN         NaN
-  APLD           -115.0             0.00        115.00          NaN          0.0               115.00    missing_at_broker              NaN         26.260000   26.260000
+  APLD           -116.0             0.00        116.00          NaN          0.0               116.00    missing_at_broker              NaN         26.260000   26.260000
   AAOI             26.0           -50.00        -76.00          NaN          0.0               -76.00                drift       110.757522        150.600000  150.600000
   APLS             74.0           141.00         67.00          NaN          0.0                67.00                drift        40.743779         40.790000   40.790000
    NKE             68.0             7.00        -61.00          NaN          0.0               -61.00                drift        44.221257         42.460000   42.460000

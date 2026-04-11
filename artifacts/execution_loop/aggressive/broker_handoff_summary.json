@@ -1,14 +1,14 @@
 {
   "config": "aggressive",
-  "fallback_needed": 3,
+  "fallback_needed": 1,
   "ib_only": 0,
   "ib_rows": 0,
-  "ib_total": 3,
-  "live_rows": 3,
-  "massive_rows": 3,
-  "massive_used": 3,
+  "ib_total": 1,
+  "live_rows": 1,
+  "massive_rows": 1,
+  "massive_used": 1,
   "price_sanity_fail": 0,
   "rows": 12,
-  "symbols": 3,
-  "updated": 3
+  "symbols": 1,
+  "updated": 1
 }

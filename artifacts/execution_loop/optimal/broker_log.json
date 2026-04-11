@@ -421,6 +421,95 @@
       "symbol": "OKLO",
       "updated_at_utc": "2026-04-04T14:04:08Z"
     },
+    "20578213ec444a9aab9a6f85e40b534df6458838d737b7e91b70d6969fc31973": {
+      "broker_order_id": "211",
+      "broker_symbol": "AXTI",
+      "client_order_id": "pe-20578213ec444a9aab9a6f85",
+      "config": "optimal",
+      "date": "2026-04-10",
+      "fill_notional": 0.0,
+      "filled_at": "",
+      "filled_avg_price": 0.0,
+      "filled_qty": 0.0,
+      "mode": "ibkr_gateway",
+      "order_notional": 64.18,
+      "perm_id": 1949970569,
+      "qty": 1.0,
+      "remaining_qty": 1.0,
+      "request": {
+        "anchor_price": 64.18,
+        "broker_symbol": "AXTI",
+        "cap_price": 64.98,
+        "client_tag": "pe-20578213ec444a9aab9a6f85",
+        "contract_currency": "USD",
+        "contract_details_mode": "resolved",
+        "contract_details_req_id": 1001,
+        "contract_details_retries": 1,
+        "contract_exchange": "SMART",
+        "contract_local_symbol": "AXTI",
+        "contract_min_tick": 0.0001,
+        "contract_primary_exchange": "NASDAQ",
+        "contract_raw_min_tick": 0.0001,
+        "deferred_until": "",
+        "final_limit_price": 64.27,
+        "final_mode": "passive_lmt",
+        "final_step": 1,
+        "ib_399_message": "Order Message: BUY 1 AXTI NASDAQ.NMS Your order will not be placed at the exchange until 2026-04-13 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute \"Fill/Trigger Outside RTH.\"",
+        "open_order_dup_guard": 1,
+        "open_order_dup_guard_triggered": 0,
+        "order_side": "BUY",
+        "price_hint": 64.18,
+        "qty": 1.0,
+        "recent_errors": [
+          {
+            "advancedOrderRejectJson": "",
+            "errorCode": 399,
+            "errorString": "Order Message: BUY 1 AXTI NASDAQ.NMS Your order will not be placed at the exchange until 2026-04-13 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute \"Fill/Trigger Outside RTH.\"",
+            "reqId": 211,
+            "ts_utc": "2026-04-11T12:28:34Z"
+          }
+        ],
+        "reprice_enabled": 1,
+        "reprice_final_marketable_bps": 12.0,
+        "reprice_final_mode": "marketable_lmt",
+        "reprice_max_deviation_pct": 1.25,
+        "reprice_steps_bps": [
+          15.0,
+          10.0,
+          5.0,
+          0.0
+        ],
+        "reprice_wait_sec": 8.0,
+        "reprices_used": 0,
+        "submitted_order": {
+          "account": "",
+          "exchange": "SMART",
+          "lmtPrice": 64.27,
+          "orderRef": "pe-20578213ec444a9aab9a6f85",
+          "orderType": "LMT",
+          "outsideRth": 1,
+          "primaryExchange": "",
+          "tif": "DAY",
+          "totalQuantity": 1.0
+        }
+      },
+      "response": {
+        "avg_fill_price": 0.0,
+        "deferred_message": "IB deferred order until later session; leaving live at broker | code=399 msg=Order Message: BUY 1 AXTI NASDAQ.NMS Your order will not be placed at the exchange until 2026-04-13 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute \"Fill/Trigger Outside RTH.\"",
+        "fills": [],
+        "ib_order_id": 211,
+        "last_fill_price": 0.0,
+        "outcome": "working_carry",
+        "perm_id": 1949970569,
+        "status": "Submitted"
+      },
+      "side": "BUY",
+      "source_order_path": "artifacts\\execution_loop\\optimal\\orders.csv",
+      "status": "submitted",
+      "submitted_at": "2026-04-11T12:28:54Z",
+      "symbol": "AXTI",
+      "updated_at_utc": "2026-04-11T12:28:54Z"
+    },
     "26ff13dfb9a7838eac4ace8de55dbea6dcc5c4545be381b5fc8b356fb8174c9d": {
       "broker_order_id": "202",
       "broker_symbol": "CAR",
@@ -778,6 +867,95 @@
       "submitted_at": "2026-03-31T19:32:25Z",
       "symbol": "NVDA",
       "updated_at_utc": "2026-03-31T19:32:25Z"
+    },
+    "46af92e4b3872ff86b71e8649113a7df8bfd6a52458b3b1b125b9bfbd4dca082": {
+      "broker_order_id": "212",
+      "broker_symbol": "APLD",
+      "client_order_id": "pe-46af92e4b3872ff86b71e864",
+      "config": "optimal",
+      "date": "2026-04-10",
+      "fill_notional": 0.0,
+      "filled_at": "",
+      "filled_avg_price": 0.0,
+      "filled_qty": 0.0,
+      "mode": "ibkr_gateway",
+      "order_notional": 26.26,
+      "perm_id": 1949970570,
+      "qty": 1.0,
+      "remaining_qty": 1.0,
+      "request": {
+        "anchor_price": 26.26,
+        "broker_symbol": "APLD",
+        "cap_price": 25.94,
+        "client_tag": "pe-46af92e4b3872ff86b71e864",
+        "contract_currency": "USD",
+        "contract_details_mode": "resolved",
+        "contract_details_req_id": 1101,
+        "contract_details_retries": 1,
+        "contract_exchange": "SMART",
+        "contract_local_symbol": "APLD",
+        "contract_min_tick": 0.0001,
+        "contract_primary_exchange": "NASDAQ",
+        "contract_raw_min_tick": 0.0001,
+        "deferred_until": "",
+        "final_limit_price": 26.23,
+        "final_mode": "passive_lmt",
+        "final_step": 1,
+        "ib_399_message": "Order Message: SELL 1 APLD NASDAQ.NMS Your order will not be placed at the exchange until 2026-04-13 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute \"Fill/Trigger Outside RTH.\"",
+        "open_order_dup_guard": 1,
+        "open_order_dup_guard_triggered": 0,
+        "order_side": "SELL",
+        "price_hint": 26.26,
+        "qty": 1.0,
+        "recent_errors": [
+          {
+            "advancedOrderRejectJson": "",
+            "errorCode": 399,
+            "errorString": "Order Message: SELL 1 APLD NASDAQ.NMS Your order will not be placed at the exchange until 2026-04-13 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute \"Fill/Trigger Outside RTH.\"",
+            "reqId": 212,
+            "ts_utc": "2026-04-11T12:28:54Z"
+          }
+        ],
+        "reprice_enabled": 1,
+        "reprice_final_marketable_bps": 12.0,
+        "reprice_final_mode": "marketable_lmt",
+        "reprice_max_deviation_pct": 1.25,
+        "reprice_steps_bps": [
+          15.0,
+          10.0,
+          5.0,
+          0.0
+        ],
+        "reprice_wait_sec": 8.0,
+        "reprices_used": 0,
+        "submitted_order": {
+          "account": "",
+          "exchange": "SMART",
+          "lmtPrice": 26.23,
+          "orderRef": "pe-46af92e4b3872ff86b71e864",
+          "orderType": "LMT",
+          "outsideRth": 1,
+          "primaryExchange": "",
+          "tif": "DAY",
+          "totalQuantity": 1.0
+        }
+      },
+      "response": {
+        "avg_fill_price": 0.0,
+        "deferred_message": "IB deferred order until later session; leaving live at broker | code=399 msg=Order Message: SELL 1 APLD NASDAQ.NMS Your order will not be placed at the exchange until 2026-04-13 04:00:00 US/Eastern. If you want the order to  be active in the Pre-Market, Regular and After-Market sessions, a Limit type order is required and you must  add the attribute \"Fill/Trigger Outside RTH.\"",
+        "fills": [],
+        "ib_order_id": 212,
+        "last_fill_price": 0.0,
+        "outcome": "working_carry",
+        "perm_id": 1949970570,
+        "status": "Submitted"
+      },
+      "side": "SELL",
+      "source_order_path": "artifacts\\execution_loop\\optimal\\orders.csv",
+      "status": "submitted",
+      "submitted_at": "2026-04-11T12:29:14Z",
+      "symbol": "APLD",
+      "updated_at_utc": "2026-04-11T12:29:14Z"
     },
     "5451a3f1ba999d3aaf0041bcb3d5e6868bb8b20da6b26cbc4234f32346bb4e11": {
       "broker_order_id": "205",
@@ -1677,5 +1855,5 @@
       "updated_at_utc": "2026-04-10T18:27:54Z"
     }
   },
-  "updated_at_utc": "2026-04-11T11:29:58Z"
+  "updated_at_utc": "2026-04-11T12:29:14Z"
 }
