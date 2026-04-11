@@ -4,6 +4,7 @@ import json
 import os
 import sys
 import traceback
+import warnings
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -11,6 +12,12 @@ from typing import Dict, List, Optional, Sequence, Tuple
 
 import pandas as pd
 import requests
+
+# Suppress noisy correlation warnings from pandas/scipy when input arrays are constant
+warnings.filterwarnings(
+    "ignore",
+    message="An input array is constant; the correlation coefficient is not defined.",
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = ROOT / "src"
@@ -48,7 +55,8 @@ LIVE_ALPHA_INTERACTION_TOP_K = int(os.getenv("LIVE_ALPHA_INTERACTION_TOP_K", "24
 
 COMMODITY_PROXY_SYMBOLS: Tuple[str, ...] = ("GLD", "SLV", "USO", "DBC")
 INTERNATIONAL_PROXY_SYMBOLS: Tuple[str, ...] = ("EWJ", "EWH", "EWT", "VGK", "SPY")
-ALL_PROXY_SYMBOLS: Tuple[str, ...] = COMMODITY_PROXY_SYMBOLS + INTERNATIONAL_PROXY_SYMBOLS
+GLOBAL_REGIME_PROXY_SYMBOLS: Tuple[str, ...] = ("VIXY", "UUP", "TLT")
+ALL_PROXY_SYMBOLS: Tuple[str, ...] = COMMODITY_PROXY_SYMBOLS + INTERNATIONAL_PROXY_SYMBOLS + GLOBAL_REGIME_PROXY_SYMBOLS
 
 
 @dataclass(frozen=True)
@@ -263,7 +271,7 @@ def _prepare_proxy_feature_frame(proxy_panel: pd.DataFrame) -> pd.DataFrame:
     out = pd.DataFrame(index=sorted(work["date"].dropna().unique()))
     out.index.name = "date"
 
-    for symbol in COMMODITY_PROXY_SYMBOLS:
+    for symbol in COMMODITY_PROXY_SYMBOLS + GLOBAL_REGIME_PROXY_SYMBOLS:
         prefix = symbol.lower()
         for metric in metrics:
             frame = pivots[metric]
@@ -296,11 +304,12 @@ def _prepare_proxy_feature_frame(proxy_panel: pd.DataFrame) -> pd.DataFrame:
     out["us_momentum_20d"] = _avg_cols(pivots["momentum_20d"], us_components)
     out["us_volatility_20d"] = _avg_cols(pivots["volatility_20d"], us_components)
 
-    out["commodities_basket_ret_1d"] = out[[c for c in out.columns if c.endswith("_ret_1d") and c.split("_")[0] in {"gld", "slv", "uso", "dbc"}]].mean(axis=1)
-    out["commodities_basket_ret_5d"] = out[[c for c in out.columns if c.endswith("_ret_5d") and c.split("_")[0] in {"gld", "slv", "uso", "dbc"}]].mean(axis=1)
-    out["commodities_basket_ret_20d"] = out[[c for c in out.columns if c.endswith("_ret_20d") and c.split("_")[0] in {"gld", "slv", "uso", "dbc"}]].mean(axis=1)
-    out["commodities_basket_momentum_20d"] = out[[c for c in out.columns if c.endswith("_momentum_20d") and c.split("_")[0] in {"gld", "slv", "uso", "dbc"}]].mean(axis=1)
-    out["commodities_basket_volatility_20d"] = out[[c for c in out.columns if c.endswith("_volatility_20d") and c.split("_")[0] in {"gld", "slv", "uso", "dbc"}]].mean(axis=1)
+    commodity_prefixes = {"gld", "slv", "uso", "dbc"}
+    out["commodities_basket_ret_1d"] = out[[c for c in out.columns if c.endswith("_ret_1d") and c.split("_")[0] in commodity_prefixes]].mean(axis=1)
+    out["commodities_basket_ret_5d"] = out[[c for c in out.columns if c.endswith("_ret_5d") and c.split("_")[0] in commodity_prefixes]].mean(axis=1)
+    out["commodities_basket_ret_20d"] = out[[c for c in out.columns if c.endswith("_ret_20d") and c.split("_")[0] in commodity_prefixes]].mean(axis=1)
+    out["commodities_basket_momentum_20d"] = out[[c for c in out.columns if c.endswith("_momentum_20d") and c.split("_")[0] in commodity_prefixes]].mean(axis=1)
+    out["commodities_basket_volatility_20d"] = out[[c for c in out.columns if c.endswith("_volatility_20d") and c.split("_")[0] in commodity_prefixes]].mean(axis=1)
 
     out["oil_up"] = (pd.to_numeric(out.get("uso_ret_1d"), errors="coerce") > 0.0).astype("float64")
     risk_inputs = pd.concat(
@@ -316,9 +325,28 @@ def _prepare_proxy_feature_frame(proxy_panel: pd.DataFrame) -> pd.DataFrame:
     out["asia_us_lead"] = pd.to_numeric(out["asia_ret_1d"], errors="coerce").shift(1) - pd.to_numeric(out["us_ret_1d"], errors="coerce")
     out["europe_us_lead"] = pd.to_numeric(out["europe_ret_1d"], errors="coerce").shift(1) - pd.to_numeric(out["us_ret_1d"], errors="coerce")
     out["global_divergence"] = (
-        pd.to_numeric(out["asia_ret_1d"], errors="coerce")
-        + pd.to_numeric(out["europe_ret_1d"], errors="coerce")
+        pd.to_numeric(out["asia_ret_1d"], errors="coerce") + pd.to_numeric(out["europe_ret_1d"], errors="coerce")
     ) / 2.0 - pd.to_numeric(out["us_ret_1d"], errors="coerce")
+
+    out["vol_spike"] = (pd.to_numeric(out.get("vixy_ret_1d"), errors="coerce") > 0.0).astype("float64")
+    out["dollar_up"] = (pd.to_numeric(out.get("uup_ret_5d"), errors="coerce") > 0.0).astype("float64")
+    out["yield_up"] = (pd.to_numeric(out.get("tlt_ret_5d"), errors="coerce") < 0.0).astype("float64")
+    out["duration_bid"] = (pd.to_numeric(out.get("tlt_ret_5d"), errors="coerce") > 0.0).astype("float64")
+    macro_gate_score = (
+        pd.to_numeric(out["vol_spike"], errors="coerce").fillna(0.0)
+        + pd.to_numeric(out["dollar_up"], errors="coerce").fillna(0.0)
+        + pd.to_numeric(out["duration_bid"], errors="coerce").fillna(0.0)
+    )
+    out["macro_risk_off"] = (macro_gate_score >= 2.0).astype("float64")
+    out["macro_risk_on"] = (macro_gate_score <= 1.0).astype("float64")
+    out["vol_dollar_divergence"] = pd.to_numeric(out.get("vixy_ret_5d"), errors="coerce") - pd.to_numeric(out.get("uup_ret_5d"), errors="coerce")
+    out["rates_equity_tension"] = (-pd.to_numeric(out.get("tlt_ret_5d"), errors="coerce")) - pd.to_numeric(out["us_ret_5d"], errors="coerce")
+
+    out["macro_stress_score"] = (
+        _rolling_z(pd.to_numeric(out.get("vixy_ret_5d"), errors="coerce"), 20).fillna(0.0)
+        + _rolling_z(pd.to_numeric(out.get("uup_ret_5d"), errors="coerce"), 20).fillna(0.0)
+        - _rolling_z(pd.to_numeric(out.get("tlt_ret_5d"), errors="coerce"), 20).fillna(0.0)
+    ) / 3.0
 
     for col in [
         "commodities_basket_ret_1d",
@@ -329,6 +357,9 @@ def _prepare_proxy_feature_frame(proxy_panel: pd.DataFrame) -> pd.DataFrame:
         "asia_us_lead",
         "europe_us_lead",
         "global_divergence",
+        "vol_dollar_divergence",
+        "rates_equity_tension",
+        "macro_stress_score",
     ]:
         out[f"{col}_z"] = _rolling_z(pd.to_numeric(out[col], errors="coerce"), 20)
 
@@ -349,7 +380,7 @@ def _add_interaction_layer(feature_panel: pd.DataFrame, alpha_frame: pd.DataFram
     if alpha_frame.empty:
         return alpha_frame, manifest
 
-    required_cols = ["oil_up", "global_risk_on"]
+    required_cols = ["oil_up", "global_risk_on", "vol_spike", "dollar_up", "yield_up", "macro_risk_off", "macro_risk_on"]
     missing = [c for c in required_cols if c not in feature_panel.columns]
     if missing:
         print(f"[INTERACTION][WARN] missing feature columns for interaction layer: {missing}")
@@ -370,52 +401,52 @@ def _add_interaction_layer(feature_panel: pd.DataFrame, alpha_frame: pd.DataFram
     if not candidate_alphas:
         return alpha_frame, manifest
 
-    gate_oil = pd.to_numeric(feature_panel["oil_up"], errors="coerce").fillna(0.0).astype("float64")
-    gate_risk = pd.to_numeric(feature_panel["global_risk_on"], errors="coerce").fillna(0.0).astype("float64")
+    gates = {
+        "oil_up": pd.to_numeric(feature_panel["oil_up"], errors="coerce").fillna(0.0).astype("float64"),
+        "global_risk_on": pd.to_numeric(feature_panel["global_risk_on"], errors="coerce").fillna(0.0).astype("float64"),
+        "vol_spike": pd.to_numeric(feature_panel["vol_spike"], errors="coerce").fillna(0.0).astype("float64"),
+        "dollar_up": pd.to_numeric(feature_panel["dollar_up"], errors="coerce").fillna(0.0).astype("float64"),
+        "yield_up": pd.to_numeric(feature_panel["yield_up"], errors="coerce").fillna(0.0).astype("float64"),
+        "macro_risk_off": pd.to_numeric(feature_panel["macro_risk_off"], errors="coerce").fillna(0.0).astype("float64"),
+        "macro_risk_on": pd.to_numeric(feature_panel["macro_risk_on"], errors="coerce").fillna(0.0).astype("float64"),
+    }
+
+    family_map = {
+        "oil_up": "interaction_oil_up",
+        "global_risk_on": "interaction_global_risk_on",
+        "vol_spike": "interaction_vol_spike",
+        "dollar_up": "interaction_dollar_up",
+        "yield_up": "interaction_yield_up",
+        "macro_risk_off": "interaction_macro_risk_off",
+        "macro_risk_on": "interaction_macro_risk_on",
+    }
 
     out = alpha_frame.copy()
     manifest_rows: List[Dict[str, object]] = []
     for alpha_col in candidate_alphas:
-        oil_col = f"{alpha_col}__x_oil_up"
-        risk_col = f"{alpha_col}__x_global_risk_on"
-        out[oil_col] = pd.to_numeric(out[alpha_col], errors="coerce") * gate_oil
-        out[risk_col] = pd.to_numeric(out[alpha_col], errors="coerce") * gate_risk
-        manifest_rows.append({
-            "alpha": oil_col,
-            "family": "interaction_oil_up",
-            "wave": "wave_context",
-            "left": alpha_col,
-            "modulator": "oil_up",
-            "transform": "raw",
-            "regime": "none",
-            "interaction": "global_gate",
-            "lag": 0,
-            "source": "post_build",
-            "parents": alpha_col,
-            "non_na": int(pd.to_numeric(out[oil_col], errors="coerce").notna().sum()),
-            "nan_ratio": float(pd.to_numeric(out[oil_col], errors="coerce").isna().mean()),
-            "unique": int(pd.to_numeric(out[oil_col], errors="coerce").dropna().nunique()),
-            "selector_score": 0.0,
-            "shortlist_rank": 1_000_000,
-        })
-        manifest_rows.append({
-            "alpha": risk_col,
-            "family": "interaction_global_risk_on",
-            "wave": "wave_context",
-            "left": alpha_col,
-            "modulator": "global_risk_on",
-            "transform": "raw",
-            "regime": "none",
-            "interaction": "global_gate",
-            "lag": 0,
-            "source": "post_build",
-            "parents": alpha_col,
-            "non_na": int(pd.to_numeric(out[risk_col], errors="coerce").notna().sum()),
-            "nan_ratio": float(pd.to_numeric(out[risk_col], errors="coerce").isna().mean()),
-            "unique": int(pd.to_numeric(out[risk_col], errors="coerce").dropna().nunique()),
-            "selector_score": 0.0,
-            "shortlist_rank": 1_000_000,
-        })
+        alpha_series = pd.to_numeric(out[alpha_col], errors="coerce")
+        for gate_name, gate_series in gates.items():
+            new_col = f"{alpha_col}__x_{gate_name}"
+            out[new_col] = alpha_series * gate_series
+            new_series = pd.to_numeric(out[new_col], errors="coerce")
+            manifest_rows.append({
+                "alpha": new_col,
+                "family": family_map[gate_name],
+                "wave": "wave_context",
+                "left": alpha_col,
+                "modulator": gate_name,
+                "transform": "raw",
+                "regime": "none",
+                "interaction": "global_gate",
+                "lag": 0,
+                "source": "post_build",
+                "parents": alpha_col,
+                "non_na": int(new_series.notna().sum()),
+                "nan_ratio": float(new_series.isna().mean()),
+                "unique": int(new_series.dropna().nunique()),
+                "selector_score": 0.0,
+                "shortlist_rank": 1_000_000,
+            })
 
     manifest_out = manifest.copy()
     if manifest_rows:
@@ -435,6 +466,9 @@ def _build_proxy_context(end_date: str) -> tuple[pd.DataFrame, Dict[str, object]
         "proxy_symbols": int(proxy_panel["symbol"].nunique()) if len(proxy_panel) else 0,
         "proxy_feature_rows": int(len(feature_frame)),
         "proxy_feature_columns": int(max(0, len(feature_frame.columns) - 1)),
+        "commodity_proxy_symbols": int(len(COMMODITY_PROXY_SYMBOLS)),
+        "international_proxy_symbols": int(len(INTERNATIONAL_PROXY_SYMBOLS)),
+        "global_regime_proxy_symbols": int(len(GLOBAL_REGIME_PROXY_SYMBOLS)),
     }
 
 
@@ -505,7 +539,7 @@ def main() -> int:
         "recipe_source": recipe_source,
         "recipe_count_requested": int(len(recipes)),
         **proxy_meta,
-        "interaction_added": int(len([c for c in interaction_frame.columns if str(c).endswith("__x_oil_up") or str(c).endswith("__x_global_risk_on")])),
+        "interaction_added": int(len([c for c in interaction_frame.columns if "__x_" in str(c)])),
     }
     meta_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
 
