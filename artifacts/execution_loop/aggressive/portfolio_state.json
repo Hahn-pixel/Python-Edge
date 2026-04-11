@@ -1,7 +1,7 @@
 {
   "config": "aggressive",
-  "nav": 60842.287494750024,
-  "cash": 49199.06469475002,
+  "nav": 60986.55940125003,
+  "cash": 42151.55660125003,
   "last_rebalanced_date": "2026-04-10",
   "positions": {
     "OKLO": {
@@ -33,16 +33,16 @@
       "is_priced": 1
     },
     "AXTI": {
-      "shares": -70.0,
-      "last_price": 65.405,
-      "market_value": -4578.35,
+      "shares": 47.0,
+      "last_price": 64.18,
+      "market_value": 3016.4600000000005,
       "price_source": "live_snapshot",
       "is_priced": 1
     },
     "AAOI": {
       "shares": 26.0,
-      "last_price": 153.0,
-      "market_value": 3978.0,
+      "last_price": 150.6,
+      "market_value": 3915.6,
       "price_source": "live_snapshot",
       "is_priced": 1
     },
@@ -55,27 +55,41 @@
     },
     "APLS": {
       "shares": 74.0,
-      "last_price": 40.735,
-      "market_value": 3014.39,
+      "last_price": 40.79,
+      "market_value": 3018.46,
       "price_source": "live_snapshot",
       "is_priced": 1
     },
     "CAR": {
       "shares": 10.0,
-      "last_price": 286.615,
-      "market_value": 2866.15,
+      "last_price": 299.94,
+      "market_value": 2999.4,
       "price_source": "live_snapshot",
       "is_priced": 1
     },
     "AXON": {
       "shares": -8.0,
-      "last_price": 344.27,
-      "market_value": -2754.16,
+      "last_price": 345.94,
+      "market_value": -2767.52,
+      "price_source": "live_snapshot",
+      "is_priced": 1
+    },
+    "SNDK": {
+      "shares": 3.0,
+      "last_price": 851.77,
+      "market_value": 2555.31,
+      "price_source": "live_snapshot",
+      "is_priced": 1
+    },
+    "APLD": {
+      "shares": -115.0,
+      "last_price": 26.26,
+      "market_value": -3019.9,
       "price_source": "live_snapshot",
       "is_priced": 1
     }
   },
-  "last_estimated_trading_cost": 0.35611024999999996,
+  "last_estimated_trading_cost": 3.0380935,
   "state_alignment": {
     "applied_at_date": "2026-04-01",
     "source": "artifacts\\execution_loop\\aggressive\\broker_positions.csv",

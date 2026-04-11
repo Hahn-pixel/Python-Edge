@@ -1,7 +1,7 @@
 {
   "config": "optimal",
-  "nav": 54806.441226999996,
-  "cash": 51400.13955199999,
+  "nav": 55204.74648199999,
+  "cash": 47261.77980699999,
   "last_rebalanced_date": "2026-04-10",
   "positions": {
     "OKLO": {
@@ -33,37 +33,37 @@
       "is_priced": 1
     },
     "AXTI": {
-      "shares": -65.0,
-      "last_price": 65.405,
-      "market_value": -4251.325,
+      "shares": 42.0,
+      "last_price": 64.18,
+      "market_value": 2695.5600000000004,
       "price_source": "live_snapshot",
       "is_priced": 1
     },
     "AAOI": {
       "shares": -24.0,
-      "last_price": 153.0,
-      "market_value": -3672.0,
+      "last_price": 150.6,
+      "market_value": -3614.3999999999996,
       "price_source": "live_snapshot",
       "is_priced": 1
     },
     "MSTR": {
       "shares": 23.0,
-      "last_price": 122.57,
-      "market_value": 2819.1099999999997,
-      "price_source": "state_last_price",
+      "last_price": 128.64,
+      "market_value": 2958.72,
+      "price_source": "live_snapshot",
       "is_priced": 1
     },
     "APLS": {
       "shares": 67.0,
-      "last_price": 40.735,
-      "market_value": 2729.245,
+      "last_price": 40.79,
+      "market_value": 2732.93,
       "price_source": "live_snapshot",
       "is_priced": 1
     },
     "CAR": {
       "shares": 9.0,
-      "last_price": 286.615,
-      "market_value": 2579.535,
+      "last_price": 299.94,
+      "market_value": 2699.46,
       "price_source": "live_snapshot",
       "is_priced": 1
     },
@@ -71,11 +71,18 @@
       "shares": -37.0,
       "last_price": 59.711,
       "market_value": -2209.307,
+      "price_source": "state_last_price",
+      "is_priced": 1
+    },
+    "APLD": {
+      "shares": -104.0,
+      "last_price": 26.26,
+      "market_value": -2731.04,
       "price_source": "live_snapshot",
       "is_priced": 1
     }
   },
-  "last_estimated_trading_cost": 1.0192765,
+  "last_estimated_trading_cost": 2.1397449999999996,
   "state_alignment": {
     "applied_at_date": "2026-04-01",
     "source": "artifacts\\execution_loop\\optimal\\broker_positions.csv",

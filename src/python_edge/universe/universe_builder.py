@@ -5,7 +5,7 @@ import os
 import time
 import traceback
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
@@ -45,14 +45,19 @@ class UniverseConfig:
     target_size: int = 175
     sector_cap: int = 18
     top_n: int = 175
+    shortlist_multiplier: int = 3
+    history_lookback_days: int = 45
+    history_batch_limit: int = 600
     output_dir: Path = DEFAULT_OUTPUT_ROOT
     request_timeout_sec: float = 30.0
     request_sleep_sec: float = 0.2
+    request_max_retries: int = 3
+    request_backoff_sec: float = 1.0
     overview_enrichment_enabled: bool = True
     overview_enrichment_max: int = 1200
     rebalance_freq: str = "weekly"
     reuse_last: bool = True
-    history_check_mode: str = "grouped_daily_lookback"
+    history_check_mode: str = "daily_aggs_lookback"
     eligibility: UniverseEligibilityPolicy = field(default_factory=UniverseEligibilityPolicy)
 
 
@@ -61,11 +66,21 @@ class UniverseBuildError(RuntimeError):
 
 
 class MassiveClient:
-    def __init__(self, api_key: str, base_url: str, timeout_sec: float, sleep_sec: float) -> None:
+    def __init__(
+        self,
+        api_key: str,
+        base_url: str,
+        timeout_sec: float,
+        sleep_sec: float,
+        max_retries: int,
+        backoff_sec: float,
+    ) -> None:
         self.api_key = str(api_key).strip()
         self.base_url = str(base_url).rstrip("/")
         self.timeout_sec = float(timeout_sec)
         self.sleep_sec = float(sleep_sec)
+        self.max_retries = max(1, int(max_retries))
+        self.backoff_sec = float(backoff_sec)
         self.session = requests.Session()
 
     def _get(self, path: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -74,13 +89,22 @@ class MassiveClient:
         query = dict(params or {})
         query["apiKey"] = self.api_key
         url = f"{self.base_url}{path}"
-        response = self.session.get(url, params=query, timeout=self.timeout_sec)
-        response.raise_for_status()
-        payload = response.json()
-        time.sleep(max(0.0, self.sleep_sec))
-        if not isinstance(payload, dict):
-            raise UniverseBuildError(f"Unexpected payload type from {url}: {type(payload)!r}")
-        return payload
+        last_exc: Exception | None = None
+        for attempt in range(1, self.max_retries + 1):
+            try:
+                response = self.session.get(url, params=query, timeout=self.timeout_sec)
+                response.raise_for_status()
+                payload = response.json()
+                if not isinstance(payload, dict):
+                    raise UniverseBuildError(f"Unexpected payload type from {url}: {type(payload)!r}")
+                time.sleep(max(0.0, self.sleep_sec))
+                return payload
+            except Exception as exc:
+                last_exc = exc
+                if attempt >= self.max_retries:
+                    break
+                time.sleep(max(0.0, self.backoff_sec) * attempt)
+        raise UniverseBuildError(f"Massive GET failed path={path} params={query}: {last_exc}") from last_exc
 
     def list_tickers(self, locale: str, market: str, ticker_type: str) -> pd.DataFrame:
         rows: List[Dict[str, Any]] = []
@@ -99,11 +123,13 @@ class MassiveClient:
             batch = payload.get("results", [])
             if isinstance(batch, list):
                 rows.extend(x for x in batch if isinstance(x, dict))
-            cursor = str(payload.get("next_url", "") or "").strip()
-            if not cursor:
+            next_url = str(payload.get("next_url", "") or "").strip()
+            if not next_url:
                 break
-            if "cursor=" in cursor:
-                cursor = cursor.split("cursor=", 1)[1].split("&", 1)[0]
+            if "cursor=" in next_url:
+                cursor = next_url.split("cursor=", 1)[1].split("&", 1)[0]
+            else:
+                break
         df = pd.DataFrame(rows)
         if df.empty:
             raise UniverseBuildError("Massive returned no tickers")
@@ -121,12 +147,33 @@ class MassiveClient:
             df = pd.DataFrame(rows if isinstance(rows, list) else [])
             if not df.empty:
                 return df
-            trade_date = trade_date - pd.Timedelta(days=1)
-
+            trade_date = trade_date - timedelta(days=1)
         raise UniverseBuildError("Massive returned no grouped daily rows for recent trading dates")
 
     def ticker_overview(self, symbol: str) -> Dict[str, Any]:
         return self._get(f"/v3/reference/tickers/{symbol}", {"active": "true"})
+
+    def daily_history(self, symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
+        payload = self._get(
+            f"/v2/aggs/ticker/{symbol}/range/1/day/{start_date}/{end_date}",
+            {"adjusted": "true", "sort": "asc", "limit": 5000},
+        )
+        rows = payload.get("results", [])
+        df = pd.DataFrame(rows if isinstance(rows, list) else [])
+        if df.empty:
+            return pd.DataFrame(columns=["symbol", "trade_date", "close", "volume", "dollar_volume"])
+        out = pd.DataFrame()
+        out["symbol"] = str(symbol).upper()
+        out["timestamp_ms"] = pd.to_numeric(df.get("t", pd.Series(dtype="float64")), errors="coerce")
+        ts = pd.to_datetime(out["timestamp_ms"], unit="ms", utc=True, errors="coerce")
+        out["trade_date"] = ts.dt.strftime("%Y-%m-%d")
+        out["close"] = pd.to_numeric(df.get("c", pd.Series(dtype="float64")), errors="coerce")
+        out["volume"] = pd.to_numeric(df.get("v", pd.Series(dtype="float64")), errors="coerce")
+        out["open"] = pd.to_numeric(df.get("o", pd.Series(dtype="float64")), errors="coerce")
+        out["high"] = pd.to_numeric(df.get("h", pd.Series(dtype="float64")), errors="coerce")
+        out["low"] = pd.to_numeric(df.get("l", pd.Series(dtype="float64")), errors="coerce")
+        out["dollar_volume"] = out["close"].fillna(0.0) * out["volume"].fillna(0.0)
+        return out
 
 
 
@@ -170,13 +217,14 @@ def _env_tuple(name: str, default: Tuple[str, ...]) -> Tuple[str, ...]:
 
 def load_config_from_env(_root: Path | None = None) -> UniverseConfig:
     api_key = str(os.getenv("MASSIVE_API_KEY", "")).strip()
+    default_ticker_type = str(os.getenv("UNIVERSE_TICKER_TYPE", DEFAULT_TICKER_TYPE)).strip().upper() or DEFAULT_TICKER_TYPE
     eligibility = UniverseEligibilityPolicy(
         min_price=_env_float("UNIVERSE_MIN_PRICE", 7.50),
         min_median_dollar_vol_20d=_env_float("UNIVERSE_MIN_MEDIAN_DOLLAR_VOL_20D", 20_000_000.0),
         min_history_days=_env_int("UNIVERSE_MIN_HISTORY_DAYS", 25),
         max_nan_ratio=_env_float("UNIVERSE_MAX_NAN_RATIO", 0.02),
         max_missing_days_20d=_env_int("UNIVERSE_MAX_MISSING_DAYS_20D", 1),
-        allowed_ticker_types=_env_tuple("UNIVERSE_ALLOWED_TICKER_TYPES", (str(os.getenv("UNIVERSE_TICKER_TYPE", DEFAULT_TICKER_TYPE)).strip().upper() or DEFAULT_TICKER_TYPE,)),
+        allowed_ticker_types=_env_tuple("UNIVERSE_ALLOWED_TICKER_TYPES", (default_ticker_type,)),
         allowed_primary_exchanges=_env_tuple("UNIVERSE_ALLOWED_PRIMARY_EXCHANGES", tuple()),
         allowed_exchanges=_env_tuple("UNIVERSE_ALLOWED_EXCHANGES", tuple()),
         require_active=_env_flag("UNIVERSE_REQUIRE_ACTIVE", True),
@@ -188,19 +236,24 @@ def load_config_from_env(_root: Path | None = None) -> UniverseConfig:
         base_url=str(os.getenv("MASSIVE_BASE_URL", DEFAULT_BASE_URL)).strip() or DEFAULT_BASE_URL,
         locale=str(os.getenv("UNIVERSE_LOCALE", DEFAULT_LOCALE)).strip() or DEFAULT_LOCALE,
         market=str(os.getenv("UNIVERSE_MARKET", DEFAULT_MARKET)).strip() or DEFAULT_MARKET,
-        ticker_type=str(os.getenv("UNIVERSE_TICKER_TYPE", DEFAULT_TICKER_TYPE)).strip().upper() or DEFAULT_TICKER_TYPE,
+        ticker_type=default_ticker_type,
         universe_profile=str(os.getenv("UNIVERSE_PROFILE", DEFAULT_PROFILE)).strip() or DEFAULT_PROFILE,
         target_size=target_size,
         sector_cap=_env_int("UNIVERSE_SECTOR_CAP", 18),
         top_n=_env_int("UNIVERSE_TOP_N", target_size),
+        shortlist_multiplier=_env_int("UNIVERSE_SHORTLIST_MULTIPLIER", 3),
+        history_lookback_days=_env_int("UNIVERSE_HISTORY_LOOKBACK_DAYS", 45),
+        history_batch_limit=_env_int("UNIVERSE_HISTORY_BATCH_LIMIT", 600),
         output_dir=output_dir,
         request_timeout_sec=_env_float("UNIVERSE_REQUEST_TIMEOUT_SEC", 30.0),
         request_sleep_sec=_env_float("UNIVERSE_REQUEST_SLEEP_SEC", 0.2),
+        request_max_retries=_env_int("UNIVERSE_REQUEST_MAX_RETRIES", 3),
+        request_backoff_sec=_env_float("UNIVERSE_REQUEST_BACKOFF_SEC", 1.0),
         overview_enrichment_enabled=_env_flag("UNIVERSE_OVERVIEW_ENRICHMENT_ENABLED", True),
         overview_enrichment_max=_env_int("UNIVERSE_OVERVIEW_ENRICHMENT_MAX", 1200),
         rebalance_freq=str(os.getenv("UNIVERSE_REBALANCE_FREQ", "weekly")).strip() or "weekly",
         reuse_last=_env_flag("UNIVERSE_REUSE_LAST", True),
-        history_check_mode=str(os.getenv("UNIVERSE_HISTORY_CHECK_MODE", "grouped_daily_lookback")).strip() or "grouped_daily_lookback",
+        history_check_mode=str(os.getenv("UNIVERSE_HISTORY_CHECK_MODE", "daily_aggs_lookback")).strip() or "daily_aggs_lookback",
         eligibility=eligibility,
     )
 
@@ -268,17 +321,16 @@ def _normalize_grouped_daily(df: pd.DataFrame) -> pd.DataFrame:
     if "timestamp_ms" not in out.columns:
         out["timestamp_ms"] = pd.NA
     ts = pd.to_datetime(out["timestamp_ms"], unit="ms", utc=True, errors="coerce")
-    trade_date = ts.dt.strftime("%Y-%m-%d")
     fallback_date = pd.Timestamp.now(tz="UTC").strftime("%Y-%m-%d")
-    out["trade_date"] = trade_date.fillna(fallback_date)
+    out["trade_date"] = ts.dt.strftime("%Y-%m-%d").fillna(fallback_date)
     out["as_of_date"] = out["trade_date"]
     out["date"] = out["trade_date"]
     out["session_date"] = out["trade_date"]
     out["dollar_volume_1d"] = out["close"].fillna(0.0) * out["volume"].fillna(0.0)
     out["median_dollar_volume_20d"] = out["dollar_volume_1d"]
-    out["history_days"] = 30
-    out["nan_ratio"] = 0.0
-    out["missing_days_20d"] = 0
+    out["history_days"] = 1
+    out["nan_ratio"] = 1.0
+    out["missing_days_20d"] = 999
     return out
 
 
@@ -323,7 +375,10 @@ def _enrich_with_overview(client: MassiveClient, df: pd.DataFrame, enabled: bool
         out["primary_exchange"] = out["overview_primary_exchange"].fillna(out["primary_exchange"])
         out["active"] = out["overview_active"].fillna(out["active"])
         out["ticker_type"] = out["overview_type"].fillna(out["ticker_type"])
-        out["name"] = out["overview_name"].fillna(out.get("name", pd.Series(dtype="object")))
+        if "name" in out.columns:
+            out["name"] = out["overview_name"].fillna(out["name"])
+        else:
+            out["name"] = out["overview_name"]
     return out, {
         "overview_enrichment_enabled": 1,
         "overview_enriched": enriched,
@@ -340,9 +395,59 @@ def _passes_allowed(value: str, allowed: Iterable[str]) -> bool:
 
 
 
+def _business_days_in_window(end_date_str: str, periods: int) -> List[str]:
+    end_ts = pd.Timestamp(end_date_str)
+    dates = pd.bdate_range(end=end_ts, periods=max(1, periods))
+    return [x.strftime("%Y-%m-%d") for x in dates]
+
+
+
+def _compute_history_metrics(client: MassiveClient, symbols: List[str], end_date: str, lookback_days: int) -> pd.DataFrame:
+    rows: List[Dict[str, Any]] = []
+    end_ts = pd.Timestamp(end_date)
+    start_ts = end_ts - pd.Timedelta(days=max(lookback_days, 20) * 2)
+    start_date = start_ts.strftime("%Y-%m-%d")
+    expected_recent_20 = set(_business_days_in_window(end_date, 20))
+
+    for symbol in symbols:
+        hist = client.daily_history(symbol, start_date, end_date)
+        if hist.empty:
+            rows.append({
+                "symbol": symbol,
+                "history_days": 0,
+                "median_dollar_volume_20d": 0.0,
+                "nan_ratio": 1.0,
+                "missing_days_20d": len(expected_recent_20),
+            })
+            continue
+
+        hist = hist.copy()
+        hist = hist.drop_duplicates(subset=["trade_date"]).sort_values("trade_date")
+        history_days = int(len(hist))
+        recent20 = hist.tail(20).copy()
+        present_dates = set(recent20["trade_date"].dropna().astype(str).tolist())
+        missing_days_20d = int(len(expected_recent_20 - present_dates))
+
+        critical_cols = ["trade_date", "close", "volume", "dollar_volume"]
+        nan_ratio = float(recent20[critical_cols].isna().mean().mean()) if not recent20.empty else 1.0
+        median_dollar_volume_20d = float(pd.to_numeric(recent20["dollar_volume"], errors="coerce").dropna().median()) if not recent20.empty else 0.0
+        if pd.isna(median_dollar_volume_20d):
+            median_dollar_volume_20d = 0.0
+
+        rows.append({
+            "symbol": symbol,
+            "history_days": history_days,
+            "median_dollar_volume_20d": median_dollar_volume_20d,
+            "nan_ratio": nan_ratio,
+            "missing_days_20d": missing_days_20d,
+        })
+
+    return pd.DataFrame(rows)
+
+
+
 def apply_eligibility_policy(df: pd.DataFrame, policy: UniverseEligibilityPolicy) -> Tuple[pd.DataFrame, Dict[str, int]]:
     out = df.copy()
-
     out["passes_active"] = True if not policy.require_active else out["active"].fillna(False).astype(bool)
     out["passes_ticker_type"] = out["ticker_type"].astype(str).str.upper().map(lambda x: _passes_allowed(x, policy.allowed_ticker_types))
     out["passes_primary_exchange"] = out["primary_exchange"].astype(str).str.upper().map(lambda x: _passes_allowed(x, policy.allowed_primary_exchanges))
@@ -409,6 +514,9 @@ def _apply_sector_cap(df: pd.DataFrame, sector_cap: int, target_size: int) -> pd
 
 
 def _build_summary(config: UniverseConfig, counters: Dict[str, int], extra: Dict[str, Any], selected: pd.DataFrame) -> Dict[str, Any]:
+    latest_trade_date = ""
+    if "trade_date" in selected.columns and not selected.empty:
+        latest_trade_date = str(selected["trade_date"].iloc[0])
     summary: Dict[str, Any] = {
         "ts_utc": _utc_now_iso(),
         "universe_profile": config.universe_profile,
@@ -418,10 +526,14 @@ def _build_summary(config: UniverseConfig, counters: Dict[str, int], extra: Dict
         "ticker_type": config.ticker_type,
         "target_size": int(config.target_size),
         "top_n": int(config.top_n),
+        "shortlist_multiplier": int(config.shortlist_multiplier),
+        "history_lookback_days": int(config.history_lookback_days),
+        "history_batch_limit": int(config.history_batch_limit),
         "sector_cap": int(config.sector_cap),
         "history_check_mode": config.history_check_mode,
         "rebalance_freq": config.rebalance_freq,
         "reuse_last": int(bool(config.reuse_last)),
+        "latest_trade_date": latest_trade_date,
         **counters,
         **extra,
         "selected_total": int(len(selected)),
@@ -437,6 +549,8 @@ def build_universe_snapshot(config: UniverseConfig) -> Tuple[pd.DataFrame, Dict[
         base_url=config.base_url,
         timeout_sec=config.request_timeout_sec,
         sleep_sec=config.request_sleep_sec,
+        max_retries=config.request_max_retries,
+        backoff_sec=config.request_backoff_sec,
     )
 
     tickers_df = _normalize_ticker_reference(client.list_tickers(config.locale, config.market, config.ticker_type))
@@ -453,6 +567,29 @@ def build_universe_snapshot(config: UniverseConfig) -> Tuple[pd.DataFrame, Dict[
         max_rows=config.overview_enrichment_max,
     )
 
+    pre_ranked = merged.sort_values(
+        ["dollar_volume_1d", "close", "symbol"],
+        ascending=[False, False, True],
+    ).copy()
+    shortlist_size = min(len(pre_ranked), max(config.target_size, config.top_n) * max(1, int(config.shortlist_multiplier)))
+    shortlist_size = min(shortlist_size, max(1, int(config.history_batch_limit)))
+    shortlist = pre_ranked.head(shortlist_size).copy()
+
+    latest_trade_date = str(shortlist["trade_date"].iloc[0]) if not shortlist.empty else pd.Timestamp.now(tz="UTC").strftime("%Y-%m-%d")
+    history_metrics = _compute_history_metrics(
+        client=client,
+        symbols=shortlist["symbol"].astype(str).tolist(),
+        end_date=latest_trade_date,
+        lookback_days=config.history_lookback_days,
+    )
+
+    merged = merged.drop(columns=["median_dollar_volume_20d", "history_days", "nan_ratio", "missing_days_20d"], errors="ignore")
+    merged = merged.merge(history_metrics, on="symbol", how="left")
+    merged["median_dollar_volume_20d"] = pd.to_numeric(merged["median_dollar_volume_20d"], errors="coerce").fillna(0.0)
+    merged["history_days"] = pd.to_numeric(merged["history_days"], errors="coerce").fillna(0).astype(int)
+    merged["nan_ratio"] = pd.to_numeric(merged["nan_ratio"], errors="coerce").fillna(1.0)
+    merged["missing_days_20d"] = pd.to_numeric(merged["missing_days_20d"], errors="coerce").fillna(999).astype(int)
+
     eligible_df, counters = apply_eligibility_policy(merged, config.eligibility)
     ranked_eligible = eligible_df.loc[eligible_df["eligible"]].copy()
     ranked_eligible = ranked_eligible.sort_values(
@@ -468,9 +605,18 @@ def build_universe_snapshot(config: UniverseConfig) -> Tuple[pd.DataFrame, Dict[
         selected["as_of_date"] = fallback_date
         selected["date"] = fallback_date
         selected["session_date"] = fallback_date
-    summary = _build_summary(config, counters, overview_summary, selected)
-
+    summary = _build_summary(
+        config,
+        counters,
+        {
+            **overview_summary,
+            "shortlist_size": int(shortlist_size),
+            "history_metrics_symbols": int(len(history_metrics)),
+        },
+        selected,
+    )
     return selected.reset_index(drop=True), summary, eligible_df.reset_index(drop=True)
+
 
 
 def build_and_save_universe_snapshot(config: UniverseConfig) -> Tuple[Path, Path]:
@@ -508,8 +654,11 @@ __all__ = [
 if __name__ == "__main__":
     try:
         cfg = load_config_from_env()
-        outputs = build_and_save_universe_snapshot(cfg)
-        print(json.dumps({k: str(v) for k, v in outputs.items()}, indent=2, ensure_ascii=False))
+        snapshot_path, summary_path = build_and_save_universe_snapshot(cfg)
+        print(json.dumps({
+            "snapshot_path": str(snapshot_path),
+            "summary_path": str(summary_path),
+        }, indent=2, ensure_ascii=False))
     except Exception:
         traceback.print_exc()
         try:

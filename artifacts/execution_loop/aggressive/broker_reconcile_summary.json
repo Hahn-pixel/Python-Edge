@@ -1,9 +1,9 @@
 {
   "config": "aggressive",
-  "generated_at_utc": "2026-04-10T19:13:48Z",
-  "symbols_total": 22,
-  "drift": 21,
-  "missing_at_broker": 3,
+  "generated_at_utc": "2026-04-11T11:31:02Z",
+  "symbols_total": 24,
+  "drift": 23,
+  "missing_at_broker": 5,
   "unexpected_at_broker": 12,
   "pending_covers_drift": 0,
   "max_abs_drift_shares": 296.0,
