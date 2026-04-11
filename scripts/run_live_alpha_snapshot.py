@@ -256,99 +256,153 @@ def _prepare_proxy_feature_frame(proxy_panel: pd.DataFrame) -> pd.DataFrame:
     work["ret_5d"] = work.groupby("symbol", sort=False)["close"].pct_change(5)
     work["ret_20d"] = work.groupby("symbol", sort=False)["close"].pct_change(20)
     work["momentum_20d"] = work["ret_20d"]
-    work["volatility_20d"] = work.groupby("symbol", sort=False)["ret_1d"].rolling(20, min_periods=10).std().reset_index(level=0, drop=True)
+    work["volatility_20d"] = (
+        work.groupby("symbol", sort=False)["ret_1d"]
+        .rolling(20, min_periods=10)
+        .std()
+        .reset_index(level=0, drop=True)
+    )
     work["z_ret_1d"] = work.groupby("symbol", sort=False)["ret_1d"].transform(lambda s: _rolling_z(s, 20))
     work["z_ret_5d"] = work.groupby("symbol", sort=False)["ret_5d"].transform(lambda s: _rolling_z(s, 20))
     work["z_ret_20d"] = work.groupby("symbol", sort=False)["ret_20d"].transform(lambda s: _rolling_z(s, 20))
     work["z_momentum_20d"] = work.groupby("symbol", sort=False)["momentum_20d"].transform(lambda s: _rolling_z(s, 20))
     work["z_volatility_20d"] = work.groupby("symbol", sort=False)["volatility_20d"].transform(lambda s: _rolling_z(s, 20))
 
-    pivots: Dict[str, pd.DataFrame] = {}
-    metrics = ["ret_1d", "ret_5d", "ret_20d", "momentum_20d", "volatility_20d", "z_ret_1d", "z_ret_5d", "z_ret_20d", "z_momentum_20d", "z_volatility_20d"]
-    for metric in metrics:
-        pivots[metric] = work.pivot(index="date", columns="symbol", values=metric)
+    metrics = [
+        "ret_1d",
+        "ret_5d",
+        "ret_20d",
+        "momentum_20d",
+        "volatility_20d",
+        "z_ret_1d",
+        "z_ret_5d",
+        "z_ret_20d",
+        "z_momentum_20d",
+        "z_volatility_20d",
+    ]
+    pivots: Dict[str, pd.DataFrame] = {
+        metric: work.pivot(index="date", columns="symbol", values=metric) for metric in metrics
+    }
 
-    out = pd.DataFrame(index=sorted(work["date"].dropna().unique()))
-    out.index.name = "date"
+    base_index = sorted(work["date"].dropna().unique())
+    feature_parts: List[pd.DataFrame] = []
 
+    # Per-proxy direct features
+    per_proxy_cols: Dict[str, pd.Series] = {}
     for symbol in COMMODITY_PROXY_SYMBOLS + GLOBAL_REGIME_PROXY_SYMBOLS:
         prefix = symbol.lower()
         for metric in metrics:
             frame = pivots[metric]
-            out[f"{prefix}_{metric}"] = frame[symbol] if symbol in frame.columns else pd.NA
-
-    asia_components = [sym for sym in ["EWJ", "EWH", "EWT"] if sym in pivots["ret_1d"].columns]
-    europe_components = [sym for sym in ["VGK"] if sym in pivots["ret_1d"].columns]
-    us_components = [sym for sym in ["SPY"] if sym in pivots["ret_1d"].columns]
+            col_name = f"{prefix}_{metric}"
+            per_proxy_cols[col_name] = frame[symbol] if symbol in frame.columns else pd.Series(index=base_index, dtype="float64")
+    feature_parts.append(pd.DataFrame(per_proxy_cols, index=base_index))
 
     def _avg_cols(frame: pd.DataFrame, cols: List[str]) -> pd.Series:
         if not cols:
             return pd.Series(index=frame.index, dtype="float64")
         return frame[cols].mean(axis=1)
 
-    out["asia_ret_1d"] = _avg_cols(pivots["ret_1d"], asia_components)
-    out["asia_ret_5d"] = _avg_cols(pivots["ret_5d"], asia_components)
-    out["asia_ret_20d"] = _avg_cols(pivots["ret_20d"], asia_components)
-    out["asia_momentum_20d"] = _avg_cols(pivots["momentum_20d"], asia_components)
-    out["asia_volatility_20d"] = _avg_cols(pivots["volatility_20d"], asia_components)
+    asia_components = [sym for sym in ["EWJ", "EWH", "EWT"] if sym in pivots["ret_1d"].columns]
+    europe_components = [sym for sym in ["VGK"] if sym in pivots["ret_1d"].columns]
+    us_components = [sym for sym in ["SPY"] if sym in pivots["ret_1d"].columns]
 
-    out["europe_ret_1d"] = _avg_cols(pivots["ret_1d"], europe_components)
-    out["europe_ret_5d"] = _avg_cols(pivots["ret_5d"], europe_components)
-    out["europe_ret_20d"] = _avg_cols(pivots["ret_20d"], europe_components)
-    out["europe_momentum_20d"] = _avg_cols(pivots["momentum_20d"], europe_components)
-    out["europe_volatility_20d"] = _avg_cols(pivots["volatility_20d"], europe_components)
-
-    out["us_ret_1d"] = _avg_cols(pivots["ret_1d"], us_components)
-    out["us_ret_5d"] = _avg_cols(pivots["ret_5d"], us_components)
-    out["us_ret_20d"] = _avg_cols(pivots["ret_20d"], us_components)
-    out["us_momentum_20d"] = _avg_cols(pivots["momentum_20d"], us_components)
-    out["us_volatility_20d"] = _avg_cols(pivots["volatility_20d"], us_components)
+    region_cols = {
+        "asia_ret_1d": _avg_cols(pivots["ret_1d"], asia_components),
+        "asia_ret_5d": _avg_cols(pivots["ret_5d"], asia_components),
+        "asia_ret_20d": _avg_cols(pivots["ret_20d"], asia_components),
+        "asia_momentum_20d": _avg_cols(pivots["momentum_20d"], asia_components),
+        "asia_volatility_20d": _avg_cols(pivots["volatility_20d"], asia_components),
+        "europe_ret_1d": _avg_cols(pivots["ret_1d"], europe_components),
+        "europe_ret_5d": _avg_cols(pivots["ret_5d"], europe_components),
+        "europe_ret_20d": _avg_cols(pivots["ret_20d"], europe_components),
+        "europe_momentum_20d": _avg_cols(pivots["momentum_20d"], europe_components),
+        "europe_volatility_20d": _avg_cols(pivots["volatility_20d"], europe_components),
+        "us_ret_1d": _avg_cols(pivots["ret_1d"], us_components),
+        "us_ret_5d": _avg_cols(pivots["ret_5d"], us_components),
+        "us_ret_20d": _avg_cols(pivots["ret_20d"], us_components),
+        "us_momentum_20d": _avg_cols(pivots["momentum_20d"], us_components),
+        "us_volatility_20d": _avg_cols(pivots["volatility_20d"], us_components),
+    }
+    feature_parts.append(pd.DataFrame(region_cols, index=base_index))
 
     commodity_prefixes = {"gld", "slv", "uso", "dbc"}
-    out["commodities_basket_ret_1d"] = out[[c for c in out.columns if c.endswith("_ret_1d") and c.split("_")[0] in commodity_prefixes]].mean(axis=1)
-    out["commodities_basket_ret_5d"] = out[[c for c in out.columns if c.endswith("_ret_5d") and c.split("_")[0] in commodity_prefixes]].mean(axis=1)
-    out["commodities_basket_ret_20d"] = out[[c for c in out.columns if c.endswith("_ret_20d") and c.split("_")[0] in commodity_prefixes]].mean(axis=1)
-    out["commodities_basket_momentum_20d"] = out[[c for c in out.columns if c.endswith("_momentum_20d") and c.split("_")[0] in commodity_prefixes]].mean(axis=1)
-    out["commodities_basket_volatility_20d"] = out[[c for c in out.columns if c.endswith("_volatility_20d") and c.split("_")[0] in commodity_prefixes]].mean(axis=1)
+    direct_proxy_df = feature_parts[0]
 
-    out["oil_up"] = (pd.to_numeric(out.get("uso_ret_1d"), errors="coerce") > 0.0).astype("float64")
-    risk_inputs = pd.concat(
-        [
-            pd.to_numeric(out.get("us_ret_1d"), errors="coerce"),
-            pd.to_numeric(out.get("asia_ret_1d"), errors="coerce"),
-            pd.to_numeric(out.get("europe_ret_1d"), errors="coerce"),
-            pd.to_numeric(out.get("commodities_basket_ret_1d"), errors="coerce"),
-        ],
-        axis=1,
+    basket_df = pd.DataFrame(
+        {
+            "commodities_basket_ret_1d": direct_proxy_df[
+                [c for c in direct_proxy_df.columns if c.endswith("_ret_1d") and c.split("_")[0] in commodity_prefixes]
+            ].mean(axis=1),
+            "commodities_basket_ret_5d": direct_proxy_df[
+                [c for c in direct_proxy_df.columns if c.endswith("_ret_5d") and c.split("_")[0] in commodity_prefixes]
+            ].mean(axis=1),
+            "commodities_basket_ret_20d": direct_proxy_df[
+                [c for c in direct_proxy_df.columns if c.endswith("_ret_20d") and c.split("_")[0] in commodity_prefixes]
+            ].mean(axis=1),
+            "commodities_basket_momentum_20d": direct_proxy_df[
+                [c for c in direct_proxy_df.columns if c.endswith("_momentum_20d") and c.split("_")[0] in commodity_prefixes]
+            ].mean(axis=1),
+            "commodities_basket_volatility_20d": direct_proxy_df[
+                [c for c in direct_proxy_df.columns if c.endswith("_volatility_20d") and c.split("_")[0] in commodity_prefixes]
+            ].mean(axis=1),
+        },
+        index=base_index,
     )
-    out["global_risk_on"] = (risk_inputs.mean(axis=1) > 0.0).astype("float64")
-    out["asia_us_lead"] = pd.to_numeric(out["asia_ret_1d"], errors="coerce").shift(1) - pd.to_numeric(out["us_ret_1d"], errors="coerce")
-    out["europe_us_lead"] = pd.to_numeric(out["europe_ret_1d"], errors="coerce").shift(1) - pd.to_numeric(out["us_ret_1d"], errors="coerce")
-    out["global_divergence"] = (
-        pd.to_numeric(out["asia_ret_1d"], errors="coerce") + pd.to_numeric(out["europe_ret_1d"], errors="coerce")
-    ) / 2.0 - pd.to_numeric(out["us_ret_1d"], errors="coerce")
+    feature_parts.append(basket_df)
 
-    out["vol_spike"] = (pd.to_numeric(out.get("vixy_ret_1d"), errors="coerce") > 0.0).astype("float64")
-    out["dollar_up"] = (pd.to_numeric(out.get("uup_ret_5d"), errors="coerce") > 0.0).astype("float64")
-    out["yield_up"] = (pd.to_numeric(out.get("tlt_ret_5d"), errors="coerce") < 0.0).astype("float64")
-    out["duration_bid"] = (pd.to_numeric(out.get("tlt_ret_5d"), errors="coerce") > 0.0).astype("float64")
+    base_df = pd.concat(feature_parts, axis=1)
+
+    derived_df = pd.DataFrame(
+        {
+            "oil_up": (pd.to_numeric(base_df.get("uso_ret_1d"), errors="coerce") > 0.0).astype("float64"),
+            "global_risk_on": (
+                pd.concat(
+                    [
+                        pd.to_numeric(base_df.get("us_ret_1d"), errors="coerce"),
+                        pd.to_numeric(base_df.get("asia_ret_1d"), errors="coerce"),
+                        pd.to_numeric(base_df.get("europe_ret_1d"), errors="coerce"),
+                        pd.to_numeric(base_df.get("commodities_basket_ret_1d"), errors="coerce"),
+                    ],
+                    axis=1,
+                ).mean(axis=1)
+                > 0.0
+            ).astype("float64"),
+            "asia_us_lead": pd.to_numeric(base_df["asia_ret_1d"], errors="coerce").shift(1)
+            - pd.to_numeric(base_df["us_ret_1d"], errors="coerce"),
+            "europe_us_lead": pd.to_numeric(base_df["europe_ret_1d"], errors="coerce").shift(1)
+            - pd.to_numeric(base_df["us_ret_1d"], errors="coerce"),
+            "global_divergence": (
+                pd.to_numeric(base_df["asia_ret_1d"], errors="coerce")
+                + pd.to_numeric(base_df["europe_ret_1d"], errors="coerce")
+            )
+            / 2.0
+            - pd.to_numeric(base_df["us_ret_1d"], errors="coerce"),
+            "vol_spike": (pd.to_numeric(base_df.get("vixy_ret_1d"), errors="coerce") > 0.0).astype("float64"),
+            "dollar_up": (pd.to_numeric(base_df.get("uup_ret_5d"), errors="coerce") > 0.0).astype("float64"),
+            "yield_up": (pd.to_numeric(base_df.get("tlt_ret_5d"), errors="coerce") < 0.0).astype("float64"),
+            "duration_bid": (pd.to_numeric(base_df.get("tlt_ret_5d"), errors="coerce") > 0.0).astype("float64"),
+            "vol_dollar_divergence": pd.to_numeric(base_df.get("vixy_ret_5d"), errors="coerce")
+            - pd.to_numeric(base_df.get("uup_ret_5d"), errors="coerce"),
+            "rates_equity_tension": (-pd.to_numeric(base_df.get("tlt_ret_5d"), errors="coerce"))
+            - pd.to_numeric(base_df["us_ret_5d"], errors="coerce"),
+        },
+        index=base_index,
+    )
+
     macro_gate_score = (
-        pd.to_numeric(out["vol_spike"], errors="coerce").fillna(0.0)
-        + pd.to_numeric(out["dollar_up"], errors="coerce").fillna(0.0)
-        + pd.to_numeric(out["duration_bid"], errors="coerce").fillna(0.0)
+        pd.to_numeric(derived_df["vol_spike"], errors="coerce").fillna(0.0)
+        + pd.to_numeric(derived_df["dollar_up"], errors="coerce").fillna(0.0)
+        + pd.to_numeric(derived_df["duration_bid"], errors="coerce").fillna(0.0)
     )
-    out["macro_risk_off"] = (macro_gate_score >= 2.0).astype("float64")
-    out["macro_risk_on"] = (macro_gate_score <= 1.0).astype("float64")
-    out["vol_dollar_divergence"] = pd.to_numeric(out.get("vixy_ret_5d"), errors="coerce") - pd.to_numeric(out.get("uup_ret_5d"), errors="coerce")
-    out["rates_equity_tension"] = (-pd.to_numeric(out.get("tlt_ret_5d"), errors="coerce")) - pd.to_numeric(out["us_ret_5d"], errors="coerce")
-
-    out["macro_stress_score"] = (
-        _rolling_z(pd.to_numeric(out.get("vixy_ret_5d"), errors="coerce"), 20).fillna(0.0)
-        + _rolling_z(pd.to_numeric(out.get("uup_ret_5d"), errors="coerce"), 20).fillna(0.0)
-        - _rolling_z(pd.to_numeric(out.get("tlt_ret_5d"), errors="coerce"), 20).fillna(0.0)
+    derived_df["macro_risk_off"] = (macro_gate_score >= 2.0).astype("float64")
+    derived_df["macro_risk_on"] = (macro_gate_score <= 1.0).astype("float64")
+    derived_df["macro_stress_score"] = (
+        _rolling_z(pd.to_numeric(base_df.get("vixy_ret_5d"), errors="coerce"), 20).fillna(0.0)
+        + _rolling_z(pd.to_numeric(base_df.get("uup_ret_5d"), errors="coerce"), 20).fillna(0.0)
+        - _rolling_z(pd.to_numeric(base_df.get("tlt_ret_5d"), errors="coerce"), 20).fillna(0.0)
     ) / 3.0
 
-    for col in [
+    z_source_cols = [
         "commodities_basket_ret_1d",
         "commodities_basket_ret_5d",
         "commodities_basket_ret_20d",
@@ -360,10 +414,15 @@ def _prepare_proxy_feature_frame(proxy_panel: pd.DataFrame) -> pd.DataFrame:
         "vol_dollar_divergence",
         "rates_equity_tension",
         "macro_stress_score",
-    ]:
-        out[f"{col}_z"] = _rolling_z(pd.to_numeric(out[col], errors="coerce"), 20)
+    ]
+    z_df = pd.DataFrame(
+        {f"{col}_z": _rolling_z(pd.to_numeric(pd.concat([base_df, derived_df], axis=1)[col], errors="coerce"), 20) for col in z_source_cols},
+        index=base_index,
+    )
 
-    out = out.reset_index().sort_values("date").reset_index(drop=True)
+    out = pd.concat([base_df, derived_df, z_df], axis=1)
+    out = out.copy()  # defragment frame
+    out = out.reset_index().rename(columns={"index": "date"}).sort_values("date").reset_index(drop=True)
     return out
 
 
@@ -422,35 +481,44 @@ def _add_interaction_layer(feature_panel: pd.DataFrame, alpha_frame: pd.DataFram
     }
 
     out = alpha_frame.copy()
+    interaction_cols: Dict[str, pd.Series] = {}
     manifest_rows: List[Dict[str, object]] = []
+
     for alpha_col in candidate_alphas:
         alpha_series = pd.to_numeric(out[alpha_col], errors="coerce")
         for gate_name, gate_series in gates.items():
             new_col = f"{alpha_col}__x_{gate_name}"
-            out[new_col] = alpha_series * gate_series
-            new_series = pd.to_numeric(out[new_col], errors="coerce")
-            manifest_rows.append({
-                "alpha": new_col,
-                "family": family_map[gate_name],
-                "wave": "wave_context",
-                "left": alpha_col,
-                "modulator": gate_name,
-                "transform": "raw",
-                "regime": "none",
-                "interaction": "global_gate",
-                "lag": 0,
-                "source": "post_build",
-                "parents": alpha_col,
-                "non_na": int(new_series.notna().sum()),
-                "nan_ratio": float(new_series.isna().mean()),
-                "unique": int(new_series.dropna().nunique()),
-                "selector_score": 0.0,
-                "shortlist_rank": 1_000_000,
-            })
+            new_series = alpha_series * gate_series
+            interaction_cols[new_col] = new_series
+            manifest_rows.append(
+                {
+                    "alpha": new_col,
+                    "family": family_map[gate_name],
+                    "wave": "wave_context",
+                    "left": alpha_col,
+                    "modulator": gate_name,
+                    "transform": "raw",
+                    "regime": "none",
+                    "interaction": "global_gate",
+                    "lag": 0,
+                    "source": "post_build",
+                    "parents": alpha_col,
+                    "non_na": int(new_series.notna().sum()),
+                    "nan_ratio": float(new_series.isna().mean()),
+                    "unique": int(new_series.dropna().nunique()),
+                    "selector_score": 0.0,
+                    "shortlist_rank": 1_000_000,
+                }
+            )
+
+    if interaction_cols:
+        out = pd.concat([out, pd.DataFrame(interaction_cols, index=out.index)], axis=1)
+        out = out.copy()  # defragment frame
 
     manifest_out = manifest.copy()
     if manifest_rows:
         manifest_out = pd.concat([manifest_out, pd.DataFrame(manifest_rows)], ignore_index=True, sort=False)
+
     print(f"[INTERACTION] base_alpha_count={len(candidate_alphas)} added_columns={len(manifest_rows)}")
     return out, manifest_out
 

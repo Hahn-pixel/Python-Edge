@@ -1,0 +1,27 @@
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_live_alpha_snapshot.py
+[CFG] universe_snapshot_file=artifacts\daily_cycle\universe\universe_snapshot.parquet
+[CFG] live_alpha_out_dir=artifacts\live_alpha
+[CFG] live_alpha_scope=registry survivor_top_n=6
+[CFG] lookback_days=260 max_symbols=500
+[CFG] proxy_enable=1 interaction_enable=1 interaction_top_k=24
+[UNIVERSE][LOAD] snapshot=artifacts\daily_cycle\universe\universe_snapshot.parquet symbol_col=ticker date_col=trade_date latest_date=2026-04-10 rows_current=132 selected_current=132 max_symbols=500
+[UNIVERSE] selected_symbols=132 as_of_date=2026-04-10
+[FETCH] 25/132 complete rows=4500 failed=0
+[FETCH] 50/132 complete rows=9000 failed=0
+[FETCH] 75/132 complete rows=13500 failed=0
+[FETCH] 100/132 complete rows=18000 failed=0
+[FETCH] 125/132 complete rows=22500 failed=0
+[FETCH] 132/132 complete rows=23760 failed=0
+[FETCH] final_symbols=132 rows=23760 failed_symbols=0
+[FETCH] 12/12 complete rows=2160 failed=0
+[FETCH] final_symbols=12 rows=2160 failed_symbols=0
+[FACTORY] recipe_source=default_priority+recent_default_priority recipe_count=1901
+[INTERACTION] base_alpha_count=24 added_columns=168
+[OK] base_snapshot=artifacts\live_alpha\live_feature_snapshot.parquet
+[OK] proxy_feature_snapshot=artifacts\live_alpha\live_proxy_feature_snapshot.parquet
+[OK] live_alpha_snapshot=artifacts\live_alpha\live_alpha_snapshot.parquet
+[OK] manifest=artifacts\live_alpha\live_alpha_manifest.csv
+[OK] dropped=artifacts\live_alpha\live_alpha_dropped.csv
+[OK] meta=artifacts\live_alpha\live_alpha_meta.json
+
+[EXIT] code=0
