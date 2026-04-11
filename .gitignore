@@ -40,6 +40,7 @@ outputs/reports/
 # Data exports
 # ========================
 *.csv
+!live_alpha_manifest.csv
 *.jsonl
 *.zip
 
