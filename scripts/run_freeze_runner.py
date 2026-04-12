@@ -413,7 +413,12 @@ def _build_portfolio_scores(test_df,component_info,weighting_mode,sector_boost_i
             score_accum=score_accum+(sf*sign*w*pd.Series(bv,index=out.index))
         else:
             score_accum=score_accum+(sf*sign*w)
-    out["score"]=score_accum.values
+    out["score"] = score_accum.values
+
+    # cross-sectional z-score normalization per date
+    # ensures boost does not systematically inflate scores for certain symbols
+    out["score"] = _cs_zscore_by_date(out, out["score"])
+
     return out
 
 
