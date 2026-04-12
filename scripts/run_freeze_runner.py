@@ -10,8 +10,15 @@ from itertools import combinations
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Set, Tuple
 
+import warnings
+
 import numpy as np
 import pandas as pd
+
+warnings.filterwarnings(
+    "ignore",
+    message="An input array is constant; the correlation coefficient is not defined.",
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = ROOT / "src"

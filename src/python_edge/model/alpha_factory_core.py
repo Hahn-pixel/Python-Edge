@@ -46,9 +46,9 @@ class SurvivorConfig:
     explicit_families: tuple[str, ...] = ()
 
 
-# ----------------------------
-# generic helpers
-# ----------------------------
+# ---------------------------------------------------------------------------
+# Generic helpers
+# ---------------------------------------------------------------------------
 
 def _safe(s: pd.Series) -> pd.Series:
     return pd.to_numeric(s, errors="coerce").astype("float64")
@@ -90,11 +90,26 @@ def _cube(s: pd.Series) -> pd.Series:
     return x ** 3.0
 
 
-# ----------------------------
-# base features
-# ----------------------------
+# ---------------------------------------------------------------------------
+# Base feature derivation
+# ---------------------------------------------------------------------------
 
 def derive_base_factory_inputs(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Derive all base factory inputs from raw OHLCV panel.
+
+    Stage 4 additions:
+        close_location  — (close - low) / (high - low), clipped [0,1]
+                          intraday price location within daily range
+        gap_abs         — absolute gap return, clipped at 3σ
+                          captures gap magnitude regardless of direction
+        turnover_z      — rolling 20d z-score of dollar volume
+                          dollar-weighted activity level signal
+        ivol_ratio      — 5d realized vol / 20d realized vol
+                          vol expansion/compression regime signal (modulator)
+        mom_sign        — sign of 20d momentum (+1 / 0 / -1)
+                          trend direction gate (modulator)
+    """
     out = df.copy()
     required = ["date", "symbol", "open", "high", "low", "close", "volume"]
     missing = [c for c in required if c not in out.columns]
@@ -123,7 +138,9 @@ def derive_base_factory_inputs(df: pd.DataFrame) -> pd.DataFrame:
     range20 = hl_range_pct.groupby(out["symbol"], sort=False).rolling(20, min_periods=10).mean().reset_index(level=0, drop=True)
     out["range_comp_5_20"] = _safe(range5) / (_safe(range20) + EPS)
 
-    out["market_breadth"] = out.groupby("date", sort=False)["ret1"].transform(lambda s: pd.to_numeric(s, errors="coerce").gt(0).mean())
+    out["market_breadth"] = out.groupby("date", sort=False)["ret1"].transform(
+        lambda s: pd.to_numeric(s, errors="coerce").gt(0).mean()
+    )
     out["overnight_drift_20d"] = _safe(out["gap_ret"]).groupby(out["symbol"], sort=False).rolling(20, min_periods=10).mean().reset_index(level=0, drop=True)
     out["ivol_20d"] = _safe(out["ret1"]).groupby(out["symbol"], sort=False).rolling(20, min_periods=10).std().reset_index(level=0, drop=True)
     rv10 = _safe(out["ret1"]).groupby(out["symbol"], sort=False).rolling(10, min_periods=5).std().reset_index(level=0, drop=True)
@@ -140,12 +157,53 @@ def derive_base_factory_inputs(df: pd.DataFrame) -> pd.DataFrame:
 
     out["meta_price"] = _safe(out["close"])
     out["meta_dollar_volume"] = _safe(out["dollar_vol"])
+
+    # ------------------------------------------------------------------
+    # Stage 4 new base signals
+    # ------------------------------------------------------------------
+
+    # close_location: where close lands in the day's high-low range [0, 1]
+    # 1.0 = close at high (bullish), 0.0 = close at low (bearish)
+    hl_range = (_safe(out["high"]) - _safe(out["low"])).clip(lower=0.0)
+    out["close_location"] = (
+        (_safe(out["close"]) - _safe(out["low"])) / (hl_range + EPS)
+    ).clip(0.0, 1.0)
+    # center at 0.5 so it's symmetric for alpha generation
+    out["close_location"] = out["close_location"] - 0.5
+
+    # gap_abs: absolute gap magnitude, cross-sectionally z-scored
+    # captures how large the gap was regardless of direction
+    out["gap_abs"] = _safe(out["gap_ret"]).abs()
+    out["gap_abs"] = _cs_z_from_series(out, out["gap_abs"])
+
+    # turnover_z: 20d rolling z-score of dollar volume
+    # distinct from rel_volume: normalized in dollar terms, not share terms
+    dvol = _safe(out["dollar_vol"])
+    dvol_mean = dvol.groupby(out["symbol"], sort=False).rolling(20, min_periods=10).mean().reset_index(level=0, drop=True)
+    dvol_std = dvol.groupby(out["symbol"], sort=False).rolling(20, min_periods=10).std().reset_index(level=0, drop=True)
+    out["turnover_z"] = (dvol - _safe(dvol_mean)) / (_safe(dvol_std) + EPS)
+
+    # ------------------------------------------------------------------
+    # Stage 4 new modulators
+    # ------------------------------------------------------------------
+
+    # ivol_ratio: short-term vol (5d) / long-term vol (20d)
+    # > 1.0 = vol expanding, < 1.0 = vol compressing
+    # used as modulator to condition ivol_20d and vol_compression signals
+    rv5 = _safe(out["ret1"]).groupby(out["symbol"], sort=False).rolling(5, min_periods=3).std().reset_index(level=0, drop=True)
+    rv20 = _safe(out["ret1"]).groupby(out["symbol"], sort=False).rolling(20, min_periods=10).std().reset_index(level=0, drop=True)
+    out["ivol_ratio"] = _safe(rv5) / (_safe(rv20) + EPS)
+
+    # mom_sign: sign of 20d momentum
+    # +1 if uptrend, -1 if downtrend, 0 if flat/missing
+    out["mom_sign"] = np.sign(_safe(out["momentum_20d"]))
+
     return out.sort_values(["date", "symbol"]).reset_index(drop=True)
 
 
-# ----------------------------
-# registry helpers
-# ----------------------------
+# ---------------------------------------------------------------------------
+# Registry helpers
+# ---------------------------------------------------------------------------
 
 def build_registry_lookup() -> tuple[dict[str, str], dict[str, str], dict[str, str]]:
     base_lookup = {b.name: b.source_col for b in BASE_SIGNAL_REGISTRY}
@@ -276,11 +334,9 @@ def expand_survivor_recipes(
             if plan.inherit_modulators:
                 candidate_modulators.extend(inherited_modulators)
             candidate_modulators = _unique_ordered(candidate_modulators)[: max(1, int(plan.max_modulators_per_family))]
-
             candidate_regimes = list(plan.regimes)
             if plan.inherit_regimes:
                 candidate_regimes = _unique_ordered(inherited_regimes + candidate_regimes)
-
             for transform in plan.transforms:
                 inferred_lag = 0
                 if transform == "lag1":
@@ -296,15 +352,9 @@ def expand_survivor_recipes(
                             seen.add(name)
                             out.append(
                                 AlphaRecipe(
-                                    name=name,
-                                    left=left,
-                                    modulator=modulator,
-                                    transform=transform,
-                                    regime=regime,
-                                    interaction=interaction,
-                                    lag=inferred_lag,
-                                    family=family,
-                                    wave=plan.wave,
+                                    name=name, left=left, modulator=modulator,
+                                    transform=transform, regime=regime, interaction=interaction,
+                                    lag=inferred_lag, family=family, wave=plan.wave,
                                     parents=family_parent_names,
                                     source=f"survivor:{survivor_source}",
                                 )
@@ -353,15 +403,9 @@ def expand_recent_survivor_recipes(
                             seen.add(name)
                             out.append(
                                 AlphaRecipe(
-                                    name=name,
-                                    left=left,
-                                    modulator=modulator,
-                                    transform=transform,
-                                    regime=regime,
-                                    interaction=interaction,
-                                    lag=inferred_lag,
-                                    family=family,
-                                    wave="wave7",
+                                    name=name, left=left, modulator=modulator,
+                                    transform=transform, regime=regime, interaction=interaction,
+                                    lag=inferred_lag, family=family, wave="wave7",
                                     parents=family_parent_names,
                                     source=f"recent_survivor:{recent_source}",
                                 )
@@ -376,82 +420,54 @@ def build_recipe_registry(
     survivor_recipes, survivor_detail, survivor_source = expand_survivor_recipes(seed_recipes=seed_recipes, survivor_cfg=survivor_cfg)
     recent_recipes, recent_detail, recent_source = expand_recent_survivor_recipes(seed_recipes=seed_recipes, survivor_cfg=survivor_cfg)
     recipes = tuple(seed_recipes) + tuple(survivor_recipes) + tuple(recent_recipes)
-
     detail_frames: list[pd.DataFrame] = []
     if len(survivor_detail):
-        s = survivor_detail.copy()
-        s["source"] = survivor_source
-        detail_frames.append(s)
+        s = survivor_detail.copy(); s["source"] = survivor_source; detail_frames.append(s)
     if len(recent_detail):
-        r = recent_detail.copy()
-        r["source"] = recent_source
-        detail_frames.append(r)
+        r = recent_detail.copy(); r["source"] = recent_source; detail_frames.append(r)
     detail = pd.concat(detail_frames, ignore_index=True) if detail_frames else pd.DataFrame(columns=["family", "recipes", "source"])
     source = "+".join(part for part in [survivor_source, recent_source] if part)
     return recipes, detail, source
 
 
-# ----------------------------
-# alpha generation
-# ----------------------------
+# ---------------------------------------------------------------------------
+# Alpha generation
+# ---------------------------------------------------------------------------
 
 def _transform_base(df: pd.DataFrame, base: pd.Series, transform: str) -> pd.Series:
-    if transform == "raw":
-        return _safe(base)
-    if transform == "z":
-        return _cs_z_from_series(df, base)
-    if transform == "rank":
-        return _rank_from_series(df, base)
-    if transform == "tanh":
-        return np.tanh(_safe(base))
-    if transform == "clip3":
-        return _safe(base).clip(-3.0, 3.0)
-    if transform == "sign":
-        return np.sign(_safe(base))
+    if transform == "raw":       return _safe(base)
+    if transform == "z":         return _cs_z_from_series(df, base)
+    if transform == "rank":      return _rank_from_series(df, base)
+    if transform == "tanh":      return np.tanh(_safe(base))
+    if transform == "clip3":     return _safe(base).clip(-3.0, 3.0)
+    if transform == "sign":      return np.sign(_safe(base))
     if transform == "signed_square":
-        x = _safe(base)
-        return np.sign(x) * (x.abs() ** 2.0)
-    if transform == "signed_log":
-        return _signed_log(base)
-    if transform == "sqrt_signed":
-        return _sqrt_signed(base)
-    if transform == "cube":
-        return _cube(base)
-    if transform == "tanh_z":
-        return np.tanh(_cs_z_from_series(df, base))
-    if transform == "lag1":
-        return _lag(df, base, 1)
-    if transform == "lag2":
-        return _lag(df, base, 2)
-    if transform == "ema3":
-        return _ema(df, base)
+        x = _safe(base); return np.sign(x) * (x.abs() ** 2.0)
+    if transform == "signed_log":   return _signed_log(base)
+    if transform == "sqrt_signed":  return _sqrt_signed(base)
+    if transform == "cube":         return _cube(base)
+    if transform == "tanh_z":       return np.tanh(_cs_z_from_series(df, base))
+    if transform == "lag1":         return _lag(df, base, 1)
+    if transform == "lag2":         return _lag(df, base, 2)
+    if transform == "ema3":         return _ema(df, base)
     raise RuntimeError(f"Unsupported transform: {transform}")
 
 
 def _apply_regime(df: pd.DataFrame, base: pd.Series, mod: pd.Series, regime: str) -> pd.Series:
     mod_rank = _safe(mod).groupby(df["date"], sort=False).rank(method="average", pct=True)
-    if regime == "none":
-        return _safe(base)
-    if regime == "hi":
-        return _safe(base) * (mod_rank >= 0.70).astype("float64")
-    if regime == "lo":
-        return _safe(base) * (mod_rank <= 0.30).astype("float64")
-    if regime == "z":
-        return _safe(base) * _cs_z_from_series(df, mod)
-    if regime == "rank":
-        return _safe(base) * (_safe(mod_rank) - 0.5)
+    if regime == "none":  return _safe(base)
+    if regime == "hi":    return _safe(base) * (mod_rank >= 0.70).astype("float64")
+    if regime == "lo":    return _safe(base) * (mod_rank <= 0.30).astype("float64")
+    if regime == "z":     return _safe(base) * _cs_z_from_series(df, mod)
+    if regime == "rank":  return _safe(base) * (_safe(mod_rank) - 0.5)
     raise RuntimeError(f"Unsupported regime mode: {regime}")
 
 
 def _apply_interaction(df: pd.DataFrame, base: pd.Series, mod: pd.Series, interaction: str, regime: str) -> pd.Series:
-    if interaction == "regime":
-        return _apply_regime(df, base, mod, regime)
-    if interaction == "raw_mul":
-        return _safe(base) * _safe(mod)
-    if interaction == "z_mul":
-        return _safe(base) * _cs_z_from_series(df, mod)
-    if interaction == "rank_mul":
-        return _safe(base) * _rank_from_series(df, mod)
+    if interaction == "regime":   return _apply_regime(df, base, mod, regime)
+    if interaction == "raw_mul":  return _safe(base) * _safe(mod)
+    if interaction == "z_mul":    return _safe(base) * _cs_z_from_series(df, mod)
+    if interaction == "rank_mul": return _safe(base) * _rank_from_series(df, mod)
     raise RuntimeError(f"Unsupported interaction mode: {interaction}")
 
 
@@ -480,11 +496,15 @@ def build_alpha_matrix(df: pd.DataFrame, recipes: Sequence[AlphaRecipe] = ALL_RE
     return pd.DataFrame(series_map, index=df.index)
 
 
-# ----------------------------
-# validation / manifest
-# ----------------------------
+# ---------------------------------------------------------------------------
+# Validation / manifest
+# ---------------------------------------------------------------------------
 
-def validate_alpha_matrix(alpha_df: pd.DataFrame, recipes: Sequence[AlphaRecipe], cfg: ValidationConfig | None = None) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def validate_alpha_matrix(
+    alpha_df: pd.DataFrame,
+    recipes: Sequence[AlphaRecipe],
+    cfg: ValidationConfig | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     cfg = cfg or ValidationConfig()
     recipe_map = {f"alpha_{r.name}": r for r in recipes}
     keep_cols: List[str] = []
@@ -498,20 +518,12 @@ def validate_alpha_matrix(alpha_df: pd.DataFrame, recipes: Sequence[AlphaRecipe]
         unique = int(s.dropna().nunique())
         recipe = recipe_map[col]
         row = {
-            "alpha": col,
-            "family": recipe.family,
-            "wave": recipe.wave,
-            "left": recipe.left,
-            "modulator": recipe.modulator,
-            "transform": recipe.transform,
-            "regime": recipe.regime,
-            "interaction": recipe.interaction,
-            "lag": recipe.lag,
-            "source": recipe.source,
-            "parents": "|".join(recipe.parents),
-            "non_na": non_na,
-            "nan_ratio": nan_ratio,
-            "unique": unique,
+            "alpha": col, "family": recipe.family, "wave": recipe.wave,
+            "left": recipe.left, "modulator": recipe.modulator,
+            "transform": recipe.transform, "regime": recipe.regime,
+            "interaction": recipe.interaction, "lag": recipe.lag,
+            "source": recipe.source, "parents": "|".join(recipe.parents),
+            "non_na": non_na, "nan_ratio": nan_ratio, "unique": unique,
         }
         reason = None
         if non_na < cfg.min_non_na:
@@ -539,7 +551,11 @@ def validate_alpha_matrix(alpha_df: pd.DataFrame, recipes: Sequence[AlphaRecipe]
     return alpha_df[keep_cols].copy(), manifest_df, dropped_df
 
 
-def generate_factory_alphas(df: pd.DataFrame, recipes: Sequence[AlphaRecipe] = ALL_RECIPES, cfg: ValidationConfig | None = None) -> FactoryBuildResult:
+def generate_factory_alphas(
+    df: pd.DataFrame,
+    recipes: Sequence[AlphaRecipe] = ALL_RECIPES,
+    cfg: ValidationConfig | None = None,
+) -> FactoryBuildResult:
     alpha_df = build_alpha_matrix(df, recipes=recipes)
     alpha_df, manifest_df, dropped_df = validate_alpha_matrix(alpha_df, recipes=recipes, cfg=cfg)
     out = pd.concat([df.reset_index(drop=True), alpha_df.reset_index(drop=True)], axis=1)
