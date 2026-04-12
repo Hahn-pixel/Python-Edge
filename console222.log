@@ -1,0 +1,65 @@
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> python .\scripts\run_alpha_diagnostics_live.py
+[CFG] snapshot=artifacts\live_alpha\live_alpha_snapshot.parquet
+[CFG] manifest=artifacts\live_alpha\live_alpha_manifest.csv
+[CFG] meta=artifacts\live_alpha\live_alpha_meta.json
+[CFG] output_dir=artifacts\live_alpha\diagnostics
+[CFG] target_col=target_fwd_ret_1d min_cross_section=20 min_ic_days=20
+[DATA] rows=41220 symbols=229 dates=180 alpha_cols=1235
+[ALPHA] processed=100/1235
+[ALPHA] processed=200/1235
+[ALPHA] processed=300/1235
+[ALPHA] processed=400/1235
+[ALPHA] processed=500/1235
+[ALPHA] processed=600/1235
+[ALPHA] processed=700/1235
+[ALPHA] processed=800/1235
+[ALPHA] processed=900/1235
+[ALPHA] processed=1000/1235
+[ALPHA] processed=1100/1235
+[ALPHA] processed=1200/1235
+[ALPHA] processed=1235/1235
+[OK] alpha_diag=artifacts\live_alpha\diagnostics\alpha_diagnostics_live.csv
+[OK] family_diag=artifacts\live_alpha\diagnostics\alpha_family_diagnostics_live.csv
+[OK] interaction_family_diag=artifacts\live_alpha\diagnostics\alpha_interaction_family_diagnostics_live.csv
+[OK] daily_ic=artifacts\live_alpha\diagnostics\alpha_daily_ic_live.csv
+[OK] summary=artifacts\live_alpha\diagnostics\alpha_diagnostics_live_summary.json
+[TOP_ALPHA]
+                                                      alpha                     family  mean_ic    ic_ir  sign_stability  coverage
+         alpha_ivol_20d_raw_regime_liq_hi__x_macro_risk_off interaction_macro_risk_off 0.028811 0.177439        0.590361  0.938889
+              alpha_ivol_20d_raw_regime_liq_hi__x_dollar_up      interaction_dollar_up 0.024378 0.148330        0.551724  0.938889
+                 alpha_ivol_20d_raw_regime_liq_hi__x_oil_up         interaction_oil_up 0.020848 0.127901        0.553191  0.938889
+            alpha_vol_compression_ema3_regime_range_comp_hi            vol_compression 0.020837 0.220814        0.564706  0.955556
+           alpha_vol_compression_clip3_regime_range_comp_hi            vol_compression 0.020746 0.221452        0.547059  0.955556
+             alpha_vol_compression_raw_regime_range_comp_hi            vol_compression 0.020746 0.221452        0.547059  0.955556
+alpha_intraday_rs_raw_regime_breadth_rank__x_macro_risk_off interaction_macro_risk_off 0.020512 0.110571        0.563218  0.988889
+       alpha_vol_compression_lag2_regime_range_comp_hi_lag2            vol_compression 0.020474 0.216105        0.547059  0.944444
+           alpha_gap_raw_regime_rvol_rank__x_macro_risk_off interaction_macro_risk_off 0.020290 0.263256        0.566265  0.944444
+                alpha_gap_raw_regime_rvol_rank__x_dollar_up      interaction_dollar_up 0.019478 0.254290        0.563218  0.944444
+       alpha_vol_compression_lag1_regime_range_comp_hi_lag1            vol_compression 0.019429 0.203804        0.558824  0.950000
+     alpha_intraday_rs_raw_regime_breadth_rank__x_dollar_up      interaction_dollar_up 0.019391 0.104623        0.544444  0.988889
+                             alpha_ivol_20d_z_regime_liq_lo                   ivol_20d 0.019172 0.167722        0.585799  0.938889
+         alpha_overnight_drift_20d_clip3_regime_volshock_hi        overnight_drift_20d 0.018835 0.181485        0.538462  0.938889
+           alpha_overnight_drift_20d_raw_regime_volshock_hi        overnight_drift_20d 0.018835 0.181485        0.538462  0.938889
+                        alpha_ivol_20d_z_regime_volshock_lo                   ivol_20d 0.018372 0.130590        0.603550  0.938889
+         alpha_ivol_20d_raw_regime_liq_lo__x_macro_risk_off interaction_macro_risk_off 0.018100 0.216087        0.626506  0.938889
+              alpha_ivol_20d_raw_regime_liq_lo__x_dollar_up      interaction_dollar_up 0.017896 0.211837        0.597701  0.938889
+                   alpha_gap_raw_regime_rvol_z__x_dollar_up      interaction_dollar_up 0.016774 0.184263        0.528736  0.944444
+        alpha_vol_compression_lag2_regime_range_comp_z_lag2            vol_compression 0.016426 0.147458        0.523529  0.944444
+[TOP_FAMILY]
+                    family family_group  alpha_count  eligible_count   mean_ic  mean_ic_ir
+           vol_compression         base           32              32  0.009840    0.088156
+       overnight_drift_20d         base           17              17  0.009786    0.096753
+                  ivol_20d         base          118             118  0.005254    0.045025
+                      mom3         base          123             123  0.004653    0.047603
+        interaction_oil_up  interaction           24              24  0.004427    0.036949
+              momentum_20d         base           94              94  0.003718    0.025694
+                       gap         base          197             197  0.003287    0.046427
+                  pressure         base          165             165  0.002634    0.043985
+         intraday_pressure         base           80              80  0.002357    0.036206
+interaction_macro_risk_off  interaction           24              24  0.002270    0.024336
+     interaction_dollar_up  interaction           24              24  0.001777    0.022475
+               intraday_rs         base          123             123 -0.002154   -0.043753
+                      rev1         base          197             197 -0.003324   -0.054054
+                    str_3d         base           17              17 -0.005411   -0.057123
+
+[EXIT] code=0
