@@ -20,6 +20,150 @@ DEFAULT_OUTPUT_ROOT = Path("artifacts/daily_cycle/universe")
 DEFAULT_PROFILE = "trading_us_core_v1"
 
 
+# ---------------------------------------------------------------------------
+# SIC → broad sector mapping
+# ---------------------------------------------------------------------------
+# Keys: lowercase stripped SIC description (as returned by Massive overview)
+# Values: broad sector name — use as keys in UNIVERSE_PER_SECTOR_CAP env var
+#
+# Unmapped / UNKNOWN SIC → "other"
+# To extend: add entries to this dict without touching any other code.
+
+SIC_TO_BROAD_SECTOR: Dict[str, str] = {
+    # --- Technology ---
+    "semiconductors & related devices": "technology",
+    "services-prepackaged software": "technology",
+    "electronic computers": "technology",
+    "computer communications equipment": "technology",
+    "services-computer processing & data preparation": "technology",
+    "services-computer integrated systems design": "technology",
+    "services-computer programming, data processing, etc.": "technology",
+    "printed circuit boards": "technology",
+    "electronic connectors": "technology",
+    "electronic components, nec": "technology",
+    "telephone & telegraph apparatus": "technology",
+    "instruments for meas & testing of electricity & elec signals": "technology",
+    "industrial instruments for measurement, display, and control": "technology",
+    "laboratory analytical instruments": "technology",
+    "optical instruments & lenses": "technology",
+    "services-business services, nec": "technology",
+    "electrical industrial apparatus": "technology",
+    "electric lighting & wiring equipment": "technology",
+    "miscellaneous electrical machinery, equipment & supplies": "technology",
+    # --- Healthcare ---
+    "pharmaceutical preparations": "healthcare",
+    "biological products, (no diagnostic substances)": "healthcare",
+    "surgical & medical instruments & apparatus": "healthcare",
+    "orthopedic, prosthetic & surgical appliances & supplies": "healthcare",
+    "services-medical laboratories": "healthcare",
+    "services-commercial physical & biological research": "healthcare",
+    "hospital & medical service plans": "healthcare",
+    "accident & health insurance": "healthcare",
+    "ophthalmic goods": "healthcare",
+    "wholesale-drugs, proprietaries & druggists' sundries": "healthcare",
+    # --- Financials ---
+    "investment advice": "financials",
+    "finance services": "financials",
+    "fire, marine & casualty insurance": "financials",
+    "insurance agents, brokers & service": "financials",
+    "state commercial banks": "financials",
+    "national commercial banks": "financials",
+    "commercial banks, nec": "financials",
+    "security & commodity brokers, dealers, exchanges & services": "financials",
+    "security brokers, dealers & flotation companies": "financials",
+    "personal credit institutions": "financials",
+    "life insurance": "financials",
+    # --- Industrials ---
+    "aircraft": "industrials",
+    "air transportation, scheduled": "industrials",
+    "construction machinery & equip": "industrials",
+    "construction - special trade contractors": "industrials",
+    "engines & turbines": "industrials",
+    "special industry machinery, nec": "industrials",
+    "arrangement of transportation of freight & cargo": "industrials",
+    "transportation services": "industrials",
+    "railroads, line-haul operating": "industrials",
+    "water transportation": "industrials",
+    "ordnance & accessories, (no vehicles/guided missiles)": "industrials",
+    "services-detective, guard & armored car services": "industrials",
+    "services-to dwellings & other buildings": "industrials",
+    "services-management consulting services": "industrials",
+    "wholesale-machinery, equipment & supplies": "industrials",
+    "wholesale-durable goods, nec": "industrials",
+    "air-cond & warm air heatg equip & comm & indl refrig equip": "industrials",
+    # --- Consumer Cyclical ---
+    "retail-catalog & mail-order houses": "consumer_cyclical",
+    "retail-auto dealers & gasoline stations": "consumer_cyclical",
+    "retail-auto & home supply stores": "consumer_cyclical",
+    "retail-family clothing stores": "consumer_cyclical",
+    "retail-variety stores": "consumer_cyclical",
+    "retail-eating places": "consumer_cyclical",
+    "retail-eating & drinking places": "consumer_cyclical",
+    "retail-department stores": "consumer_cyclical",
+    "retail-shoe stores": "consumer_cyclical",
+    "retail-retail stores, nec": "consumer_cyclical",
+    "retail-radio, tv & consumer electronics stores": "consumer_cyclical",
+    "retail-lumber & other building materials dealers": "consumer_cyclical",
+    "motor vehicle parts & accessories": "consumer_cyclical",
+    "services-auto rental & leasing (no drivers)": "consumer_cyclical",
+    "rubber & plastics footwear": "consumer_cyclical",
+    "household appliances": "consumer_cyclical",
+    # --- Consumer Staples ---
+    "retail-grocery stores": "consumer_staples",
+    "food and kindred products": "consumer_staples",
+    "fats & oils": "consumer_staples",
+    "bottled & canned soft drinks & carbonated waters": "consumer_staples",
+    "beverages": "consumer_staples",
+    "soap, detergents, cleang preparations, perfumes, cosmetics": "consumer_staples",
+    "perfumes, cosmetics & other toilet preparations": "consumer_staples",
+    "specialty cleaning, polishing and sanitation preparations": "consumer_staples",
+    # --- Energy ---
+    "crude petroleum & natural gas": "energy",
+    "petroleum refining": "energy",
+    "oil & gas field machinery & equipment": "energy",
+    "bituminous coal & lignite surface mining": "energy",
+    "cogeneration services & small power producers": "energy",
+    # --- Materials ---
+    "metal cans": "materials",
+    "metal mining": "materials",
+    "gold and silver ores": "materials",
+    "steel works, blast furnaces & rolling mills (coke ovens)": "materials",
+    "steel pipe & tubes": "materials",
+    "primary production of aluminum": "materials",
+    "cement, hydraulic": "materials",
+    "industrial inorganic chemicals": "materials",
+    "agricultural chemicals": "materials",
+    "paints, varnishes, lacquers, enamels & allied prods": "materials",
+    "plastic material, synth resin/rubber, cellulos (no glass)": "materials",
+    "plastic materials, synth resins & nonvulcan elastomers": "materials",
+    "converted paper & paperboard prods (no contaners/boxes)": "materials",
+    "miscellaneous fabricated metal products": "materials",
+    "miscellaneous manufacturing industries": "materials",
+    # --- Utilities ---
+    "electric services": "utilities",
+    "electric & other services combined": "utilities",
+    "natural gas distribution": "utilities",
+    "water supply": "utilities",
+    "hazardous waste management": "utilities",
+    # --- Real Estate ---
+    "real estate investment trusts": "real_estate",
+    "real estate": "real_estate",
+    # --- Communication Services ---
+    "cable & other pay television services": "communication",
+    "communications services, nec": "communication",
+}
+
+
+def _sic_to_broad(sic_description: str) -> str:
+    """Map SIC description string to broad sector name (lowercase)."""
+    key = str(sic_description or "").strip().lower()
+    return SIC_TO_BROAD_SECTOR.get(key, "other")
+
+
+# ---------------------------------------------------------------------------
+# Dataclasses
+# ---------------------------------------------------------------------------
+
 @dataclass(frozen=True)
 class UniverseEligibilityPolicy:
     min_price: float = 7.50
@@ -43,7 +187,7 @@ class UniverseConfig:
     universe_profile: str = DEFAULT_PROFILE
     target_size: int = 175
     sector_cap: int = 18
-    per_sector_cap: Dict[str, int] = field(default_factory=dict)   # NEW
+    per_sector_cap: Dict[str, int] = field(default_factory=dict)
     top_n: int = 175
     shortlist_multiplier: int = 3
     history_lookback_days: int = 45
@@ -64,6 +208,10 @@ class UniverseConfig:
 class UniverseBuildError(RuntimeError):
     pass
 
+
+# ---------------------------------------------------------------------------
+# MassiveClient
+# ---------------------------------------------------------------------------
 
 class MassiveClient:
     def __init__(
@@ -111,11 +259,8 @@ class MassiveClient:
         cursor: Optional[str] = None
         while True:
             params: Dict[str, Any] = {
-                "locale": locale,
-                "market": market,
-                "type": ticker_type,
-                "active": "true",
-                "limit": 1000,
+                "locale": locale, "market": market,
+                "type": ticker_type, "active": "true", "limit": 1000,
             }
             if cursor:
                 params["cursor"] = cursor
@@ -176,6 +321,10 @@ class MassiveClient:
         return out
 
 
+# ---------------------------------------------------------------------------
+# Env helpers
+# ---------------------------------------------------------------------------
+
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
@@ -213,11 +362,16 @@ def _parse_per_sector_cap(raw: str) -> Dict[str, int]:
     """
     Parse UNIVERSE_PER_SECTOR_CAP env var.
 
-    Format: "SectorName:cap|SectorName:cap|..."
-    Example: "Technology:60|Health Care:40|Financials:40|Industrials:35"
+    Format: "broad_sector:cap|broad_sector:cap|..."
+    Example:
+        "technology:60|healthcare:45|financials:40|industrials:35|consumer_cyclical:30|other:20"
 
-    Returns empty dict if raw is empty or malformed.
-    Empty dict = fall back to global sector_cap for all sectors.
+    Broad sector names must match values in SIC_TO_BROAD_SECTOR:
+        technology, healthcare, financials, industrials,
+        consumer_cyclical, consumer_staples, energy, materials,
+        utilities, real_estate, communication, other
+
+    Missing sectors fall back to global sector_cap.
     """
     result: Dict[str, int] = {}
     if not raw or not raw.strip():
@@ -227,7 +381,7 @@ def _parse_per_sector_cap(raw: str) -> Dict[str, int]:
         if ":" not in part:
             continue
         name, _, val = part.partition(":")
-        name = name.strip()
+        name = name.strip().lower()
         val = val.strip()
         if not name or not val:
             continue
@@ -263,7 +417,7 @@ def load_config_from_env(_root: Path | None = None) -> UniverseConfig:
         universe_profile=str(os.getenv("UNIVERSE_PROFILE", DEFAULT_PROFILE)).strip() or DEFAULT_PROFILE,
         target_size=target_size,
         sector_cap=_env_int("UNIVERSE_SECTOR_CAP", 18),
-        per_sector_cap=_parse_per_sector_cap(os.getenv("UNIVERSE_PER_SECTOR_CAP", "")),  # NEW
+        per_sector_cap=_parse_per_sector_cap(os.getenv("UNIVERSE_PER_SECTOR_CAP", "")),
         top_n=_env_int("UNIVERSE_TOP_N", target_size),
         shortlist_multiplier=_env_int("UNIVERSE_SHORTLIST_MULTIPLIER", 3),
         history_lookback_days=_env_int("UNIVERSE_HISTORY_LOOKBACK_DAYS", 45),
@@ -282,17 +436,16 @@ def load_config_from_env(_root: Path | None = None) -> UniverseConfig:
     )
 
 
+# ---------------------------------------------------------------------------
+# Normalizers
+# ---------------------------------------------------------------------------
+
 def _normalize_ticker_reference(df: pd.DataFrame) -> pd.DataFrame:
     out = df.copy()
     rename_map = {
-        "ticker": "symbol",
-        "primary_exchange": "primary_exchange",
-        "market": "market",
-        "locale": "locale",
-        "type": "ticker_type",
-        "active": "active",
-        "name": "name",
-        "currency_name": "currency_name",
+        "ticker": "symbol", "primary_exchange": "primary_exchange",
+        "market": "market", "locale": "locale", "type": "ticker_type",
+        "active": "active", "name": "name", "currency_name": "currency_name",
     }
     for src, dst in rename_map.items():
         if src in out.columns and src != dst:
@@ -300,10 +453,7 @@ def _normalize_ticker_reference(df: pd.DataFrame) -> pd.DataFrame:
     if "symbol" not in out.columns and "ticker" in out.columns:
         out["symbol"] = out["ticker"]
     out["symbol"] = out.get("symbol", pd.Series(dtype="object")).astype(str).str.upper()
-    if "active" in out.columns:
-        out["active"] = out["active"].fillna(False).astype(bool)
-    else:
-        out["active"] = True
+    out["active"] = out["active"].fillna(False).astype(bool) if "active" in out.columns else True
     if "ticker_type" not in out.columns:
         out["ticker_type"] = ""
     out["ticker_type"] = out["ticker_type"].astype(str).str.upper()
@@ -405,6 +555,10 @@ def _enrich_with_overview(
     }
 
 
+# ---------------------------------------------------------------------------
+# Eligibility
+# ---------------------------------------------------------------------------
+
 def _passes_allowed(value: str, allowed: Iterable[str]) -> bool:
     allowed_norm = [str(x).strip().upper() for x in allowed if str(x).strip()]
     if not allowed_norm:
@@ -426,19 +580,15 @@ def _compute_history_metrics(
     start_ts = end_ts - pd.Timedelta(days=max(lookback_days, 20) * 2)
     start_date = start_ts.strftime("%Y-%m-%d")
     expected_recent_20 = set(_business_days_in_window(end_date, 20))
-
     for symbol in symbols:
         hist = client.daily_history(symbol, start_date, end_date)
         if hist.empty:
             rows.append({
-                "symbol": symbol,
-                "history_days": 0,
-                "median_dollar_volume_20d": 0.0,
-                "nan_ratio": 1.0,
+                "symbol": symbol, "history_days": 0,
+                "median_dollar_volume_20d": 0.0, "nan_ratio": 1.0,
                 "missing_days_20d": len(expected_recent_20),
             })
             continue
-        hist = hist.copy()
         hist = hist.drop_duplicates(subset=["trade_date"]).sort_values("trade_date")
         history_days = int(len(hist))
         recent20 = hist.tail(20).copy()
@@ -452,11 +602,9 @@ def _compute_history_metrics(
         if pd.isna(median_dollar_volume_20d):
             median_dollar_volume_20d = 0.0
         rows.append({
-            "symbol": symbol,
-            "history_days": history_days,
+            "symbol": symbol, "history_days": history_days,
             "median_dollar_volume_20d": median_dollar_volume_20d,
-            "nan_ratio": nan_ratio,
-            "missing_days_20d": missing_days_20d,
+            "nan_ratio": nan_ratio, "missing_days_20d": missing_days_20d,
         })
     return pd.DataFrame(rows)
 
@@ -467,21 +615,17 @@ def apply_eligibility_policy(
     out = df.copy()
     out["passes_active"] = True if not policy.require_active else out["active"].fillna(False).astype(bool)
     out["passes_ticker_type"] = out["ticker_type"].astype(str).str.upper().map(
-        lambda x: _passes_allowed(x, policy.allowed_ticker_types)
-    )
+        lambda x: _passes_allowed(x, policy.allowed_ticker_types))
     out["passes_primary_exchange"] = out["primary_exchange"].astype(str).str.upper().map(
-        lambda x: _passes_allowed(x, policy.allowed_primary_exchanges)
-    )
+        lambda x: _passes_allowed(x, policy.allowed_primary_exchanges))
     exchange_col = out["primary_exchange"] if "primary_exchange" in out.columns else pd.Series([""] * len(out), index=out.index)
     out["passes_exchange"] = exchange_col.astype(str).str.upper().map(
-        lambda x: _passes_allowed(x, policy.allowed_exchanges)
-    )
+        lambda x: _passes_allowed(x, policy.allowed_exchanges))
     out["passes_price"] = pd.to_numeric(out["close"], errors="coerce").fillna(0.0) >= float(policy.min_price)
     out["passes_liquidity"] = pd.to_numeric(out["median_dollar_volume_20d"], errors="coerce").fillna(0.0) >= float(policy.min_median_dollar_vol_20d)
     out["passes_history"] = pd.to_numeric(out["history_days"], errors="coerce").fillna(0).astype(int) >= int(policy.min_history_days)
     out["passes_nan_ratio"] = pd.to_numeric(out["nan_ratio"], errors="coerce").fillna(1.0) <= float(policy.max_nan_ratio)
     out["passes_missing_days"] = pd.to_numeric(out["missing_days_20d"], errors="coerce").fillna(999).astype(int) <= int(policy.max_missing_days_20d)
-
     rule_cols = [
         "passes_active", "passes_ticker_type", "passes_primary_exchange",
         "passes_exchange", "passes_price", "passes_liquidity",
@@ -514,6 +658,10 @@ def apply_eligibility_policy(
     return out, counters
 
 
+# ---------------------------------------------------------------------------
+# Sector cap with broad-sector mapping
+# ---------------------------------------------------------------------------
+
 def _apply_sector_cap(
     df: pd.DataFrame,
     sector_cap: int,
@@ -521,61 +669,62 @@ def _apply_sector_cap(
     per_sector_cap: Optional[Dict[str, int]] = None,
 ) -> pd.DataFrame:
     """
-    Apply per-sector symbol cap, then select top target_size overall.
+    Map SIC descriptions → broad sectors, apply per-sector cap, select top target_size.
 
-    Args:
-        df             : eligible DataFrame
-        sector_cap     : global fallback cap per sector
-        target_size    : max total symbols to return
-        per_sector_cap : optional {sector_name: cap}, matched case-insensitively.
-                         Missing sectors use global sector_cap.
-                         Empty dict or None = global cap for all sectors.
+    per_sector_cap keys must be broad sector names (lowercase):
+        technology, healthcare, financials, industrials,
+        consumer_cyclical, consumer_staples, energy, materials,
+        utilities, real_estate, communication, other
 
-    Logs per-sector counts when per_sector_cap is active.
+    Missing broad sectors fall back to global sector_cap.
+    Adds column 'broad_sector' to output for diagnostics.
     """
     out = df.copy()
-    if "overview_sic_description" not in out.columns:
-        out["overview_sic_description"] = "UNKNOWN"
-    out["sector_key"] = (
-        out["overview_sic_description"]
-        .fillna("UNKNOWN")
-        .astype(str)
-        .replace({"": "UNKNOWN"})
-    )
+    sic_col = "overview_sic_description"
+    if sic_col not in out.columns:
+        out[sic_col] = "UNKNOWN"
+    out["broad_sector"] = out[sic_col].fillna("UNKNOWN").astype(str).map(_sic_to_broad)
+
     out = out.sort_values(
         ["median_dollar_volume_20d", "dollar_volume_1d", "close", "symbol"],
         ascending=[False, False, False, True],
     ).copy()
 
-    # Build normalized lookup
     cap_lookup: Dict[str, int] = {}
     if per_sector_cap:
         for k, v in per_sector_cap.items():
             cap_lookup[str(k).strip().lower()] = max(1, int(v))
 
-    if cap_lookup:
-        def _sector_limit(sector_key: str) -> int:
-            return cap_lookup.get(str(sector_key).strip().lower(), max(1, int(sector_cap)))
+    def _broad_limit(broad: str) -> int:
+        return cap_lookup.get(str(broad).strip().lower(), max(1, int(sector_cap)))
 
-        out["_cap"] = out["sector_key"].map(_sector_limit)
-        out["sector_rank"] = out.groupby("sector_key").cumcount() + 1
+    if cap_lookup:
+        out["_cap"] = out["broad_sector"].map(_broad_limit)
+        out["sector_rank"] = out.groupby("broad_sector").cumcount() + 1
         out = out.loc[out["sector_rank"] <= out["_cap"]].copy()
         out = out.drop(columns=["_cap"])
-
-        # Log per-sector counts after cap
-        sector_counts = out.groupby("sector_key").size().sort_values(ascending=False)
-        print(f"[SECTOR_CAP] per_sector mode active global_fallback={sector_cap}")
-        for sec, cnt in sector_counts.items():
-            limit = _sector_limit(str(sec))
-            print(f"[SECTOR_CAP]   sector={sec!r} selected={cnt} cap={limit}")
+        mode_label = f"per_sector mode global_fallback={sector_cap}"
     else:
-        out["sector_rank"] = out.groupby("sector_key").cumcount() + 1
+        out["sector_rank"] = out.groupby("broad_sector").cumcount() + 1
         out = out.loc[out["sector_rank"] <= max(1, int(sector_cap))].copy()
+        mode_label = f"global mode cap={sector_cap}"
 
     out = out.head(max(1, int(target_size))).copy()
     out["selected"] = True
+
+    # log per-broad-sector summary
+    sector_counts = out.groupby("broad_sector").size().sort_values(ascending=False)
+    print(f"[SECTOR_CAP] {mode_label}")
+    for sec, cnt in sector_counts.items():
+        limit = _broad_limit(str(sec))
+        print(f"[SECTOR_CAP]   broad_sector={sec!r} selected={cnt} cap={limit}")
+
     return out
 
+
+# ---------------------------------------------------------------------------
+# Summary / build
+# ---------------------------------------------------------------------------
 
 def _build_summary(
     config: UniverseConfig,
@@ -599,7 +748,7 @@ def _build_summary(
         "history_lookback_days": int(config.history_lookback_days),
         "history_batch_limit": int(config.history_batch_limit),
         "sector_cap": int(config.sector_cap),
-        "per_sector_cap": config.per_sector_cap,        # NEW
+        "per_sector_cap": config.per_sector_cap,
         "history_check_mode": config.history_check_mode,
         "rebalance_freq": config.rebalance_freq,
         "reuse_last": int(bool(config.reuse_last)),
@@ -623,39 +772,28 @@ def build_universe_snapshot(
         max_retries=config.request_max_retries,
         backoff_sec=config.request_backoff_sec,
     )
-
     tickers_df = _normalize_ticker_reference(
-        client.list_tickers(config.locale, config.market, config.ticker_type)
-    )
+        client.list_tickers(config.locale, config.market, config.ticker_type))
     grouped_df = _normalize_grouped_daily(
-        client.grouped_daily_snapshot(config.locale, config.market)
-    )
-
+        client.grouped_daily_snapshot(config.locale, config.market))
     merged = tickers_df.merge(grouped_df, on="symbol", how="inner", suffixes=("", "_grouped"))
     if merged.empty:
         raise UniverseBuildError("Universe merge produced zero rows")
-
     merged, overview_summary = _enrich_with_overview(
-        client,
-        merged,
+        client, merged,
         enabled=config.overview_enrichment_enabled,
         max_rows=config.overview_enrichment_max,
     )
-
     pre_ranked = merged.sort_values(
-        ["dollar_volume_1d", "close", "symbol"],
-        ascending=[False, False, True],
-    ).copy()
+        ["dollar_volume_1d", "close", "symbol"], ascending=[False, False, True]).copy()
     shortlist_size = min(
         len(pre_ranked),
         max(config.target_size, config.top_n) * max(1, int(config.shortlist_multiplier)),
     )
     shortlist_size = min(shortlist_size, max(1, int(config.history_batch_limit)))
     shortlist = pre_ranked.head(shortlist_size).copy()
-
     latest_trade_date = (
-        str(shortlist["trade_date"].iloc[0])
-        if not shortlist.empty
+        str(shortlist["trade_date"].iloc[0]) if not shortlist.empty
         else pd.Timestamp.now(tz="UTC").strftime("%Y-%m-%d")
     )
     history_metrics = _compute_history_metrics(
@@ -664,7 +802,6 @@ def build_universe_snapshot(
         end_date=latest_trade_date,
         lookback_days=config.history_lookback_days,
     )
-
     merged = merged.drop(
         columns=["median_dollar_volume_20d", "history_days", "nan_ratio", "missing_days_20d"],
         errors="ignore",
@@ -674,36 +811,26 @@ def build_universe_snapshot(
     merged["history_days"] = pd.to_numeric(merged["history_days"], errors="coerce").fillna(0).astype(int)
     merged["nan_ratio"] = pd.to_numeric(merged["nan_ratio"], errors="coerce").fillna(1.0)
     merged["missing_days_20d"] = pd.to_numeric(merged["missing_days_20d"], errors="coerce").fillna(999).astype(int)
-
     eligible_df, counters = apply_eligibility_policy(merged, config.eligibility)
     ranked_eligible = eligible_df.loc[eligible_df["eligible"]].copy()
     ranked_eligible = ranked_eligible.sort_values(
         ["median_dollar_volume_20d", "dollar_volume_1d", "close", "symbol"],
         ascending=[False, False, False, True],
     ).copy()
-
     selected = _apply_sector_cap(
-        ranked_eligible,
-        config.sector_cap,
-        config.target_size,
-        per_sector_cap=config.per_sector_cap,   # NEW
+        ranked_eligible, config.sector_cap, config.target_size,
+        per_sector_cap=config.per_sector_cap,
     )
     selected["selected_rank"] = range(1, len(selected) + 1)
     if "trade_date" not in selected.columns:
         fallback_date = pd.Timestamp.now(tz="UTC").strftime("%Y-%m-%d")
-        selected["trade_date"] = fallback_date
-        selected["as_of_date"] = fallback_date
-        selected["date"] = fallback_date
-        selected["session_date"] = fallback_date
-
+        for col in ["trade_date", "as_of_date", "date", "session_date"]:
+            selected[col] = fallback_date
     summary = _build_summary(
-        config,
-        counters,
-        {
-            **overview_summary,
-            "shortlist_size": int(shortlist_size),
-            "history_metrics_symbols": int(len(history_metrics)),
-        },
+        config, counters,
+        {**overview_summary,
+         "shortlist_size": int(shortlist_size),
+         "history_metrics_symbols": int(len(history_metrics))},
         selected,
     )
     return selected.reset_index(drop=True), summary, eligible_df.reset_index(drop=True)
@@ -729,6 +856,7 @@ __all__ = [
     "UniverseConfig",
     "UniverseEligibilityPolicy",
     "UniversePolicy",
+    "SIC_TO_BROAD_SECTOR",
     "apply_eligibility_policy",
     "build_and_save_universe_snapshot",
     "build_universe_snapshot",

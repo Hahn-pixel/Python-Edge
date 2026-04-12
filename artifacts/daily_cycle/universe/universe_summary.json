@@ -1,5 +1,5 @@
 {
-  "ts_utc": "2026-04-12T13:33:07Z",
+  "ts_utc": "2026-04-12T13:59:02Z",
   "universe_profile": "trading_us_core_v1",
   "base_url": "https://api.massive.com",
   "locale": "us",
@@ -12,12 +12,17 @@
   "history_batch_limit": 1000,
   "sector_cap": 25,
   "per_sector_cap": {
-    "Technology": 60,
-    "Health Care": 45,
-    "Financials": 45,
-    "Industrials": 35,
-    "Consumer Cyclical": 35,
-    "Communication Services": 30
+    "technology": 60,
+    "healthcare": 45,
+    "financials": 40,
+    "industrials": 35,
+    "consumer_cyclical": 30,
+    "consumer_staples": 20,
+    "energy": 20,
+    "materials": 20,
+    "real_estate": 20,
+    "communication": 20,
+    "other": 15
   },
   "history_check_mode": "daily_aggs_lookback",
   "rebalance_freq": "weekly",
@@ -39,7 +44,7 @@
   "overview_errors": 0,
   "shortlist_size": 1000,
   "history_metrics_symbols": 1000,
-  "selected_total": 239,
+  "selected_total": 229,
   "eligibility_policy": {
     "min_price": 7.5,
     "min_median_dollar_vol_20d": 10000000.0,
