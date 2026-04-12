@@ -1,8 +1,8 @@
 {
-  "ts_utc": "2026-04-12T13:08:03Z",
+  "ts_utc": "2026-04-12T14:05:02Z",
   "snapshot_path": "C:\\Users\\Dmytro Govor\\Documents\\Python-Edge\\artifacts\\daily_cycle\\universe\\universe_snapshot.parquet",
   "output_dir": "C:\\Users\\Dmytro Govor\\Documents\\Python-Edge\\artifacts\\daily_cycle\\universe",
-  "top_n": 500,
+  "top_n": 400,
   "rank_by": "median_dollar_volume_20d",
   "latest_date": "2026-04-10",
   "pinned_symbols": [],
@@ -20,8 +20,8 @@
     "APTV",
     "APLD"
   ],
-  "portfolio_in_selected": 7,
-  "portfolio_not_in_selected": 4,
+  "portfolio_in_selected": 6,
+  "portfolio_not_in_selected": 5,
   "policy": {
     "min_price": 7.5,
     "min_median_dollar_vol_20d": 10000000.0,
@@ -35,8 +35,8 @@
     "allowed_exchanges": [],
     "require_active": true
   },
-  "candidates_total": 264,
-  "eligible_total": 264,
+  "candidates_total": 229,
+  "eligible_total": 229,
   "dropped_active": 0,
   "dropped_ticker_type": 0,
   "dropped_primary_exchange": 0,
@@ -46,8 +46,8 @@
   "dropped_history": 0,
   "dropped_nan_ratio": 0,
   "dropped_missing_days": 0,
-  "top_n_requested": 500,
-  "selected_total": 264,
+  "top_n_requested": 400,
+  "selected_total": 229,
   "dropped_total": 0,
   "portfolio_symbols_total": 11
 }
