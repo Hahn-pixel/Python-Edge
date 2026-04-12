@@ -13,7 +13,6 @@ from typing import Dict, List, Optional, Sequence, Tuple
 import pandas as pd
 import requests
 
-# Suppress noisy correlation warnings from pandas/scipy when input arrays are constant
 warnings.filterwarnings(
     "ignore",
     message="An input array is constant; the correlation coefficient is not defined.",
@@ -38,7 +37,6 @@ from python_edge.model.alpha_factory_specs import SEED_RECIPES
 DEFAULT_BASE_URL = "https://api.massive.com"
 PAUSE_ON_EXIT = str(os.getenv("PAUSE_ON_EXIT", "auto")).strip().lower()
 
-# --- universe source: dynamic first, fallback to static ---
 _UNIVERSE_DIR = Path(os.getenv("UNIVERSE_OUTPUT_DIR", "artifacts/daily_cycle/universe"))
 UNIVERSE_SNAPSHOT_FILE = Path(os.getenv(
     "UNIVERSE_SNAPSHOT_FILE",
@@ -95,11 +93,7 @@ class MassiveClient:
 
     def get_daily_bars(self, symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
         url = f"{self.base_url.rstrip('/')}/v2/aggs/ticker/{symbol}/range/1/day/{start_date}/{end_date}"
-        params: Optional[Dict[str, object]] = {
-            "adjusted": "true",
-            "sort": "asc",
-            "limit": 50000,
-        }
+        params: Optional[Dict[str, object]] = {"adjusted": "true", "sort": "asc", "limit": 50000}
         rows: List[Dict[str, object]] = []
         while url:
             payload = self._request_json(url, params=params)
@@ -160,36 +154,76 @@ def _symbol_column(snap: pd.DataFrame) -> str:
     raise RuntimeError("Universe snapshot must contain ticker or symbol")
 
 
+# ---------------------------------------------------------------------------
+# Broad sector map loader
+# ---------------------------------------------------------------------------
+
+def _load_broad_sector_map() -> Dict[str, str]:
+    """
+    Load symbol → broad_sector from dynamic_universe.parquet or universe_snapshot.parquet.
+    Returns empty dict if broad_sector column not found in either file.
+    """
+    for path in [DYNAMIC_UNIVERSE_FILE, UNIVERSE_SNAPSHOT_FILE]:
+        if not path.exists():
+            continue
+        try:
+            df = pd.read_parquet(path)
+            if df.empty:
+                continue
+            sym_col = _symbol_column(df)
+            if "broad_sector" not in df.columns:
+                continue
+            df = df.copy()
+            df[sym_col] = df[sym_col].astype(str).str.upper().str.strip()
+            df = df.drop_duplicates(subset=[sym_col])
+            result: Dict[str, str] = dict(zip(df[sym_col], df["broad_sector"].astype(str)))
+            print(
+                f"[BROAD_SECTOR] loaded from {path.name}"
+                f" symbols={len(result)} unique_sectors={len(set(result.values()))}"
+            )
+            return result
+        except Exception as exc:
+            print(f"[BROAD_SECTOR][WARN] failed to load from {path}: {exc!r}")
+    print("[BROAD_SECTOR][WARN] broad_sector not found in any universe file — sector diagnostics disabled")
+    return {}
+
+
+def _attach_broad_sector(panel: pd.DataFrame, broad_sector_map: Dict[str, str]) -> pd.DataFrame:
+    """Attach broad_sector column to panel. Unmapped symbols → 'other'."""
+    if not broad_sector_map:
+        return panel
+    out = panel.copy()
+    out["broad_sector"] = out["symbol"].astype(str).str.upper().map(broad_sector_map).fillna("other")
+    print(
+        f"[BROAD_SECTOR] attached to panel"
+        f" symbols={out['symbol'].nunique()} unique_sectors={out['broad_sector'].nunique()}"
+    )
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Universe loaders
+# ---------------------------------------------------------------------------
+
 def _load_from_dynamic_universe() -> tuple[list[str], str] | None:
-    """
-    Try to load symbols from dynamic_universe.parquet.
-    Returns (symbols, date_str) or None if file absent / unusable.
-    dynamic_universe has no 'selected' column — all rows are already selected.
-    """
     path = DYNAMIC_UNIVERSE_FILE
     if not path.exists():
         return None
     try:
         snap = pd.read_parquet(path)
         if snap.empty:
-            print(f"[UNIVERSE][WARN] dynamic_universe.parquet is empty, falling back to universe_snapshot")
+            print("[UNIVERSE][WARN] dynamic_universe.parquet is empty, falling back")
             return None
-
         symbol_col = _symbol_column(snap)
         snap[symbol_col] = snap[symbol_col].astype(str).str.strip().str.upper()
         snap = snap.loc[snap[symbol_col].ne("") & snap[symbol_col].ne("NAN")].copy()
-
-        # sort by selected_rank if available, else liquidity_rank, else symbol
         sort_candidates = [c for c in ["selected_rank", "liquidity_rank", symbol_col] if c in snap.columns]
         if sort_candidates:
             snap = snap.sort_values(sort_candidates, ascending=[True] * len(sort_candidates), na_position="last")
-
         snap = snap.drop_duplicates(subset=[symbol_col], keep="first").reset_index(drop=True)
         symbols = snap[symbol_col].astype(str).tolist()[:LIVE_ALPHA_MAX_SYMBOLS]
         if not symbols:
             return None
-
-        # derive date: from trade_date col or fallback to today
         date_str = ""
         for col in ["trade_date", "as_of_date", "date", "session_date"]:
             if col in snap.columns:
@@ -199,73 +233,63 @@ def _load_from_dynamic_universe() -> tuple[list[str], str] | None:
                     break
         if not date_str:
             date_str = datetime.utcnow().date().isoformat()
-
         print(
             f"[UNIVERSE][LOAD] source=dynamic_universe.parquet"
             f" symbol_col={symbol_col} latest_date={date_str}"
             f" selected={len(symbols)} max_symbols={LIVE_ALPHA_MAX_SYMBOLS}"
         )
         return symbols, date_str
-
     except Exception as exc:
         print(f"[UNIVERSE][WARN] failed to load dynamic_universe.parquet: {exc!r}, falling back")
         return None
 
 
 def _load_selected_universe() -> tuple[list[str], str]:
-    # --- try dynamic universe first ---
     dynamic_result = _load_from_dynamic_universe()
     if dynamic_result is not None:
         return dynamic_result
-
-    # --- fallback: original universe_snapshot.parquet path ---
     if not UNIVERSE_SNAPSHOT_FILE.exists():
         raise FileNotFoundError(f"Universe snapshot not found: {UNIVERSE_SNAPSHOT_FILE}")
-
     snap = pd.read_parquet(UNIVERSE_SNAPSHOT_FILE)
     if snap.empty:
         raise RuntimeError("Universe snapshot is empty")
     if "selected" not in snap.columns:
         raise RuntimeError("Universe snapshot must contain selected")
-
     symbol_col = _symbol_column(snap)
     date_col = _find_snapshot_date_column(snap)
     snap[symbol_col] = snap[symbol_col].astype(str).str.strip().str.upper()
     snap["selected"] = snap["selected"].fillna(False).astype(bool)
     snap[date_col] = pd.to_datetime(snap[date_col], errors="coerce").dt.normalize()
-
     valid_dates = snap[date_col].dropna()
     if valid_dates.empty:
         raise RuntimeError(f"Universe snapshot has no valid dates in column={date_col}")
     latest_date = pd.Timestamp(valid_dates.max()).normalize()
     snap = snap.loc[snap[date_col] == latest_date].copy()
-
     snap = snap.loc[snap[symbol_col].ne("") & snap[symbol_col].ne("NAN")].copy()
     selected = snap.loc[snap["selected"]].copy()
     if selected.empty:
         raise RuntimeError("Universe snapshot has zero selected symbols on current date")
-
     sort_candidates = [c for c in ["selected_rank", "liquidity_rank", symbol_col] if c in selected.columns]
     if sort_candidates:
-        ascending = [True] * len(sort_candidates)
-        selected = selected.sort_values(sort_candidates, ascending=ascending, na_position="last")
+        selected = selected.sort_values(sort_candidates, ascending=[True] * len(sort_candidates), na_position="last")
     else:
         selected = selected.sort_values([symbol_col], ascending=[True])
-
     selected = selected.drop_duplicates(subset=[symbol_col], keep="first").reset_index(drop=True)
     symbols = selected[symbol_col].astype(str).tolist()[:LIVE_ALPHA_MAX_SYMBOLS]
     if not symbols:
         raise RuntimeError("Universe snapshot produced zero selected symbols after filtering current date")
-
     print(
-        "[UNIVERSE][LOAD] "
-        f"source=universe_snapshot.parquet (fallback)"
+        "[UNIVERSE][LOAD] source=universe_snapshot.parquet (fallback)"
         f" snapshot={UNIVERSE_SNAPSHOT_FILE} symbol_col={symbol_col} date_col={date_col}"
-        f" latest_date={latest_date.date().isoformat()} "
-        f"rows_current={len(snap)} selected_current={len(selected)} max_symbols={LIVE_ALPHA_MAX_SYMBOLS}"
+        f" latest_date={latest_date.date().isoformat()}"
+        f" rows_current={len(snap)} selected_current={len(selected)} max_symbols={LIVE_ALPHA_MAX_SYMBOLS}"
     )
     return symbols, latest_date.date().isoformat()
 
+
+# ---------------------------------------------------------------------------
+# Pipeline helpers
+# ---------------------------------------------------------------------------
 
 def _build_recipes() -> tuple[Sequence[object], pd.DataFrame, str]:
     if LIVE_ALPHA_SCOPE == "seed":
@@ -281,7 +305,6 @@ def _fetch_history(symbols: Sequence[str], end_date: str, timeout_sec: int) -> p
     end_dt = datetime.fromisoformat(end_date).date()
     start_dt = end_dt - timedelta(days=LIVE_ALPHA_LOOKBACK_DAYS)
     start_date = start_dt.isoformat()
-
     frames: List[pd.DataFrame] = []
     failed: List[str] = []
     for idx, symbol in enumerate(symbols, start=1):
@@ -323,7 +346,6 @@ def _rolling_z(series: pd.Series, window: int) -> pd.Series:
 def _prepare_proxy_feature_frame(proxy_panel: pd.DataFrame) -> pd.DataFrame:
     if proxy_panel.empty:
         return pd.DataFrame(columns=["date"])
-
     work = proxy_panel.copy().sort_values(["symbol", "date"]).reset_index(drop=True)
     work["ret_1d"] = work.groupby("symbol", sort=False)["close"].pct_change(1)
     work["ret_5d"] = work.groupby("symbol", sort=False)["close"].pct_change(5)
@@ -331,8 +353,7 @@ def _prepare_proxy_feature_frame(proxy_panel: pd.DataFrame) -> pd.DataFrame:
     work["momentum_20d"] = work["ret_20d"]
     work["volatility_20d"] = (
         work.groupby("symbol", sort=False)["ret_1d"]
-        .rolling(20, min_periods=10)
-        .std()
+        .rolling(20, min_periods=10).std()
         .reset_index(level=0, drop=True)
     )
     work["z_ret_1d"] = work.groupby("symbol", sort=False)["ret_1d"].transform(lambda s: _rolling_z(s, 20))
@@ -340,18 +361,13 @@ def _prepare_proxy_feature_frame(proxy_panel: pd.DataFrame) -> pd.DataFrame:
     work["z_ret_20d"] = work.groupby("symbol", sort=False)["ret_20d"].transform(lambda s: _rolling_z(s, 20))
     work["z_momentum_20d"] = work.groupby("symbol", sort=False)["momentum_20d"].transform(lambda s: _rolling_z(s, 20))
     work["z_volatility_20d"] = work.groupby("symbol", sort=False)["volatility_20d"].transform(lambda s: _rolling_z(s, 20))
-
-    metrics = [
-        "ret_1d", "ret_5d", "ret_20d", "momentum_20d", "volatility_20d",
-        "z_ret_1d", "z_ret_5d", "z_ret_20d", "z_momentum_20d", "z_volatility_20d",
-    ]
+    metrics = ["ret_1d", "ret_5d", "ret_20d", "momentum_20d", "volatility_20d",
+               "z_ret_1d", "z_ret_5d", "z_ret_20d", "z_momentum_20d", "z_volatility_20d"]
     pivots: Dict[str, pd.DataFrame] = {
         metric: work.pivot(index="date", columns="symbol", values=metric) for metric in metrics
     }
-
     base_index = sorted(work["date"].dropna().unique())
     feature_parts: List[pd.DataFrame] = []
-
     per_proxy_cols: Dict[str, pd.Series] = {}
     for symbol in COMMODITY_PROXY_SYMBOLS + GLOBAL_REGIME_PROXY_SYMBOLS:
         prefix = symbol.lower()
@@ -369,7 +385,6 @@ def _prepare_proxy_feature_frame(proxy_panel: pd.DataFrame) -> pd.DataFrame:
     asia_components = [sym for sym in ["EWJ", "EWH", "EWT"] if sym in pivots["ret_1d"].columns]
     europe_components = [sym for sym in ["VGK"] if sym in pivots["ret_1d"].columns]
     us_components = [sym for sym in ["SPY"] if sym in pivots["ret_1d"].columns]
-
     region_cols = {
         "asia_ret_1d": _avg_cols(pivots["ret_1d"], asia_components),
         "asia_ret_5d": _avg_cols(pivots["ret_5d"], asia_components),
@@ -388,71 +403,35 @@ def _prepare_proxy_feature_frame(proxy_panel: pd.DataFrame) -> pd.DataFrame:
         "us_volatility_20d": _avg_cols(pivots["volatility_20d"], us_components),
     }
     feature_parts.append(pd.DataFrame(region_cols, index=base_index))
-
     commodity_prefixes = {"gld", "slv", "uso", "dbc"}
     direct_proxy_df = feature_parts[0]
-
-    basket_df = pd.DataFrame(
-        {
-            "commodities_basket_ret_1d": direct_proxy_df[
-                [c for c in direct_proxy_df.columns if c.endswith("_ret_1d") and c.split("_")[0] in commodity_prefixes]
-            ].mean(axis=1),
-            "commodities_basket_ret_5d": direct_proxy_df[
-                [c for c in direct_proxy_df.columns if c.endswith("_ret_5d") and c.split("_")[0] in commodity_prefixes]
-            ].mean(axis=1),
-            "commodities_basket_ret_20d": direct_proxy_df[
-                [c for c in direct_proxy_df.columns if c.endswith("_ret_20d") and c.split("_")[0] in commodity_prefixes]
-            ].mean(axis=1),
-            "commodities_basket_momentum_20d": direct_proxy_df[
-                [c for c in direct_proxy_df.columns if c.endswith("_momentum_20d") and c.split("_")[0] in commodity_prefixes]
-            ].mean(axis=1),
-            "commodities_basket_volatility_20d": direct_proxy_df[
-                [c for c in direct_proxy_df.columns if c.endswith("_volatility_20d") and c.split("_")[0] in commodity_prefixes]
-            ].mean(axis=1),
-        },
-        index=base_index,
-    )
+    basket_df = pd.DataFrame({
+        "commodities_basket_ret_1d": direct_proxy_df[[c for c in direct_proxy_df.columns if c.endswith("_ret_1d") and c.split("_")[0] in commodity_prefixes]].mean(axis=1),
+        "commodities_basket_ret_5d": direct_proxy_df[[c for c in direct_proxy_df.columns if c.endswith("_ret_5d") and c.split("_")[0] in commodity_prefixes]].mean(axis=1),
+        "commodities_basket_ret_20d": direct_proxy_df[[c for c in direct_proxy_df.columns if c.endswith("_ret_20d") and c.split("_")[0] in commodity_prefixes]].mean(axis=1),
+        "commodities_basket_momentum_20d": direct_proxy_df[[c for c in direct_proxy_df.columns if c.endswith("_momentum_20d") and c.split("_")[0] in commodity_prefixes]].mean(axis=1),
+        "commodities_basket_volatility_20d": direct_proxy_df[[c for c in direct_proxy_df.columns if c.endswith("_volatility_20d") and c.split("_")[0] in commodity_prefixes]].mean(axis=1),
+    }, index=base_index)
     feature_parts.append(basket_df)
-
     base_df = pd.concat(feature_parts, axis=1)
-
-    derived_df = pd.DataFrame(
-        {
-            "oil_up": (pd.to_numeric(base_df.get("uso_ret_1d"), errors="coerce") > 0.0).astype("float64"),
-            "global_risk_on": (
-                pd.concat(
-                    [
-                        pd.to_numeric(base_df.get("us_ret_1d"), errors="coerce"),
-                        pd.to_numeric(base_df.get("asia_ret_1d"), errors="coerce"),
-                        pd.to_numeric(base_df.get("europe_ret_1d"), errors="coerce"),
-                        pd.to_numeric(base_df.get("commodities_basket_ret_1d"), errors="coerce"),
-                    ],
-                    axis=1,
-                ).mean(axis=1)
-                > 0.0
-            ).astype("float64"),
-            "asia_us_lead": pd.to_numeric(base_df["asia_ret_1d"], errors="coerce").shift(1)
-            - pd.to_numeric(base_df["us_ret_1d"], errors="coerce"),
-            "europe_us_lead": pd.to_numeric(base_df["europe_ret_1d"], errors="coerce").shift(1)
-            - pd.to_numeric(base_df["us_ret_1d"], errors="coerce"),
-            "global_divergence": (
-                pd.to_numeric(base_df["asia_ret_1d"], errors="coerce")
-                + pd.to_numeric(base_df["europe_ret_1d"], errors="coerce")
-            )
-            / 2.0
-            - pd.to_numeric(base_df["us_ret_1d"], errors="coerce"),
-            "vol_spike": (pd.to_numeric(base_df.get("vixy_ret_1d"), errors="coerce") > 0.0).astype("float64"),
-            "dollar_up": (pd.to_numeric(base_df.get("uup_ret_5d"), errors="coerce") > 0.0).astype("float64"),
-            "yield_up": (pd.to_numeric(base_df.get("tlt_ret_5d"), errors="coerce") < 0.0).astype("float64"),
-            "duration_bid": (pd.to_numeric(base_df.get("tlt_ret_5d"), errors="coerce") > 0.0).astype("float64"),
-            "vol_dollar_divergence": pd.to_numeric(base_df.get("vixy_ret_5d"), errors="coerce")
-            - pd.to_numeric(base_df.get("uup_ret_5d"), errors="coerce"),
-            "rates_equity_tension": (-pd.to_numeric(base_df.get("tlt_ret_5d"), errors="coerce"))
-            - pd.to_numeric(base_df["us_ret_5d"], errors="coerce"),
-        },
-        index=base_index,
-    )
-
+    derived_df = pd.DataFrame({
+        "oil_up": (pd.to_numeric(base_df.get("uso_ret_1d"), errors="coerce") > 0.0).astype("float64"),
+        "global_risk_on": (pd.concat([
+            pd.to_numeric(base_df.get("us_ret_1d"), errors="coerce"),
+            pd.to_numeric(base_df.get("asia_ret_1d"), errors="coerce"),
+            pd.to_numeric(base_df.get("europe_ret_1d"), errors="coerce"),
+            pd.to_numeric(base_df.get("commodities_basket_ret_1d"), errors="coerce"),
+        ], axis=1).mean(axis=1) > 0.0).astype("float64"),
+        "asia_us_lead": pd.to_numeric(base_df["asia_ret_1d"], errors="coerce").shift(1) - pd.to_numeric(base_df["us_ret_1d"], errors="coerce"),
+        "europe_us_lead": pd.to_numeric(base_df["europe_ret_1d"], errors="coerce").shift(1) - pd.to_numeric(base_df["us_ret_1d"], errors="coerce"),
+        "global_divergence": (pd.to_numeric(base_df["asia_ret_1d"], errors="coerce") + pd.to_numeric(base_df["europe_ret_1d"], errors="coerce")) / 2.0 - pd.to_numeric(base_df["us_ret_1d"], errors="coerce"),
+        "vol_spike": (pd.to_numeric(base_df.get("vixy_ret_1d"), errors="coerce") > 0.0).astype("float64"),
+        "dollar_up": (pd.to_numeric(base_df.get("uup_ret_5d"), errors="coerce") > 0.0).astype("float64"),
+        "yield_up": (pd.to_numeric(base_df.get("tlt_ret_5d"), errors="coerce") < 0.0).astype("float64"),
+        "duration_bid": (pd.to_numeric(base_df.get("tlt_ret_5d"), errors="coerce") > 0.0).astype("float64"),
+        "vol_dollar_divergence": pd.to_numeric(base_df.get("vixy_ret_5d"), errors="coerce") - pd.to_numeric(base_df.get("uup_ret_5d"), errors="coerce"),
+        "rates_equity_tension": (-pd.to_numeric(base_df.get("tlt_ret_5d"), errors="coerce")) - pd.to_numeric(base_df["us_ret_5d"], errors="coerce"),
+    }, index=base_index)
     macro_gate_score = (
         pd.to_numeric(derived_df["vol_spike"], errors="coerce").fillna(0.0)
         + pd.to_numeric(derived_df["dollar_up"], errors="coerce").fillna(0.0)
@@ -465,7 +444,6 @@ def _prepare_proxy_feature_frame(proxy_panel: pd.DataFrame) -> pd.DataFrame:
         + _rolling_z(pd.to_numeric(base_df.get("uup_ret_5d"), errors="coerce"), 20).fillna(0.0)
         - _rolling_z(pd.to_numeric(base_df.get("tlt_ret_5d"), errors="coerce"), 20).fillna(0.0)
     ) / 3.0
-
     z_source_cols = [
         "commodities_basket_ret_1d", "commodities_basket_ret_5d", "commodities_basket_ret_20d",
         "commodities_basket_momentum_20d", "commodities_basket_volatility_20d",
@@ -477,7 +455,6 @@ def _prepare_proxy_feature_frame(proxy_panel: pd.DataFrame) -> pd.DataFrame:
         {f"{col}_z": _rolling_z(pd.to_numeric(combined[col], errors="coerce"), 20) for col in z_source_cols},
         index=base_index,
     )
-
     out = pd.concat([base_df, derived_df, z_df], axis=1).copy()
     out = out.reset_index().rename(columns={"index": "date"}).sort_values("date").reset_index(drop=True)
     return out
@@ -490,18 +467,20 @@ def _merge_proxy_features(panel: pd.DataFrame, proxy_feature_frame: pd.DataFrame
     return out.sort_values(["date", "symbol"]).reset_index(drop=True)
 
 
-def _add_interaction_layer(feature_panel: pd.DataFrame, alpha_frame: pd.DataFrame, manifest: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+def _add_interaction_layer(
+    feature_panel: pd.DataFrame,
+    alpha_frame: pd.DataFrame,
+    manifest: pd.DataFrame,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     if not LIVE_ALPHA_INTERACTION_ENABLE:
         return alpha_frame, manifest
     if alpha_frame.empty:
         return alpha_frame, manifest
-
     required_cols = list(LIVE_ALPHA_INTERACTION_GATES)
     missing = [c for c in required_cols if c not in feature_panel.columns]
     if missing:
         print(f"[INTERACTION][WARN] missing feature columns for interaction layer: {missing}")
         return alpha_frame, manifest
-
     if "alpha" in manifest.columns and "selector_score" in manifest.columns:
         ranked = manifest.copy()
         ranked["selector_score"] = pd.to_numeric(ranked["selector_score"], errors="coerce").fillna(0.0)
@@ -511,12 +490,10 @@ def _add_interaction_layer(feature_panel: pd.DataFrame, alpha_frame: pd.DataFram
         candidate_alphas = manifest["alpha"].astype(str).tolist()
     else:
         candidate_alphas = [c for c in alpha_frame.columns if str(c).startswith("alpha_")]
-
     candidate_alphas = [c for c in candidate_alphas if c in alpha_frame.columns]
     candidate_alphas = candidate_alphas[: max(1, LIVE_ALPHA_INTERACTION_TOP_K)]
     if not candidate_alphas:
         return alpha_frame, manifest
-
     gates_all = {
         "oil_up": pd.to_numeric(feature_panel["oil_up"], errors="coerce").fillna(0.0).astype("float64"),
         "global_risk_on": pd.to_numeric(feature_panel["global_risk_on"], errors="coerce").fillna(0.0).astype("float64"),
@@ -526,62 +503,41 @@ def _add_interaction_layer(feature_panel: pd.DataFrame, alpha_frame: pd.DataFram
         "macro_risk_off": pd.to_numeric(feature_panel["macro_risk_off"], errors="coerce").fillna(0.0).astype("float64"),
         "macro_risk_on": pd.to_numeric(feature_panel["macro_risk_on"], errors="coerce").fillna(0.0).astype("float64"),
     }
-
     family_map = {
-        "oil_up": "interaction_oil_up",
-        "global_risk_on": "interaction_global_risk_on",
-        "vol_spike": "interaction_vol_spike",
-        "dollar_up": "interaction_dollar_up",
-        "yield_up": "interaction_yield_up",
-        "macro_risk_off": "interaction_macro_risk_off",
+        "oil_up": "interaction_oil_up", "global_risk_on": "interaction_global_risk_on",
+        "vol_spike": "interaction_vol_spike", "dollar_up": "interaction_dollar_up",
+        "yield_up": "interaction_yield_up", "macro_risk_off": "interaction_macro_risk_off",
         "macro_risk_on": "interaction_macro_risk_on",
     }
-
     selected_gate_names = [g for g in LIVE_ALPHA_INTERACTION_GATES if g in gates_all]
     if not selected_gate_names:
-        print(f"[INTERACTION][WARN] no enabled gates after filtering: {LIVE_ALPHA_INTERACTION_GATES}")
+        print(f"[INTERACTION][WARN] no enabled gates: {LIVE_ALPHA_INTERACTION_GATES}")
         return alpha_frame, manifest
-
     gates = {k: gates_all[k] for k in selected_gate_names}
-
     out = alpha_frame.copy()
     interaction_cols: Dict[str, pd.Series] = {}
     manifest_rows: List[Dict[str, object]] = []
-
     for alpha_col in candidate_alphas:
         alpha_series = pd.to_numeric(out[alpha_col], errors="coerce")
         for gate_name, gate_series in gates.items():
             new_col = f"{alpha_col}__x_{gate_name}"
             new_series = alpha_series * gate_series
             interaction_cols[new_col] = new_series
-            manifest_rows.append(
-                {
-                    "alpha": new_col,
-                    "family": family_map[gate_name],
-                    "wave": "wave_context",
-                    "left": alpha_col,
-                    "modulator": gate_name,
-                    "transform": "raw",
-                    "regime": "none",
-                    "interaction": "global_gate",
-                    "lag": 0,
-                    "source": "post_build",
-                    "parents": alpha_col,
-                    "non_na": int(new_series.notna().sum()),
-                    "nan_ratio": float(new_series.isna().mean()),
-                    "unique": int(new_series.dropna().nunique()),
-                    "selector_score": 0.0,
-                    "shortlist_rank": 1_000_000,
-                }
-            )
-
+            manifest_rows.append({
+                "alpha": new_col, "family": family_map[gate_name], "wave": "wave_context",
+                "left": alpha_col, "modulator": gate_name, "transform": "raw",
+                "regime": "none", "interaction": "global_gate", "lag": 0,
+                "source": "post_build", "parents": alpha_col,
+                "non_na": int(new_series.notna().sum()),
+                "nan_ratio": float(new_series.isna().mean()),
+                "unique": int(new_series.dropna().nunique()),
+                "selector_score": 0.0, "shortlist_rank": 1_000_000,
+            })
     if interaction_cols:
         out = pd.concat([out, pd.DataFrame(interaction_cols, index=out.index)], axis=1).copy()
-
     manifest_out = manifest.copy()
     if manifest_rows:
         manifest_out = pd.concat([manifest_out, pd.DataFrame(manifest_rows)], ignore_index=True, sort=False)
-
     print(f"[INTERACTION] base_alpha_count={len(candidate_alphas)} enabled_gates={selected_gate_names} added_columns={len(manifest_rows)}")
     return out, manifest_out
 
@@ -603,6 +559,10 @@ def _build_proxy_context(end_date: str) -> tuple[pd.DataFrame, Dict[str, object]
     }
 
 
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
 def main() -> int:
     print(f"[CFG] universe_snapshot_file={UNIVERSE_SNAPSHOT_FILE}")
     print(f"[CFG] dynamic_universe_file={DYNAMIC_UNIVERSE_FILE}")
@@ -610,6 +570,9 @@ def main() -> int:
     print(f"[CFG] live_alpha_scope={LIVE_ALPHA_SCOPE} survivor_top_n={LIVE_ALPHA_SURVIVOR_TOP_N}")
     print(f"[CFG] lookback_days={LIVE_ALPHA_LOOKBACK_DAYS} max_symbols={LIVE_ALPHA_MAX_SYMBOLS}")
     print(f"[CFG] proxy_enable={int(LIVE_ALPHA_PROXY_ENABLE)} interaction_enable={int(LIVE_ALPHA_INTERACTION_ENABLE)} interaction_top_k={LIVE_ALPHA_INTERACTION_TOP_K} interaction_gates={'|'.join(LIVE_ALPHA_INTERACTION_GATES)}")
+
+    # Load broad_sector map (symbol → sector)
+    broad_sector_map = _load_broad_sector_map()
 
     symbols, end_date = _load_selected_universe()
     print(f"[UNIVERSE] selected_symbols={len(symbols)} as_of_date={end_date}")
@@ -620,6 +583,9 @@ def main() -> int:
 
     feature_panel = derive_base_factory_inputs(enriched_panel)
     feature_panel = _add_target(feature_panel)
+
+    # Attach broad_sector BEFORE alpha factory so it flows into the snapshot
+    feature_panel = _attach_broad_sector(feature_panel, broad_sector_map)
 
     recipes, recipe_detail, recipe_source = _build_recipes()
     print(f"[FACTORY] recipe_source={recipe_source} recipe_count={len(recipes)}")
@@ -639,6 +605,19 @@ def main() -> int:
         alpha_frame=build_result.frame,
         manifest=build_result.manifest,
     )
+
+    # Propagate broad_sector into alpha snapshot (if not already there)
+    if "broad_sector" in feature_panel.columns and "broad_sector" not in interaction_frame.columns:
+        if "symbol" in interaction_frame.columns:
+            sector_lookup = (
+                feature_panel[["symbol", "broad_sector"]]
+                .drop_duplicates(subset=["symbol"])
+                .set_index("symbol")["broad_sector"]
+            )
+            interaction_frame = interaction_frame.copy()
+            interaction_frame["broad_sector"] = (
+                interaction_frame["symbol"].astype(str).str.upper().map(sector_lookup).fillna("other")
+            )
 
     out_dir = LIVE_ALPHA_OUT_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -670,6 +649,8 @@ def main() -> int:
         "alpha_columns_dropped": int(len(build_result.dropped)),
         "recipe_source": recipe_source,
         "recipe_count_requested": int(len(recipes)),
+        "broad_sector_attached": int(bool(broad_sector_map)),
+        "broad_sector_unique": int(interaction_frame["broad_sector"].nunique()) if "broad_sector" in interaction_frame.columns else 0,
         **proxy_meta,
         "interaction_added": int(len([c for c in interaction_frame.columns if "__x_" in str(c)])),
     }

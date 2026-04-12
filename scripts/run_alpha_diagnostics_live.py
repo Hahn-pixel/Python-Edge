@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import math
 import os
 import sys
 import traceback
@@ -36,6 +35,10 @@ MIN_CROSS_SECTION = int(os.getenv("LIVE_ALPHA_DIAG_MIN_CROSS_SECTION", "20"))
 MIN_IC_DAYS = int(os.getenv("LIVE_ALPHA_DIAG_MIN_IC_DAYS", "20"))
 TOP_N_PRINT = int(os.getenv("LIVE_ALPHA_DIAG_TOP_N_PRINT", "20"))
 
+# Minimum symbols per sector for sector-level IC to be meaningful
+SECTOR_DIAG_MIN_SYMBOLS = int(os.getenv("LIVE_ALPHA_DIAG_SECTOR_MIN_SYMBOLS", "8"))
+# Top N families to show per sector in console output
+SECTOR_TOP_N_FAMILIES = int(os.getenv("LIVE_ALPHA_DIAG_SECTOR_TOP_N_FAMILIES", "5"))
 
 
 def _should_pause() -> bool:
@@ -46,7 +49,6 @@ def _should_pause() -> bool:
     stdin_obj = getattr(sys, "stdin", None)
     stdout_obj = getattr(sys, "stdout", None)
     return bool(stdin_obj and stdout_obj and hasattr(stdin_obj, "isatty") and hasattr(stdout_obj, "isatty") and stdin_obj.isatty() and stdout_obj.isatty())
-
 
 
 def _safe_exit(code: int) -> None:
@@ -60,12 +62,10 @@ def _safe_exit(code: int) -> None:
     raise SystemExit(code)
 
 
-
 def _pick_existing(path: Path, label: str) -> Path:
     if not path.exists():
         raise FileNotFoundError(f"{label} not found: {path}")
     return path
-
 
 
 def _find_column(df: pd.DataFrame, candidates: Tuple[str, ...], label: str) -> str:
@@ -73,7 +73,6 @@ def _find_column(df: pd.DataFrame, candidates: Tuple[str, ...], label: str) -> s
         if col in df.columns:
             return col
     raise RuntimeError(f"Could not find {label} column. Tried: {list(candidates)}")
-
 
 
 def _safe_spearman(x: pd.Series, y: pd.Series) -> float:
@@ -88,7 +87,6 @@ def _safe_spearman(x: pd.Series, y: pd.Series) -> float:
     return float(corr) if pd.notna(corr) else float("nan")
 
 
-
 def _classify_family(alpha_name: str, manifest_family: str) -> Tuple[str, str]:
     fam = str(manifest_family or "").strip()
     if fam:
@@ -98,7 +96,6 @@ def _classify_family(alpha_name: str, manifest_family: str) -> Tuple[str, str]:
         suffix = alpha_name.split("__x_", 1)[1]
         return f"interaction_{suffix}", "interaction"
     return "unclassified", "base"
-
 
 
 def _load_manifest_family_map(manifest_path: Path) -> Dict[str, str]:
@@ -119,7 +116,6 @@ def _load_manifest_family_map(manifest_path: Path) -> Dict[str, str]:
     return out
 
 
-
 def _compute_daily_ic(frame: pd.DataFrame, date_col: str, alpha_col: str, target_col: str) -> pd.DataFrame:
     rows: List[Dict[str, object]] = []
     grouped = frame[[date_col, alpha_col, target_col]].copy()
@@ -129,20 +125,24 @@ def _compute_daily_ic(frame: pd.DataFrame, date_col: str, alpha_col: str, target
         valid = pd.DataFrame({"alpha": alpha_series, "target": target_series}).dropna()
         non_na = int(len(valid))
         ic = _safe_spearman(valid["alpha"], valid["target"])
-        rows.append(
-            {
-                "date": pd.Timestamp(date_value).strftime("%Y-%m-%d") if pd.notna(date_value) else "",
-                "ic": ic,
-                "non_na": non_na,
-                "alpha_unique": int(valid["alpha"].nunique()) if non_na else 0,
-                "target_unique": int(valid["target"].nunique()) if non_na else 0,
-            }
-        )
+        rows.append({
+            "date": pd.Timestamp(date_value).strftime("%Y-%m-%d") if pd.notna(date_value) else "",
+            "ic": ic, "non_na": non_na,
+            "alpha_unique": int(valid["alpha"].nunique()) if non_na else 0,
+            "target_unique": int(valid["target"].nunique()) if non_na else 0,
+        })
     return pd.DataFrame(rows)
 
 
-
-def _summarize_alpha(frame: pd.DataFrame, date_col: str, symbol_col: str, alpha_col: str, target_col: str, family: str, family_group: str) -> Tuple[Dict[str, object], pd.DataFrame]:
+def _summarize_alpha(
+    frame: pd.DataFrame,
+    date_col: str,
+    symbol_col: str,
+    alpha_col: str,
+    target_col: str,
+    family: str,
+    family_group: str,
+) -> Tuple[Dict[str, object], pd.DataFrame]:
     daily_ic = _compute_daily_ic(frame, date_col, alpha_col, target_col)
     valid_ic = pd.to_numeric(daily_ic["ic"], errors="coerce").dropna()
     ic_days = int(len(valid_ic))
@@ -179,6 +179,117 @@ def _summarize_alpha(frame: pd.DataFrame, date_col: str, symbol_col: str, alpha_
     return summary, daily_ic
 
 
+# ---------------------------------------------------------------------------
+# Sector × family diagnostics
+# ---------------------------------------------------------------------------
+
+def _compute_sector_family_diagnostics(
+    frame: pd.DataFrame,
+    date_col: str,
+    symbol_col: str,
+    target_col: str,
+    alpha_cols: List[str],
+    family_map: Dict[str, str],
+    min_symbols: int,
+) -> pd.DataFrame:
+    if "broad_sector" not in frame.columns:
+        return pd.DataFrame()
+
+    # build family lookup once
+    fam_lookup: Dict[str, Tuple[str, str]] = {
+        col: _classify_family(col, family_map.get(col, ""))
+        for col in alpha_cols
+    }
+
+    sectors = sorted(frame["broad_sector"].dropna().unique().tolist())
+    rows: List[Dict[str, object]] = []
+
+    for sector in sectors:
+        sf = frame.loc[frame["broad_sector"] == sector].copy()
+        n_symbols = int(sf[symbol_col].nunique())
+        if n_symbols < min_symbols:
+            continue
+        print(f"[SECTOR_FAMILY]   sector={sector!r} symbols={n_symbols}")
+
+        # vectorized: per date, rank all alpha cols and target together
+        # then compute spearman IC as pearson of ranks
+        ic_by_alpha: Dict[str, List[float]] = {col: [] for col in alpha_cols}
+
+        for dt, grp in sf.groupby(date_col, sort=True):
+            target_vals = pd.to_numeric(grp[target_col], errors="coerce")
+            if target_vals.dropna().nunique() < 2:
+                continue
+            target_rank = target_vals.rank(method="average")
+
+            for col in alpha_cols:
+                alpha_vals = pd.to_numeric(grp[col], errors="coerce")
+                valid = pd.DataFrame({"a": alpha_vals, "t": target_rank}).dropna()
+                if len(valid) < MIN_CROSS_SECTION or valid["a"].nunique() < 2:
+                    continue
+                ic = valid["a"].rank(method="average").corr(valid["t"])
+                if pd.notna(ic):
+                    ic_by_alpha[col].append(float(ic))
+
+        # aggregate by family
+        family_ics: Dict[str, List[float]] = {}
+        for col, ics in ic_by_alpha.items():
+            if len(ics) < MIN_IC_DAYS:
+                continue
+            fam, fam_group = fam_lookup[col]
+            key = (fam, fam_group)
+            if key not in family_ics:
+                family_ics[key] = []
+            family_ics[key].extend(ics)
+
+        for (fam, fam_group), ics in family_ics.items():
+            arr = pd.Series(ics, dtype="float64")
+            mean_ic = float(arr.mean())
+            std_ic = float(arr.std(ddof=1)) if len(arr) >= 2 else float("nan")
+            ic_ir = float(mean_ic / std_ic) if pd.notna(std_ic) and abs(std_ic) > 1e-12 else float("nan")
+            sign_stab = float((arr > 0.0).mean())
+            fam_alpha_count = sum(1 for col in alpha_cols if fam_lookup[col][0] == fam)
+            eligible = sum(1 for col in alpha_cols if fam_lookup[col][0] == fam and len(ic_by_alpha.get(col, [])) >= MIN_IC_DAYS)
+            rows.append({
+                "broad_sector": sector,
+                "family": fam,
+                "family_group": fam_group,
+                "alpha_count": fam_alpha_count,
+                "eligible_alpha_count": eligible,
+                "symbol_count": n_symbols,
+                "mean_ic": mean_ic,
+                "mean_ic_ir": ic_ir,
+                "mean_sign_stability": sign_stab,
+            })
+
+    if not rows:
+        return pd.DataFrame()
+
+    df = pd.DataFrame(rows)
+    df = df.sort_values(["broad_sector", "mean_ic"], ascending=[True, False]).reset_index(drop=True)
+    return df
+
+
+def _print_sector_family_summary(sector_family_diag: pd.DataFrame, top_n: int) -> None:
+    if sector_family_diag.empty:
+        return
+    sectors = sorted(sector_family_diag["broad_sector"].unique().tolist())
+    print("[SECTOR_FAMILY_TOP]")
+    for sector in sectors:
+        sub = sector_family_diag.loc[sector_family_diag["broad_sector"] == sector].head(top_n)
+        n_sym = int(sub["symbol_count"].iloc[0]) if not sub.empty else 0
+        print(f"  sector={sector!r} symbols={n_sym}")
+        for _, row in sub.iterrows():
+            print(
+                f"    family={row['family']!r:<35}"
+                f" mean_ic={row['mean_ic']:+.4f}"
+                f" mean_ic_ir={row['mean_ic_ir']:+.4f}"
+                f" eligible_alphas={int(row['eligible_alpha_count'])}"
+            )
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
 
 def main() -> int:
     snapshot_path = _pick_existing(LIVE_ALPHA_SNAPSHOT_FILE, "LIVE_ALPHA_SNAPSHOT_FILE")
@@ -192,6 +303,7 @@ def main() -> int:
     print(f"[CFG] meta={meta_path}")
     print(f"[CFG] output_dir={LIVE_ALPHA_DIAG_DIR}")
     print(f"[CFG] target_col={TARGET_COL} min_cross_section={MIN_CROSS_SECTION} min_ic_days={MIN_IC_DAYS}")
+    print(f"[CFG] sector_diag_min_symbols={SECTOR_DIAG_MIN_SYMBOLS} sector_top_n_families={SECTOR_TOP_N_FAMILIES}")
 
     frame = pd.read_parquet(snapshot_path)
     if frame.empty:
@@ -206,6 +318,13 @@ def main() -> int:
     frame[symbol_col] = frame[symbol_col].astype(str).str.upper()
     frame = frame.sort_values([date_col, symbol_col]).reset_index(drop=True)
 
+    has_broad_sector = "broad_sector" in frame.columns
+    if has_broad_sector:
+        n_sectors = int(frame["broad_sector"].nunique())
+        print(f"[DATA] broad_sector column found unique_sectors={n_sectors}")
+    else:
+        print("[DATA][WARN] broad_sector column not found — run run_live_alpha_snapshot.py first to enable sector diagnostics")
+
     family_map = _load_manifest_family_map(manifest_path)
     alpha_cols = [c for c in frame.columns if str(c).startswith("alpha_")]
     if not alpha_cols:
@@ -213,6 +332,7 @@ def main() -> int:
 
     print(f"[DATA] rows={len(frame)} symbols={frame[symbol_col].nunique()} dates={frame[date_col].nunique()} alpha_cols={len(alpha_cols)}")
 
+    # --- global alpha diagnostics (unchanged) ---
     alpha_rows: List[Dict[str, object]] = []
     daily_ic_frames: List[pd.DataFrame] = []
 
@@ -230,9 +350,16 @@ def main() -> int:
             print(f"[ALPHA] processed={idx}/{len(alpha_cols)}")
 
     alpha_diag = pd.DataFrame(alpha_rows)
-    alpha_diag = alpha_diag.sort_values(["eligible_for_ranking", "mean_ic", "ic_ir", "coverage", "alpha"], ascending=[False, False, False, False, True]).reset_index(drop=True)
+    alpha_diag = alpha_diag.sort_values(
+        ["eligible_for_ranking", "mean_ic", "ic_ir", "coverage", "alpha"],
+        ascending=[False, False, False, False, True],
+    ).reset_index(drop=True)
 
-    daily_ic_all = pd.concat(daily_ic_frames, ignore_index=True) if daily_ic_frames else pd.DataFrame(columns=["date", "ic", "non_na", "alpha_unique", "target_unique", "alpha", "family", "family_group"])
+    daily_ic_all = (
+        pd.concat(daily_ic_frames, ignore_index=True)
+        if daily_ic_frames
+        else pd.DataFrame(columns=["date", "ic", "non_na", "alpha_unique", "target_unique", "alpha", "family", "family_group"])
+    )
 
     family_diag = (
         alpha_diag.groupby(["family", "family_group"], dropna=False)
@@ -251,18 +378,39 @@ def main() -> int:
     )
 
     interaction_family_diag = family_diag.loc[family_diag["family_group"] == "interaction"].copy().reset_index(drop=True)
-    base_family_diag = family_diag.loc[family_diag["family_group"] == "base"].copy().reset_index(drop=True)
 
+    # --- sector × family diagnostics (new) ---
+    sector_family_diag = pd.DataFrame()
+    if has_broad_sector:
+        print("[SECTOR_FAMILY] computing sector × family IC diagnostics...")
+        sector_family_diag = _compute_sector_family_diagnostics(
+            frame=frame,
+            date_col=date_col,
+            symbol_col=symbol_col,
+            target_col=TARGET_COL,
+            alpha_cols=alpha_cols,
+            family_map=family_map,
+            min_symbols=SECTOR_DIAG_MIN_SYMBOLS,
+        )
+        if not sector_family_diag.empty:
+            print(f"[SECTOR_FAMILY] computed rows={len(sector_family_diag)} sectors={sector_family_diag['broad_sector'].nunique()}")
+        else:
+            print("[SECTOR_FAMILY][WARN] no sector-family rows produced (too few symbols per sector?)")
+
+    # --- save artifacts ---
     top_alpha_path = LIVE_ALPHA_DIAG_DIR / "alpha_diagnostics_live.csv"
     family_path = LIVE_ALPHA_DIAG_DIR / "alpha_family_diagnostics_live.csv"
     interaction_family_path = LIVE_ALPHA_DIAG_DIR / "alpha_interaction_family_diagnostics_live.csv"
     daily_ic_path = LIVE_ALPHA_DIAG_DIR / "alpha_daily_ic_live.csv"
+    sector_family_path = LIVE_ALPHA_DIAG_DIR / "alpha_sector_family_diagnostics_live.csv"
     summary_path = LIVE_ALPHA_DIAG_DIR / "alpha_diagnostics_live_summary.json"
 
     alpha_diag.to_csv(top_alpha_path, index=False)
     family_diag.to_csv(family_path, index=False)
     interaction_family_diag.to_csv(interaction_family_path, index=False)
     daily_ic_all.to_csv(daily_ic_path, index=False)
+    if not sector_family_diag.empty:
+        sector_family_diag.to_csv(sector_family_path, index=False)
 
     with open(meta_path, "r", encoding="utf-8") as f:
         live_meta = json.load(f)
@@ -276,10 +424,11 @@ def main() -> int:
         "dates": int(frame[date_col].nunique()),
         "alpha_cols": int(len(alpha_cols)),
         "eligible_alpha_count": int(alpha_diag["eligible_for_ranking"].sum()),
+        "has_broad_sector": int(has_broad_sector),
+        "sector_family_rows": int(len(sector_family_diag)),
         "top_alpha_mean_ic": alpha_diag[["alpha", "family", "mean_ic", "ic_ir", "sign_stability"]].head(TOP_N_PRINT).to_dict(orient="records"),
         "top_family_mean_ic": family_diag.head(TOP_N_PRINT).to_dict(orient="records"),
         "top_interaction_family_mean_ic": interaction_family_diag.head(TOP_N_PRINT).to_dict(orient="records"),
-        "top_base_family_mean_ic": base_family_diag.head(TOP_N_PRINT).to_dict(orient="records"),
         "live_alpha_meta": live_meta,
     }
     summary_path.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -288,12 +437,17 @@ def main() -> int:
     print(f"[OK] family_diag={family_path}")
     print(f"[OK] interaction_family_diag={interaction_family_path}")
     print(f"[OK] daily_ic={daily_ic_path}")
+    if not sector_family_diag.empty:
+        print(f"[OK] sector_family_diag={sector_family_path}")
     print(f"[OK] summary={summary_path}")
 
     print("[TOP_ALPHA]")
     print(alpha_diag[["alpha", "family", "mean_ic", "ic_ir", "sign_stability", "coverage"]].head(TOP_N_PRINT).to_string(index=False))
     print("[TOP_FAMILY]")
     print(family_diag[["family", "family_group", "alpha_count", "eligible_count", "mean_ic", "mean_ic_ir"]].head(TOP_N_PRINT).to_string(index=False))
+
+    if not sector_family_diag.empty:
+        _print_sector_family_summary(sector_family_diag, top_n=SECTOR_TOP_N_FAMILIES)
 
     return 0
 
