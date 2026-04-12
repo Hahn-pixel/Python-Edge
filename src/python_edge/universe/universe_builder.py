@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import pandas as pd
-import requests
 
 
 DEFAULT_BASE_URL = "https://api.massive.com"
@@ -44,6 +43,7 @@ class UniverseConfig:
     universe_profile: str = DEFAULT_PROFILE
     target_size: int = 175
     sector_cap: int = 18
+    per_sector_cap: Dict[str, int] = field(default_factory=dict)   # NEW
     top_n: int = 175
     shortlist_multiplier: int = 3
     history_lookback_days: int = 45
@@ -81,7 +81,7 @@ class MassiveClient:
         self.sleep_sec = float(sleep_sec)
         self.max_retries = max(1, int(max_retries))
         self.backoff_sec = float(backoff_sec)
-        self.session = requests.Session()
+        self.session = __import__("requests").Session()
 
     def _get(self, path: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         if not self.api_key:
@@ -176,16 +176,13 @@ class MassiveClient:
         return out
 
 
-
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-
 
 
 def _env_flag(name: str, default: bool) -> bool:
     raw = str(os.getenv(name, "1" if default else "0")).strip().lower()
     return raw not in {"0", "false", "no", "off", ""}
-
 
 
 def _env_float(name: str, default: float) -> float:
@@ -196,14 +193,12 @@ def _env_float(name: str, default: float) -> float:
         raise UniverseBuildError(f"Invalid float env {name}={raw!r}") from exc
 
 
-
 def _env_int(name: str, default: int) -> int:
     raw = str(os.getenv(name, str(default))).strip()
     try:
         return int(raw)
     except Exception as exc:
         raise UniverseBuildError(f"Invalid int env {name}={raw!r}") from exc
-
 
 
 def _env_tuple(name: str, default: Tuple[str, ...]) -> Tuple[str, ...]:
@@ -213,6 +208,34 @@ def _env_tuple(name: str, default: Tuple[str, ...]) -> Tuple[str, ...]:
     items = [x.strip().upper() for x in raw.split("|") if x.strip()]
     return tuple(items)
 
+
+def _parse_per_sector_cap(raw: str) -> Dict[str, int]:
+    """
+    Parse UNIVERSE_PER_SECTOR_CAP env var.
+
+    Format: "SectorName:cap|SectorName:cap|..."
+    Example: "Technology:60|Health Care:40|Financials:40|Industrials:35"
+
+    Returns empty dict if raw is empty or malformed.
+    Empty dict = fall back to global sector_cap for all sectors.
+    """
+    result: Dict[str, int] = {}
+    if not raw or not raw.strip():
+        return result
+    for part in raw.split("|"):
+        part = part.strip()
+        if ":" not in part:
+            continue
+        name, _, val = part.partition(":")
+        name = name.strip()
+        val = val.strip()
+        if not name or not val:
+            continue
+        try:
+            result[name] = max(1, int(val))
+        except ValueError:
+            continue
+    return result
 
 
 def load_config_from_env(_root: Path | None = None) -> UniverseConfig:
@@ -240,6 +263,7 @@ def load_config_from_env(_root: Path | None = None) -> UniverseConfig:
         universe_profile=str(os.getenv("UNIVERSE_PROFILE", DEFAULT_PROFILE)).strip() or DEFAULT_PROFILE,
         target_size=target_size,
         sector_cap=_env_int("UNIVERSE_SECTOR_CAP", 18),
+        per_sector_cap=_parse_per_sector_cap(os.getenv("UNIVERSE_PER_SECTOR_CAP", "")),  # NEW
         top_n=_env_int("UNIVERSE_TOP_N", target_size),
         shortlist_multiplier=_env_int("UNIVERSE_SHORTLIST_MULTIPLIER", 3),
         history_lookback_days=_env_int("UNIVERSE_HISTORY_LOOKBACK_DAYS", 45),
@@ -256,7 +280,6 @@ def load_config_from_env(_root: Path | None = None) -> UniverseConfig:
         history_check_mode=str(os.getenv("UNIVERSE_HISTORY_CHECK_MODE", "daily_aggs_lookback")).strip() or "daily_aggs_lookback",
         eligibility=eligibility,
     )
-
 
 
 def _normalize_ticker_reference(df: pd.DataFrame) -> pd.DataFrame:
@@ -294,19 +317,12 @@ def _normalize_ticker_reference(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-
 def _normalize_grouped_daily(df: pd.DataFrame) -> pd.DataFrame:
     out = df.copy()
     rename_map = {
-        "T": "symbol",
-        "c": "close",
-        "h": "high",
-        "l": "low",
-        "o": "open",
-        "v": "volume",
-        "vw": "vwap",
-        "t": "timestamp_ms",
-        "n": "transactions",
+        "T": "symbol", "c": "close", "h": "high", "l": "low",
+        "o": "open", "v": "volume", "vw": "vwap",
+        "t": "timestamp_ms", "n": "transactions",
     }
     for src, dst in rename_map.items():
         if src in out.columns and dst not in out.columns:
@@ -334,7 +350,6 @@ def _normalize_grouped_daily(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-
 def _extract_overview_result(payload: Dict[str, Any]) -> Dict[str, Any]:
     result = payload.get("results", payload)
     if not isinstance(result, dict):
@@ -342,8 +357,9 @@ def _extract_overview_result(payload: Dict[str, Any]) -> Dict[str, Any]:
     return result
 
 
-
-def _enrich_with_overview(client: MassiveClient, df: pd.DataFrame, enabled: bool, max_rows: int) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+def _enrich_with_overview(
+    client: MassiveClient, df: pd.DataFrame, enabled: bool, max_rows: int
+) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     if not enabled:
         return df.copy(), {"overview_enrichment_enabled": 0, "overview_enriched": 0, "overview_errors": 0}
     out = df.copy()
@@ -365,7 +381,10 @@ def _enrich_with_overview(client: MassiveClient, df: pd.DataFrame, enabled: bool
                 "overview_type": str(item.get("type", "") or "").upper(),
                 "overview_currency_name": str(item.get("currency_name", "") or ""),
                 "overview_sic_description": str(item.get("sic_description", "") or ""),
-                "overview_branding_icon_url": str(((item.get("branding") or {}) if isinstance(item.get("branding"), dict) else {}).get("icon_url", "") or ""),
+                "overview_branding_icon_url": str(
+                    ((item.get("branding") or {}) if isinstance(item.get("branding"), dict) else {})
+                    .get("icon_url", "") or ""
+                ),
             })
             enriched += 1
         except Exception:
@@ -386,13 +405,11 @@ def _enrich_with_overview(client: MassiveClient, df: pd.DataFrame, enabled: bool
     }
 
 
-
 def _passes_allowed(value: str, allowed: Iterable[str]) -> bool:
     allowed_norm = [str(x).strip().upper() for x in allowed if str(x).strip()]
     if not allowed_norm:
         return True
     return str(value or "").strip().upper() in set(allowed_norm)
-
 
 
 def _business_days_in_window(end_date_str: str, periods: int) -> List[str]:
@@ -401,8 +418,9 @@ def _business_days_in_window(end_date_str: str, periods: int) -> List[str]:
     return [x.strftime("%Y-%m-%d") for x in dates]
 
 
-
-def _compute_history_metrics(client: MassiveClient, symbols: List[str], end_date: str, lookback_days: int) -> pd.DataFrame:
+def _compute_history_metrics(
+    client: MassiveClient, symbols: List[str], end_date: str, lookback_days: int
+) -> pd.DataFrame:
     rows: List[Dict[str, Any]] = []
     end_ts = pd.Timestamp(end_date)
     start_ts = end_ts - pd.Timedelta(days=max(lookback_days, 20) * 2)
@@ -420,20 +438,19 @@ def _compute_history_metrics(client: MassiveClient, symbols: List[str], end_date
                 "missing_days_20d": len(expected_recent_20),
             })
             continue
-
         hist = hist.copy()
         hist = hist.drop_duplicates(subset=["trade_date"]).sort_values("trade_date")
         history_days = int(len(hist))
         recent20 = hist.tail(20).copy()
         present_dates = set(recent20["trade_date"].dropna().astype(str).tolist())
         missing_days_20d = int(len(expected_recent_20 - present_dates))
-
         critical_cols = ["trade_date", "close", "volume", "dollar_volume"]
         nan_ratio = float(recent20[critical_cols].isna().mean().mean()) if not recent20.empty else 1.0
-        median_dollar_volume_20d = float(pd.to_numeric(recent20["dollar_volume"], errors="coerce").dropna().median()) if not recent20.empty else 0.0
+        median_dollar_volume_20d = float(
+            pd.to_numeric(recent20["dollar_volume"], errors="coerce").dropna().median()
+        ) if not recent20.empty else 0.0
         if pd.isna(median_dollar_volume_20d):
             median_dollar_volume_20d = 0.0
-
         rows.append({
             "symbol": symbol,
             "history_days": history_days,
@@ -441,18 +458,24 @@ def _compute_history_metrics(client: MassiveClient, symbols: List[str], end_date
             "nan_ratio": nan_ratio,
             "missing_days_20d": missing_days_20d,
         })
-
     return pd.DataFrame(rows)
 
 
-
-def apply_eligibility_policy(df: pd.DataFrame, policy: UniverseEligibilityPolicy) -> Tuple[pd.DataFrame, Dict[str, int]]:
+def apply_eligibility_policy(
+    df: pd.DataFrame, policy: UniverseEligibilityPolicy
+) -> Tuple[pd.DataFrame, Dict[str, int]]:
     out = df.copy()
     out["passes_active"] = True if not policy.require_active else out["active"].fillna(False).astype(bool)
-    out["passes_ticker_type"] = out["ticker_type"].astype(str).str.upper().map(lambda x: _passes_allowed(x, policy.allowed_ticker_types))
-    out["passes_primary_exchange"] = out["primary_exchange"].astype(str).str.upper().map(lambda x: _passes_allowed(x, policy.allowed_primary_exchanges))
+    out["passes_ticker_type"] = out["ticker_type"].astype(str).str.upper().map(
+        lambda x: _passes_allowed(x, policy.allowed_ticker_types)
+    )
+    out["passes_primary_exchange"] = out["primary_exchange"].astype(str).str.upper().map(
+        lambda x: _passes_allowed(x, policy.allowed_primary_exchanges)
+    )
     exchange_col = out["primary_exchange"] if "primary_exchange" in out.columns else pd.Series([""] * len(out), index=out.index)
-    out["passes_exchange"] = exchange_col.astype(str).str.upper().map(lambda x: _passes_allowed(x, policy.allowed_exchanges))
+    out["passes_exchange"] = exchange_col.astype(str).str.upper().map(
+        lambda x: _passes_allowed(x, policy.allowed_exchanges)
+    )
     out["passes_price"] = pd.to_numeric(out["close"], errors="coerce").fillna(0.0) >= float(policy.min_price)
     out["passes_liquidity"] = pd.to_numeric(out["median_dollar_volume_20d"], errors="coerce").fillna(0.0) >= float(policy.min_median_dollar_vol_20d)
     out["passes_history"] = pd.to_numeric(out["history_days"], errors="coerce").fillna(0).astype(int) >= int(policy.min_history_days)
@@ -460,15 +483,9 @@ def apply_eligibility_policy(df: pd.DataFrame, policy: UniverseEligibilityPolicy
     out["passes_missing_days"] = pd.to_numeric(out["missing_days_20d"], errors="coerce").fillna(999).astype(int) <= int(policy.max_missing_days_20d)
 
     rule_cols = [
-        "passes_active",
-        "passes_ticker_type",
-        "passes_primary_exchange",
-        "passes_exchange",
-        "passes_price",
-        "passes_liquidity",
-        "passes_history",
-        "passes_nan_ratio",
-        "passes_missing_days",
+        "passes_active", "passes_ticker_type", "passes_primary_exchange",
+        "passes_exchange", "passes_price", "passes_liquidity",
+        "passes_history", "passes_nan_ratio", "passes_missing_days",
     ]
     out["eligible"] = out[rule_cols].all(axis=1)
 
@@ -481,7 +498,6 @@ def apply_eligibility_policy(df: pd.DataFrame, policy: UniverseEligibilityPolicy
         return "unknown"
 
     out["drop_reason"] = out.apply(_drop_reason, axis=1)
-
     counters = {
         "candidates_total": int(len(out)),
         "eligible_total": int(out["eligible"].sum()),
@@ -498,22 +514,75 @@ def apply_eligibility_policy(df: pd.DataFrame, policy: UniverseEligibilityPolicy
     return out, counters
 
 
+def _apply_sector_cap(
+    df: pd.DataFrame,
+    sector_cap: int,
+    target_size: int,
+    per_sector_cap: Optional[Dict[str, int]] = None,
+) -> pd.DataFrame:
+    """
+    Apply per-sector symbol cap, then select top target_size overall.
 
-def _apply_sector_cap(df: pd.DataFrame, sector_cap: int, target_size: int) -> pd.DataFrame:
+    Args:
+        df             : eligible DataFrame
+        sector_cap     : global fallback cap per sector
+        target_size    : max total symbols to return
+        per_sector_cap : optional {sector_name: cap}, matched case-insensitively.
+                         Missing sectors use global sector_cap.
+                         Empty dict or None = global cap for all sectors.
+
+    Logs per-sector counts when per_sector_cap is active.
+    """
     out = df.copy()
     if "overview_sic_description" not in out.columns:
         out["overview_sic_description"] = "UNKNOWN"
-    out["sector_key"] = out["overview_sic_description"].fillna("UNKNOWN").astype(str).replace({"": "UNKNOWN"})
-    out = out.sort_values(["median_dollar_volume_20d", "dollar_volume_1d", "close", "symbol"], ascending=[False, False, False, True]).copy()
-    out["sector_rank"] = out.groupby("sector_key").cumcount() + 1
-    out = out.loc[out["sector_rank"] <= max(1, int(sector_cap))].copy()
+    out["sector_key"] = (
+        out["overview_sic_description"]
+        .fillna("UNKNOWN")
+        .astype(str)
+        .replace({"": "UNKNOWN"})
+    )
+    out = out.sort_values(
+        ["median_dollar_volume_20d", "dollar_volume_1d", "close", "symbol"],
+        ascending=[False, False, False, True],
+    ).copy()
+
+    # Build normalized lookup
+    cap_lookup: Dict[str, int] = {}
+    if per_sector_cap:
+        for k, v in per_sector_cap.items():
+            cap_lookup[str(k).strip().lower()] = max(1, int(v))
+
+    if cap_lookup:
+        def _sector_limit(sector_key: str) -> int:
+            return cap_lookup.get(str(sector_key).strip().lower(), max(1, int(sector_cap)))
+
+        out["_cap"] = out["sector_key"].map(_sector_limit)
+        out["sector_rank"] = out.groupby("sector_key").cumcount() + 1
+        out = out.loc[out["sector_rank"] <= out["_cap"]].copy()
+        out = out.drop(columns=["_cap"])
+
+        # Log per-sector counts after cap
+        sector_counts = out.groupby("sector_key").size().sort_values(ascending=False)
+        print(f"[SECTOR_CAP] per_sector mode active global_fallback={sector_cap}")
+        for sec, cnt in sector_counts.items():
+            limit = _sector_limit(str(sec))
+            print(f"[SECTOR_CAP]   sector={sec!r} selected={cnt} cap={limit}")
+    else:
+        out["sector_rank"] = out.groupby("sector_key").cumcount() + 1
+        out = out.loc[out["sector_rank"] <= max(1, int(sector_cap))].copy()
+
     out = out.head(max(1, int(target_size))).copy()
     out["selected"] = True
     return out
 
 
-
-def _build_summary(config: UniverseConfig, counters: Dict[str, int], extra: Dict[str, Any], selected: pd.DataFrame) -> Dict[str, Any]:
+def _build_summary(
+    config: UniverseConfig,
+    counters: Dict[str, int],
+    extra: Dict[str, Any],
+    selected: pd.DataFrame,
+) -> Dict[str, Any]:
     latest_trade_date = ""
     if "trade_date" in selected.columns and not selected.empty:
         latest_trade_date = str(selected["trade_date"].iloc[0])
@@ -530,6 +599,7 @@ def _build_summary(config: UniverseConfig, counters: Dict[str, int], extra: Dict
         "history_lookback_days": int(config.history_lookback_days),
         "history_batch_limit": int(config.history_batch_limit),
         "sector_cap": int(config.sector_cap),
+        "per_sector_cap": config.per_sector_cap,        # NEW
         "history_check_mode": config.history_check_mode,
         "rebalance_freq": config.rebalance_freq,
         "reuse_last": int(bool(config.reuse_last)),
@@ -542,8 +612,9 @@ def _build_summary(config: UniverseConfig, counters: Dict[str, int], extra: Dict
     return summary
 
 
-
-def build_universe_snapshot(config: UniverseConfig) -> Tuple[pd.DataFrame, Dict[str, Any], pd.DataFrame]:
+def build_universe_snapshot(
+    config: UniverseConfig,
+) -> Tuple[pd.DataFrame, Dict[str, Any], pd.DataFrame]:
     client = MassiveClient(
         api_key=config.api_key,
         base_url=config.base_url,
@@ -553,8 +624,12 @@ def build_universe_snapshot(config: UniverseConfig) -> Tuple[pd.DataFrame, Dict[
         backoff_sec=config.request_backoff_sec,
     )
 
-    tickers_df = _normalize_ticker_reference(client.list_tickers(config.locale, config.market, config.ticker_type))
-    grouped_df = _normalize_grouped_daily(client.grouped_daily_snapshot(config.locale, config.market))
+    tickers_df = _normalize_ticker_reference(
+        client.list_tickers(config.locale, config.market, config.ticker_type)
+    )
+    grouped_df = _normalize_grouped_daily(
+        client.grouped_daily_snapshot(config.locale, config.market)
+    )
 
     merged = tickers_df.merge(grouped_df, on="symbol", how="inner", suffixes=("", "_grouped"))
     if merged.empty:
@@ -571,11 +646,18 @@ def build_universe_snapshot(config: UniverseConfig) -> Tuple[pd.DataFrame, Dict[
         ["dollar_volume_1d", "close", "symbol"],
         ascending=[False, False, True],
     ).copy()
-    shortlist_size = min(len(pre_ranked), max(config.target_size, config.top_n) * max(1, int(config.shortlist_multiplier)))
+    shortlist_size = min(
+        len(pre_ranked),
+        max(config.target_size, config.top_n) * max(1, int(config.shortlist_multiplier)),
+    )
     shortlist_size = min(shortlist_size, max(1, int(config.history_batch_limit)))
     shortlist = pre_ranked.head(shortlist_size).copy()
 
-    latest_trade_date = str(shortlist["trade_date"].iloc[0]) if not shortlist.empty else pd.Timestamp.now(tz="UTC").strftime("%Y-%m-%d")
+    latest_trade_date = (
+        str(shortlist["trade_date"].iloc[0])
+        if not shortlist.empty
+        else pd.Timestamp.now(tz="UTC").strftime("%Y-%m-%d")
+    )
     history_metrics = _compute_history_metrics(
         client=client,
         symbols=shortlist["symbol"].astype(str).tolist(),
@@ -583,7 +665,10 @@ def build_universe_snapshot(config: UniverseConfig) -> Tuple[pd.DataFrame, Dict[
         lookback_days=config.history_lookback_days,
     )
 
-    merged = merged.drop(columns=["median_dollar_volume_20d", "history_days", "nan_ratio", "missing_days_20d"], errors="ignore")
+    merged = merged.drop(
+        columns=["median_dollar_volume_20d", "history_days", "nan_ratio", "missing_days_20d"],
+        errors="ignore",
+    )
     merged = merged.merge(history_metrics, on="symbol", how="left")
     merged["median_dollar_volume_20d"] = pd.to_numeric(merged["median_dollar_volume_20d"], errors="coerce").fillna(0.0)
     merged["history_days"] = pd.to_numeric(merged["history_days"], errors="coerce").fillna(0).astype(int)
@@ -597,7 +682,12 @@ def build_universe_snapshot(config: UniverseConfig) -> Tuple[pd.DataFrame, Dict[
         ascending=[False, False, False, True],
     ).copy()
 
-    selected = _apply_sector_cap(ranked_eligible, config.sector_cap, config.target_size)
+    selected = _apply_sector_cap(
+        ranked_eligible,
+        config.sector_cap,
+        config.target_size,
+        per_sector_cap=config.per_sector_cap,   # NEW
+    )
     selected["selected_rank"] = range(1, len(selected) + 1)
     if "trade_date" not in selected.columns:
         fallback_date = pd.Timestamp.now(tz="UTC").strftime("%Y-%m-%d")
@@ -605,6 +695,7 @@ def build_universe_snapshot(config: UniverseConfig) -> Tuple[pd.DataFrame, Dict[
         selected["as_of_date"] = fallback_date
         selected["date"] = fallback_date
         selected["session_date"] = fallback_date
+
     summary = _build_summary(
         config,
         counters,
@@ -618,26 +709,20 @@ def build_universe_snapshot(config: UniverseConfig) -> Tuple[pd.DataFrame, Dict[
     return selected.reset_index(drop=True), summary, eligible_df.reset_index(drop=True)
 
 
-
 def build_and_save_universe_snapshot(config: UniverseConfig) -> Tuple[Path, Path]:
     selected, summary, eligible_df = build_universe_snapshot(config)
-
     output_dir = config.output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
-
     snapshot_path = output_dir / "universe_snapshot.parquet"
     eligible_path = output_dir / "universe_eligibility_debug.parquet"
     summary_path = output_dir / "universe_summary.json"
-
     selected.to_parquet(snapshot_path, index=False)
     eligible_df.to_parquet(eligible_path, index=False)
     summary_path.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
-
     return snapshot_path, summary_path
 
 
 UniversePolicy = UniverseEligibilityPolicy
-
 
 __all__ = [
     "UniverseBuildError",
@@ -649,7 +734,6 @@ __all__ = [
     "build_universe_snapshot",
     "load_config_from_env",
 ]
-
 
 if __name__ == "__main__":
     try:
