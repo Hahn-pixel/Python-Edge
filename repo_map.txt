@@ -4,11 +4,71 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/.gitattributes
 .gitignore
 https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/.gitignore
 
-console191.log
-https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console191.log
+      artifacts/execution_loop/aggressive/broker_cleanup_emit_summary.json
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/artifacts/execution_loop/aggressive/broker_cleanup_emit_summary.json
 
-console192.log
-https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console192.log
+      artifacts/execution_loop/aggressive/broker_cleanup_send_summary.json
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/artifacts/execution_loop/aggressive/broker_cleanup_send_summary.json
+
+      artifacts/execution_loop/aggressive/broker_handoff_summary.json
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/artifacts/execution_loop/aggressive/broker_handoff_summary.json
+
+      artifacts/execution_loop/aggressive/broker_log.json
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/artifacts/execution_loop/aggressive/broker_log.json
+
+      artifacts/execution_loop/aggressive/broker_reconcile_summary.json
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/artifacts/execution_loop/aggressive/broker_reconcile_summary.json
+
+      artifacts/execution_loop/aggressive/portfolio_state.json
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/artifacts/execution_loop/aggressive/portfolio_state.json
+
+      artifacts/execution_loop/aggressive/reconcile_report.json
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/artifacts/execution_loop/aggressive/reconcile_report.json
+
+      artifacts/execution_loop/aggressive/state_alignment_once.json
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/artifacts/execution_loop/aggressive/state_alignment_once.json
+
+      artifacts/execution_loop/optimal/broker_cleanup_emit_summary.json
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/artifacts/execution_loop/optimal/broker_cleanup_emit_summary.json
+
+      artifacts/execution_loop/optimal/broker_cleanup_send_summary.json
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/artifacts/execution_loop/optimal/broker_cleanup_send_summary.json
+
+      artifacts/execution_loop/optimal/broker_handoff_summary.json
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/artifacts/execution_loop/optimal/broker_handoff_summary.json
+
+      artifacts/execution_loop/optimal/broker_log.json
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/artifacts/execution_loop/optimal/broker_log.json
+
+      artifacts/execution_loop/optimal/broker_reconcile_summary.json
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/artifacts/execution_loop/optimal/broker_reconcile_summary.json
+
+      artifacts/execution_loop/optimal/portfolio_state.json
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/artifacts/execution_loop/optimal/portfolio_state.json
+
+      artifacts/execution_loop/optimal/reconcile_report.json
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/artifacts/execution_loop/optimal/reconcile_report.json
+
+      artifacts/execution_loop/optimal/state_alignment_once.json
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/artifacts/execution_loop/optimal/state_alignment_once.json
+
+console209.log
+https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console209.log
+
+console210.log
+https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console210.log
+
+console211.log
+https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console211.log
+
+console212.log
+https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console212.log
+
+console213.log
+https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console213.log
+
+console214.log
+https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console214.log
 
 deps_edges.txt
 https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/deps_edges.txt
@@ -24,6 +84,9 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/repo_map.txt
 
   scripts/download_massive_aggs.py
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/download_massive_aggs.py
+
+  scripts/run_alpha_diagnostics_live.py
+  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_alpha_diagnostics_live.py
 
   scripts/run_broker_adapter_ibkr.py
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_broker_adapter_ibkr.py
