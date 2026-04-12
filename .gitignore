@@ -23,6 +23,10 @@ artifacts/*
 # allow execution_loop
 !artifacts/execution_loop/
 !artifacts/execution_loop/**
+!artifacts/daily_cycle/
+artifacts/daily_cycle/*
+!artifacts/daily_cycle/universe/
+artifacts/daily_cycle/universe/universe_grouped_daily_raw.parquet
 
 # ========================
 # Outputs

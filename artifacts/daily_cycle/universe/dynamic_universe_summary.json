@@ -1,0 +1,53 @@
+{
+  "ts_utc": "2026-04-12T12:39:29Z",
+  "snapshot_path": "C:\\Users\\Dmytro Govor\\Documents\\Python-Edge\\artifacts\\daily_cycle\\universe\\universe_snapshot.parquet",
+  "output_dir": "C:\\Users\\Dmytro Govor\\Documents\\Python-Edge\\artifacts\\daily_cycle\\universe",
+  "top_n": 300,
+  "rank_by": "median_dollar_volume_20d",
+  "latest_date": "2026-04-10",
+  "pinned_symbols": [],
+  "min_pin_pass_policy": true,
+  "portfolio_symbols": [
+    "OKLO",
+    "TSEM",
+    "SMCI",
+    "NKE",
+    "AXTI",
+    "AAOI",
+    "MSTR",
+    "APLS",
+    "CAR",
+    "APTV",
+    "APLD"
+  ],
+  "portfolio_in_selected": 7,
+  "portfolio_not_in_selected": 4,
+  "policy": {
+    "min_price": 7.5,
+    "min_median_dollar_vol_20d": 10000000.0,
+    "min_history_days": 25,
+    "max_nan_ratio": 0.02,
+    "max_missing_days_20d": 1,
+    "allowed_ticker_types": [
+      "CS"
+    ],
+    "allowed_primary_exchanges": [],
+    "allowed_exchanges": [],
+    "require_active": true
+  },
+  "candidates_total": 232,
+  "eligible_total": 232,
+  "dropped_active": 0,
+  "dropped_ticker_type": 0,
+  "dropped_primary_exchange": 0,
+  "dropped_exchange": 0,
+  "dropped_price": 0,
+  "dropped_liquidity": 0,
+  "dropped_history": 0,
+  "dropped_nan_ratio": 0,
+  "dropped_missing_days": 0,
+  "top_n_requested": 300,
+  "selected_total": 232,
+  "dropped_total": 0,
+  "portfolio_symbols_total": 11
+}
