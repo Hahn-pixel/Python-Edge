@@ -38,7 +38,17 @@ from python_edge.model.alpha_factory_specs import SEED_RECIPES
 DEFAULT_BASE_URL = "https://api.massive.com"
 PAUSE_ON_EXIT = str(os.getenv("PAUSE_ON_EXIT", "auto")).strip().lower()
 
-UNIVERSE_SNAPSHOT_FILE = Path(os.getenv("UNIVERSE_SNAPSHOT_FILE", "artifacts/daily_cycle/universe/universe_snapshot.parquet"))
+# --- universe source: dynamic first, fallback to static ---
+_UNIVERSE_DIR = Path(os.getenv("UNIVERSE_OUTPUT_DIR", "artifacts/daily_cycle/universe"))
+UNIVERSE_SNAPSHOT_FILE = Path(os.getenv(
+    "UNIVERSE_SNAPSHOT_FILE",
+    str(_UNIVERSE_DIR / "universe_snapshot.parquet"),
+))
+DYNAMIC_UNIVERSE_FILE = Path(os.getenv(
+    "DYNAMIC_UNIVERSE_FILE",
+    str(_UNIVERSE_DIR / "dynamic_universe.parquet"),
+))
+
 LIVE_ALPHA_OUT_DIR = Path(os.getenv("LIVE_ALPHA_OUT_DIR", "artifacts/live_alpha"))
 LIVE_ALPHA_LOOKBACK_DAYS = int(os.getenv("LIVE_ALPHA_LOOKBACK_DAYS", "260"))
 LIVE_ALPHA_MAX_SYMBOLS = int(os.getenv("LIVE_ALPHA_MAX_SYMBOLS", "500"))
@@ -150,7 +160,65 @@ def _symbol_column(snap: pd.DataFrame) -> str:
     raise RuntimeError("Universe snapshot must contain ticker or symbol")
 
 
+def _load_from_dynamic_universe() -> tuple[list[str], str] | None:
+    """
+    Try to load symbols from dynamic_universe.parquet.
+    Returns (symbols, date_str) or None if file absent / unusable.
+    dynamic_universe has no 'selected' column — all rows are already selected.
+    """
+    path = DYNAMIC_UNIVERSE_FILE
+    if not path.exists():
+        return None
+    try:
+        snap = pd.read_parquet(path)
+        if snap.empty:
+            print(f"[UNIVERSE][WARN] dynamic_universe.parquet is empty, falling back to universe_snapshot")
+            return None
+
+        symbol_col = _symbol_column(snap)
+        snap[symbol_col] = snap[symbol_col].astype(str).str.strip().str.upper()
+        snap = snap.loc[snap[symbol_col].ne("") & snap[symbol_col].ne("NAN")].copy()
+
+        # sort by selected_rank if available, else liquidity_rank, else symbol
+        sort_candidates = [c for c in ["selected_rank", "liquidity_rank", symbol_col] if c in snap.columns]
+        if sort_candidates:
+            snap = snap.sort_values(sort_candidates, ascending=[True] * len(sort_candidates), na_position="last")
+
+        snap = snap.drop_duplicates(subset=[symbol_col], keep="first").reset_index(drop=True)
+        symbols = snap[symbol_col].astype(str).tolist()[:LIVE_ALPHA_MAX_SYMBOLS]
+        if not symbols:
+            return None
+
+        # derive date: from trade_date col or fallback to today
+        date_str = ""
+        for col in ["trade_date", "as_of_date", "date", "session_date"]:
+            if col in snap.columns:
+                val = pd.to_datetime(snap[col], errors="coerce").dropna()
+                if not val.empty:
+                    date_str = val.max().date().isoformat()
+                    break
+        if not date_str:
+            date_str = datetime.utcnow().date().isoformat()
+
+        print(
+            f"[UNIVERSE][LOAD] source=dynamic_universe.parquet"
+            f" symbol_col={symbol_col} latest_date={date_str}"
+            f" selected={len(symbols)} max_symbols={LIVE_ALPHA_MAX_SYMBOLS}"
+        )
+        return symbols, date_str
+
+    except Exception as exc:
+        print(f"[UNIVERSE][WARN] failed to load dynamic_universe.parquet: {exc!r}, falling back")
+        return None
+
+
 def _load_selected_universe() -> tuple[list[str], str]:
+    # --- try dynamic universe first ---
+    dynamic_result = _load_from_dynamic_universe()
+    if dynamic_result is not None:
+        return dynamic_result
+
+    # --- fallback: original universe_snapshot.parquet path ---
     if not UNIVERSE_SNAPSHOT_FILE.exists():
         raise FileNotFoundError(f"Universe snapshot not found: {UNIVERSE_SNAPSHOT_FILE}")
 
@@ -191,7 +259,9 @@ def _load_selected_universe() -> tuple[list[str], str]:
 
     print(
         "[UNIVERSE][LOAD] "
-        f"snapshot={UNIVERSE_SNAPSHOT_FILE} symbol_col={symbol_col} date_col={date_col} latest_date={latest_date.date().isoformat()} "
+        f"source=universe_snapshot.parquet (fallback)"
+        f" snapshot={UNIVERSE_SNAPSHOT_FILE} symbol_col={symbol_col} date_col={date_col}"
+        f" latest_date={latest_date.date().isoformat()} "
         f"rows_current={len(snap)} selected_current={len(selected)} max_symbols={LIVE_ALPHA_MAX_SYMBOLS}"
     )
     return symbols, latest_date.date().isoformat()
@@ -272,16 +342,8 @@ def _prepare_proxy_feature_frame(proxy_panel: pd.DataFrame) -> pd.DataFrame:
     work["z_volatility_20d"] = work.groupby("symbol", sort=False)["volatility_20d"].transform(lambda s: _rolling_z(s, 20))
 
     metrics = [
-        "ret_1d",
-        "ret_5d",
-        "ret_20d",
-        "momentum_20d",
-        "volatility_20d",
-        "z_ret_1d",
-        "z_ret_5d",
-        "z_ret_20d",
-        "z_momentum_20d",
-        "z_volatility_20d",
+        "ret_1d", "ret_5d", "ret_20d", "momentum_20d", "volatility_20d",
+        "z_ret_1d", "z_ret_5d", "z_ret_20d", "z_momentum_20d", "z_volatility_20d",
     ]
     pivots: Dict[str, pd.DataFrame] = {
         metric: work.pivot(index="date", columns="symbol", values=metric) for metric in metrics
@@ -290,7 +352,6 @@ def _prepare_proxy_feature_frame(proxy_panel: pd.DataFrame) -> pd.DataFrame:
     base_index = sorted(work["date"].dropna().unique())
     feature_parts: List[pd.DataFrame] = []
 
-    # Per-proxy direct features
     per_proxy_cols: Dict[str, pd.Series] = {}
     for symbol in COMMODITY_PROXY_SYMBOLS + GLOBAL_REGIME_PROXY_SYMBOLS:
         prefix = symbol.lower()
@@ -406,25 +467,18 @@ def _prepare_proxy_feature_frame(proxy_panel: pd.DataFrame) -> pd.DataFrame:
     ) / 3.0
 
     z_source_cols = [
-        "commodities_basket_ret_1d",
-        "commodities_basket_ret_5d",
-        "commodities_basket_ret_20d",
-        "commodities_basket_momentum_20d",
-        "commodities_basket_volatility_20d",
-        "asia_us_lead",
-        "europe_us_lead",
-        "global_divergence",
-        "vol_dollar_divergence",
-        "rates_equity_tension",
-        "macro_stress_score",
+        "commodities_basket_ret_1d", "commodities_basket_ret_5d", "commodities_basket_ret_20d",
+        "commodities_basket_momentum_20d", "commodities_basket_volatility_20d",
+        "asia_us_lead", "europe_us_lead", "global_divergence",
+        "vol_dollar_divergence", "rates_equity_tension", "macro_stress_score",
     ]
+    combined = pd.concat([base_df, derived_df], axis=1)
     z_df = pd.DataFrame(
-        {f"{col}_z": _rolling_z(pd.to_numeric(pd.concat([base_df, derived_df], axis=1)[col], errors="coerce"), 20) for col in z_source_cols},
+        {f"{col}_z": _rolling_z(pd.to_numeric(combined[col], errors="coerce"), 20) for col in z_source_cols},
         index=base_index,
     )
 
-    out = pd.concat([base_df, derived_df, z_df], axis=1)
-    out = out.copy()  # defragment frame
+    out = pd.concat([base_df, derived_df, z_df], axis=1).copy()
     out = out.reset_index().rename(columns={"index": "date"}).sort_values("date").reset_index(drop=True)
     return out
 
@@ -522,8 +576,7 @@ def _add_interaction_layer(feature_panel: pd.DataFrame, alpha_frame: pd.DataFram
             )
 
     if interaction_cols:
-        out = pd.concat([out, pd.DataFrame(interaction_cols, index=out.index)], axis=1)
-        out = out.copy()
+        out = pd.concat([out, pd.DataFrame(interaction_cols, index=out.index)], axis=1).copy()
 
     manifest_out = manifest.copy()
     if manifest_rows:
@@ -552,6 +605,7 @@ def _build_proxy_context(end_date: str) -> tuple[pd.DataFrame, Dict[str, object]
 
 def main() -> int:
     print(f"[CFG] universe_snapshot_file={UNIVERSE_SNAPSHOT_FILE}")
+    print(f"[CFG] dynamic_universe_file={DYNAMIC_UNIVERSE_FILE}")
     print(f"[CFG] live_alpha_out_dir={LIVE_ALPHA_OUT_DIR}")
     print(f"[CFG] live_alpha_scope={LIVE_ALPHA_SCOPE} survivor_top_n={LIVE_ALPHA_SURVIVOR_TOP_N}")
     print(f"[CFG] lookback_days={LIVE_ALPHA_LOOKBACK_DAYS} max_symbols={LIVE_ALPHA_MAX_SYMBOLS}")
