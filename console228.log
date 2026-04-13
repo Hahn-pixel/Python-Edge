@@ -1,0 +1,128 @@
+artifacts\execution_loop\optimal\broker_log.json:78:        "outcome": "partial",
+artifacts\execution_loop\optimal\broker_log.json:107:          "broker_error_code": 202,
+artifacts\execution_loop\optimal\broker_log.json:108:          "broker_error_string": "Order Canceled - reason:We canno
+t accept an order at a limit price at or more aggressive than 38.74374. Please submit your order using<br> a limit pric
+e that is closer to the current market price of 40.74.",
+artifacts\execution_loop\optimal\broker_log.json:171:        "outcome": "filled_now",
+artifacts\execution_loop\optimal\broker_log.json:260:        "outcome": "filled_now",
+artifacts\execution_loop\optimal\broker_log.json:337:        "issue_kind": "ladder_cap_cancelled",
+artifacts\execution_loop\optimal\broker_log.json:340:        "outcome": "failed",
+artifacts\execution_loop\optimal\broker_log.json:417:        "issue_kind": "ladder_cap_cancelled",
+artifacts\execution_loop\optimal\broker_log.json:420:        "outcome": "failed",
+artifacts\execution_loop\optimal\broker_log.json:501:        "outcome": "filled_now",
+artifacts\execution_loop\optimal\broker_log.json:582:        "outcome": "filled_now",
+artifacts\execution_loop\optimal\broker_log.json:666:        "outcome": "working_carry",
+artifacts\execution_loop\optimal\broker_log.json:755:        "outcome": "working_carry",
+artifacts\execution_loop\optimal\broker_log.json:832:        "outcome": "filled_now",
+artifacts\execution_loop\optimal\broker_log.json:903:        "outcome": "working",
+artifacts\execution_loop\optimal\broker_log.json:980:        "outcome": "filled_now",
+artifacts\execution_loop\optimal\broker_log.json:1057:        "outcome": "filled_now",
+artifacts\execution_loop\optimal\broker_log.json:1113:        "error_code": 202,
+artifacts\execution_loop\optimal\broker_log.json:1114:        "error_string": "Order Canceled - reason:We cannot accept
+ an order at a limit price at or more aggressive than 168.942636. Please submit your order <br>using a limit price that
+ is closer to the current market price of 174.06.",
+artifacts\execution_loop\optimal\broker_log.json:1115:        "outcome": "failed"
+artifacts\execution_loop\optimal\broker_log.json:1202:        "outcome": "working_carry",
+artifacts\execution_loop\optimal\broker_log.json:1279:        "issue_kind": "ladder_cap_cancelled",
+artifacts\execution_loop\optimal\broker_log.json:1282:        "outcome": "failed",
+artifacts\execution_loop\optimal\broker_log.json:1359:        "issue_kind": "ladder_cap_cancelled",
+artifacts\execution_loop\optimal\broker_log.json:1362:        "outcome": "failed",
+artifacts\execution_loop\optimal\broker_log.json:1451:        "outcome": "working_carry",
+artifacts\execution_loop\optimal\broker_log.json:1540:        "outcome": "filled_now",
+artifacts\execution_loop\optimal\broker_log.json:1618:        "error_code": 0,
+artifacts\execution_loop\optimal\broker_log.json:1619:        "error_string": "",
+artifacts\execution_loop\optimal\broker_log.json:1620:        "outcome": "failed"
+artifacts\execution_loop\optimal\broker_log.json:1695:        "issue_kind": "ladder_cap_cancelled",
+artifacts\execution_loop\optimal\broker_log.json:1698:        "outcome": "failed",
+artifacts\execution_loop\optimal\broker_log.json:1776:        "error_code": 0,
+artifacts\execution_loop\optimal\broker_log.json:1777:        "error_string": "",
+artifacts\execution_loop\optimal\broker_log.json:1778:        "outcome": "failed"
+artifacts\execution_loop\optimal\broker_log.json:1857:        "outcome": "filled_now",
+artifacts\execution_loop\optimal\broker_log.json:1913:        "error_code": 0,
+artifacts\execution_loop\optimal\broker_log.json:1914:        "error_string": "",
+artifacts\execution_loop\optimal\broker_log.json:1915:        "outcome": "failed"
+artifacts\execution_loop\optimal\broker_log.json:1942:          "broker_error_code": 202,
+artifacts\execution_loop\optimal\broker_log.json:1943:          "broker_error_string": "Order Canceled - reason:We cann
+ot accept an order at a limit price at or more aggressive than 291.257648. Please submit your order <br>using a limit p
+rice that is closer to the current market price of 300.08.",
+artifacts\execution_loop\optimal\broker_log.json:2006:        "issue_kind": "ladder_cap_cancelled",
+artifacts\execution_loop\optimal\broker_log.json:2009:        "outcome": "failed",
+artifacts\execution_loop\optimal\broker_log.json:2086:        "outcome": "filled_now",
+artifacts\execution_loop\optimal\broker_log.json:2163:        "issue_kind": "ladder_cap_cancelled",
+artifacts\execution_loop\optimal\broker_log.json:2166:        "outcome": "failed",
+artifacts\execution_loop\optimal\broker_log.json:2222:        "error_code": 202,
+artifacts\execution_loop\optimal\broker_log.json:2223:        "error_string": "Order Canceled - reason:We cannot accept
+ an order at a limit price at or more aggressive than 202.865106. Please submit your order <br>using a limit price that
+ is closer to the current market price of 209.01.",
+artifacts\execution_loop\optimal\broker_log.json:2224:        "outcome": "failed"
+artifacts\execution_loop\optimal\broker_log.json:2251:          "broker_error_code": 202,
+artifacts\execution_loop\optimal\broker_log.json:2252:          "broker_error_string": "Order Canceled - reason:We cann
+ot accept an order at a limit price at or more aggressive than 249.958618. Please submit your order <br>using a limit p
+rice that is closer to the current market price of 257.53.",
+artifacts\execution_loop\optimal\broker_log.json:2315:        "issue_kind": "ladder_cap_cancelled",
+artifacts\execution_loop\optimal\broker_log.json:2318:        "outcome": "failed",
+artifacts\execution_loop\optimal\broker_log.json:2407:        "outcome": "working_carry",
+artifacts\execution_loop\optimal\broker_log.json:2484:        "issue_kind": "ladder_cap_cancelled",
+artifacts\execution_loop\optimal\broker_log.json:2487:        "outcome": "failed",
+artifacts\execution_loop\optimal\broker_log.json:2558:        "outcome": "working",
+artifacts\execution_loop\optimal\broker_log.json:2635:        "issue_kind": "ladder_cap_cancelled",
+artifacts\execution_loop\optimal\broker_log.json:2638:        "outcome": "failed",
+artifacts\execution_loop\optimal\broker_log.json:2694:        "error_code": 202,
+
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> Set-StrictMode -Version Latest
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> $ROOT = "C:\Users\Dmytro Govor\Documents\Python-Edge"
+PS C:\Users\Dmytro Govor\Documents\Python-Edge>
+PS C:\Users\Dmytro Govor\Documents\Python-Edge> foreach ($cfg in @("optimal", "aggressive")) {
+>>     $logPath = "$ROOT\artifacts\execution_loop\$cfg\broker_log.json"
+>>     if (-not (Test-Path $logPath)) { Write-Host "[$cfg] broker_log.json not found"; continue }
+>>
+>>     $log = Get-Content $logPath -Raw | ConvertFrom-Json
+>>     $entries = $log.entries
+>>     Write-Host ""
+>>     Write-Host "=== $cfg ($($entries.Count) entries) ===" -ForegroundColor Cyan
+>>
+>>     foreach ($e in $entries) {
+>>         $sym     = $e.symbol
+>>         $side    = $e.side
+>>         $status  = $e.status
+>>         $outcome = $e.response.outcome
+>>         $errCode = $e.response.error_code
+>>         $errStr  = $e.response.error_string
+>>         $issueKind = $e.response.issue_kind
+>>         Write-Host "  $sym $side status=$status outcome=$outcome issue=$issueKind err_code=$errCode err=$errStr"
+>>     }
+>> }
+PropertyNotFoundException:
+Line |
+   6 |      $entries = $log.entries
+     |      ~~~~~~~~~~~~~~~~~~~~~~~
+     | The property 'entries' cannot be found on this object. Verify that the property exists.
+
+InvalidOperation:
+Line |
+   8 |      Write-Host "=== $cfg ($($entries.Count) entries) ===" -Foreground …
+     |                              ~~~~~~~~
+     | The variable '$entries' cannot be retrieved because it has not been set.
+=== optimal ( entries) ===
+InvalidOperation:
+Line |
+  10 |      foreach ($e in $entries) {
+     |                     ~~~~~~~~
+     | The variable '$entries' cannot be retrieved because it has not been set.
+PropertyNotFoundException:
+Line |
+   6 |      $entries = $log.entries
+     |      ~~~~~~~~~~~~~~~~~~~~~~~
+     | The property 'entries' cannot be found on this object. Verify that the property exists.
+
+InvalidOperation:
+Line |
+   8 |      Write-Host "=== $cfg ($($entries.Count) entries) ===" -Foreground …
+     |                              ~~~~~~~~
+     | The variable '$entries' cannot be retrieved because it has not been set.
+=== aggressive ( entries) ===
+InvalidOperation:
+Line |
+  10 |      foreach ($e in $entries) {
+     |                     ~~~~~~~~
+     | The variable '$entries' cannot be retrieved because it has not been set.

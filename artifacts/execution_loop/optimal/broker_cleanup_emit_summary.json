@@ -1,6 +1,6 @@
 {
   "config": "optimal",
-  "generated_at": "2026-04-08T16:30:37.418806+00:00",
+  "generated_at": "2026-04-13T14:36:23.107169+00:00",
   "preview_csv": "artifacts\\execution_loop\\optimal\\broker_cleanup_preview.csv",
   "orders_csv": "artifacts\\execution_loop\\optimal\\broker_cleanup_orders.csv",
   "filters": {
@@ -15,8 +15,8 @@
     "emit_reason_tag": "broker_cleanup_emit"
   },
   "counters": {
-    "preview_rows": 15,
-    "emitted_rows": 15,
+    "preview_rows": 17,
+    "emitted_rows": 17,
     "blocked_empty_symbol": 0,
     "blocked_not_in_only_symbols": 0,
     "blocked_excluded_symbol": 0,
