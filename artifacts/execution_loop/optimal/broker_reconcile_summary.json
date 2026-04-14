@@ -1,12 +1,12 @@
 {
   "config": "optimal",
-  "generated_at_utc": "2026-04-11T12:29:16Z",
+  "generated_at_utc": "2026-04-14T14:45:06Z",
   "symbols_total": 22,
-  "drift": 20,
-  "missing_at_broker": 3,
-  "unexpected_at_broker": 11,
+  "drift": 22,
+  "missing_at_broker": 4,
+  "unexpected_at_broker": 10,
   "pending_covers_drift": 0,
-  "max_abs_drift_shares": 296.0,
-  "cleanup_preview_rows": 17,
+  "max_abs_drift_shares": 1336.0,
+  "cleanup_preview_rows": 18,
   "cleanup_preview_enabled": 1
 }

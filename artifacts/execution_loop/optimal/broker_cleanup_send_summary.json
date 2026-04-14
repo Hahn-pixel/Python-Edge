@@ -1,7 +1,7 @@
 {
   "config": "optimal",
-  "generated_at": "2026-04-10T14:30:11.144784+00:00",
-  "preview_only": 1,
+  "generated_at": "2026-04-14T14:45:09.787963+00:00",
+  "preview_only": 0,
   "cleanup_orders_csv": "artifacts\\execution_loop\\optimal\\broker_cleanup_orders.csv",
   "send_plan_csv": "artifacts\\execution_loop\\optimal\\broker_cleanup_send_plan.csv",
   "orders_csv": "artifacts\\execution_loop\\optimal\\orders.csv",
@@ -15,14 +15,14 @@
     "cleanup_send_reason_tag": "broker_cleanup_send"
   },
   "counters": {
-    "cleanup_rows": 15,
-    "emitted_rows": 15,
+    "cleanup_rows": 17,
+    "emitted_rows": 0,
     "blocked_empty_symbol": 0,
     "blocked_not_in_only_symbols": 0,
     "blocked_excluded_symbol": 0,
     "blocked_non_positive_qty": 0,
     "blocked_side_not_allowed": 0,
-    "blocked_pending_refs_present": 0,
+    "blocked_pending_refs_present": 17,
     "blocked_max_rows": 0
   }
 }

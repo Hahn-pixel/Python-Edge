@@ -1,6 +1,6 @@
 {
   "config": "optimal",
-  "generated_at": "2026-04-13T14:36:23.107169+00:00",
+  "generated_at": "2026-04-13T15:21:44.340774+00:00",
   "preview_csv": "artifacts\\execution_loop\\optimal\\broker_cleanup_preview.csv",
   "orders_csv": "artifacts\\execution_loop\\optimal\\broker_cleanup_orders.csv",
   "filters": {
