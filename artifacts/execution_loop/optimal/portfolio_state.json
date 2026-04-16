@@ -1,97 +1,48 @@
 {
   "config": "optimal",
-  "nav": 55204.032916,
-  "cash": 163693.43872285,
+  "nav": 55176.028213800004,
+  "cash": 38788.5896131,
   "last_rebalanced_date": "2026-04-10",
   "positions": {
-    "10174": {
+    "APLS": {
+      "shares": 1269.0,
+      "last_price": 40.79,
+      "market_value": 51762.51,
+      "price_source": "live_snapshot",
+      "is_priced": 1
+    },
+    "APTV": {
+      "shares": -148.0,
+      "last_price": 59.65,
+      "market_value": -8828.199999999999,
+      "price_source": "live_snapshot",
+      "is_priced": 1
+    },
+    "AXON": {
+      "shares": -8.0,
+      "last_price": 345.94,
+      "market_value": -2767.52,
+      "price_source": "live_snapshot",
+      "is_priced": 1
+    },
+    "NEM": {
       "shares": -208.0,
       "last_price": 105.01345865,
       "market_value": -21842.7993992,
       "price_source": "state_last_price",
       "is_priced": 1
     },
-    "10291": {
+    "NKE": {
       "shares": -21.0,
       "last_price": 42.4427381,
       "market_value": -891.2975001,
       "price_source": "state_last_price",
       "is_priced": 1
     },
-    "135423662": {
-      "shares": -400.0,
-      "last_price": 149.791719,
-      "market_value": -59916.6876,
-      "price_source": "state_last_price",
-      "is_priced": 1
-    },
-    "270639": {
-      "shares": -200.0,
-      "last_price": 43.021055,
-      "market_value": -8604.211,
-      "price_source": "state_last_price",
-      "is_priced": 1
-    },
-    "272104927": {
-      "shares": -8.0,
-      "last_price": 343.8877125,
-      "market_value": -2751.1017,
-      "price_source": "state_last_price",
-      "is_priced": 1
-    },
-    "295518928": {
-      "shares": 1269.0,
-      "last_price": 40.825,
-      "market_value": 51806.925,
-      "price_source": "state_last_price",
-      "is_priced": 1
-    },
-    "4815747": {
-      "shares": -84.0,
-      "last_price": 193.0939226,
-      "market_value": -16219.889498400002,
-      "price_source": "state_last_price",
-      "is_priced": 1
-    },
-    "500073396": {
+    "OKLO": {
       "shares": -20.0,
       "last_price": 52.262725,
       "market_value": -1045.2545,
-      "price_source": "state_last_price",
-      "is_priced": 1
-    },
-    "504546674": {
-      "shares": -295.0,
-      "last_price": 66.84955765,
-      "market_value": -19720.619506749998,
-      "price_source": "state_last_price",
-      "is_priced": 1
-    },
-    "556067819": {
-      "shares": -220.0,
-      "last_price": 26.22370865,
-      "market_value": -5769.215902999999,
-      "price_source": "state_last_price",
-      "is_priced": 1
-    },
-    "748351585": {
-      "shares": -148.0,
-      "last_price": 59.87181485,
-      "market_value": -8861.0285978,
-      "price_source": "state_last_price",
-      "is_priced": 1
-    },
-    "787273575": {
-      "shares": -48.0,
-      "last_price": 60.6568875,
-      "market_value": -2911.5306,
-      "price_source": "state_last_price",
-      "is_priced": 1
-    },
-    "789044667": {
-      "shares": -128.0,
-      "last_price": 91.8960547,
-      "market_value": -11762.6950016,
       "price_source": "state_last_price",
       "is_priced": 1
     }
@@ -99,13 +50,13 @@
   "state_alignment": {
     "source": "artifacts\\execution_loop\\optimal\\broker_positions.csv",
     "cash_mode": "preserve_nav",
-    "positions_count": 13,
-    "market_value": -108489.40580685,
-    "cash_after_alignment": 163693.43872285,
+    "positions_count": 6,
+    "market_value": 16415.4433029,
+    "cash_after_alignment": 38788.5896131,
     "nav_after_alignment": 55204.032916,
     "default_fallback_price_count": 0,
     "state_fallback_price_count": 0,
-    "broker_price_count": 13,
+    "broker_price_count": 6,
     "live_snapshot_price_count": 0,
     "unpriced_count": 0
   },

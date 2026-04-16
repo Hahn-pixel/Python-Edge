@@ -2,13 +2,13 @@
   "config": "aggressive",
   "source": "artifacts\\execution_loop\\aggressive\\broker_positions.csv",
   "cash_mode": "preserve_nav",
-  "positions_count": 13,
-  "market_value": -108489.40580684999,
-  "cash_after_alignment": 169475.61126884999,
+  "positions_count": 6,
+  "market_value": 16415.4433029,
+  "cash_after_alignment": 44570.7621591,
   "nav_after_alignment": 60986.205462,
   "default_fallback_price_count": 0,
   "state_fallback_price_count": 0,
-  "broker_price_count": 13,
+  "broker_price_count": 6,
   "live_snapshot_price_count": 0,
   "unpriced_count": 0
 }

@@ -1,23 +1,9 @@
 {
   "config": "aggressive",
-  "nav": 57623.65976279999,
-  "cash": 169475.61126884999,
+  "nav": 60958.200759800005,
+  "cash": 44570.7621591,
   "last_rebalanced_date": "2026-04-10",
   "positions": {
-    "AAOI": {
-      "shares": -400.0,
-      "last_price": 150.6,
-      "market_value": -60240.0,
-      "price_source": "live_snapshot",
-      "is_priced": 1
-    },
-    "APLD": {
-      "shares": -220.0,
-      "last_price": 26.26,
-      "market_value": -5777.200000000001,
-      "price_source": "live_snapshot",
-      "is_priced": 1
-    },
     "APLS": {
       "shares": 1269.0,
       "last_price": 40.79,
@@ -39,27 +25,6 @@
       "price_source": "live_snapshot",
       "is_priced": 1
     },
-    "CRCL": {
-      "shares": -128.0,
-      "last_price": 88.04,
-      "market_value": -11269.12,
-      "price_source": "live_snapshot",
-      "is_priced": 1
-    },
-    "HOOD": {
-      "shares": -295.0,
-      "last_price": 66.84955765,
-      "market_value": -19720.619506749998,
-      "price_source": "state_last_price",
-      "is_priced": 1
-    },
-    "INTC": {
-      "shares": -200.0,
-      "last_price": 62.38,
-      "market_value": -12476.0,
-      "price_source": "live_snapshot",
-      "is_priced": 1
-    },
     "NEM": {
       "shares": -208.0,
       "last_price": 105.01345865,
@@ -74,24 +39,10 @@
       "price_source": "state_last_price",
       "is_priced": 1
     },
-    "NVDA": {
-      "shares": -84.0,
-      "last_price": 188.63,
-      "market_value": -15844.92,
-      "price_source": "live_snapshot",
-      "is_priced": 1
-    },
     "OKLO": {
       "shares": -20.0,
       "last_price": 52.262725,
       "market_value": -1045.2545,
-      "price_source": "state_last_price",
-      "is_priced": 1
-    },
-    "RKLB": {
-      "shares": -48.0,
-      "last_price": 60.6568875,
-      "market_value": -2911.5306,
       "price_source": "state_last_price",
       "is_priced": 1
     }
@@ -99,13 +50,13 @@
   "state_alignment": {
     "source": "artifacts\\execution_loop\\aggressive\\broker_positions.csv",
     "cash_mode": "preserve_nav",
-    "positions_count": 13,
-    "market_value": -108489.40580684999,
-    "cash_after_alignment": 169475.61126884999,
+    "positions_count": 6,
+    "market_value": 16415.4433029,
+    "cash_after_alignment": 44570.7621591,
     "nav_after_alignment": 60986.205462,
     "default_fallback_price_count": 0,
     "state_fallback_price_count": 0,
-    "broker_price_count": 13,
+    "broker_price_count": 6,
     "live_snapshot_price_count": 0,
     "unpriced_count": 0
   },

@@ -9,7 +9,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import time
+
 import pandas as pd
+import requests
 
 ROOT    = Path(__file__).resolve().parents[1]
 SRC_DIR = ROOT / "src"
@@ -232,6 +235,128 @@ def _build_send_plan(
 # Execute plan via CPAPI
 # ---------------------------------------------------------------------------
 
+def _fetch_live_prices(
+    client: CpapiClient,
+    symbols: List[str],
+    conid_cache: Dict[str, str],
+    side_map: Dict[str, str],
+    fallback_prices: Dict[str, float],
+) -> Dict[str, float]:
+    """
+    Fetch live BBO/last prices for cleanup symbols via CPAPI snapshot.
+    Falls back to massive if CPAPI returns no price, and to broker_avg_cost
+    if both fail. Returns {symbol: price}.
+
+    Uses the same field IDs and logic as run_cpapi_handoff.py.
+    """
+    import os as _os
+    MASSIVE_API_KEY   = str(_os.getenv("MASSIVE_API_KEY",   "")).strip()
+    MASSIVE_BASE_URL  = str(_os.getenv("MASSIVE_BASE_URL",  "https://api.massive.com")).strip()
+    MASSIVE_TIMEOUT   = float(_os.getenv("MASSIVE_TIMEOUT_SEC", "20.0"))
+    SNAPSHOT_FIELDS   = str(_os.getenv("CPAPI_SNAPSHOT_FIELDS", "31,84,86,88"))
+    SNAPSHOT_WAIT     = float(_os.getenv("CPAPI_SNAPSHOT_WAIT_SEC", "2.0"))
+    SNAPSHOT_RETRIES  = int(_os.getenv("CPAPI_SNAPSHOT_RETRIES", "3"))
+    ALLOW_LAST        = str(_os.getenv("ALLOW_LAST_FALLBACK", "1")).lower() not in {"0","false","no","off"}
+
+    _FIELD_BID  = "84"
+    _FIELD_ASK  = "86"
+    _FIELD_LAST = "31"
+    _FIELD_CLOSE_CANDIDATES = ["7295", "7762", "7284", "70"]
+
+    symbol_to_conid = {s: conid_cache[s] for s in symbols if s in conid_cache}
+    conid_to_sym    = {v: k for k, v in symbol_to_conid.items()}
+
+    # bid/ask/last/close accumulators
+    raw: Dict[str, Dict[str, float]] = {s: {"bid":0.0,"ask":0.0,"last":0.0,"close":0.0} for s in symbols}
+
+    # ── CPAPI snapshot ────────────────────────────────────────────────
+    if symbol_to_conid:
+        conids_str = ",".join(symbol_to_conid.values())
+        path = f"/v1/api/iserver/marketdata/snapshot?conids={conids_str}&fields={SNAPSHOT_FIELDS}"
+        for attempt in range(1, SNAPSHOT_RETRIES + 1):
+            if attempt > 1:
+                time.sleep(SNAPSHOT_WAIT)
+            try:
+                rows = client._get(path)
+                if not isinstance(rows, list):
+                    rows = []
+                for row in rows:
+                    conid = str(row.get("conid","") or "")
+                    sym   = conid_to_sym.get(conid)
+                    if sym is None:
+                        continue
+                    r = raw[sym]
+                    r["bid"]  = max(r["bid"],  float(row.get(_FIELD_BID,  0) or 0))
+                    r["ask"]  = max(r["ask"],  float(row.get(_FIELD_ASK,  0) or 0))
+                    r["last"] = max(r["last"], float(row.get(_FIELD_LAST, 0) or 0))
+                    if r["close"] <= 0.0:
+                        for cf in _FIELD_CLOSE_CANDIDATES:
+                            v = float(row.get(cf, 0) or 0)
+                            if v > 0.0:
+                                r["close"] = v
+                                break
+            except Exception as exc:
+                print(f"[CLEANUP][PRICES][CPAPI_FAIL] attempt={attempt}: {exc}")
+            if all(
+                raw[s]["bid"]>0 or raw[s]["ask"]>0 or raw[s]["last"]>0
+                for s in symbol_to_conid
+            ):
+                break
+
+    # ── Determine which symbols need massive fallback ─────────────────
+    def _pick(sym: str) -> float:
+        r    = raw[sym]
+        side = side_map.get(sym, "BUY")
+        mid  = (r["bid"]+r["ask"])/2.0 if r["bid"]>0 and r["ask"]>0 else 0.0
+        if side == "BUY":
+            for v in [r["ask"], mid, r["last"] if ALLOW_LAST else 0.0, r["close"]]:
+                if v > 0.0: return v
+        else:
+            for v in [r["bid"], mid, r["last"] if ALLOW_LAST else 0.0, r["close"]]:
+                if v > 0.0: return v
+        return 0.0
+
+    needs_massive = [s for s in symbols if _pick(s) <= 0.0]
+
+    # ── Massive fallback ──────────────────────────────────────────────
+    if needs_massive and MASSIVE_API_KEY:
+        print(f"[CLEANUP][PRICES][MASSIVE] fetching {len(needs_massive)} symbols: {needs_massive}")
+        for sym in needs_massive:
+            try:
+                url = f"{MASSIVE_BASE_URL.rstrip('/')}/v2/snapshot/locale/us/markets/stocks/tickers/{sym}"
+                resp = requests.get(url, params={"apiKey": MASSIVE_API_KEY}, timeout=MASSIVE_TIMEOUT)
+                resp.raise_for_status()
+                ticker = resp.json().get("ticker", {}) or {}
+                lq  = ticker.get("lastQuote", {}) or {}
+                lt  = ticker.get("lastTrade",  {}) or {}
+                day = ticker.get("day",        {}) or {}
+                prv = ticker.get("prevDay",    {}) or {}
+                r   = raw[sym]
+                r["bid"]   = float(lq.get("p", 0) or 0)
+                r["ask"]   = float(lq.get("P", 0) or 0)
+                r["last"]  = float(lt.get("p", 0) or 0)
+                r["close"] = float(day.get("c", 0) or 0) or float(prv.get("c", 0) or 0)
+                print(f"[CLEANUP][PRICES][MASSIVE] {sym} bid={r['bid']:.4f} ask={r['ask']:.4f} "
+                      f"last={r['last']:.4f} close={r['close']:.4f}")
+            except Exception as exc:
+                print(f"[CLEANUP][PRICES][MASSIVE_FAIL] {sym}: {exc}")
+
+    # ── Build final price map ─────────────────────────────────────────
+    prices: Dict[str, float] = {}
+    for sym in symbols:
+        live = _pick(sym)
+        if live > 0.0:
+            prices[sym] = live
+            print(f"[CLEANUP][PRICES] {sym} live={live:.4f} (side={side_map.get(sym,'?')})")
+        else:
+            fallback = fallback_prices.get(sym, 0.0)
+            prices[sym] = fallback
+            src = "broker_avg_cost" if fallback > 0.0 else "no_price"
+            print(f"[CLEANUP][PRICES] {sym} fallback={fallback:.4f} src={src}")
+
+    return prices
+
+
 def _execute_plan(
     client: CpapiClient,
     config_name: str,
@@ -240,7 +365,7 @@ def _execute_plan(
 ) -> None:
     """
     Reuse the same execution engine as run_cpapi_execution.py.
-    Uses broker_avg_cost as reference_price (cleanup orders have no live quote).
+    reference_price = live market price (CPAPI snapshot → massive → broker_avg_cost fallback).
 
     Auto-resolves missing conids via CPAPI before building intents.
     This makes cleanup self-sufficient regardless of what prior pipeline
@@ -292,11 +417,20 @@ def _execute_plan(
     # rejecting re-submitted cleanup orders with "Local order ID already registered"
     run_date = _date.today().isoformat()   # e.g. "2026-04-16"
 
+    # ── Fetch live prices for all cleanup symbols ──────────────────────
+    # side_map and fallback_prices built from plan_df before the main loop
+    _all_syms      = [_norm(str(r)) for r in plan_df["symbol"].dropna() if str(r).strip()]
+    _side_map      = {_norm(str(plan_df.at[i,"symbol"])): str(plan_df.at[i,"order_side"]).strip().upper()
+                      for i in plan_df.index}
+    _fallback_px   = {_norm(str(plan_df.at[i,"symbol"])): _to_float(plan_df.at[i,"price"] if "price" in plan_df.columns else 0.0)
+                      for i in plan_df.index}
+    live_prices = _fetch_live_prices(client, _all_syms, conid_cache, _side_map, _fallback_px)
+
     for _, row in plan_df.iterrows():
         sym   = _norm(str(row.get("symbol","")))
         side  = str(row.get("order_side","") or "").strip().upper()
         qty   = abs(_to_float(row.get("delta_shares", 0.0)))
-        price = _to_float(row.get("price", 0.0)) or _to_float(row.get("model_price_reference", 0.0))
+        price = live_prices.get(sym, 0.0) or _to_float(row.get("price", 0.0)) or _to_float(row.get("model_price_reference", 0.0))
 
         if qty <= 0.0:
             continue
