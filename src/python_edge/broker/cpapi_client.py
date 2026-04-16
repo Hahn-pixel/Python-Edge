@@ -306,6 +306,7 @@ class CpapiClient:
                 new_id = str(
                     reply_raw.get("order_id", "")
                     or reply_raw.get("orderId", "")
+                    or reply_raw.get("id", "")   # Gateway may chain a new challenge id
                     or confirmed_id
                 )
                 if new_id:

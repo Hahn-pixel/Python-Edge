@@ -1,20 +1,13 @@
 {
   "config": "aggressive",
-  "nav": 57644.000170000014,
-  "cash": 167412.11167605,
+  "nav": 57623.65976279999,
+  "cash": 169475.61126884999,
   "last_rebalanced_date": "2026-04-10",
   "positions": {
     "AAOI": {
       "shares": -400.0,
       "last_price": 150.6,
       "market_value": -60240.0,
-      "price_source": "live_snapshot",
-      "is_priced": 1
-    },
-    "AAPL": {
-      "shares": 8.0,
-      "last_price": 260.48,
-      "market_value": 2083.84,
       "price_source": "live_snapshot",
       "is_priced": 1
     },
@@ -106,13 +99,13 @@
   "state_alignment": {
     "source": "artifacts\\execution_loop\\aggressive\\broker_positions.csv",
     "cash_mode": "preserve_nav",
-    "positions_count": 14,
-    "market_value": -106425.90621404999,
-    "cash_after_alignment": 167412.11167605,
+    "positions_count": 13,
+    "market_value": -108489.40580684999,
+    "cash_after_alignment": 169475.61126884999,
     "nav_after_alignment": 60986.205462,
     "default_fallback_price_count": 0,
     "state_fallback_price_count": 0,
-    "broker_price_count": 14,
+    "broker_price_count": 13,
     "live_snapshot_price_count": 0,
     "unpriced_count": 0
   },

@@ -1,7 +1,7 @@
 {
   "config": "optimal",
-  "nav": 55204.032916000026,
-  "cash": 161629.93913005,
+  "nav": 55204.032916,
+  "cash": 163693.43872285,
   "last_rebalanced_date": "2026-04-10",
   "positions": {
     "10174": {
@@ -22,13 +22,6 @@
       "shares": -400.0,
       "last_price": 149.791719,
       "market_value": -59916.6876,
-      "price_source": "state_last_price",
-      "is_priced": 1
-    },
-    "265598": {
-      "shares": 8.0,
-      "last_price": 257.9374491,
-      "market_value": 2063.4995928,
       "price_source": "state_last_price",
       "is_priced": 1
     },
@@ -106,13 +99,13 @@
   "state_alignment": {
     "source": "artifacts\\execution_loop\\optimal\\broker_positions.csv",
     "cash_mode": "preserve_nav",
-    "positions_count": 14,
-    "market_value": -106425.90621405,
-    "cash_after_alignment": 161629.93913005,
+    "positions_count": 13,
+    "market_value": -108489.40580685,
+    "cash_after_alignment": 163693.43872285,
     "nav_after_alignment": 55204.032916,
     "default_fallback_price_count": 0,
     "state_fallback_price_count": 0,
-    "broker_price_count": 14,
+    "broker_price_count": 13,
     "live_snapshot_price_count": 0,
     "unpriced_count": 0
   },

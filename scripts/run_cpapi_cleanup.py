@@ -278,6 +278,7 @@ def _execute_plan(
     )
 
     import hashlib
+    from datetime import date as _date
     intents: List[ExecutionIntent] = []
     ikeys:   List[str]             = []
     metas:   List[Dict[str,Any]]   = []
@@ -286,6 +287,10 @@ def _execute_plan(
     debug_no_conid = 0
     debug_no_price = 0
     debug_dup      = 0
+
+    # run_date makes cOID unique per calendar day — prevents Gateway from
+    # rejecting re-submitted cleanup orders with "Local order ID already registered"
+    run_date = _date.today().isoformat()   # e.g. "2026-04-16"
 
     for _, row in plan_df.iterrows():
         sym   = _norm(str(row.get("symbol","")))
@@ -298,7 +303,8 @@ def _execute_plan(
 
         ikey = hashlib.sha256(
             json.dumps({"config": config_name, "symbol": sym, "side": side,
-                        "delta_shares": round(qty,8), "cleanup_tag": CLEANUP_SEND_REASON_TAG},
+                        "delta_shares": round(qty,8), "cleanup_tag": CLEANUP_SEND_REASON_TAG,
+                        "run_date": run_date},
                        sort_keys=True, separators=(",",":")).encode()
         ).hexdigest()
 
