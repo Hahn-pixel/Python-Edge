@@ -483,9 +483,11 @@ def clip_limit_from_202(prepared: PreparedOrder, previous_limit: float, err: Bro
         if clipped <= previous_limit:
             clipped = max(float(IB_LMT_PRICE_MIN_ABS), round_to_tick(previous_limit + tick, tick, side))
     else:
-        boundary_clip = boundary - tick * clip_ticks
-        market_clip = current_market_price - tick * clip_ticks if current_market_price > 0.0 else 0.0
-        clipped_raw = max(boundary_clip, market_clip) if market_clip > 0.0 else boundary_clip
+        # SELL: limit має бути >= boundary (менш агресивний = вища ціна)
+        # broker відхиляє SELL що нижче boundary → кліпаємо ВИЩЕ
+        boundary_clip = boundary + tick * clip_ticks
+        market_clip = current_market_price + tick * clip_ticks if current_market_price > 0.0 else 0.0
+        clipped_raw = min(boundary_clip, market_clip) if market_clip > 0.0 else boundary_clip
         clipped = max(float(IB_LMT_PRICE_MIN_ABS), round_to_tick(clipped_raw, tick, side))
     return clipped if clipped > 0.0 else None
 

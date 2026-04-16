@@ -1,69 +1,41 @@
 {
   "config": "aggressive",
-  "nav": 60985.40762525004,
-  "cash": 45162.24482525003,
+  "nav": 57644.000170000014,
+  "cash": 167412.11167605,
   "last_rebalanced_date": "2026-04-10",
   "positions": {
-    "OKLO": {
-      "shares": 64.0,
-      "last_price": 48.420825,
-      "market_value": 3098.9328,
-      "price_source": "state_last_price",
-      "is_priced": 1
-    },
-    "NKE": {
-      "shares": 68.0,
-      "last_price": 42.46,
-      "market_value": 2887.28,
-      "price_source": "state_last_price",
-      "is_priced": 1
-    },
-    "TSEM": {
-      "shares": -15.0,
-      "last_price": 187.01,
-      "market_value": -2805.1499999999996,
-      "price_source": "state_last_price",
-      "is_priced": 1
-    },
-    "SMCI": {
-      "shares": 130.0,
-      "last_price": 22.185,
-      "market_value": 2884.0499999999997,
-      "price_source": "state_last_price",
-      "is_priced": 1
-    },
-    "AXTI": {
-      "shares": 47.0,
-      "last_price": 64.18,
-      "market_value": 3016.4600000000005,
-      "price_source": "live_snapshot",
-      "is_priced": 1
-    },
     "AAOI": {
-      "shares": 26.0,
+      "shares": -400.0,
       "last_price": 150.6,
-      "market_value": 3915.6,
+      "market_value": -60240.0,
       "price_source": "live_snapshot",
       "is_priced": 1
     },
-    "HIMS": {
-      "shares": 157.0,
-      "last_price": 19.44,
-      "market_value": 3052.0800000000004,
-      "price_source": "state_last_price",
+    "AAPL": {
+      "shares": 8.0,
+      "last_price": 260.48,
+      "market_value": 2083.84,
+      "price_source": "live_snapshot",
+      "is_priced": 1
+    },
+    "APLD": {
+      "shares": -220.0,
+      "last_price": 26.26,
+      "market_value": -5777.200000000001,
+      "price_source": "live_snapshot",
       "is_priced": 1
     },
     "APLS": {
-      "shares": 74.0,
+      "shares": 1269.0,
       "last_price": 40.79,
-      "market_value": 3018.46,
+      "market_value": 51762.51,
       "price_source": "live_snapshot",
       "is_priced": 1
     },
-    "CAR": {
-      "shares": 10.0,
-      "last_price": 299.94,
-      "market_value": 2999.4,
+    "APTV": {
+      "shares": -148.0,
+      "last_price": 59.65,
+      "market_value": -8828.199999999999,
       "price_source": "live_snapshot",
       "is_priced": 1
     },
@@ -74,37 +46,75 @@
       "price_source": "live_snapshot",
       "is_priced": 1
     },
-    "SNDK": {
-      "shares": 3.0,
-      "last_price": 851.77,
-      "market_value": 2555.31,
+    "CRCL": {
+      "shares": -128.0,
+      "last_price": 88.04,
+      "market_value": -11269.12,
       "price_source": "live_snapshot",
       "is_priced": 1
     },
-    "APLD": {
-      "shares": -116.0,
-      "last_price": 26.26,
-      "market_value": -3046.1600000000003,
+    "HOOD": {
+      "shares": -295.0,
+      "last_price": 66.84955765,
+      "market_value": -19720.619506749998,
+      "price_source": "state_last_price",
+      "is_priced": 1
+    },
+    "INTC": {
+      "shares": -200.0,
+      "last_price": 62.38,
+      "market_value": -12476.0,
       "price_source": "live_snapshot",
       "is_priced": 1
     },
-    "ACLX": {
-      "shares": -26.0,
-      "last_price": 114.83,
-      "market_value": -2985.58,
+    "NEM": {
+      "shares": -208.0,
+      "last_price": 105.01345865,
+      "market_value": -21842.7993992,
+      "price_source": "state_last_price",
+      "is_priced": 1
+    },
+    "NKE": {
+      "shares": -21.0,
+      "last_price": 42.4427381,
+      "market_value": -891.2975001,
+      "price_source": "state_last_price",
+      "is_priced": 1
+    },
+    "NVDA": {
+      "shares": -84.0,
+      "last_price": 188.63,
+      "market_value": -15844.92,
       "price_source": "live_snapshot",
+      "is_priced": 1
+    },
+    "OKLO": {
+      "shares": -20.0,
+      "last_price": 52.262725,
+      "market_value": -1045.2545,
+      "price_source": "state_last_price",
+      "is_priced": 1
+    },
+    "RKLB": {
+      "shares": -48.0,
+      "last_price": 60.6568875,
+      "market_value": -2911.5306,
+      "price_source": "state_last_price",
       "is_priced": 1
     }
   },
-  "last_estimated_trading_cost": 0.0,
   "state_alignment": {
-    "applied_at_date": "2026-04-01",
     "source": "artifacts\\execution_loop\\aggressive\\broker_positions.csv",
     "cash_mode": "preserve_nav",
-    "positions_count": 10,
-    "market_value": -70735.3895,
-    "cash_after_alignment": 153658.29661850003,
-    "nav_after_alignment": 82922.9071185,
-    "fallback_price_count": 1
-  }
+    "positions_count": 14,
+    "market_value": -106425.90621404999,
+    "cash_after_alignment": 167412.11167605,
+    "nav_after_alignment": 60986.205462,
+    "default_fallback_price_count": 0,
+    "state_fallback_price_count": 0,
+    "broker_price_count": 14,
+    "live_snapshot_price_count": 0,
+    "unpriced_count": 0
+  },
+  "last_estimated_trading_cost": 0.0
 }

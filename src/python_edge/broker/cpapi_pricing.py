@@ -1,0 +1,196 @@
+from __future__ import annotations
+
+import math
+from typing import Optional
+
+from python_edge.broker.cpapi_models import ExecutionIntent, OrderSide
+
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+_MIN_PRICE_ABS: float = 0.0001   # floor for any computed price
+_DEFAULT_MIN_TICK: float = 0.01  # fallback tick when conid metadata absent
+
+
+# ---------------------------------------------------------------------------
+# Tick helpers  (mirror ibkr_pricing logic, no ibkr_models dependency)
+# ---------------------------------------------------------------------------
+
+def _safe_float(value: object) -> float:
+    try:
+        if value is None:
+            return 0.0
+        return float(value)  # type: ignore[arg-type]
+    except Exception:
+        return 0.0
+
+
+def _normalize_tick(tick: float, fallback: float = _DEFAULT_MIN_TICK) -> float:
+    t = _safe_float(tick)
+    if t <= 0.0 or not math.isfinite(t):
+        return float(fallback)
+    return t
+
+
+def round_to_tick(price: float, tick: float, side: OrderSide) -> float:
+    """
+    Round *price* to the nearest valid tick boundary.
+    BUY  → round UP   (never pay less than full tick)
+    SELL → round DOWN (never accept less than full tick)
+    """
+    t = _normalize_tick(tick)
+    px = max(_MIN_PRICE_ABS, float(price))
+    steps = px / t
+    if side is OrderSide.BUY:
+        rounded_steps = math.ceil(steps - 1e-12)
+    else:
+        rounded_steps = math.floor(steps + 1e-12)
+    rounded = rounded_steps * t
+    # decimal precision: enough to represent the tick
+    if t < 1.0:
+        decimals = min(max(0, int(round(-math.log10(t))) + 2), 8)
+    else:
+        decimals = 4
+    return round(max(_MIN_PRICE_ABS, rounded), decimals)
+
+
+# ---------------------------------------------------------------------------
+# Parent price guard
+# ---------------------------------------------------------------------------
+
+class PriceGuardViolation(Exception):
+    """Raised when a proposed execution price violates the parent intent."""
+
+
+def check_parent_guard(
+    intent: ExecutionIntent,
+    proposed_price: float,
+    label: str = "",
+) -> None:
+    """
+    Validate *proposed_price* against the parent intent constraints.
+
+    BUY  → price must be <= parent_cap   (if cap is set)
+    SELL → price must be >= parent_floor (if floor is set)
+
+    Raises PriceGuardViolation explicitly — never silently passes.
+    Records the failure in intent.debug_guard_rejected.
+    """
+    px = _safe_float(proposed_price)
+    tag = f"[{label}] " if label else ""
+
+    if intent.side is OrderSide.BUY and intent.parent_cap is not None:
+        cap = _safe_float(intent.parent_cap)
+        if px > cap + 1e-9:
+            intent.debug_guard_rejected += 1
+            raise PriceGuardViolation(
+                f"{tag}BUY guard violated for {intent.symbol}: "
+                f"proposed_price={px:.6f} > parent_cap={cap:.6f}"
+            )
+
+    if intent.side is OrderSide.SELL and intent.parent_floor is not None:
+        floor_ = _safe_float(intent.parent_floor)
+        if px < floor_ - 1e-9:
+            intent.debug_guard_rejected += 1
+            raise PriceGuardViolation(
+                f"{tag}SELL guard violated for {intent.symbol}: "
+                f"proposed_price={px:.6f} < parent_floor={floor_:.6f}"
+            )
+
+
+def clamp_to_guard(
+    intent: ExecutionIntent,
+    price: float,
+    tick: float,
+) -> float:
+    """
+    Return *price* clamped so it never violates the parent guard.
+    Rounds to valid tick after clamping.
+    Does NOT raise — caller decides whether to proceed.
+    """
+    px = _safe_float(price)
+
+    if intent.side is OrderSide.BUY and intent.parent_cap is not None:
+        cap = _safe_float(intent.parent_cap)
+        px = min(px, cap)
+
+    if intent.side is OrderSide.SELL and intent.parent_floor is not None:
+        floor_ = _safe_float(intent.parent_floor)
+        px = max(px, floor_)
+
+    return round_to_tick(px, tick, intent.side)
+
+
+# ---------------------------------------------------------------------------
+# Fractional split
+# ---------------------------------------------------------------------------
+
+def split_qty(target_qty: float) -> tuple[float, float]:
+    """
+    Split target_qty into (whole_qty, frac_qty).
+
+    whole_qty = floor(target_qty)   → sent as MIDPRICE
+    frac_qty  = target_qty - whole  → sent as market/limit after whole fills
+
+    Returns (0.0, target_qty) when target_qty < 1.0 (pure fractional order).
+    Both values are rounded to 8 decimal places to avoid float noise.
+    """
+    qty = max(0.0, float(target_qty))
+    whole = math.floor(qty)
+    frac = round(qty - whole, 8)
+    return float(whole), frac
+
+
+def midprice_price(
+    intent: ExecutionIntent,
+    tick: float,
+    reference_price: float,
+) -> Optional[float]:
+    """
+    Compute the MIDPRICE order price for the whole-qty leg.
+
+    CPAPI MIDPRICE orders do not take an explicit price — the broker
+    computes it from the spread.  We still validate the reference price
+    against the parent guard and return None to signal "no explicit price"
+    (CPAPI will use order_type=MIDPRICE without a price field).
+
+    Raises PriceGuardViolation if reference_price already violates the guard.
+    Returns None (= no explicit price, let broker compute mid).
+    """
+    check_parent_guard(intent, reference_price, label="midprice_reference")
+    return None   # MIDPRICE order_type; broker computes the price
+
+
+def frac_limit_price(
+    intent: ExecutionIntent,
+    tick: float,
+    reference_price: float,
+    slippage_bps: float = 5.0,
+) -> float:
+    """
+    Compute a limit price for the fractional remainder leg.
+
+    Applies a small slippage allowance (default 5 bps) to improve fill
+    probability, then clamps to the parent guard and rounds to tick.
+
+    Raises PriceGuardViolation if even the clamped price violates the guard.
+    """
+    ref = _safe_float(reference_price)
+    if ref <= 0.0:
+        raise ValueError(
+            f"reference_price must be > 0 for frac_limit_price "
+            f"(symbol={intent.symbol}, got {ref})"
+        )
+
+    bps_bump = abs(float(slippage_bps)) / 10_000.0
+
+    if intent.side is OrderSide.BUY:
+        raw = ref * (1.0 + bps_bump)
+    else:
+        raw = ref * max(0.0, 1.0 - bps_bump)
+
+    clamped = clamp_to_guard(intent, raw, tick)
+    # Final explicit guard check — raises if clamp was not enough
+    check_parent_guard(intent, clamped, label="frac_limit_price")
+    return clamped

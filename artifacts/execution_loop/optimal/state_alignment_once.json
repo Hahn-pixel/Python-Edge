@@ -1,11 +1,14 @@
 {
-  "applied_at_date": "2026-04-01",
   "config": "optimal",
   "source": "artifacts\\execution_loop\\optimal\\broker_positions.csv",
   "cash_mode": "preserve_nav",
-  "positions_count": 10,
-  "market_value": -70735.3895,
-  "cash_after_alignment": 149315.36355399998,
-  "nav_after_alignment": 78579.97405399999,
-  "fallback_price_count": 1
+  "positions_count": 14,
+  "market_value": -106425.90621405,
+  "cash_after_alignment": 161629.93913005,
+  "nav_after_alignment": 55204.032916,
+  "default_fallback_price_count": 0,
+  "state_fallback_price_count": 0,
+  "broker_price_count": 14,
+  "live_snapshot_price_count": 0,
+  "unpriced_count": 0
 }

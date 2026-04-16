@@ -39,8 +39,7 @@ class IBKRApp(EWrapper, EClient):
             "errorString": str(errorString),
             "advancedOrderRejectJson": str(advancedOrderRejectJson or ""),
         })
-        _adv = str(advancedOrderRejectJson or "").strip()
-        print(f"[IB][ERROR] reqId={reqId} code={errorCode} msg={errorString}" + (f" | adv={_adv}" if _adv else ""))
+        print(f"[IB][ERROR] reqId={reqId} code={errorCode} msg={errorString}")
 
     def nextValidId(self, orderId: int) -> None:
         self.order_id_cursor = int(orderId)
