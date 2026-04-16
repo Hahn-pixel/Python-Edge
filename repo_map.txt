@@ -28,17 +28,11 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/.gitignore
       artifacts/daily_cycle/universe/universe_summary.json
       https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/artifacts/daily_cycle/universe/universe_summary.json
 
-      artifacts/execution_loop/aggressive/broker_cleanup_emit_summary.json
-      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/artifacts/execution_loop/aggressive/broker_cleanup_emit_summary.json
-
       artifacts/execution_loop/aggressive/broker_cleanup_send_summary.json
       https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/artifacts/execution_loop/aggressive/broker_cleanup_send_summary.json
 
       artifacts/execution_loop/aggressive/broker_handoff_summary.json
       https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/artifacts/execution_loop/aggressive/broker_handoff_summary.json
-
-      artifacts/execution_loop/aggressive/broker_log.json
-      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/artifacts/execution_loop/aggressive/broker_log.json
 
       artifacts/execution_loop/aggressive/broker_reconcile_summary.json
       https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/artifacts/execution_loop/aggressive/broker_reconcile_summary.json
@@ -52,9 +46,6 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/.gitignore
       artifacts/execution_loop/aggressive/state_alignment_once.json
       https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/artifacts/execution_loop/aggressive/state_alignment_once.json
 
-      artifacts/execution_loop/optimal/broker_cleanup_emit_summary.json
-      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/artifacts/execution_loop/optimal/broker_cleanup_emit_summary.json
-
       artifacts/execution_loop/optimal/broker_cleanup_send_summary.json
       https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/artifacts/execution_loop/optimal/broker_cleanup_send_summary.json
 
@@ -67,6 +58,9 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/.gitignore
       artifacts/execution_loop/optimal/broker_reconcile_summary.json
       https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/artifacts/execution_loop/optimal/broker_reconcile_summary.json
 
+      artifacts/execution_loop/optimal/conid_cache.json
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/artifacts/execution_loop/optimal/conid_cache.json
+
       artifacts/execution_loop/optimal/portfolio_state.json
       https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/artifacts/execution_loop/optimal/portfolio_state.json
 
@@ -76,14 +70,11 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/.gitignore
       artifacts/execution_loop/optimal/state_alignment_once.json
       https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/artifacts/execution_loop/optimal/state_alignment_once.json
 
-console231.log
-https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console231.log
+console236.log
+https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console236.log
 
-console232.log
-https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console232.log
-
-console233.log
-https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console233.log
+console237.log
+https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/console237.log
 
 deps_edges.txt
 https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/deps_edges.txt
@@ -96,6 +87,9 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/pyproject.toml
 
 repo_map.txt
 https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/repo_map.txt
+
+run_full_cycle_cpapi.ps1
+https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/run_full_cycle_cpapi.ps1
 
 run_full_cycle.ps1
 https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/run_full_cycle.ps1
@@ -121,6 +115,18 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/run_full_cycle.ps1
   scripts/run_broker_reconcile_ibkr.py
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_broker_reconcile_ibkr.py
 
+  scripts/run_cpapi_cleanup.py
+  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_cpapi_cleanup.py
+
+  scripts/run_cpapi_execution.py
+  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_cpapi_execution.py
+
+  scripts/run_cpapi_handoff.py
+  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_cpapi_handoff.py
+
+  scripts/run_cpapi_reconcile.py
+  https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_cpapi_reconcile.py
+
   scripts/run_daily_cycle.py
   https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/scripts/run_daily_cycle.py
 
@@ -141,6 +147,24 @@ https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/run_full_cycle.ps1
 
     src/python_edge/__init__.py
     https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/__init__.py
+
+      src/python_edge/broker/cpapi_client.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/broker/cpapi_client.py
+
+      src/python_edge/broker/cpapi_conid_resolver.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/broker/cpapi_conid_resolver.py
+
+      src/python_edge/broker/cpapi_execution.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/broker/cpapi_execution.py
+
+      src/python_edge/broker/cpapi_models.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/broker/cpapi_models.py
+
+      src/python_edge/broker/cpapi_pricing.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/broker/cpapi_pricing.py
+
+      src/python_edge/broker/cpapi_storage.py
+      https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/broker/cpapi_storage.py
 
       src/python_edge/broker/ibkr_adapter_support.py
       https://raw.githubusercontent.com/Hahn-pixel/Python-Edge/main/src/python_edge/broker/ibkr_adapter_support.py

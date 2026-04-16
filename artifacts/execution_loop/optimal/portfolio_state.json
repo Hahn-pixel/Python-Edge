@@ -60,5 +60,37 @@
     "live_snapshot_price_count": 0,
     "unpriced_count": 0
   },
-  "last_estimated_trading_cost": 0.0
+  "last_estimated_trading_cost": 0.0,
+  "exit_meta": {
+    "APLS": {
+      "entry_price": 40.79,
+      "entry_date": "2026-04-16",
+      "peak_price": 40.79
+    },
+    "APTV": {
+      "entry_price": 59.65,
+      "entry_date": "2026-04-16",
+      "peak_price": 59.65
+    },
+    "AXON": {
+      "entry_price": 345.94,
+      "entry_date": "2026-04-16",
+      "peak_price": 345.94
+    },
+    "NEM": {
+      "entry_price": 105.01345865,
+      "entry_date": "2026-04-16",
+      "peak_price": 105.01345865
+    },
+    "NKE": {
+      "entry_price": 42.4427381,
+      "entry_date": "2026-04-16",
+      "peak_price": 42.4427381
+    },
+    "OKLO": {
+      "entry_price": 52.262725,
+      "entry_date": "2026-04-16",
+      "peak_price": 52.262725
+    }
+  }
 }
