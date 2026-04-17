@@ -171,6 +171,32 @@ def _load_merged_conid_cache(exec_root: Path, configs: list[str]) -> dict[str, i
 # ──────────────────────────────────────────────────────────────
 # Price fetching — CPAPI snapshot з retry
 # ──────────────────────────────────────────────────────────────
+def _init_marketdata_bridge(
+    base_url: str,
+    verify_ssl: bool,
+    timeout: float,
+) -> bool:
+    """
+    Ініціалізує market data bridge в CPAPI Gateway.
+    Gateway повертає 400 "no bridge" якщо перед snapshot не викликати
+    /iserver/accounts — цей виклик піднімає внутрішній bridge.
+    Повертає True якщо успішно.
+    """
+    try:
+        session = requests.Session()
+        session.verify = verify_ssl
+        resp = session.get(
+            f"{base_url.rstrip('/')}/v1/api/iserver/accounts",
+            timeout=timeout,
+        )
+        print(f"[DAEMON][{_ts()}] bridge init: HTTP {resp.status_code}")
+        time.sleep(1.5)  # дати Gateway час підняти bridge
+        return resp.status_code == 200
+    except Exception as exc:
+        print(f"[DAEMON][{_ts()}] bridge init error: {exc}")
+        return False
+
+
 def _fetch_prices_cpapi(
     symbols: list[str],
     conid_cache: dict[str, int],
@@ -183,6 +209,7 @@ def _fetch_prices_cpapi(
     """
     Snapshot з retry — CPAPI потребує кількох спроб поки дані не з'являться
     (streaming підписка). Ідентична логіка до run_cpapi_handoff.py.
+    При 400 "no bridge" — автоматично re-init bridge і повторює.
     """
     prices: dict[str, float] = {}
     sym_conid = {s.upper(): conid_cache[s.upper()] for s in symbols if s.upper() in conid_cache}
@@ -204,6 +231,16 @@ def _fetch_prices_cpapi(
                 params={"conids": conids_str, "fields": "31,84,86"},
                 timeout=timeout,
             )
+            # 400 "no bridge" — ініціалізуємо і повторюємо
+            if resp.status_code == 400:
+                body = resp.text[:120]
+                if "no bridge" in body.lower():
+                    print(
+                        f"[DAEMON][{_ts()}] CPAPI no bridge "
+                        f"(attempt={attempt}) — re-init"
+                    )
+                    _init_marketdata_bridge(base_url, verify_ssl, timeout)
+                    continue
             resp.raise_for_status()
             data = resp.json()
             if not isinstance(data, list):
@@ -757,6 +794,10 @@ def main() -> None:
 
     client = CpapiClient(cpapi_base_url, timeout, verify_ssl)
     client.start_tickle_loop()
+
+    # Ініціалізуємо market data bridge одразу при старті
+    print(f"[DAEMON] initializing market data bridge...")
+    _init_marketdata_bridge(cpapi_base_url, verify_ssl, timeout)
 
     snapshot_ivol    = _load_ivol_from_snapshot(snapshot_path)
     ivol_loaded_date = _today_str()

@@ -1,99 +1,21 @@
 {
   "config": "aggressive",
-  "nav": 60958.200759800005,
-  "cash": 44570.7621591,
+  "nav": 978809.6875,
+  "cash": 978809.6875,
   "last_rebalanced_date": "2026-04-10",
-  "positions": {
-    "APLS": {
-      "shares": 1269.0,
-      "last_price": 40.79,
-      "market_value": 51762.51,
-      "price_source": "live_snapshot",
-      "is_priced": 1
-    },
-    "APTV": {
-      "shares": -148.0,
-      "last_price": 59.65,
-      "market_value": -8828.199999999999,
-      "price_source": "live_snapshot",
-      "is_priced": 1
-    },
-    "AXON": {
-      "shares": -8.0,
-      "last_price": 345.94,
-      "market_value": -2767.52,
-      "price_source": "live_snapshot",
-      "is_priced": 1
-    },
-    "NEM": {
-      "shares": -208.0,
-      "last_price": 105.01345865,
-      "market_value": -21842.7993992,
-      "price_source": "state_last_price",
-      "is_priced": 1
-    },
-    "NKE": {
-      "shares": -21.0,
-      "last_price": 42.4427381,
-      "market_value": -891.2975001,
-      "price_source": "state_last_price",
-      "is_priced": 1
-    },
-    "OKLO": {
-      "shares": -20.0,
-      "last_price": 52.262725,
-      "market_value": -1045.2545,
-      "price_source": "state_last_price",
-      "is_priced": 1
-    }
-  },
+  "positions": {},
   "state_alignment": {
     "source": "artifacts\\execution_loop\\aggressive\\broker_positions.csv",
     "cash_mode": "preserve_nav",
-    "positions_count": 6,
-    "market_value": 16415.4433029,
-    "cash_after_alignment": 44570.7621591,
-    "nav_after_alignment": 60986.205462,
+    "positions_count": 0,
+    "market_value": 0.0,
+    "cash_after_alignment": 978809.6875,
+    "nav_after_alignment": 978809.6875,
     "default_fallback_price_count": 0,
     "state_fallback_price_count": 0,
-    "broker_price_count": 6,
+    "broker_price_count": 0,
     "live_snapshot_price_count": 0,
     "unpriced_count": 0
   },
-  "last_estimated_trading_cost": 0.0,
-  "exit_meta": {
-    "APLS": {
-      "entry_price": 40.79,
-      "entry_date": "2026-04-16",
-      "peak_price": 40.89
-    },
-    "APTV": {
-      "entry_price": 59.65,
-      "entry_date": "2026-04-16",
-      "peak_price": 59.65
-    },
-    "AXON": {
-      "entry_price": 345.94,
-      "entry_date": "2026-04-16",
-      "peak_price": 345.94,
-      "pending_exit": ""
-    },
-    "NEM": {
-      "entry_price": 105.01345865,
-      "entry_date": "2026-04-16",
-      "peak_price": 105.01345865,
-      "pending_exit": ""
-    },
-    "NKE": {
-      "entry_price": 42.4427381,
-      "entry_date": "2026-04-16",
-      "peak_price": 42.4427381
-    },
-    "OKLO": {
-      "entry_price": 52.262725,
-      "entry_date": "2026-04-16",
-      "peak_price": 52.262725,
-      "pending_exit": ""
-    }
-  }
+  "last_estimated_trading_cost": 0.0
 }

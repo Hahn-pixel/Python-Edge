@@ -2,13 +2,13 @@
   "config": "optimal",
   "source": "artifacts\\execution_loop\\optimal\\broker_positions.csv",
   "cash_mode": "preserve_nav",
-  "positions_count": 6,
-  "market_value": 16415.4433029,
-  "cash_after_alignment": 38788.5896131,
-  "nav_after_alignment": 55204.032916,
+  "positions_count": 0,
+  "market_value": 0.0,
+  "cash_after_alignment": 978809.6875,
+  "nav_after_alignment": 978809.6875,
   "default_fallback_price_count": 0,
   "state_fallback_price_count": 0,
-  "broker_price_count": 6,
+  "broker_price_count": 0,
   "live_snapshot_price_count": 0,
   "unpriced_count": 0
 }

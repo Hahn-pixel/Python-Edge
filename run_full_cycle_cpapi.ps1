@@ -36,9 +36,9 @@ $SCRIPT_EXIT_SCANNER = "$ROOT\scripts\run_exit_scanner.py"
 $LOCK_FILE = "$ROOT\artifacts\pipeline.lock"
 
 # ── Налаштування ──────────────────────────────────────────────
-$IB_ACCOUNT_CODE  = ""             # ваш акаунт IBKR (обов'язково)
-$NAV_OPTIMAL      = "55204.032916"
-$NAV_AGGRESSIVE   = "60986.205462"
+$IB_ACCOUNT_CODE  = "DUP561175"
+$NAV_OPTIMAL      = "978809.6875"
+$NAV_AGGRESSIVE   = "978809.6875"
 $MASSIVE_API_KEY  = $env:MASSIVE_API_KEY
 $MASSIVE_BASE_URL = "https://api.massive.com"
 $CPAPI_BASE_URL   = "https://localhost:5000"
