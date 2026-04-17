@@ -65,7 +65,7 @@
     "APLS": {
       "entry_price": 40.79,
       "entry_date": "2026-04-16",
-      "peak_price": 40.79
+      "peak_price": 40.89
     },
     "APTV": {
       "entry_price": 59.65,
@@ -75,12 +75,14 @@
     "AXON": {
       "entry_price": 345.94,
       "entry_date": "2026-04-16",
-      "peak_price": 345.94
+      "peak_price": 345.94,
+      "pending_exit": ""
     },
     "NEM": {
       "entry_price": 105.01345865,
       "entry_date": "2026-04-16",
-      "peak_price": 105.01345865
+      "peak_price": 105.01345865,
+      "pending_exit": ""
     },
     "NKE": {
       "entry_price": 42.4427381,
@@ -90,7 +92,8 @@
     "OKLO": {
       "entry_price": 52.262725,
       "entry_date": "2026-04-16",
-      "peak_price": 52.262725
+      "peak_price": 52.262725,
+      "pending_exit": ""
     }
   }
 }

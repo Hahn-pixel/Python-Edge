@@ -1,0 +1,81 @@
+[DAEMON][12:26:49] cycle=1 date=2026-04-17 conids=15
+[CPAPI][TICKLE] ok (total_ok=1)
+[DAEMON][12:26:49] CPAPI snapshot attempt=1 error: 400 Client Error: Bad Request for url: https://localhost:5000/v1/api/iserver/marketdata/snapshot?conids=295518928%2C748351585%2C272104927%2C10174%2C10291%2C500073396&fields=31%2C84%2C86
+[DAEMON][12:26:51] CPAPI snapshot attempt=2 error: 400 Client Error: Bad Request for url: https://localhost:5000/v1/api/iserver/marketdata/snapshot?conids=295518928%2C748351585%2C272104927%2C10174%2C10291%2C500073396&fields=31%2C84%2C86
+[DAEMON][12:26:53] CPAPI snapshot attempt=3 error: 400 Client Error: Bad Request for url: https://localhost:5000/v1/api/iserver/marketdata/snapshot?conids=295518928%2C748351585%2C272104927%2C10174%2C10291%2C500073396&fields=31%2C84%2C86
+[DAEMON][12:26:54] APLS via massive: 40.8900
+[DAEMON][12:26:55] APTV via massive: 61.1600
+[DAEMON][12:26:56] AXON via massive: 405.2500
+[DAEMON][12:26:57] NEM via massive: 117.2700
+[DAEMON][12:26:58] NKE via massive: 46.0150
+[DAEMON][12:26:59] OKLO via massive: 69.2500
+[DAEMON][12:26:59][optimal] EXIT AXON BUY 8sh reason=stop_loss pnl=-17.14% hold=1d entry=345.9400 cur=405.2500 peak=345.9400 trail=6.34%(K=1.5x ivol=0.0422 raw=6.34%)
+[DAEMON][12:26:59] DRY_RUN MKT BUY 8 AXON
+[DAEMON][ALERT][12:26:59] EXIT SENT: optimal/AXON stop_loss
+  MKT BUY 8sh @ ~405.2500 pnl=-17.14% oid=dry_run
+[DAEMON][12:26:59][optimal] EXIT NEM BUY 208sh reason=stop_loss pnl=-11.67% hold=1d entry=105.0135 cur=117.2700 peak=105.0135 trail=disabled(no_ivol)
+[DAEMON][12:26:59] DRY_RUN MKT BUY 208 NEM
+[DAEMON][ALERT][12:26:59] EXIT SENT: optimal/NEM stop_loss
+  MKT BUY 208sh @ ~117.2700 pnl=-11.67% oid=dry_run
+[DAEMON][12:26:59][optimal] EXIT NKE BUY 21sh reason=stop_loss pnl=-8.42% hold=1d entry=42.4427 cur=46.0150 peak=42.4427 trail=disabled(no_ivol)
+[DAEMON][12:26:59] DRY_RUN MKT BUY 21 NKE
+[DAEMON][ALERT][12:26:59] EXIT SENT: optimal/NKE stop_loss
+  MKT BUY 21sh @ ~46.0150 pnl=-8.42% oid=dry_run
+[DAEMON][12:26:59][optimal] EXIT OKLO BUY 20sh reason=stop_loss pnl=-32.50% hold=1d entry=52.2627 cur=69.2500 peak=52.2627 trail=disabled(no_ivol)
+[DAEMON][12:26:59] DRY_RUN MKT BUY 20 OKLO
+[DAEMON][ALERT][12:26:59] EXIT SENT: optimal/OKLO stop_loss
+  MKT BUY 20sh @ ~69.2500 pnl=-32.50% oid=dry_run
+[DAEMON][12:26:59][optimal] checked=6 init_skipped=0 mkt=4(ok=4/fail=0) lmt=0(ok=0/fail=0) no_price=0 ivol_missing=3 pending_retry=0
+[DAEMON][12:26:59] CPAPI snapshot attempt=1 error: 400 Client Error: Bad Request for url: https://localhost:5000/v1/api/iserver/marketdata/snapshot?conids=295518928%2C748351585%2C272104927%2C10174%2C10291%2C500073396&fields=31%2C84%2C86
+[DAEMON][12:27:01] CPAPI snapshot attempt=2 error: 400 Client Error: Bad Request for url: https://localhost:5000/v1/api/iserver/marketdata/snapshot?conids=295518928%2C748351585%2C272104927%2C10174%2C10291%2C500073396&fields=31%2C84%2C86
+[DAEMON][12:27:03] CPAPI snapshot attempt=3 error: 400 Client Error: Bad Request for url: https://localhost:5000/v1/api/iserver/marketdata/snapshot?conids=295518928%2C748351585%2C272104927%2C10174%2C10291%2C500073396&fields=31%2C84%2C86
+[DAEMON][12:27:04] APLS via massive: 40.8900
+[DAEMON][12:27:05] APTV via massive: 61.1600
+[DAEMON][12:27:06] AXON via massive: 404.6200
+[DAEMON][12:27:07] NEM via massive: 117.2800
+[DAEMON][12:27:08] NKE via massive: 46.0350
+[DAEMON][12:27:08] OKLO via massive: 69.2684
+[DAEMON][12:27:09][aggressive] EXIT AXON BUY 8sh reason=stop_loss pnl=-16.96% hold=1d entry=345.9400 cur=404.6200 peak=345.9400 trail=6.34%(K=1.5x ivol=0.0422 raw=6.34%)
+[DAEMON][12:27:09] DRY_RUN MKT BUY 8 AXON
+[DAEMON][ALERT][12:27:09] EXIT SENT: aggressive/AXON stop_loss
+  MKT BUY 8sh @ ~404.6200 pnl=-16.96% oid=dry_run
+[DAEMON][12:27:09][aggressive] EXIT NEM BUY 208sh reason=stop_loss pnl=-11.68% hold=1d entry=105.0135 cur=117.2800 peak=105.0135 trail=disabled(no_ivol)
+[DAEMON][12:27:09] DRY_RUN MKT BUY 208 NEM
+[DAEMON][ALERT][12:27:09] EXIT SENT: aggressive/NEM stop_loss
+  MKT BUY 208sh @ ~117.2800 pnl=-11.68% oid=dry_run
+[DAEMON][12:27:09][aggressive] EXIT OKLO BUY 20sh reason=stop_loss pnl=-32.54% hold=1d entry=52.2627 cur=69.2684 peak=52.2627 trail=disabled(no_ivol)
+[DAEMON][12:27:09] DRY_RUN MKT BUY 20 OKLO
+[DAEMON][ALERT][12:27:09] EXIT SENT: aggressive/OKLO stop_loss
+  MKT BUY 20sh @ ~69.2684 pnl=-32.54% oid=dry_run
+[DAEMON][12:27:09][aggressive] checked=6 init_skipped=0 mkt=3(ok=3/fail=0) lmt=0(ok=0/fail=0) no_price=0 ivol_missing=3 pending_retry=0
+
+[DAEMON][12:27:39] cycle=2 date=2026-04-17 conids=15
+[DAEMON][12:27:39] CPAPI snapshot attempt=1 error: 400 Client Error: Bad Request for url: https://localhost:5000/v1/api/iserver/marketdata/snapshot?conids=295518928%2C748351585%2C272104927%2C10174%2C10291%2C500073396&fields=31%2C84%2C86
+[CPAPI][TICKLE] ok (total_ok=2)
+[DAEMON][12:27:41] CPAPI snapshot attempt=2 error: 400 Client Error: Bad Request for url: https://localhost:5000/v1/api/iserver/marketdata/snapshot?conids=295518928%2C748351585%2C272104927%2C10174%2C10291%2C500073396&fields=31%2C84%2C86
+[DAEMON][12:27:43] CPAPI snapshot attempt=3 error: 400 Client Error: Bad Request for url: https://localhost:5000/v1/api/iserver/marketdata/snapshot?conids=295518928%2C748351585%2C272104927%2C10174%2C10291%2C500073396&fields=31%2C84%2C86
+[DAEMON][12:27:44] APLS via massive: 40.8900
+[DAEMON][12:27:45] APTV via massive: 61.1600
+[DAEMON][12:27:46] AXON via massive: 404.6200
+[DAEMON][12:27:47] NEM via massive: 117.2800
+[DAEMON][12:27:47] NKE via massive: 46.0350
+[DAEMON][12:27:48] OKLO via massive: 69.2684
+[DAEMON][12:27:48][optimal] EXIT AXON BUY 8sh reason=stop_loss pnl=-16.96% hold=1d entry=345.9400 cur=404.6200 peak=345.9400 trail=6.34%(K=1.5x ivol=0.0422 raw=6.34%)
+[DAEMON][12:27:48] DRY_RUN MKT BUY 8 AXON
+[DAEMON][ALERT][12:27:48] EXIT SENT: optimal/AXON stop_loss
+  MKT BUY 8sh @ ~404.6200 pnl=-16.96% oid=dry_run
+[DAEMON][12:27:48][optimal] EXIT NEM BUY 208sh reason=stop_loss pnl=-11.68% hold=1d entry=105.0135 cur=117.2800 peak=105.0135 trail=disabled(no_ivol)
+[DAEMON][12:27:48] DRY_RUN MKT BUY 208 NEM
+[DAEMON][ALERT][12:27:48] EXIT SENT: optimal/NEM stop_loss
+  MKT BUY 208sh @ ~117.2800 pnl=-11.68% oid=dry_run
+[DAEMON][12:27:48][optimal] EXIT NKE BUY 21sh reason=stop_loss pnl=-8.46% hold=1d entry=42.4427 cur=46.0350 peak=42.4427 trail=disabled(no_ivol)
+[DAEMON][12:27:48] DRY_RUN MKT BUY 21 NKE
+[DAEMON][ALERT][12:27:48] EXIT SENT: optimal/NKE stop_loss
+  MKT BUY 21sh @ ~46.0350 pnl=-8.46% oid=dry_run
+[DAEMON][12:27:48][optimal] EXIT OKLO BUY 20sh reason=stop_loss pnl=-32.54% hold=1d entry=52.2627 cur=69.2684 peak=52.2627 trail=disabled(no_ivol)
+[DAEMON][12:27:48] DRY_RUN MKT BUY 20 OKLO
+[DAEMON][ALERT][12:27:48] EXIT SENT: optimal/OKLO stop_loss
+  MKT BUY 20sh @ ~69.2684 pnl=-32.54% oid=dry_run
+[DAEMON][12:27:48][optimal] checked=6 init_skipped=0 mkt=4(ok=4/fail=0) lmt=0(ok=0/fail=0) no_price=0 ivol_missing=3 pending_retry=0
+[DAEMON][12:27:49] CPAPI snapshot attempt=1 error: 400 Client Error: Bad Request for url: https://localhost:5000/v1/api/iserver/marketdata/snapshot?conids=295518928%2C748351585%2C272104927%2C10174%2C10291%2C500073396&fields=31%2C84%2C86
+[DAEMON][12:27:51] CPAPI snapshot attempt=2 error: 400 Client Error: Bad Request for url: https://localhost:5000/v1/api/iserver/marketdata/snapshot?conids=295518928%2C748351585%2C272104927%2C10174%2C10291%2C500073396&fields=31%2C84%2C86

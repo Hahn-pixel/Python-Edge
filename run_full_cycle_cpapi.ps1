@@ -15,6 +15,10 @@ $ErrorActionPreference = "Stop"
 #   5а) Синхронізація preview → orders
 #   6)  run_cpapi_cleanup.py     — cleanup send через CPAPI
 #
+# Координація з intraday daemon:
+#   Pipeline створює artifacts/pipeline.lock на старті
+#   і видаляє його після завершення. Daemon бачить lock → пауза.
+#
 # Передумова: Client Portal Gateway запущений на https://localhost:5000
 #             і авторизований через браузер
 # ============================================================
@@ -29,6 +33,8 @@ $SCRIPT_EXEC_CPAPI   = "$ROOT\scripts\run_cpapi_execution.py"
 $SCRIPT_CLEANUP      = "$ROOT\scripts\run_cpapi_cleanup.py"
 $SCRIPT_EXIT_SCANNER = "$ROOT\scripts\run_exit_scanner.py"
 
+$LOCK_FILE = "$ROOT\artifacts\pipeline.lock"
+
 # ── Налаштування ──────────────────────────────────────────────
 $IB_ACCOUNT_CODE  = ""             # ваш акаунт IBKR (обов'язково)
 $NAV_OPTIMAL      = "55204.032916"
@@ -38,7 +44,6 @@ $MASSIVE_BASE_URL = "https://api.massive.com"
 $CPAPI_BASE_URL   = "https://localhost:5000"
 
 # ── Exit policy параметри (per-config) ───────────────────────
-# Залиште порожнім щоб використовувати дефолти з exit_policy.py
 $EXIT_OPTIMAL_STOP_LOSS_PCT     = ""   # default: 0.08
 $EXIT_OPTIMAL_TAKE_PROFIT_PCT   = ""   # default: 0.25
 $EXIT_OPTIMAL_TRAILING_STOP_PCT = ""   # default: 0.12
@@ -60,6 +65,27 @@ function Assert-Exit {
 }
 
 Set-Location $ROOT
+
+# ============================================================
+# LOCK — сигналізуємо daemon що pipeline запущений
+# ============================================================
+Write-Host ""
+Write-Host "=== PIPELINE LOCK ===" -ForegroundColor Cyan
+$lockDir = Split-Path $LOCK_FILE -Parent
+if (-not (Test-Path $lockDir)) { New-Item -ItemType Directory -Path $lockDir -Force | Out-Null }
+$lockContent = "pid=$PID started=$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+$lockContent | Out-File $LOCK_FILE -Encoding utf8 -Force
+Write-Host "  lock created: $LOCK_FILE" -ForegroundColor DarkGray
+
+# Гарантуємо видалення lock навіть при помилці
+$lockCreated = $true
+trap {
+    if ($lockCreated -and (Test-Path $LOCK_FILE)) {
+        Remove-Item $LOCK_FILE -Force -ErrorAction SilentlyContinue
+        Write-Host "[LOCK] released on error" -ForegroundColor DarkGray
+    }
+    break
+}
 
 # ============================================================
 # КРОК 0 — Очищення артефактів execution_loop
@@ -98,8 +124,8 @@ foreach ($cfg in @("optimal", "aggressive")) {
 Write-Host ""
 Write-Host "=== PRE-FLIGHT CHECK ===" -ForegroundColor Cyan
 @(
-    $SCRIPT_EXEC, $SCRIPT_RECONCILE, $SCRIPT_HANDOFF, $SCRIPT_EXEC_CPAPI, $SCRIPT_CLEANUP,
-    $SCRIPT_EXIT_SCANNER,
+    $SCRIPT_EXEC, $SCRIPT_RECONCILE, $SCRIPT_HANDOFF, $SCRIPT_EXEC_CPAPI,
+    $SCRIPT_CLEANUP, $SCRIPT_EXIT_SCANNER,
     "$ROOT\artifacts\live_alpha\live_feature_snapshot.parquet",
     "$ROOT\artifacts\freeze_runner\optimal\freeze_current_book.csv",
     "$ROOT\artifacts\freeze_runner\optimal\freeze_current_summary.json",
@@ -211,9 +237,6 @@ Assert-Exit "EXEC_LOOP_AGGRESSIVE"
 
 # ============================================================
 # КРОК 2b — Exit Scanner (price-based exits)
-# Виконується після order generation, до handoff/execution.
-# Додає SELL/BUY ордери закриття в orders.csv для позицій що
-# спрацювали на stop_loss / take_profit / trailing_stop / max_hold.
 # ============================================================
 Write-Host ""
 Write-Host "=== STEP 2b: EXIT SCANNER ===" -ForegroundColor Cyan
@@ -224,16 +247,13 @@ $env:CPAPI_BASE_URL                  = $CPAPI_BASE_URL
 $env:CPAPI_VERIFY_SSL                = "0"
 $env:CPAPI_TIMEOUT_SEC               = "10.0"
 $env:EXIT_SCANNER_DRY_RUN            = "0"
-$env:EXIT_SCANNER_USE_STATE_PRICE    = "0"   # 1 = не ходити в CPAPI
+$env:EXIT_SCANNER_USE_STATE_PRICE    = "0"
 $env:PAUSE_ON_EXIT                   = "0"
 
-# Exit policy: optimal
 if ($EXIT_OPTIMAL_STOP_LOSS_PCT     -ne "") { $env:EXIT_OPTIMAL_STOP_LOSS_PCT     = $EXIT_OPTIMAL_STOP_LOSS_PCT }
 if ($EXIT_OPTIMAL_TAKE_PROFIT_PCT   -ne "") { $env:EXIT_OPTIMAL_TAKE_PROFIT_PCT   = $EXIT_OPTIMAL_TAKE_PROFIT_PCT }
 if ($EXIT_OPTIMAL_TRAILING_STOP_PCT -ne "") { $env:EXIT_OPTIMAL_TRAILING_STOP_PCT = $EXIT_OPTIMAL_TRAILING_STOP_PCT }
 if ($EXIT_OPTIMAL_MAX_HOLD_DAYS     -ne "") { $env:EXIT_OPTIMAL_MAX_HOLD_DAYS     = $EXIT_OPTIMAL_MAX_HOLD_DAYS }
-
-# Exit policy: aggressive
 if ($EXIT_AGGRESSIVE_STOP_LOSS_PCT     -ne "") { $env:EXIT_AGGRESSIVE_STOP_LOSS_PCT     = $EXIT_AGGRESSIVE_STOP_LOSS_PCT }
 if ($EXIT_AGGRESSIVE_TAKE_PROFIT_PCT   -ne "") { $env:EXIT_AGGRESSIVE_TAKE_PROFIT_PCT   = $EXIT_AGGRESSIVE_TAKE_PROFIT_PCT }
 if ($EXIT_AGGRESSIVE_TRAILING_STOP_PCT -ne "") { $env:EXIT_AGGRESSIVE_TRAILING_STOP_PCT = $EXIT_AGGRESSIVE_TRAILING_STOP_PCT }
@@ -244,7 +264,6 @@ Assert-Exit "EXIT_SCANNER"
 
 # ============================================================
 # КРОК 3 — CPAPI handoff (live BBO)
-# Також будує/оновлює conid_cache.json для кроку 4
 # ============================================================
 Write-Host ""
 Write-Host "=== STEP 3: CPAPI HANDOFF (live BBO) ===" -ForegroundColor Cyan
@@ -275,7 +294,6 @@ Assert-Exit "CPAPI_HANDOFF"
 
 # ============================================================
 # КРОК 4 — CPAPI execution
-# CPAPI_RESOLVE_CONIDS=0: conid_cache вже є після кроку 3
 # ============================================================
 Write-Host ""
 Write-Host "=== STEP 4: CPAPI EXECUTION ===" -ForegroundColor Cyan
@@ -433,6 +451,16 @@ $env:PAUSE_ON_EXIT                           = "0"
 
 & $PYTHON $SCRIPT_CLEANUP
 Assert-Exit "CPAPI_CLEANUP_SEND"
+
+# ============================================================
+# LOCK RELEASE
+# ============================================================
+if (Test-Path $LOCK_FILE) {
+    Remove-Item $LOCK_FILE -Force
+    Write-Host ""
+    Write-Host "[LOCK] released" -ForegroundColor DarkGray
+}
+$lockCreated = $false
 
 # ============================================================
 # ПІДСУМОК
