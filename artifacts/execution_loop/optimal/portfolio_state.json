@@ -1,7 +1,7 @@
 {
   "config": "optimal",
-  "nav": 978809.6875,
-  "cash": 978809.6875,
+  "nav": 978895.5,
+  "cash": 978895.5,
   "last_rebalanced_date": "2026-04-10",
   "positions": {},
   "state_alignment": {
@@ -9,8 +9,8 @@
     "cash_mode": "preserve_nav",
     "positions_count": 0,
     "market_value": 0.0,
-    "cash_after_alignment": 978809.6875,
-    "nav_after_alignment": 978809.6875,
+    "cash_after_alignment": 978895.5,
+    "nav_after_alignment": 978895.5,
     "default_fallback_price_count": 0,
     "state_fallback_price_count": 0,
     "broker_price_count": 0,
