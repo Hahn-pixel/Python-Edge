@@ -10,12 +10,14 @@ PIPELINE:
   2a) run_execution_loop.py    — optimal
   2b) run_execution_loop.py    — aggressive
   2c) run_exit_scanner.py      — price-based exits
+  2d) [ДІАГНОСТИКА] freeze gate summary — live_gate_reason per config
   3)  run_cpapi_handoff.py     — live BBO
   4)  run_cpapi_execution.py   — відправка ордерів
+  4b) [TD-2] cancel working orders — скасування незакритих ордерів поточного циклу
   5)  run_cpapi_reconcile.py   — post-execution reconcile
   5a) sync cleanup preview -> orders
   5b) resolve conids for cleanup
-  6)  run_cpapi_cleanup.py     — cleanup send
+  6)  run_cpapi_cleanup.py     — cleanup send (TD-3: timeout=90s для великих qty)
 
 Передумова: Client Portal Gateway запущений на https://localhost:5000
             і авторизований через браузер.
@@ -29,6 +31,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 import traceback
 from pathlib import Path
 
@@ -188,6 +191,192 @@ def _remove_state_for_alignment() -> None:
                 p.unlink()
 
 
+# ──────────────────────────────────────────────────────────────
+# TD-5: Діагностика freeze gate для кожного конфігу
+# ──────────────────────────────────────────────────────────────
+def _print_freeze_gate_diagnostics() -> None:
+    """
+    Читає freeze_current_summary.json для optimal і aggressive
+    і виводить live_gate_passed / live_gate_reason / live_active_names.
+    Якщо aggressive заблокований — явно попереджає.
+    """
+    print("\n=== STEP 2d: FREEZE GATE DIAGNOSTICS ===")
+    freeze_root = ROOT / "artifacts" / "freeze_runner"
+    configs_warned: list[str] = []
+    for cfg_name in ["optimal", "aggressive"]:
+        summary_path = freeze_root / cfg_name / "freeze_current_summary.json"
+        if not summary_path.exists():
+            print(f"  [{cfg_name}] freeze_current_summary.json not found — skipping diagnostics")
+            continue
+        try:
+            with summary_path.open("r", encoding="utf-8") as fh:
+                s = json.load(fh)
+        except Exception as exc:
+            print(f"  [{cfg_name}] failed to read freeze summary: {exc}")
+            continue
+
+        live_gate_passed   = int(s.get("live_gate_passed", -1))
+        live_gate_reason   = str(s.get("live_gate_reason", "unknown"))
+        live_active_names  = int(s.get("live_active_names", 0))
+        live_active_raw    = int(s.get("live_active_names_raw", 0))
+        replay_sharpe      = s.get("replay_sharpe_last_fold", float("nan"))
+        replay_cumret      = s.get("replay_cumret_last_fold", float("nan"))
+        live_current_date  = str(s.get("live_current_date", ""))
+        use_regime         = int(s.get("use_regime_overlay", 0))
+        use_budgets        = int(s.get("use_dynamic_side_budgets", 0))
+
+        gate_str = "PASSED" if live_gate_passed == 1 else ("BLOCKED" if live_gate_passed == 0 else "UNKNOWN")
+        print(
+            f"  [{cfg_name}] gate={gate_str} reason={live_gate_reason} "
+            f"live_active_names={live_active_names} live_active_names_raw={live_active_raw} "
+            f"replay_sharpe={replay_sharpe:.4f} replay_cumret={replay_cumret:.4f} "
+            f"live_current_date={live_current_date} "
+            f"use_regime_overlay={use_regime} use_dynamic_side_budgets={use_budgets}"
+        )
+
+        if live_gate_passed == 0:
+            configs_warned.append(cfg_name)
+            print(
+                f"  [{cfg_name}] *** LIVE GATE BLOCKED *** — orders.csv will be empty for this config.\n"
+                f"             To diagnose: check freeze_basket_search.csv and freeze_daily_replay_last_fold.csv.\n"
+                f"             Possible fixes:\n"
+                f"               • Знизити FREEZE_MIN_REPLAY_SHARPE (зараз в launch_daily_update.py не встановлено → default={0.00})\n"
+                f"               • Знизити FREEZE_MIN_LIVE_ACTIVE_NAMES (default={1})\n"
+                f"               • Перевірити basket_search: можливо regime_overlay/side_budgets обнуляють всі ваги"
+            )
+
+    if not configs_warned:
+        print("  [ALL] live gate passed for all configs")
+    else:
+        print(f"  [WARN] {len(configs_warned)} config(s) blocked by live gate: {configs_warned}")
+
+
+# ──────────────────────────────────────────────────────────────
+# TD-2: Cancel working orders після execution
+# ──────────────────────────────────────────────────────────────
+def _cancel_working_orders(base_env: dict) -> None:
+    """
+    STEP 4b: після виконання ордерів — знаходить всі working/submitted
+    ордери з prefix 'pe-' (поточний цикл) через /iserver/account/orders,
+    відправляє cancel на кожен, чекає 5с, перевіряє статус.
+    Логує debug counters: found / cancelled / still_working.
+    Не кидає виняток — тільки друкує попередження.
+    """
+    print("\n=== STEP 4b: CANCEL WORKING ORDERS (TD-2) ===")
+    cancel_code = r"""
+import os, sys, time, json
+from pathlib import Path
+ROOT = Path(".").resolve()
+SRC_DIR = ROOT / "src"
+for p in [str(ROOT), str(SRC_DIR)]:
+    if p not in sys.path:
+        sys.path.insert(0, p)
+
+from python_edge.broker.cpapi_client import CpapiClient
+
+base_url   = os.getenv("CPAPI_BASE_URL", "https://localhost:5000")
+account_id = os.getenv("BROKER_ACCOUNT_ID", "")
+verify_ssl = os.getenv("CPAPI_VERIFY_SSL", "0").lower() not in {"1","true","yes","on"}
+timeout    = float(os.getenv("CPAPI_TIMEOUT_SEC", "30.0"))
+
+client = CpapiClient(base_url, timeout, verify_ssl)
+
+# Отримати всі ордери брокера
+try:
+    orders_raw = client._get("/v1/api/iserver/account/orders")
+    if isinstance(orders_raw, dict):
+        orders_list = orders_raw.get("orders", [])
+    elif isinstance(orders_raw, list):
+        orders_list = orders_raw
+    else:
+        orders_list = []
+except Exception as exc:
+    print(f"[CANCEL_WORKING] failed to fetch orders: {exc}")
+    sys.exit(0)
+
+WORKING_STATUSES = {"Submitted", "PreSubmitted", "PendingSubmit",
+                    "SUBMITTED", "PRESUBMITTED", "PENDINGSUBMIT"}
+
+# Фільтруємо тільки ордери поточного циклу (cOID починається з 'pe-')
+working = [
+    o for o in orders_list
+    if str(o.get("status", "")).strip() in WORKING_STATUSES
+    and str(o.get("orderRef", "") or o.get("cOID", "") or "").startswith("pe-")
+]
+
+debug_found         = len(working)
+debug_cancel_sent   = 0
+debug_cancel_ok     = 0
+debug_still_working = 0
+
+print(f"[CANCEL_WORKING] found={debug_found} working orders with prefix 'pe-'")
+
+for order in working:
+    order_id = str(order.get("orderId", "") or order.get("order_id", "")).strip()
+    symbol   = str(order.get("ticker", "") or order.get("symbol", "")).strip()
+    side     = str(order.get("side", "")).strip()
+    qty      = order.get("remainingQuantity", order.get("remaining", "?"))
+    if not order_id:
+        print(f"[CANCEL_WORKING] skipping order without orderId: {order}")
+        continue
+    try:
+        result = client._delete(f"/v1/api/iserver/account/{account_id}/order/{order_id}")
+        debug_cancel_sent += 1
+        print(f"[CANCEL_WORKING] cancel sent order_id={order_id} symbol={symbol} side={side} remaining={qty} result={result}")
+        debug_cancel_ok += 1
+    except Exception as exc:
+        print(f"[CANCEL_WORKING] cancel failed order_id={order_id} symbol={symbol}: {exc}")
+
+if debug_cancel_sent > 0:
+    print(f"[CANCEL_WORKING] waiting 5s for cancel propagation...")
+    time.sleep(5)
+
+    # Перевірка: чи залишились ще working
+    try:
+        orders_raw2 = client._get("/v1/api/iserver/account/orders")
+        if isinstance(orders_raw2, dict):
+            orders_list2 = orders_raw2.get("orders", [])
+        elif isinstance(orders_raw2, list):
+            orders_list2 = orders_raw2
+        else:
+            orders_list2 = []
+        still = [
+            o for o in orders_list2
+            if str(o.get("status", "")).strip() in WORKING_STATUSES
+            and str(o.get("orderRef", "") or o.get("cOID", "") or "").startswith("pe-")
+        ]
+        debug_still_working = len(still)
+        if still:
+            for o in still:
+                print(f"[CANCEL_WORKING][WARN] still working: order_id={o.get('orderId')} symbol={o.get('ticker')} status={o.get('status')} remaining={o.get('remainingQuantity')}")
+    except Exception as exc:
+        print(f"[CANCEL_WORKING] post-cancel status check failed: {exc}")
+
+print(
+    f"[CANCEL_WORKING][SUMMARY] "
+    f"found={debug_found} "
+    f"cancel_sent={debug_cancel_sent} "
+    f"cancel_ok={debug_cancel_ok} "
+    f"still_working={debug_still_working}"
+)
+if debug_still_working > 0:
+    print(f"[CANCEL_WORKING][WARN] {debug_still_working} order(s) still working after cancel — reconcile may show partial fills")
+
+sys.exit(0)
+"""
+    # Виконуємо як inline — не кидаємо помилку якщо cancel не вдався
+    print("[4b] cancelling working orders from current cycle...")
+    result = subprocess.run(
+        [sys.executable, "-c", cancel_code],
+        cwd=str(ROOT),
+        env=base_env,
+    )
+    if result.returncode != 0:
+        print(f"[4b][WARN] cancel working orders script exited {result.returncode} — continuing pipeline")
+    else:
+        print("[4b] cancel working orders OK")
+
+
 def main() -> int:
     print("=" * 60)
     print("  Python-Edge — Full Cycle CPAPI (Execution)")
@@ -338,6 +527,9 @@ def main() -> int:
         }}
         _run("EXIT_SCANNER", SCRIPT_EXIT_SCANNER, env2c)
 
+        # ── STEP 2d: Freeze gate diagnostics (TD-5) ───────────
+        _print_freeze_gate_diagnostics()
+
         # ── STEP 3: Handoff ───────────────────────────────────
         print("\n=== STEP 3: CPAPI HANDOFF (live BBO) ===")
         env3 = {**base_env, **{
@@ -370,6 +562,9 @@ def main() -> int:
             "RESET_BROKER_LOG":        "1",
         }}
         _run("CPAPI_EXEC_ORDERS", SCRIPT_EXEC_CPAPI, env4)
+
+        # ── STEP 4b: Cancel working orders (TD-2) ─────────────
+        _cancel_working_orders(base_env)
 
         # ── STEP 5: Reconcile post ────────────────────────────
         print("\n=== STEP 5: CPAPI RECONCILE (post-execution) ===")
@@ -434,12 +629,14 @@ for cfg in configs:
         _run_inline("CONID_CLEANUP_RESOLVE", resolve_code, resolve_env)
 
         # ── STEP 6: Cleanup send ──────────────────────────────
+        # TD-3: CPAPI_WHOLE_TIMEOUT_SEC=90.0 для cleanup (vs 30.0 для execution)
+        # Cleanup ордери — це legacy/великі qty (APLS 1269 тощо), потребують більше часу
         print("\n=== STEP 6: CPAPI CLEANUP SEND ===")
         env6 = {**base_env, **{
             "CONFIG_NAMES":                            "optimal|aggressive",
             "BROKER_NAME":                             "MEXEM",
             "BROKER_PLATFORM":                         "IBKR_CPAPI",
-            "CPAPI_WHOLE_TIMEOUT_SEC":                 "30.0",
+            "CPAPI_WHOLE_TIMEOUT_SEC":                 "90.0",   # TD-3: 30→90 для великих cleanup ордерів
             "CPAPI_FRAC_TIMEOUT_SEC":                  "20.0",
             "CPAPI_TIF":                               "DAY",
             "CPAPI_FRAC_SLIPPAGE_BPS":                 "5.0",

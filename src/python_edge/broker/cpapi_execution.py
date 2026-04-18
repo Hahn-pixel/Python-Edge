@@ -23,21 +23,19 @@ from python_edge.broker.cpapi_pricing import (
 )
 
 # ---------------------------------------------------------------------------
-# Tunable defaults (all overridable by caller)
+# Tunable defaults (all overridable by caller via engine_kwargs)
 # ---------------------------------------------------------------------------
 
-_WHOLE_FILL_POLL_INTERVAL_SEC: float = 1.5
-_WHOLE_FILL_TIMEOUT_SEC: float       = 30.0   # WHOLE_WORKING → WHOLE_TIMEOUT
-_FRAC_FILL_POLL_INTERVAL_SEC: float  = 1.5
-_FRAC_FILL_TIMEOUT_SEC: float        = 20.0   # FRAC_WORKING → FRAC fill check
+_WHOLE_FILL_POLL_INTERVAL_SEC: float = 1.0
+# TD-1: збільшено default з 30 → 60 щоб великі ордери (1000+ shares)
+# мали достатньо часу на fill через MIDPRICE.
+# Для cleanup pipeline env6 передає 90.0 явно (TD-3).
+_WHOLE_FILL_TIMEOUT_SEC: float       = 60.0
+_FRAC_FILL_POLL_INTERVAL_SEC: float  = 1.0
+_FRAC_FILL_TIMEOUT_SEC: float        = 20.0
 _DEFAULT_TIF: str                    = "DAY"
 _FRAC_SLIPPAGE_BPS: float            = 5.0
 _DEFAULT_TICK: float                 = 0.01
-
-# CPAPI Gateway latency: order is NOT visible in /orders immediately after
-# submit. This delay prevents the first poll from returning None spuriously.
-_POST_SUBMIT_DELAY_SEC: float = 2.0
-
 _FILLED_STATUSES = frozenset({"Filled", "FILLED", "filled"})
 _WORKING_STATUSES = frozenset({
     "Submitted", "SUBMITTED", "submitted",
@@ -123,9 +121,10 @@ class CpapiExecutionEngine:
     Each state transition is explicit, logged, and counted.
     No silent fail-open: any bypass is recorded in debug counters.
 
-    Cancel-on-timeout: if the whole leg times out while still working,
-    a cancel request is sent before proceeding to the frac leg. This
-    prevents double-fill (whole fills late + frac fills) after timeout.
+    TD-1 note: reply chain failures (id → reply → new id → 400) are surfaced
+    in submit_order inside CpapiClient. If WHOLE_SUBMIT stays in WHOLE_SUBMIT
+    state (empty order_id), the engine logs the full raw response for diagnosis
+    and advances to WHOLE_TIMEOUT with an explicit debug counter increment.
     """
 
     def __init__(
@@ -176,9 +175,10 @@ class CpapiExecutionEngine:
             self._run_whole_submit(intent, reference_price)
 
             if intent.state is ExecState.WHOLE_SUBMIT:
-                # submit failed → go straight to frac attempt anyway
+                # submit failed — reply chain exhausted or empty order_id
+                # TD-1: явне логування причини провалу submit
                 _transition(intent, ExecState.WHOLE_TIMEOUT,
-                            "whole submit failed; skipping to frac")
+                            "whole submit failed (reply chain exhausted or empty order_id); skipping to frac")
                 intent.debug_whole_timeout += 1
 
             elif intent.state is ExecState.WHOLE_WORKING:
@@ -263,7 +263,12 @@ class CpapiExecutionEngine:
     # ------------------------------------------------------------------
 
     def _run_whole_submit(self, intent: ExecutionIntent, reference_price: float) -> None:
-        """Submit MIDPRICE order for whole_qty. Sets WHOLE_WORKING on success."""
+        """
+        Submit MIDPRICE order for whole_qty. Sets WHOLE_WORKING on success.
+
+        TD-1: при провалі submit_order (empty order_id або reply chain failure)
+        логуємо повний raw response для діагностики reply chain.
+        """
         try:
             # midprice_price validates guard; returns None (no explicit px)
             midprice_price(intent, self._min_tick, reference_price)
@@ -281,23 +286,16 @@ class CpapiExecutionEngine:
             resp = self._client.submit_order(intent.account_id, req)
 
             if not resp.order_id:
+                # TD-1: логуємо raw response щоб діагностувати reply chain
+                raw_repr = repr(resp.raw)[:500]
                 raise RuntimeError(
-                    f"submit_order returned empty order_id: {resp.raw}"
+                    f"submit_order returned empty order_id. "
+                    f"Possible reply chain failure (id→reply→new_id→400). "
+                    f"raw={raw_repr}"
                 )
 
             intent.whole_order_id = resp.order_id
             intent.debug_whole_submitted += 1
-
-            # ── Initial delay: CPAPI Gateway indexes new orders with
-            # ~1-3s latency. Sleeping here avoids the first poll
-            # returning None and wasting a polling cycle.
-            print(
-                f"[SM][{intent.symbol}][WHOLE_SUBMIT] "
-                f"order_id={resp.order_id} "
-                f"waiting {_POST_SUBMIT_DELAY_SEC:.1f}s for gateway indexing"
-            )
-            time.sleep(_POST_SUBMIT_DELAY_SEC)
-
             _transition(intent, ExecState.WHOLE_WORKING,
                         f"whole order_id={resp.order_id}")
 
@@ -307,46 +305,29 @@ class CpapiExecutionEngine:
             # Stay in WHOLE_SUBMIT → caller will detect and advance to WHOLE_TIMEOUT
 
         except Exception as exc:
+            # TD-1: явний лог з повним traceback для reply chain діагностики
             _record_error(intent, exc, stage="WHOLE_SUBMIT")
+            print(
+                f"[SM][{intent.symbol}][WHOLE_SUBMIT][TD-1_DIAG] "
+                f"whole_qty={intent.whole_qty:.0f} "
+                f"conid={intent.conid} "
+                f"client_tag={intent.client_tag}-W "
+                f"timeout_configured={self._whole_timeout:.0f}s"
+            )
             # Stay in WHOLE_SUBMIT → caller advances to WHOLE_TIMEOUT
-
-    def _try_cancel_whole(self, intent: ExecutionIntent) -> None:
-        """
-        Attempt to cancel the whole leg order.
-        Called on WHOLE_TIMEOUT to prevent double-fill (whole fills late
-        after frac is already submitted).
-        Never raises — failure is recorded in debug counters.
-        """
-        order_id = intent.whole_order_id
-        if not order_id:
-            return
-        try:
-            self._client.cancel_order(intent.account_id, order_id)
-            print(
-                f"[SM][{intent.symbol}][CANCEL_WHOLE] "
-                f"cancel sent for order_id={order_id}"
-            )
-            intent.debug_whole_cancel_sent += 1
-        except Exception as exc:
-            # Cancel may fail if order already filled — record explicitly,
-            # never swallow silently.
-            intent.debug_whole_cancel_fail += 1
-            print(
-                f"[SM][{intent.symbol}][CANCEL_WHOLE][WARN] "
-                f"cancel failed order_id={order_id}: {exc} "
-                f"(cancel_fail_total={intent.debug_whole_cancel_fail})"
-            )
 
     def _run_whole_wait(self, intent: ExecutionIntent) -> None:
         """
         Poll until whole leg fills, partially fills, times out, or is cancelled.
-        On timeout: sends cancel before handing off to frac leg.
+        TD-1: logs elapsed time at each poll tick to help diagnose slow fills vs timeouts.
         """
         deadline = time.monotonic() + self._whole_timeout
         order_id = intent.whole_order_id
+        start_ts = time.monotonic()
 
         while time.monotonic() < deadline:
             time.sleep(_WHOLE_FILL_POLL_INTERVAL_SEC)
+            elapsed = time.monotonic() - start_ts
             try:
                 status = self._client.find_order_status(order_id)
             except Exception as exc:
@@ -354,15 +335,19 @@ class CpapiExecutionEngine:
                 continue
 
             if status is None:
-                # Not visible yet — keep polling (should be rare after
-                # _POST_SUBMIT_DELAY_SEC sleep in _run_whole_submit)
-                print(f"[SM][{intent.symbol}][WHOLE_POLL] order_id={order_id} not found yet")
+                # Not visible yet — keep polling
+                print(
+                    f"[SM][{intent.symbol}][WHOLE_POLL] "
+                    f"order_id={order_id} not found yet "
+                    f"elapsed={elapsed:.1f}s"
+                )
                 continue
 
             print(
                 f"[SM][{intent.symbol}][WHOLE_POLL] "
                 f"status={status.status} filled={status.filled_qty:.6f} "
-                f"remaining={status.remaining_qty:.6f} avg_px={status.avg_price:.4f}"
+                f"remaining={status.remaining_qty:.6f} avg_px={status.avg_price:.4f} "
+                f"elapsed={elapsed:.1f}s"
             )
 
             if _is_filled(status):
@@ -370,7 +355,7 @@ class CpapiExecutionEngine:
                 intent.whole_avg_price   = status.avg_price
                 intent.debug_whole_filled += 1
                 _transition(intent, ExecState.WHOLE_FILLED,
-                            f"filled qty={status.filled_qty:.6f} avg_px={status.avg_price:.4f}")
+                            f"filled qty={status.filled_qty:.6f} avg_px={status.avg_price:.4f} elapsed={elapsed:.1f}s")
                 return
 
             if _is_partial(status):
@@ -378,40 +363,30 @@ class CpapiExecutionEngine:
                 intent.whole_avg_price   = status.avg_price
                 intent.debug_whole_partial += 1
                 _transition(intent, ExecState.WHOLE_PARTIAL,
-                            f"partial qty={status.filled_qty:.6f} remaining={status.remaining_qty:.6f}")
+                            f"partial qty={status.filled_qty:.6f} remaining={status.remaining_qty:.6f} elapsed={elapsed:.1f}s")
                 return
 
             if _is_cancelled(status):
                 intent.whole_filled_qty = status.filled_qty
                 intent.whole_avg_price  = status.avg_price
                 _transition(intent, ExecState.WHOLE_TIMEOUT,
-                            f"whole order cancelled by broker qty_filled={status.filled_qty:.6f}")
+                            f"whole order cancelled by broker qty_filled={status.filled_qty:.6f} elapsed={elapsed:.1f}s")
                 intent.debug_whole_timeout += 1
                 return
 
-        # ── Timeout reached ────────────────────────────────────────────
-        # 1. Capture whatever was filled so far
-        # 2. Cancel the order to prevent late double-fill
-        # 3. Transition to WHOLE_TIMEOUT
+        # Timeout reached — explicit log with configured timeout for diagnosis
+        elapsed_total = time.monotonic() - start_ts
         intent.debug_whole_timeout += 1
-        partial_status = None
-        try:
-            partial_status = self._client.find_order_status(order_id)
-        except Exception as exc:
-            _record_error(intent, exc, stage="WHOLE_TIMEOUT_STATUS")
-
+        partial_status = self._client.find_order_status(order_id)
         filled = partial_status.filled_qty if partial_status else 0.0
         avg_px = partial_status.avg_price  if partial_status else 0.0
         intent.whole_filled_qty = filled
         intent.whole_avg_price  = avg_px
-
-        # Cancel before transitioning — prevents whole order from filling
-        # after frac leg is already in flight.
-        self._try_cancel_whole(intent)
-
         _transition(intent, ExecState.WHOLE_TIMEOUT,
                     f"timeout after {self._whole_timeout:.0f}s "
-                    f"filled_so_far={filled:.6f} cancel_sent=True")
+                    f"elapsed={elapsed_total:.1f}s "
+                    f"filled_so_far={filled:.6f} "
+                    f"order_id={order_id}")
 
     # ------------------------------------------------------------------
     # FRAC leg
@@ -439,21 +414,13 @@ class CpapiExecutionEngine:
             resp = self._client.submit_order(intent.account_id, req)
 
             if not resp.order_id:
+                raw_repr = repr(resp.raw)[:500]
                 raise RuntimeError(
-                    f"frac submit_order returned empty order_id: {resp.raw}"
+                    f"frac submit_order returned empty order_id. raw={raw_repr}"
                 )
 
             intent.frac_order_id = resp.order_id
             intent.debug_frac_submitted += 1
-
-            # Same gateway indexing delay for frac leg
-            print(
-                f"[SM][{intent.symbol}][FRAC_SUBMIT] "
-                f"order_id={resp.order_id} limit_px={limit_px:.4f} "
-                f"waiting {_POST_SUBMIT_DELAY_SEC:.1f}s for gateway indexing"
-            )
-            time.sleep(_POST_SUBMIT_DELAY_SEC)
-
             _transition(intent, ExecState.FRAC_WORKING,
                         f"frac order_id={resp.order_id} limit_px={limit_px:.4f}")
 
@@ -509,12 +476,7 @@ class CpapiExecutionEngine:
                 return
 
         # Timeout — record partial fill and finalize
-        final_status = None
-        try:
-            final_status = self._client.find_order_status(order_id)
-        except Exception as exc:
-            _record_error(intent, exc, stage="FRAC_TIMEOUT_STATUS")
-
+        final_status = self._client.find_order_status(order_id)
         if final_status:
             intent.frac_filled_qty = final_status.filled_qty
             intent.frac_avg_price  = final_status.avg_price
@@ -578,7 +540,9 @@ def run_batch(
         print(
             f"[BATCH] symbol={intent.symbol} side={intent.side.value} "
             f"qty={intent.target_qty:.8f} ref_price={ref_price:.4f} "
-            f"conid={intent.conid}"
+            f"conid={intent.conid} "
+            f"whole_timeout={engine._whole_timeout:.0f}s "
+            f"frac_timeout={engine._frac_timeout:.0f}s"
         )
         result = engine.execute(intent, ref_price)
         results.append(result)

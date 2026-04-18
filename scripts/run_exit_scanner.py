@@ -5,11 +5,12 @@ run_exit_scanner.py — Exit Strategy Scanner
 
 Що робить:
   1. Читає portfolio_state.json per config
-  2. Завантажує ivol_20d зі snapshot (live_feature_snapshot.parquet)
+  2. Завантажує ivol_20d і target_fwd_ret_1d зі snapshot (live_feature_snapshot.parquet)
   3. Отримує поточні ціни з CPAPI snapshot (або fallback з state)
-  4. Оновлює peak_price і кешує ivol_20d в exit_meta (portfolio_state.json)
-  5. Оцінює exit-умови через ExitPolicy (volatility-scaled trailing)
-  6. Якщо exit спрацював — додає SELL/BUY в orders.csv
+  4. Оновлює peak_price, signal_last_updated, signal_raw_score в exit_meta
+  5. Оцінює price-based exit через ExitPolicy (stop/trail/take/max_hold)
+  6. Оцінює signal decay через DecayConfig (decay_exit / hard_expire)
+  7. Якщо exit спрацював — додає SELL/BUY в orders.csv
 
 ENV-змінні:
   EXECUTION_ROOT              — default: artifacts/execution_loop
@@ -23,8 +24,18 @@ ENV-змінні:
   PAUSE_ON_EXIT               — 0/1
   TODAY_OVERRIDE              — YYYY-MM-DD (для тестування)
 
-  + Exit policy params (ExitPolicy.from_env):
-  EXIT_OPTIMAL_STOP_LOSS_PCT, EXIT_OPTIMAL_TRAIL_K, etc.
+  + Price-based exit policy params (ExitPolicy.from_env):
+    EXIT_OPTIMAL_STOP_LOSS_PCT, EXIT_OPTIMAL_TRAIL_K, etc.
+
+  + Signal decay params (DecayConfig.from_env):
+    DECAY_OPTIMAL_TAU_DAYS=4.0
+    DECAY_OPTIMAL_HARD_CAP_DAYS=15
+    DECAY_OPTIMAL_SCORE_FLOOR=0.05
+    DECAY_OPTIMAL_ENABLED=1
+    DECAY_AGGRESSIVE_TAU_DAYS=3.0
+    DECAY_AGGRESSIVE_HARD_CAP_DAYS=10
+    DECAY_AGGRESSIVE_SCORE_FLOOR=0.08
+    DECAY_AGGRESSIVE_ENABLED=1
 """
 
 from __future__ import annotations
@@ -44,6 +55,7 @@ for _p in [str(_ROOT), str(_ROOT / "src")]:
 import pandas as pd
 
 from python_edge.portfolio.exit_policy import ExitPolicy
+from python_edge.portfolio.signal_decay import DecayConfig
 
 
 # ──────────────────────────────────────────────────────────────
@@ -64,7 +76,7 @@ def _today_str() -> str:
 
 
 # ──────────────────────────────────────────────────────────────
-# ivol_20d зі snapshot
+# Snapshot loaders
 # ──────────────────────────────────────────────────────────────
 def _load_ivol_from_snapshot(snapshot_path: Path) -> dict[str, float]:
     """
@@ -83,13 +95,38 @@ def _load_ivol_from_snapshot(snapshot_path: Path) -> dict[str, float]:
         df = df.dropna(subset=["ivol_20d"])
         df["ivol_20d"] = pd.to_numeric(df["ivol_20d"], errors="coerce")
         df = df.dropna(subset=["ivol_20d"])
-        # Останній рядок per symbol
         latest = df.groupby("symbol")["ivol_20d"].last()
         ivol = {str(s).upper(): float(v) for s, v in latest.items() if v > 0}
         print(f"[EXIT_SCANNER] ivol loaded: {len(ivol)} symbols from snapshot")
     except Exception as exc:
         print(f"[EXIT_SCANNER] snapshot read error: {exc}")
     return ivol
+
+
+def _load_scores_from_snapshot(snapshot_path: Path) -> dict[str, float]:
+    """
+    Повертає {symbol: target_fwd_ret_1d} з live_feature_snapshot.parquet.
+    target_fwd_ret_1d — прогнозний alpha score, використовується як raw_score для decay.
+    Бере останній рядок per symbol.
+    """
+    scores: dict[str, float] = {}
+    if not snapshot_path.exists():
+        return scores
+    try:
+        cols = ["symbol", "target_fwd_ret_1d"]
+        df = pd.read_parquet(snapshot_path, columns=cols)
+        if "symbol" not in df.columns or "target_fwd_ret_1d" not in df.columns:
+            print("[EXIT_SCANNER] snapshot missing target_fwd_ret_1d — decay score unavailable")
+            return scores
+        df = df.dropna(subset=["target_fwd_ret_1d"])
+        df["target_fwd_ret_1d"] = pd.to_numeric(df["target_fwd_ret_1d"], errors="coerce")
+        df = df.dropna(subset=["target_fwd_ret_1d"])
+        latest = df.groupby("symbol")["target_fwd_ret_1d"].last()
+        scores = {str(s).upper(): float(v) for s, v in latest.items()}
+        print(f"[EXIT_SCANNER] scores loaded: {len(scores)} symbols from snapshot (target_fwd_ret_1d)")
+    except Exception as exc:
+        print(f"[EXIT_SCANNER] scores snapshot read error: {exc}")
+    return scores
 
 
 # ──────────────────────────────────────────────────────────────
@@ -214,6 +251,7 @@ def _process_config(
     cfg: str,
     exec_root: Path,
     snapshot_ivol: dict[str, float],
+    snapshot_scores: dict[str, float],
     base_url: str,
     verify_ssl: bool,
     timeout: float,
@@ -222,17 +260,26 @@ def _process_config(
     today: str,
 ) -> dict:
     counters = {
-        "config":                cfg,
-        "positions_checked":     0,
-        "exit_triggered":        0,
-        "already_in_orders":     0,
-        "skipped_no_price":      0,
-        "skipped_no_entry_price":0,
-        "peak_price_updated":    0,
-        "ivol_from_snapshot":    0,
-        "ivol_from_state":       0,
-        "ivol_missing":          0,
-        "orders_appended":       0,
+        "config":                  cfg,
+        "positions_checked":       0,
+        # price-based exits
+        "exit_triggered":          0,
+        "already_in_orders":       0,
+        "skipped_no_price":        0,
+        "skipped_no_entry_price":  0,
+        "peak_price_updated":      0,
+        "ivol_from_snapshot":      0,
+        "ivol_from_state":         0,
+        "ivol_missing":            0,
+        # decay exits
+        "decay_exit_triggered":    0,
+        "hard_expire_triggered":   0,
+        "score_from_snapshot":     0,
+        "score_from_state":        0,
+        "score_missing":           0,
+        "signal_last_updated":     0,
+        # output
+        "orders_appended":         0,
     }
 
     cfg_dir     = exec_root / cfg
@@ -251,8 +298,10 @@ def _process_config(
         return counters
 
     exit_meta: dict = state.setdefault("exit_meta", {})
-    policy = ExitPolicy.from_env(cfg)
+    policy       = ExitPolicy.from_env(cfg)
+    decay_config = DecayConfig.from_env(cfg)
     print(f"[EXIT_SCANNER][{cfg}] policy={policy}")
+    print(f"[EXIT_SCANNER][{cfg}] decay={decay_config}")
 
     # ── Поточні ціни ──────────────────────────────────────────
     symbols = list(positions.keys())
@@ -284,7 +333,7 @@ def _process_config(
             continue
 
         side         = 1.0 if shares > 0 else -1.0
-        state_price  = float(pos.get("last_price", 0))
+        state_price  = float(pos.get("last_price", 0) or 0)
         current_price = live_prices.get(symbol, 0.0)
         if current_price <= 0:
             current_price = state_price
@@ -302,7 +351,7 @@ def _process_config(
         ivol_20d: float | None = None
         if symbol.upper() in snapshot_ivol:
             ivol_20d = snapshot_ivol[symbol.upper()]
-            meta["ivol_20d_cached"] = ivol_20d   # кешуємо для daemon
+            meta["ivol_20d_cached"] = ivol_20d
             counters["ivol_from_snapshot"] += 1
         elif meta.get("ivol_20d_cached"):
             ivol_20d = float(meta["ivol_20d_cached"])
@@ -311,6 +360,30 @@ def _process_config(
         else:
             counters["ivol_missing"] += 1
             print(f"[EXIT_SCANNER][{cfg}] {symbol} ivol missing — trailing disabled")
+
+        # ── raw_score: snapshot → state cache → 0 ─────────────
+        raw_score: float = 0.0
+        sym_upper = symbol.upper()
+        if sym_upper in snapshot_scores:
+            raw_score = snapshot_scores[sym_upper]
+            meta["signal_raw_score"] = raw_score
+            # Оновлюємо signal_last_updated — символ є в snapshot з ненульовим score
+            if raw_score != 0.0:
+                meta["signal_last_updated"] = today
+                meta["signal_age_days"] = 0
+                counters["signal_last_updated"] += 1
+            counters["score_from_snapshot"] += 1
+        elif meta.get("signal_raw_score") is not None:
+            raw_score = float(meta.get("signal_raw_score") or 0.0)
+            counters["score_from_state"] += 1
+        else:
+            counters["score_missing"] += 1
+
+        # Оновлюємо signal_age_days в meta для логування
+        signal_last_updated = meta.get("signal_last_updated")
+        meta["signal_age_days"] = _days_between(
+            signal_last_updated or entry_date, today
+        )
 
         # ── Ініціалізація entry_price ─────────────────────────
         if entry_price <= 0:
@@ -346,8 +419,8 @@ def _process_config(
                 peak_price = current_price
                 counters["peak_price_updated"] += 1
 
-        # ── Evaluate exit ─────────────────────────────────────
-        reason = policy.evaluate(
+        # ── Evaluate price-based exit (ExitPolicy) ────────────
+        price_reason = policy.evaluate(
             symbol=symbol,
             side=side,
             entry_price=entry_price,
@@ -358,16 +431,35 @@ def _process_config(
             ivol_20d=ivol_20d,
         )
 
+        # ── Evaluate signal decay (DecayConfig) ───────────────
+        decay_result = decay_config.evaluate(
+            symbol=symbol,
+            raw_score=raw_score,
+            signal_last_updated=meta.get("signal_last_updated"),
+            entry_date=entry_date,
+            today=today,
+        )
+
+        # Агрегуємо причину виходу: price-based має пріоритет
+        exit_reason = price_reason or decay_result.reason
+
         pnl_pct   = (current_price - entry_price) / entry_price * side
         hold_days = _days_between(entry_date, today)
         trail_desc = policy.describe_trail(ivol_20d)
+        decay_desc = decay_config.describe(decay_result)
 
-        if reason:
+        # Лічильники для decay
+        if decay_result.reason == "decay_exit":
+            counters["decay_exit_triggered"] += 1
+        elif decay_result.reason == "hard_expire":
+            counters["hard_expire_triggered"] += 1
+
+        if exit_reason:
             counters["exit_triggered"] += 1
             if symbol.upper() in existing_exit_symbols:
                 counters["already_in_orders"] += 1
                 print(
-                    f"[EXIT_SCANNER][{cfg}] {symbol} exit={reason} "
+                    f"[EXIT_SCANNER][{cfg}] {symbol} exit={exit_reason} "
                     f"pnl={pnl_pct:+.2%} hold={hold_days}d — already in orders"
                 )
                 continue
@@ -382,19 +474,20 @@ def _process_config(
                 "target_shares": 0.0,
                 "price":         round(current_price, 4),
                 "price_source":  "exit_scanner",
-                "exit_reason":   reason,
+                "exit_reason":   exit_reason,
             })
             counters["orders_appended"] += 1
             print(
                 f"[EXIT_SCANNER][{cfg}] EXIT {symbol} {exit_side} {abs_shares:.0f}sh "
-                f"reason={reason} pnl={pnl_pct:+.2%} hold={hold_days}d "
+                f"reason={exit_reason} pnl={pnl_pct:+.2%} hold={hold_days}d "
                 f"entry={entry_price:.4f} cur={current_price:.4f} peak={peak_price:.4f} "
-                f"{trail_desc}"
+                f"{trail_desc} | {decay_desc}"
             )
         else:
             print(
                 f"[EXIT_SCANNER][{cfg}] {symbol} OK "
-                f"pnl={pnl_pct:+.2%} hold={hold_days}d {trail_desc}"
+                f"pnl={pnl_pct:+.2%} hold={hold_days}d "
+                f"{trail_desc} | {decay_desc}"
             )
 
     # ── Зберегти state ────────────────────────────────────────
@@ -418,23 +511,24 @@ def _process_config(
 # Entry point
 # ──────────────────────────────────────────────────────────────
 def main() -> None:
-    exec_root    = Path(_env("EXECUTION_ROOT", "artifacts/execution_loop"))
+    exec_root     = Path(_env("EXECUTION_ROOT", "artifacts/execution_loop"))
     snapshot_path = Path(_env(
         "LIVE_FEATURE_SNAPSHOT_FILE",
         "artifacts/live_alpha/live_feature_snapshot.parquet",
     ))
-    configs      = [c for c in _env("CONFIG_NAMES", "optimal|aggressive").split("|") if c]
-    base_url     = _env("CPAPI_BASE_URL", "https://localhost:5000")
-    verify_ssl   = not _env_bool("CPAPI_VERIFY_SSL", False)
-    timeout      = float(_env("CPAPI_TIMEOUT_SEC", "10.0"))
+    configs         = [c for c in _env("CONFIG_NAMES", "optimal|aggressive").split("|") if c]
+    base_url        = _env("CPAPI_BASE_URL", "https://localhost:5000")
+    verify_ssl      = not _env_bool("CPAPI_VERIFY_SSL", False)
+    timeout         = float(_env("CPAPI_TIMEOUT_SEC", "10.0"))
     use_state_price = _env_bool("EXIT_SCANNER_USE_STATE_PRICE", False)
-    dry_run      = _env_bool("EXIT_SCANNER_DRY_RUN", False)
-    today        = _today_str()
+    dry_run         = _env_bool("EXIT_SCANNER_DRY_RUN", False)
+    today           = _today_str()
 
     print(f"[EXIT_SCANNER] start date={today} configs={configs} dry_run={dry_run}")
 
-    # Завантажити ivol один раз для всіх configs
-    snapshot_ivol = _load_ivol_from_snapshot(snapshot_path)
+    # Завантажити ivol і scores один раз для всіх configs
+    snapshot_ivol   = _load_ivol_from_snapshot(snapshot_path)
+    snapshot_scores = _load_scores_from_snapshot(snapshot_path)
 
     all_counters: list[dict] = []
     total_exit = 0
@@ -444,6 +538,7 @@ def main() -> None:
             cfg=cfg,
             exec_root=exec_root,
             snapshot_ivol=snapshot_ivol,
+            snapshot_scores=snapshot_scores,
             base_url=base_url,
             verify_ssl=verify_ssl,
             timeout=timeout,
@@ -469,6 +564,12 @@ def main() -> None:
             f"ivol_snap={c['ivol_from_snapshot']} "
             f"ivol_state={c['ivol_from_state']} "
             f"ivol_missing={c['ivol_missing']} "
+            f"decay_exit={c['decay_exit_triggered']} "
+            f"hard_expire={c['hard_expire_triggered']} "
+            f"score_snap={c['score_from_snapshot']} "
+            f"score_state={c['score_from_state']} "
+            f"score_missing={c['score_missing']} "
+            f"sig_updated={c['signal_last_updated']} "
             f"orders_appended={c['orders_appended']}"
         )
     print(f"[EXIT_SCANNER] total exits this cycle: {total_exit}")

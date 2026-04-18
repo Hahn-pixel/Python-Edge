@@ -27,7 +27,15 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 _TICKLE_INTERVAL_SEC = 50        # must be < 60 to keep session alive
 _DEFAULT_TIMEOUT_SEC = 10        # per-request HTTP timeout
-_CONFIRM_RETRY_MAX   = 3         # how many times to retry /iserver/reply
+
+# TD-1: збільшено з 3 → 10.
+# Причина: Gateway для великих ордерів (qty=1000+) може повернути
+# ланцюжок: id → reply → новий id → reply → новий id → ...
+# При _CONFIRM_RETRY_MAX=3 ланцюжок обривався з RuntimeError → empty order_id.
+# Емпірично підтверджено: кожен reply-крок Gateway повертає або order_id
+# (done) або новий id (ще одне підтвердження потрібне). 10 ітерацій
+# покриває будь-яку відому глибину reply chain для IBKR Gateway.
+_CONFIRM_RETRY_MAX   = 10
 
 
 class CpapiClient:
@@ -216,13 +224,22 @@ class CpapiClient:
         """
         POST /iserver/account/{account}/orders
 
-        Handles the two-step confirmation automatically (up to
-        _CONFIRM_RETRY_MAX times) if the API returns a question/warning.
+        Handles the multi-step confirmation automatically (up to
+        _CONFIRM_RETRY_MAX=10 times) if the API returns a question/warning.
 
         Returns CpapiOrderResponse. Raises on HTTP errors.
         """
         payload = self._build_order_payload(req)
         path = f"/v1/api/iserver/account/{account_id}/orders"
+
+        # TD-1: логуємо payload перед відправкою для діагностики
+        print(
+            f"[CPAPI][SUBMIT] cOID={req.client_tag} "
+            f"conid={req.conid} side={req.side} "
+            f"qty={req.quantity} orderType={req.order_type} "
+            f"price={req.price} tif={req.tif}"
+        )
+
         raw = self._post(path, payload={"orders": [payload]})
         self.debug_order_submit += 1
 
@@ -230,22 +247,37 @@ class CpapiClient:
         if isinstance(raw, list):
             raw = raw[0] if raw else {}
 
-        # CPAPI returns "order_id"/"orderId" after confirmation, but the
-        # initial challenge response carries only "id". Use "id" as fallback
-        # so _auto_confirm is called and can obtain the real order_id.
-        order_id     = str(
-            raw.get("order_id", "")
-            or raw.get("orderId", "")
-            or raw.get("id", "")
-            or ""
+        # TD-1: логуємо повний initial response
+        print(
+            f"[CPAPI][SUBMIT_RAW] cOID={req.client_tag} "
+            f"raw={json.dumps(raw)[:300]}"
         )
+
+        order_id     = str(raw.get("order_id", "") or raw.get("orderId", "") or "")
         local_id     = str(raw.get("local_order_id", "") or "")
         message_text = self._extract_message(raw)
-        needs_reply  = bool(raw.get("encrypt_message") or message_text)
 
-        # Auto-confirm warnings
-        if needs_reply and order_id:
-            order_id = self._auto_confirm(order_id, message_text)
+        # Gateway може повернути тільки "id" (challenge) без order_id
+        # TD-1: перевіряємо challenge_id окремо від order_id
+        challenge_id = str(raw.get("id", "") or "")
+        needs_reply  = bool(
+            raw.get("encrypt_message")
+            or message_text
+            or (challenge_id and not order_id)
+        )
+
+        # Якщо є challenge_id але немає order_id — починаємо reply chain з challenge_id
+        reply_start_id = order_id if order_id else challenge_id
+
+        # Auto-confirm warnings/challenges
+        if needs_reply and reply_start_id:
+            order_id = self._auto_confirm(reply_start_id, message_text, req.client_tag)
+        elif needs_reply and not reply_start_id:
+            # Немає ні order_id ні challenge_id — нічого підтверджувати
+            print(
+                f"[CPAPI][SUBMIT_WARN] cOID={req.client_tag} "
+                f"needs_reply=True but no id/order_id in response — cannot confirm"
+            )
 
         return CpapiOrderResponse(
             order_id=order_id,
@@ -256,16 +288,11 @@ class CpapiClient:
         )
 
     def _build_order_payload(self, req: CpapiOrderRequest) -> Dict[str, Any]:
-        """
-        Build the JSON payload for /iserver/account/{account}/orders.
-
-        CPAPI type requirements (discovered empirically):
-          - conid  : int   (str causes 400 "incorrect type")
-          - quantity: float or int (both accepted)
-          - secType: omitted — Gateway infers from conid
-        """
+        # TD-1: прибрано secType з payload.
+        # Емпірично підтверджено: Gateway визначає secType сам по conid.
+        # Наявність secType може призводити до відхилення ордеру (400).
         payload: Dict[str, Any] = {
-            "conid":     int(req.conid),   # MUST be int — str → 400
+            "conid":     int(req.conid),   # конид обов'язково int (str → 400)
             "cOID":      req.client_tag,
             "orderType": req.order_type,
             "side":      req.side,
@@ -285,43 +312,143 @@ class CpapiClient:
             return str(msg)
         return ""
 
-    def _auto_confirm(self, order_id: str, original_message: str) -> str:
+    def _auto_confirm(
+        self,
+        start_id: str,
+        original_message: str,
+        client_tag: str = "",
+    ) -> str:
         """
         POST /iserver/reply/{id} with confirmed=true.
-        Retries up to _CONFIRM_RETRY_MAX times.
-        Returns the (possibly updated) order_id.
+        Retries up to _CONFIRM_RETRY_MAX (=10) times.
+
+        TD-1: повністю перероблено reply chain логіку:
+          - Підтримує ланцюжок: initial_id → reply → new_id → reply → ...
+          - Логує повний raw response на кожній ітерації
+          - Відрізняє order_id (фінальний) від нового challenge id (продовжує chain)
+          - Повертає order_id щойно Gateway його повертає без нового повідомлення
+          - Якщо після _CONFIRM_RETRY_MAX ітерацій order_id не отримано — raise
         """
-        confirmed_id = order_id
+        current_id = start_id
+        confirmed_order_id = ""
+        reply_chain: list[str] = [start_id]
+
         for attempt in range(1, _CONFIRM_RETRY_MAX + 1):
             try:
-                path = f"/v1/api/iserver/reply/{confirmed_id}"
+                path = f"/v1/api/iserver/reply/{current_id}"
                 reply_raw = self._post(path, payload={"confirmed": True})
                 self.debug_order_reply += 1
+
+                # TD-1: логуємо ПОВНИЙ reply body (не обрізаємо до 120 символів)
+                reply_json_str = json.dumps(reply_raw)
                 print(
-                    f"[CPAPI][REPLY] attempt={attempt} id={confirmed_id} "
-                    f"raw={json.dumps(reply_raw)[:120]}"
+                    f"[CPAPI][REPLY] cOID={client_tag} attempt={attempt}/{_CONFIRM_RETRY_MAX} "
+                    f"sent_id={current_id} "
+                    f"raw={reply_json_str[:600]}"
                 )
+
+                # CPAPI може повернути list
                 if isinstance(reply_raw, list):
                     reply_raw = reply_raw[0] if reply_raw else {}
-                new_id = str(
+
+                # Витягуємо order_id (фінальний) і новий challenge id (якщо є)
+                new_order_id  = str(
                     reply_raw.get("order_id", "")
                     or reply_raw.get("orderId", "")
-                    or reply_raw.get("id", "")   # Gateway may chain a new challenge id
-                    or confirmed_id
+                    or ""
                 )
-                if new_id:
-                    confirmed_id = new_id
-                # If no more message → confirmation done
-                if not self._extract_message(reply_raw):
-                    break
+                new_challenge = str(reply_raw.get("id", "") or "")
+                next_message  = self._extract_message(reply_raw)
+
+                if new_order_id:
+                    # Отримали фінальний order_id
+                    confirmed_order_id = new_order_id
+                    if not next_message:
+                        # Немає нового повідомлення — підтвердження завершено
+                        print(
+                            f"[CPAPI][REPLY][DONE] cOID={client_tag} "
+                            f"order_id={confirmed_order_id} "
+                            f"chain={' → '.join(reply_chain)} → {current_id}"
+                        )
+                        return confirmed_order_id
+                    # Є order_id, але є нове повідомлення — продовжуємо chain з order_id
+                    current_id = new_order_id
+                    reply_chain.append(current_id)
+                elif new_challenge:
+                    # Немає order_id — Gateway дав новий challenge id
+                    print(
+                        f"[CPAPI][REPLY][CHAIN] cOID={client_tag} "
+                        f"attempt={attempt} no order_id yet, "
+                        f"new challenge_id={new_challenge} message={next_message!r}"
+                    )
+                    current_id = new_challenge
+                    reply_chain.append(current_id)
+                else:
+                    # Ні order_id ні нового challenge — незрозуміла відповідь
+                    print(
+                        f"[CPAPI][REPLY][WARN] cOID={client_tag} "
+                        f"attempt={attempt} no order_id and no new id in reply. "
+                        f"raw={reply_json_str[:300]}"
+                    )
+                    if not next_message and confirmed_order_id:
+                        # Вже маємо order_id з попередньої ітерації — повертаємо
+                        return confirmed_order_id
+                    if not next_message:
+                        # Ніякої інформації — виходимо з тим що маємо
+                        break
+
             except requests.HTTPError as exc:
-                print(f"[CPAPI][REPLY][FAIL] attempt={attempt}: {exc}")
+                status_code = exc.response.status_code if exc.response is not None else 0
+                resp_text = exc.response.text[:400] if exc.response is not None else ""
+                print(
+                    f"[CPAPI][REPLY][HTTP_ERROR] cOID={client_tag} "
+                    f"attempt={attempt} id={current_id} "
+                    f"status={status_code} body={resp_text}"
+                )
                 if attempt == _CONFIRM_RETRY_MAX:
                     raise RuntimeError(
-                        f"Order reply failed after {_CONFIRM_RETRY_MAX} attempts "
-                        f"for order_id={order_id}: {exc}"
+                        f"Order reply chain failed after {_CONFIRM_RETRY_MAX} attempts "
+                        f"cOID={client_tag} start_id={start_id} "
+                        f"last_id={current_id} chain={reply_chain}: {exc}"
                     ) from exc
-        return confirmed_id
+                # При HTTP error (наприклад 400) — не повторюємо з тим самим id
+                # Якщо вже маємо order_id — повертаємо
+                if confirmed_order_id:
+                    print(
+                        f"[CPAPI][REPLY][RECOVER] HTTP error but have order_id={confirmed_order_id} — returning"
+                    )
+                    return confirmed_order_id
+                break
+
+            except Exception as exc:
+                print(
+                    f"[CPAPI][REPLY][ERR] cOID={client_tag} "
+                    f"attempt={attempt} id={current_id}: {exc}"
+                )
+                if confirmed_order_id:
+                    return confirmed_order_id
+                if attempt == _CONFIRM_RETRY_MAX:
+                    raise RuntimeError(
+                        f"Order reply chain failed after {_CONFIRM_RETRY_MAX} attempts "
+                        f"cOID={client_tag}: {exc}"
+                    ) from exc
+
+        # Вийшли з циклу — повертаємо що маємо
+        if confirmed_order_id:
+            print(
+                f"[CPAPI][REPLY][LOOP_EXIT] cOID={client_tag} "
+                f"returning confirmed_order_id={confirmed_order_id}"
+            )
+            return confirmed_order_id
+
+        # Нічого не отримали — повертаємо порожній рядок,
+        # submit_order обробить це явно
+        print(
+            f"[CPAPI][REPLY][EMPTY] cOID={client_tag} "
+            f"reply chain exhausted ({_CONFIRM_RETRY_MAX} attempts) "
+            f"chain={reply_chain} — no order_id obtained"
+        )
+        return ""
 
     def cancel_order(self, account_id: str, order_id: str) -> Dict[str, Any]:
         """DELETE /iserver/account/{account}/order/{orderId}"""
@@ -379,11 +506,11 @@ class CpapiClient:
             or raw.get("orderStatus", "")
             or ""
         )
-        filled    = float(raw.get("filledQuantity", 0.0) or raw.get("filled", 0.0) or 0.0)
-        total     = float(raw.get("totalSize", 0.0) or raw.get("quantity", 0.0) or 0.0)
+        filled   = float(raw.get("filledQuantity", 0.0) or raw.get("filled", 0.0) or 0.0)
+        total    = float(raw.get("totalSize", 0.0) or raw.get("quantity", 0.0) or 0.0)
         remaining = max(0.0, total - filled)
-        avg_px    = float(raw.get("avgPrice", 0.0) or raw.get("price", 0.0) or 0.0)
-        last_px   = float(raw.get("lastExecutionPrice", avg_px) or avg_px)
+        avg_px   = float(raw.get("avgPrice", 0.0) or raw.get("price", 0.0) or 0.0)
+        last_px  = float(raw.get("lastExecutionPrice", avg_px) or avg_px)
         return CpapiOrderStatus(
             order_id=order_id,
             status=status,
