@@ -72,12 +72,23 @@ _DEFAULT_FALLBACK: dict = {
 # ──────────────────────────────────────────────────────────────
 # Helpers
 # ──────────────────────────────────────────────────────────────
-def _days_between(date_str: str, today_str: str) -> int:
-    """Кількість календарних днів між двома датами ISO. Мінімум 0."""
+def _trading_days_between(date_str: str, today_str: str) -> int:
     try:
         d1 = date.fromisoformat(str(date_str)[:10])
         d2 = date.fromisoformat(str(today_str)[:10])
-        return max(0, (d2 - d1).days)
+        if d2 <= d1:
+            return 0
+        total = (d2 - d1).days
+        # прибираємо вихідні: ~5/7 від календарних днів
+        full_weeks, remainder = divmod(total, 7)
+        trading = full_weeks * 5
+        # для залишку рахуємо вручну
+        current = d1
+        for _ in range(remainder):
+            current = date.fromordinal(current.toordinal() + 1)
+            if current.weekday() < 5:  # 0=Mon..4=Fri
+                trading += 1
+        return max(0, trading)
     except (ValueError, TypeError):
         return 0
 
