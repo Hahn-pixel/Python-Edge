@@ -471,9 +471,10 @@ def main() -> int:
             "CLEANUP_EXCLUDE_SYMBOLS":             "",
             "CLEANUP_MIN_ABS_SHARES":              "1.0",
             "TOPK_PRINT":                          "50",
+            "ALLOW_MISSING_STATE_JSON":            "1",
         }}
         _run("CPAPI_RECONCILE_PRE", SCRIPT_RECONCILE, env1)
-        _remove_state_for_alignment()
+#        _remove_state_for_alignment()
 
         # ── STEP 2a: Execution loop optimal ───────────────────
         print("\n=== STEP 2: EXECUTION LOOP ===")
@@ -485,7 +486,7 @@ def main() -> int:
             "FRACTIONAL_MODE":                          "integer",
             "MIN_ORDER_NOTIONAL":                       "25.0",
             "DEFAULT_PRICE_FALLBACK":                   "100.0",
-            "RESET_STATE":                              "0",
+            "RESET_STATE":                              "1",
             "SKIP_EMPTY_FREEZE_CONFIGS":                "1",
             "REQUIRE_FREEZE_DATE_MATCH_LIVE_PRICES":    "1",
             "MAX_SINGLE_NAME_WEIGHT":                   "0.05",
@@ -495,8 +496,8 @@ def main() -> int:
             "COMMISSION_BPS":                           "0.50",
             "COMMISSION_MIN_PER_ORDER":                 "0.35",
             "SLIPPAGE_BPS":                             "1.50",
-            "ALIGN_STATE_FROM_BROKER_ONCE":             "1",
-            "ALIGN_STATE_REQUIRE_BROKER_POSITIONS":     "1",
+            "ALIGN_STATE_FROM_BROKER_ONCE":             "0",
+            "ALIGN_STATE_REQUIRE_BROKER_POSITIONS":     "0",
             "ALIGN_STATE_CASH_MODE":                    "preserve_nav",
             "SKIP_LEGACY_SYMBOLS_NOT_IN_TARGET":        "1",
             "USE_STATE_PRICE_FALLBACK_FOR_LEGACY":      "1",

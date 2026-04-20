@@ -1,10 +1,13 @@
 {
   "config": "aggressive",
-  "rows": 0,
-  "live_rows": 0,
-  "symbols": 0,
-  "updated": 0,
-  "price_sanity_fail": 0,
-  "massive_rows": 0,
-  "cpapi_rows": 0
+  "cpapi_rows": 0,
+  "cpapi_symbols": 0,
+  "fallback_needed": 3,
+  "live_rows": 3,
+  "massive_rows": 3,
+  "massive_used": 3,
+  "price_sanity_fail": 1,
+  "rows": 3,
+  "symbols": 3,
+  "updated": 3
 }

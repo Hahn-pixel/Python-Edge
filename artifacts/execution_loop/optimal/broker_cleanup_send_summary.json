@@ -1,10 +1,10 @@
 {
   "config": "optimal",
-  "generated_at": "2026-04-18T10:48:42Z",
+  "generated_at": "2026-04-20T15:28:43Z",
   "preview_only": 0,
   "counters": {
-    "cleanup_rows": 0,
-    "emitted_rows": 0,
+    "cleanup_rows": 1,
+    "emitted_rows": 1,
     "blocked_empty_symbol": 0,
     "blocked_not_in_only_symbols": 0,
     "blocked_excluded_symbol": 0,

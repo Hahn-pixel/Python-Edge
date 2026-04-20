@@ -1,0 +1,104 @@
+{
+  "broker_account_id": "DUP561175",
+  "broker_name": "MEXEM",
+  "broker_platform": "IBKR_CPAPI",
+  "config": "optimal",
+  "created_at_utc": "2026-04-20T15:27:59Z",
+  "orders": {
+    "24e940b805d5c23d253c8adb8b8806838505e4d326311941a8843cfd5300cdab": {
+      "broker_order_id": "1400546343",
+      "broker_symbol": "AAOI",
+      "client_order_id": "pe-24e940b805d5c23d253c8adb",
+      "config": "optimal",
+      "date": "2026-04-10",
+      "fill_notional": 10474.2,
+      "filled_at": "2026-04-20T15:28:14Z",
+      "filled_avg_price": 158.7,
+      "filled_qty": 66.0,
+      "mode": "cpapi_gateway",
+      "order_notional": 10181.820000000002,
+      "perm_id": 0,
+      "qty": 66.0,
+      "remaining_qty": 0.0,
+      "request": {
+        "account_id": "DUP561175",
+        "client_tag": "pe-24e940b805d5c23d253c8adb",
+        "conid": "135423662",
+        "frac_qty": 0.0,
+        "parent_cap": 185.124,
+        "parent_floor": null,
+        "whole_qty": 66.0
+      },
+      "response": {
+        "avg_fill_price": 158.7,
+        "debug": {
+          "failed": 0,
+          "frac_filled": 0,
+          "frac_submitted": 0,
+          "guard_rejected": 0,
+          "precheck_fail": 0,
+          "precheck_ok": 1,
+          "split_ok": 1,
+          "whole_filled": 1,
+          "whole_partial": 0,
+          "whole_submitted": 1,
+          "whole_timeout": 0
+        },
+        "fills": [],
+        "frac_avg_price": 0.0,
+        "frac_filled_qty": 0.0,
+        "frac_order_id": "",
+        "outcome": "filled_now",
+        "status": "filled",
+        "transitions": [
+          {
+            "detail": "starting execution",
+            "from": "NEW",
+            "to": "PRECHECK",
+            "ts": "2026-04-20T15:27:59Z"
+          },
+          {
+            "detail": "splitting qty",
+            "from": "PRECHECK",
+            "to": "SPLIT",
+            "ts": "2026-04-20T15:27:59Z"
+          },
+          {
+            "detail": "submitting whole leg",
+            "from": "SPLIT",
+            "to": "WHOLE_SUBMIT",
+            "ts": "2026-04-20T15:27:59Z"
+          },
+          {
+            "detail": "whole order_id=1400546343",
+            "from": "WHOLE_SUBMIT",
+            "to": "WHOLE_WORKING",
+            "ts": "2026-04-20T15:28:01Z"
+          },
+          {
+            "detail": "filled qty=66.000000 avg_px=158.7000 elapsed=13.1s",
+            "from": "WHOLE_WORKING",
+            "to": "WHOLE_FILLED",
+            "ts": "2026-04-20T15:28:14Z"
+          },
+          {
+            "detail": "no frac leg required",
+            "from": "WHOLE_FILLED",
+            "to": "DONE",
+            "ts": "2026-04-20T15:28:14Z"
+          }
+        ],
+        "whole_avg_price": 158.7,
+        "whole_filled_qty": 66.0,
+        "whole_order_id": "1400546343"
+      },
+      "side": "BUY",
+      "source_order_path": "artifacts\\execution_loop\\optimal\\orders.csv",
+      "status": "filled",
+      "submitted_at": "2026-04-20T15:28:14Z",
+      "symbol": "AAOI",
+      "updated_at_utc": "2026-04-20T15:28:14Z"
+    }
+  },
+  "updated_at_utc": "2026-04-20T15:28:14Z"
+}

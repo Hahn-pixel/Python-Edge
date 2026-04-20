@@ -1,13 +1,13 @@
 {
   "config": "optimal",
-  "generated_at_utc": "2026-04-18T10:48:38Z",
-  "symbols_total": 6,
-  "drift": 0,
-  "missing_at_broker": 0,
-  "unexpected_at_broker": 0,
+  "generated_at_utc": "2026-04-20T15:28:27Z",
+  "symbols_total": 3,
+  "drift": 3,
+  "missing_at_broker": 2,
+  "unexpected_at_broker": 1,
   "pending_covers_drift": 0,
-  "max_abs_drift_shares": 0.0,
-  "cleanup_preview_rows": 0,
+  "max_abs_drift_shares": 155.0,
+  "cleanup_preview_rows": 1,
   "cleanup_preview_enabled": 1,
   "source": "cpapi"
 }

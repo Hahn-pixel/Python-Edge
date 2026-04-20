@@ -45,6 +45,7 @@ CONFIG_NAMES         = [x for x in _env_str("CONFIG_NAMES", "optimal|aggressive"
 BROKER_ACCOUNT_ID    = _env_str("BROKER_ACCOUNT_ID", "")
 CPAPI_BASE_URL       = _env_str("CPAPI_BASE_URL",    "https://localhost:5000")
 CPAPI_VERIFY_SSL     = _env_bool("CPAPI_VERIFY_SSL",  False)
+ALLOW_MISSING_STATE_JSON = _env_bool("ALLOW_MISSING_STATE_JSON", False)
 CPAPI_TIMEOUT_SEC    = _env_float("CPAPI_TIMEOUT_SEC", 10.0)
 
 DRIFT_TOLERANCE_SHARES        = _env_float("DRIFT_TOLERANCE_SHARES", 0.000001)
@@ -196,13 +197,17 @@ def _fetch_open_orders(client: CpapiClient) -> pd.DataFrame:
 
 def _load_state_positions(path: Path) -> pd.DataFrame:
     if not path.exists():
+        if ALLOW_MISSING_STATE_JSON:
+            print(f"[RECON][WARN] portfolio_state.json not found: {path} — treating as empty (ALLOW_MISSING_STATE_JSON=1)")
+            return pd.DataFrame(columns=["symbol","expected_shares_state","state_last_price",
+                                         "state_market_value","state_price_source","state_is_priced"])
         raise FileNotFoundError(f"portfolio_state.json not found: {path}")
     payload = json.loads(path.read_text(encoding="utf-8"))
     positions = payload.get("positions", {})
     rows = []
     for symbol, pos in (positions.items() if isinstance(positions, dict) else []):
         rows.append({
-            "symbol":               _norm(symbol),
+            "symbol":                _norm(symbol),
             "expected_shares_state": _to_float(pos.get("shares", 0.0)),
             "state_last_price":      _to_float(pos.get("last_price", 0.0)),
             "state_market_value":    _to_float(pos.get("market_value", 0.0)),
