@@ -555,11 +555,11 @@ def main() -> int:
             "CONFIG_NAMES":            "optimal|aggressive",
             "BROKER_NAME":             "MEXEM",
             "BROKER_PLATFORM":         "IBKR_CPAPI",
-            "CPAPI_WHOLE_TIMEOUT_SEC": "30.0",
+            "CPAPI_WHOLE_TIMEOUT_SEC": "60.0",
             "CPAPI_FRAC_TIMEOUT_SEC":  "20.0",
             "CPAPI_TIF":               "DAY",
             "CPAPI_FRAC_SLIPPAGE_BPS": "5.0",
-            "CPAPI_RESOLVE_CONIDS":    "0",
+            "CPAPI_RESOLVE_CONIDS":    "1",
             "RESET_BROKER_LOG":        "1",
         }}
         _run("CPAPI_EXEC_ORDERS", SCRIPT_EXEC_CPAPI, env4)
@@ -641,6 +641,7 @@ for cfg in configs:
             "CPAPI_FRAC_TIMEOUT_SEC":                  "20.0",
             "CPAPI_TIF":                               "DAY",
             "CPAPI_FRAC_SLIPPAGE_BPS":                 "5.0",
+            "CPAPI_RESOLVE_CONIDS":                    "1",
             "CLEANUP_SEND_PREVIEW_ONLY":               "0",
             "CLEANUP_SEND_ONLY_SYMBOLS":               "",
             "CLEANUP_SEND_EXCLUDE_SYMBOLS":            "",

@@ -18,7 +18,7 @@ from python_edge.broker.cpapi_pricing import (
     PriceGuardViolation,
     check_parent_guard,
     frac_limit_price,
-    midprice_price,
+    whole_limit_price,
     split_qty,
 )
 
@@ -27,14 +27,14 @@ from python_edge.broker.cpapi_pricing import (
 # ---------------------------------------------------------------------------
 
 _WHOLE_FILL_POLL_INTERVAL_SEC: float = 1.0
-# TD-1: збільшено default з 30 → 60 щоб великі ордери (1000+ shares)
-# мали достатньо часу на fill через MIDPRICE.
-# Для cleanup pipeline env6 передає 90.0 явно (TD-3).
 _WHOLE_FILL_TIMEOUT_SEC: float       = 60.0
 _FRAC_FILL_POLL_INTERVAL_SEC: float  = 1.0
 _FRAC_FILL_TIMEOUT_SEC: float        = 20.0
 _DEFAULT_TIF: str                    = "DAY"
 _FRAC_SLIPPAGE_BPS: float            = 5.0
+# Whole leg: 1 bps від mid — мінімальний буфер для fill probability
+# LMT замість MIDPRICE: Gateway не потребує streaming, tif=DAY працює
+_WHOLE_SLIPPAGE_BPS: float           = 1.0
 _DEFAULT_TICK: float                 = 0.01
 _FILLED_STATUSES = frozenset({"Filled", "FILLED", "filled"})
 _WORKING_STATUSES = frozenset({
@@ -59,7 +59,6 @@ def _utc_now_iso() -> str:
 
 
 def _transition(intent: ExecutionIntent, new_state: ExecState, detail: str = "") -> None:
-    """Record a state transition in the audit trail. Never silent."""
     prev = intent.state
     intent.state = new_state
     intent.transitions.append({
@@ -75,7 +74,6 @@ def _transition(intent: ExecutionIntent, new_state: ExecState, detail: str = "")
 
 
 def _record_error(intent: ExecutionIntent, exc_or_msg: object, stage: str = "") -> None:
-    """Append an error to the audit trail. Always explicit."""
     msg = str(exc_or_msg)
     intent.errors.append({
         "ts":    _utc_now_iso(),
@@ -118,45 +116,36 @@ class CpapiExecutionEngine:
             → FRAC_SUBMIT  → FRAC_WORKING
             → DONE | FAILED
 
-    Each state transition is explicit, logged, and counted.
-    No silent fail-open: any bypass is recorded in debug counters.
+    Whole leg: LMT з явною ціною = mid ± whole_slippage_bps.
+    Замінює MIDPRICE — Gateway не потребує market data streaming,
+    tif=DAY працює як очікується (MIDPRICE ігнорував tif → CLOSE).
 
-    TD-1 note: reply chain failures (id → reply → new id → 400) are surfaced
-    in submit_order inside CpapiClient. If WHOLE_SUBMIT stays in WHOLE_SUBMIT
-    state (empty order_id), the engine logs the full raw response for diagnosis
-    and advances to WHOLE_TIMEOUT with an explicit debug counter increment.
+    Frac leg: LMT з адаптивним slippage від spread_bps.
     """
 
     def __init__(
         self,
         client: CpapiClient,
-        whole_timeout_sec: float = _WHOLE_FILL_TIMEOUT_SEC,
-        frac_timeout_sec: float  = _FRAC_FILL_TIMEOUT_SEC,
-        tif: str                 = _DEFAULT_TIF,
-        frac_slippage_bps: float = _FRAC_SLIPPAGE_BPS,
-        min_tick: float          = _DEFAULT_TICK,
+        whole_timeout_sec: float  = _WHOLE_FILL_TIMEOUT_SEC,
+        frac_timeout_sec: float   = _FRAC_FILL_TIMEOUT_SEC,
+        tif: str                  = _DEFAULT_TIF,
+        frac_slippage_bps: float  = _FRAC_SLIPPAGE_BPS,
+        whole_slippage_bps: float = _WHOLE_SLIPPAGE_BPS,
+        min_tick: float           = _DEFAULT_TICK,
     ) -> None:
-        self._client            = client
-        self._whole_timeout     = whole_timeout_sec
-        self._frac_timeout      = frac_timeout_sec
-        self._tif               = tif
-        self._frac_slippage_bps = frac_slippage_bps
-        self._min_tick          = min_tick
+        self._client             = client
+        self._whole_timeout      = whole_timeout_sec
+        self._frac_timeout       = frac_timeout_sec
+        self._tif                = tif
+        self._frac_slippage_bps  = frac_slippage_bps
+        self._whole_slippage_bps = whole_slippage_bps
+        self._min_tick           = min_tick
 
     # ------------------------------------------------------------------
     # Public entry point
     # ------------------------------------------------------------------
 
     def execute(self, intent: ExecutionIntent, reference_price: float) -> FillResult:
-        """
-        Run the intent through the full state machine.
-
-        *reference_price* is the last known market price used for:
-          - parent guard validation
-          - frac leg limit price computation
-
-        Always returns a FillResult — even on FAILED (with zeros).
-        """
         _transition(intent, ExecState.PRECHECK, "starting execution")
         self._run_precheck(intent, reference_price)
 
@@ -175,34 +164,29 @@ class CpapiExecutionEngine:
             self._run_whole_submit(intent, reference_price)
 
             if intent.state is ExecState.WHOLE_SUBMIT:
-                # submit failed — reply chain exhausted or empty order_id
-                # TD-1: явне логування причини провалу submit
                 _transition(intent, ExecState.WHOLE_TIMEOUT,
-                            "whole submit failed (reply chain exhausted or empty order_id); skipping to frac")
+                            "whole submit failed; skipping to frac")
                 intent.debug_whole_timeout += 1
 
             elif intent.state is ExecState.WHOLE_WORKING:
                 self._run_whole_wait(intent)
 
-        # ── Frac leg (always attempted unless already FAILED) ──────────
+        # ── Frac leg ───────────────────────────────────────────────────
         if intent.state not in {ExecState.FAILED}:
             if intent.frac_qty > 1e-9:
                 _transition(intent, ExecState.FRAC_SUBMIT, "submitting frac leg")
                 self._run_frac_submit(intent, reference_price)
 
                 if intent.state is ExecState.FRAC_SUBMIT:
-                    _transition(intent, ExecState.FAILED,
-                                "frac submit failed")
+                    _transition(intent, ExecState.FAILED, "frac submit failed")
                     intent.debug_failed += 1
                 elif intent.state is ExecState.FRAC_WORKING:
                     self._run_frac_wait(intent)
 
-            # If no frac leg needed, finalize here
             if intent.state not in {ExecState.FRAC_WORKING, ExecState.FAILED}:
                 _transition(intent, ExecState.DONE, "no frac leg required")
 
         if intent.state not in {ExecState.DONE, ExecState.FAILED}:
-            # Safety net — should not happen; mark explicitly
             _transition(intent, ExecState.DONE, "finalized after frac")
 
         return self._build_fill_result(intent)
@@ -212,10 +196,6 @@ class CpapiExecutionEngine:
     # ------------------------------------------------------------------
 
     def _run_precheck(self, intent: ExecutionIntent, reference_price: float) -> None:
-        """
-        Validate intent fields and parent price guard before any order is sent.
-        Transitions to FAILED (explicit) if anything is wrong.
-        """
         issues: List[str] = []
 
         if not intent.symbol:
@@ -245,7 +225,6 @@ class CpapiExecutionEngine:
             return
 
         intent.debug_precheck_ok += 1
-        # State stays PRECHECK; caller advances to SPLIT
 
     # ------------------------------------------------------------------
     # SPLIT
@@ -256,29 +235,34 @@ class CpapiExecutionEngine:
         intent.whole_qty = whole
         intent.frac_qty  = frac
         intent.debug_split_ok += 1
-        # State stays SPLIT; caller advances
 
     # ------------------------------------------------------------------
-    # WHOLE leg
+    # WHOLE leg — LMT замість MIDPRICE
     # ------------------------------------------------------------------
 
     def _run_whole_submit(self, intent: ExecutionIntent, reference_price: float) -> None:
         """
-        Submit MIDPRICE order for whole_qty. Sets WHOLE_WORKING on success.
+        Submit LMT order для whole_qty з ціною = mid ± whole_slippage_bps.
 
-        TD-1: при провалі submit_order (empty order_id або reply chain failure)
-        логуємо повний raw response для діагностики reply chain.
+        Замінює MIDPRICE:
+          - Gateway не потребує market data streaming
+          - tif=DAY працює коректно
+          - Ціна явна, логована, захищена parent_guard
         """
         try:
-            # midprice_price validates guard; returns None (no explicit px)
-            midprice_price(intent, self._min_tick, reference_price)
+            limit_px = whole_limit_price(
+                intent,
+                self._min_tick,
+                reference_price,
+                self._whole_slippage_bps,
+            )
 
             req = CpapiOrderRequest(
                 conid      = intent.conid,
                 side       = intent.side.value,
                 quantity   = intent.whole_qty,
-                order_type = "MIDPRICE",
-                price      = None,
+                order_type = "LMT",
+                price      = limit_px,
                 tif        = self._tif,
                 account_id = intent.account_id,
                 client_tag = f"{intent.client_tag}-W",
@@ -286,41 +270,34 @@ class CpapiExecutionEngine:
             resp = self._client.submit_order(intent.account_id, req)
 
             if not resp.order_id:
-                # TD-1: логуємо raw response щоб діагностувати reply chain
                 raw_repr = repr(resp.raw)[:500]
                 raise RuntimeError(
-                    f"submit_order returned empty order_id. "
-                    f"Possible reply chain failure (id→reply→new_id→400). "
-                    f"raw={raw_repr}"
+                    f"submit_order returned empty order_id. raw={raw_repr}"
                 )
 
             intent.whole_order_id = resp.order_id
             intent.debug_whole_submitted += 1
             _transition(intent, ExecState.WHOLE_WORKING,
-                        f"whole order_id={resp.order_id}")
+                        f"whole LMT order_id={resp.order_id} "
+                        f"limit_px={limit_px:.4f} "
+                        f"ref={reference_price:.4f} "
+                        f"slippage={self._whole_slippage_bps:.1f}bps")
 
         except PriceGuardViolation as exc:
             _record_error(intent, exc, stage="WHOLE_SUBMIT_GUARD")
             intent.debug_guard_rejected += 1
-            # Stay in WHOLE_SUBMIT → caller will detect and advance to WHOLE_TIMEOUT
 
         except Exception as exc:
-            # TD-1: явний лог з повним traceback для reply chain діагностики
             _record_error(intent, exc, stage="WHOLE_SUBMIT")
             print(
-                f"[SM][{intent.symbol}][WHOLE_SUBMIT][TD-1_DIAG] "
+                f"[SM][{intent.symbol}][WHOLE_SUBMIT][DIAG] "
                 f"whole_qty={intent.whole_qty:.0f} "
                 f"conid={intent.conid} "
-                f"client_tag={intent.client_tag}-W "
-                f"timeout_configured={self._whole_timeout:.0f}s"
+                f"ref={reference_price:.4f} "
+                f"timeout={self._whole_timeout:.0f}s"
             )
-            # Stay in WHOLE_SUBMIT → caller advances to WHOLE_TIMEOUT
 
     def _run_whole_wait(self, intent: ExecutionIntent) -> None:
-        """
-        Poll until whole leg fills, partially fills, times out, or is cancelled.
-        TD-1: logs elapsed time at each poll tick to help diagnose slow fills vs timeouts.
-        """
         deadline = time.monotonic() + self._whole_timeout
         order_id = intent.whole_order_id
         start_ts = time.monotonic()
@@ -335,7 +312,6 @@ class CpapiExecutionEngine:
                 continue
 
             if status is None:
-                # Not visible yet — keep polling
                 print(
                     f"[SM][{intent.symbol}][WHOLE_POLL] "
                     f"order_id={order_id} not found yet "
@@ -346,7 +322,8 @@ class CpapiExecutionEngine:
             print(
                 f"[SM][{intent.symbol}][WHOLE_POLL] "
                 f"status={status.status} filled={status.filled_qty:.6f} "
-                f"remaining={status.remaining_qty:.6f} avg_px={status.avg_price:.4f} "
+                f"remaining={status.remaining_qty:.6f} "
+                f"avg_px={status.avg_price:.4f} "
                 f"elapsed={elapsed:.1f}s"
             )
 
@@ -355,7 +332,9 @@ class CpapiExecutionEngine:
                 intent.whole_avg_price   = status.avg_price
                 intent.debug_whole_filled += 1
                 _transition(intent, ExecState.WHOLE_FILLED,
-                            f"filled qty={status.filled_qty:.6f} avg_px={status.avg_price:.4f} elapsed={elapsed:.1f}s")
+                            f"filled qty={status.filled_qty:.6f} "
+                            f"avg_px={status.avg_price:.4f} "
+                            f"elapsed={elapsed:.1f}s")
                 return
 
             if _is_partial(status):
@@ -363,18 +342,21 @@ class CpapiExecutionEngine:
                 intent.whole_avg_price   = status.avg_price
                 intent.debug_whole_partial += 1
                 _transition(intent, ExecState.WHOLE_PARTIAL,
-                            f"partial qty={status.filled_qty:.6f} remaining={status.remaining_qty:.6f} elapsed={elapsed:.1f}s")
+                            f"partial qty={status.filled_qty:.6f} "
+                            f"remaining={status.remaining_qty:.6f} "
+                            f"elapsed={elapsed:.1f}s")
                 return
 
             if _is_cancelled(status):
                 intent.whole_filled_qty = status.filled_qty
                 intent.whole_avg_price  = status.avg_price
                 _transition(intent, ExecState.WHOLE_TIMEOUT,
-                            f"whole order cancelled by broker qty_filled={status.filled_qty:.6f} elapsed={elapsed:.1f}s")
+                            f"cancelled qty_filled={status.filled_qty:.6f} "
+                            f"elapsed={elapsed:.1f}s")
                 intent.debug_whole_timeout += 1
                 return
 
-        # Timeout reached — explicit log with configured timeout for diagnosis
+        # Timeout
         elapsed_total = time.monotonic() - start_ts
         intent.debug_whole_timeout += 1
         partial_status = self._client.find_order_status(order_id)
@@ -393,7 +375,6 @@ class CpapiExecutionEngine:
     # ------------------------------------------------------------------
 
     def _run_frac_submit(self, intent: ExecutionIntent, reference_price: float) -> None:
-        """Submit limit order for frac_qty. Sets FRAC_WORKING on success."""
         try:
             limit_px = frac_limit_price(
                 intent,
@@ -422,19 +403,17 @@ class CpapiExecutionEngine:
             intent.frac_order_id = resp.order_id
             intent.debug_frac_submitted += 1
             _transition(intent, ExecState.FRAC_WORKING,
-                        f"frac order_id={resp.order_id} limit_px={limit_px:.4f}")
+                        f"frac order_id={resp.order_id} "
+                        f"limit_px={limit_px:.4f}")
 
         except PriceGuardViolation as exc:
             _record_error(intent, exc, stage="FRAC_SUBMIT_GUARD")
             intent.debug_guard_rejected += 1
-            # Stay in FRAC_SUBMIT → caller detects and transitions to FAILED
 
         except Exception as exc:
             _record_error(intent, exc, stage="FRAC_SUBMIT")
-            # Stay in FRAC_SUBMIT → caller → FAILED
 
     def _run_frac_wait(self, intent: ExecutionIntent) -> None:
-        """Poll frac leg. Transitions to DONE regardless of fill outcome."""
         deadline = time.monotonic() + self._frac_timeout
         order_id = intent.frac_order_id
 
@@ -447,13 +426,15 @@ class CpapiExecutionEngine:
                 continue
 
             if status is None:
-                print(f"[SM][{intent.symbol}][FRAC_POLL] order_id={order_id} not found yet")
+                print(f"[SM][{intent.symbol}][FRAC_POLL] "
+                      f"order_id={order_id} not found yet")
                 continue
 
             print(
                 f"[SM][{intent.symbol}][FRAC_POLL] "
                 f"status={status.status} filled={status.filled_qty:.8f} "
-                f"remaining={status.remaining_qty:.8f} avg_px={status.avg_price:.4f}"
+                f"remaining={status.remaining_qty:.8f} "
+                f"avg_px={status.avg_price:.4f}"
             )
 
             if _is_filled(status) or _is_cancelled(status):
@@ -468,14 +449,12 @@ class CpapiExecutionEngine:
             if _is_partial(status):
                 intent.frac_filled_qty = status.filled_qty
                 intent.frac_avg_price  = status.avg_price
-                # partial frac → still consider execution done for this cycle
                 intent.debug_frac_filled += 1
                 _transition(intent, ExecState.DONE,
                             f"frac partial filled={status.filled_qty:.8f} "
                             f"remaining={status.remaining_qty:.8f}")
                 return
 
-        # Timeout — record partial fill and finalize
         final_status = self._client.find_order_status(order_id)
         if final_status:
             intent.frac_filled_qty = final_status.filled_qty
@@ -492,8 +471,6 @@ class CpapiExecutionEngine:
         total_filled = round(
             intent.whole_filled_qty + intent.frac_filled_qty, 8
         )
-
-        # Weighted average price across both legs
         wsum = (
             intent.whole_filled_qty * intent.whole_avg_price
             + intent.frac_filled_qty * intent.frac_avg_price
@@ -515,7 +492,7 @@ class CpapiExecutionEngine:
 
 
 # ---------------------------------------------------------------------------
-# Batch runner (processes a list of intents sequentially)
+# Batch runner
 # ---------------------------------------------------------------------------
 
 def run_batch(
@@ -526,11 +503,7 @@ def run_batch(
 ) -> List[FillResult]:
     """
     Execute a list of intents sequentially.
-
-    *reference_prices* maps symbol → last known price.
-    Missing symbols get price=0.0 which will fail PRECHECK with an explicit error.
-
-    Returns a list of FillResult in the same order as *intents*.
+    engine_kwargs може містити whole_slippage_bps для whole leg LMT.
     """
     engine = CpapiExecutionEngine(client, **(engine_kwargs or {}))
     results: List[FillResult] = []
@@ -542,7 +515,8 @@ def run_batch(
             f"qty={intent.target_qty:.8f} ref_price={ref_price:.4f} "
             f"conid={intent.conid} "
             f"whole_timeout={engine._whole_timeout:.0f}s "
-            f"frac_timeout={engine._frac_timeout:.0f}s"
+            f"whole_slippage={engine._whole_slippage_bps:.1f}bps "
+            f"frac_slippage={engine._frac_slippage_bps:.1f}bps"
         )
         result = engine.execute(intent, ref_price)
         results.append(result)
@@ -553,10 +527,10 @@ def run_batch(
             f"avg_price={result.avg_price:.4f}"
         )
 
-    # Summary counters
     done_count   = sum(1 for r in results if r.final_state is ExecState.DONE)
     failed_count = sum(1 for r in results if r.final_state is ExecState.FAILED)
     print(
-        f"[BATCH][SUMMARY] total={len(results)} done={done_count} failed={failed_count}"
+        f"[BATCH][SUMMARY] total={len(results)} "
+        f"done={done_count} failed={failed_count}"
     )
     return results

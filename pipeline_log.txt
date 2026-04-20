@@ -1,0 +1,423 @@
+============================================================
+  Python-Edge — Full Cycle CPAPI (Execution)
+============================================================
+  ROOT:    C:\Users\Dmytro Govor\Documents\Python-Edge
+  ACCOUNT: DUP561175
+  CPAPI:   https://localhost:5000
+
+[CHECK] Gateway status...
+[GATEWAY] authenticated=True connected=True
+[NAV] Fetching current NAV...
+[NAV] 978732.5 (from CPAPI)
+
+[PREFLIGHT] Checking scripts...
+[LOCK] created: C:\Users\Dmytro Govor\Documents\Python-Edge\artifacts\pipeline.lock
+
+=== STEP 0: CLEAN ARTIFACTS ===
+  [optimal] deleted orders.csv
+  [optimal] deleted target_book.csv
+  [optimal] deleted broker_log.json
+  [optimal] deleted execution_log.csv
+  [optimal] deleted positions_mark_to_market.csv
+  [optimal] deleted broker_handoff_summary.json
+  [optimal] deleted broker_positions.csv
+  [optimal] deleted broker_open_orders.csv
+  [optimal] deleted broker_pending.csv
+  [optimal] deleted broker_reconcile.csv
+  [optimal] deleted broker_reconcile_summary.json
+  [optimal] deleted broker_cleanup_preview.csv
+  [optimal] deleted broker_cleanup_orders.csv
+  [optimal] deleted broker_cleanup_send_plan.csv
+  [optimal] deleted broker_cleanup_send_summary.json
+  [optimal] deleted orders_pre_cleanup_backup.csv
+  [optimal] clean OK (portfolio_state.json preserved)
+  [aggressive] deleted orders.csv
+  [aggressive] deleted target_book.csv
+  [aggressive] deleted broker_log.json
+  [aggressive] deleted execution_log.csv
+  [aggressive] deleted positions_mark_to_market.csv
+  [aggressive] deleted broker_handoff_summary.json
+  [aggressive] deleted broker_positions.csv
+  [aggressive] deleted broker_open_orders.csv
+  [aggressive] deleted broker_pending.csv
+  [aggressive] deleted broker_reconcile.csv
+  [aggressive] deleted broker_reconcile_summary.json
+  [aggressive] deleted broker_cleanup_preview.csv
+  [aggressive] deleted broker_cleanup_orders.csv
+  [aggressive] deleted broker_cleanup_send_plan.csv
+  [aggressive] deleted broker_cleanup_send_summary.json
+  [aggressive] deleted orders_pre_cleanup_backup.csv
+  [aggressive] clean OK (portfolio_state.json preserved)
+
+=== STEP 1: CPAPI RECONCILE (pre-alignment) ===
+  [optimal] created empty orders.csv stub
+  [aggressive] created empty orders.csv stub
+
+============================================================
+[STEP] CPAPI_RECONCILE_PRE
+============================================================
+[CFG] execution_root=artifacts\execution_loop configs=['optimal', 'aggressive']
+[CFG] cpapi_url=https://localhost:5000 account=DUP561175
+[CFG] require_broker_refresh=1 drift_tolerance=1e-06 prefer_state_over_orders=1
+[CPAPI] tickle loop started (interval=50s)
+[CPAPI][TICKLE] ok (total_ok=2)
+[RECON][optimal][SUMMARY] symbols_total=3 drift=3 missing_at_broker=2 unexpected_at_broker=1 pending_covers_drift=0 max_abs_drift_shares=155.00000000 cleanup_preview_rows=1
+[ARTIFACT] artifacts\execution_loop\optimal\portfolio_state.json
+[ARTIFACT] artifacts\execution_loop\optimal\orders.csv
+[ARTIFACT] artifacts\execution_loop\optimal\broker_positions.csv
+[ARTIFACT] artifacts\execution_loop\optimal\broker_open_orders.csv
+[ARTIFACT] artifacts\execution_loop\optimal\broker_pending.csv
+[ARTIFACT] artifacts\execution_loop\optimal\broker_reconcile.csv
+[ARTIFACT] artifacts\execution_loop\optimal\broker_reconcile_summary.json
+[ARTIFACT] artifacts\execution_loop\optimal\broker_cleanup_preview.csv
+[RECON][aggressive][SUMMARY] symbols_total=3 drift=3 missing_at_broker=2 unexpected_at_broker=0 pending_covers_drift=0 max_abs_drift_shares=155.00000000 cleanup_preview_rows=1
+[ARTIFACT] artifacts\execution_loop\aggressive\portfolio_state.json
+[ARTIFACT] artifacts\execution_loop\aggressive\orders.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\broker_positions.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\broker_open_orders.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\broker_pending.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\broker_reconcile.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\broker_reconcile_summary.json
+[ARTIFACT] artifacts\execution_loop\aggressive\broker_cleanup_preview.csv
+[CPAPI] tickle loop stopped
+[FINAL] CPAPI broker reconcile complete
+[CPAPI_RECONCILE_PRE] OK
+
+=== STEP 2: EXECUTION LOOP ===
+[2a] optimal
+
+============================================================
+[STEP] EXEC_LOOP_OPTIMAL
+============================================================
+[CFG] live_feature_snapshot_file=artifacts\live_alpha\live_feature_snapshot.parquet freeze_root=artifacts\freeze_runner execution_root=artifacts\execution_loop account_nav=978732.50 fractional_mode=integer allow_fractional_shares=0
+[CFG] min_order_notional=25.00 default_price_fallback=100.00 topk_print=50 reset_state=1 config_names=optimal
+[CFG] require_freeze_date_match_live_prices=1 skip_empty_freeze_configs=1 min_price_to_trade=1.0 max_price_to_trade=1000000.0
+[CFG] max_single_name_weight=0.050000 max_single_name_notional=10000.00 commission_bps=0.5000 commission_min_per_order=0.3500 slippage_bps=1.5000
+[CFG] align_state_from_broker_once=0 align_state_require_broker_positions=0 align_state_cash_mode=preserve_nav skip_legacy_symbols_not_in_target=1
+[CFG] use_state_price_fallback_for_legacy=1 use_state_price_fallback_for_mtm=1 use_broker_positions_price_fallback_for_legacy=1 use_broker_positions_price_fallback_for_mtm=1
+[CFG] sanitize_state_prices=1 persist_default_fallback_to_state=0
+[LIVE_PRICES] current_date=2026-04-10 symbols=229 price_col=close snapshot_fallback_count=0
+[EXEC][optimal] loading freeze artifacts
+[EXEC][optimal][ALIGN] requested=0 applied=0 reason=not_requested marker=artifacts\execution_loop\optimal\state_alignment_once.json broker_fallback_symbols=1
+[EXEC][optimal][STATE_SANITY] sanitized=0 updated_from_live=0 updated_from_broker_positions=0 cleared_default_like=0 missing_live_price=0 missing_broker_price=0
+[EXEC][optimal] starting_nav=978732.50 ending_nav=978728.52 cash_after=958841.02 market_value_after=19887.50 nav_recon_error=0.000000 order_count=2 active_names=2 gross_target=0.0204 price_col=close merged_missing_prices=0 fallback_price_rows=0 mtm_default_fallback_count=0 mtm_state_fallback_count=0 mtm_broker_positions_fallback_count=0 mtm_unpriced_count=0 fractional_enabled_effective=0 bootstrap_only=0 skip_reason=
+[EXEC][optimal][RISK] dropped_price_below_min=0 dropped_price_above_max=0 clipped_weight_cap=0 clipped_notional_cap=2
+[EXEC][optimal][DIAG] already_at_target=0 below_min_notional=0 rounded_to_zero_from_nonzero_target=0 entered_new_position=2 exited_position=0 increased_existing_position=0 decreased_existing_position=0 symbol_only_in_state=0 symbol_only_in_target=2 legacy_state_price_fallback=0 legacy_broker_positions_price_fallback=0 legacy_default_price_fallback=0 legacy_unpriced=0
+[EXEC][optimal][COST] estimated_commission_total=0.9944 estimated_slippage_total=2.9831 estimated_total_cost=3.9775
+[EXEC][optimal][ORDERS_TOP]
+      date symbol  price         price_source  is_priced  target_weight  target_notional  target_shares_raw  current_shares  target_shares  raw_delta_shares  delta_shares order_side  order_notional  order_notional_abs  estimated_commission  estimated_slippage  estimated_total_cost skip_reason
+2026-04-10   AXTI  64.18 target_live_snapshot          1       0.010217          10000.0         155.811779             0.0          155.0             155.0         155.0        BUY          9947.9              9947.9              0.497395            1.492185               1.98958
+2026-04-10   AAOI 150.60 target_live_snapshot          1       0.010217          10000.0          66.401062             0.0           66.0              66.0          66.0        BUY          9939.6              9939.6              0.496980            1.490940               1.98792
+[ARTIFACT] artifacts\execution_loop\optimal\orders.csv
+[ARTIFACT] artifacts\execution_loop\optimal\positions_mark_to_market.csv
+[ARTIFACT] artifacts\execution_loop\optimal\portfolio_state.json
+[ARTIFACT] artifacts\execution_loop\optimal\execution_log.csv
+[FINAL] execution loop complete
+[EXEC_LOOP_OPTIMAL] OK
+[2b] aggressive
+
+============================================================
+[STEP] EXEC_LOOP_AGGRESSIVE
+============================================================
+[CFG] live_feature_snapshot_file=artifacts\live_alpha\live_feature_snapshot.parquet freeze_root=artifacts\freeze_runner execution_root=artifacts\execution_loop account_nav=978732.50 fractional_mode=integer allow_fractional_shares=0
+[CFG] min_order_notional=25.00 default_price_fallback=100.00 topk_print=50 reset_state=1 config_names=aggressive
+[CFG] require_freeze_date_match_live_prices=1 skip_empty_freeze_configs=1 min_price_to_trade=1.0 max_price_to_trade=1000000.0
+[CFG] max_single_name_weight=0.050000 max_single_name_notional=10000.00 commission_bps=0.5000 commission_min_per_order=0.3500 slippage_bps=1.5000
+[CFG] align_state_from_broker_once=0 align_state_require_broker_positions=0 align_state_cash_mode=preserve_nav skip_legacy_symbols_not_in_target=1
+[CFG] use_state_price_fallback_for_legacy=1 use_state_price_fallback_for_mtm=1 use_broker_positions_price_fallback_for_legacy=1 use_broker_positions_price_fallback_for_mtm=1
+[CFG] sanitize_state_prices=1 persist_default_fallback_to_state=0
+[LIVE_PRICES] current_date=2026-04-10 symbols=229 price_col=close snapshot_fallback_count=0
+[EXEC][aggressive] loading freeze artifacts
+[EXEC][aggressive][ALIGN] requested=0 applied=0 reason=not_requested marker=artifacts\execution_loop\aggressive\state_alignment_once.json broker_fallback_symbols=1
+[EXEC][aggressive][STATE_SANITY] sanitized=0 updated_from_live=0 updated_from_broker_positions=0 cleared_default_like=0 missing_live_price=0 missing_broker_price=0
+[EXEC][aggressive] starting_nav=978732.50 ending_nav=978726.60 cash_after=968437.10 market_value_after=10289.50 nav_recon_error=0.000000 order_count=3 active_names=3 gross_target=0.0307 price_col=close merged_missing_prices=0 fallback_price_rows=0 mtm_default_fallback_count=0 mtm_state_fallback_count=0 mtm_broker_positions_fallback_count=0 mtm_unpriced_count=0 fractional_enabled_effective=0 bootstrap_only=0 skip_reason=
+[EXEC][aggressive][RISK] dropped_price_below_min=0 dropped_price_above_max=0 clipped_weight_cap=3 clipped_notional_cap=3
+[EXEC][aggressive][DIAG] already_at_target=0 below_min_notional=0 rounded_to_zero_from_nonzero_target=0 entered_new_position=3 exited_position=0 increased_existing_position=0 decreased_existing_position=0 symbol_only_in_state=0 symbol_only_in_target=3 legacy_state_price_fallback=0 legacy_broker_positions_price_fallback=0 legacy_default_price_fallback=0 legacy_unpriced=0
+[EXEC][aggressive][COST] estimated_commission_total=1.4743 estimated_slippage_total=4.4228 estimated_total_cost=5.8971
+[EXEC][aggressive][ORDERS_TOP]
+      date symbol  price         price_source  is_priced  target_weight  target_notional  target_shares_raw  current_shares  target_shares  raw_delta_shares  delta_shares order_side  order_notional  order_notional_abs  estimated_commission  estimated_slippage  estimated_total_cost skip_reason
+2026-04-10   AXTI  64.18 target_live_snapshot          1       0.010217          10000.0         155.811779             0.0          155.0             155.0         155.0        BUY          9947.9              9947.9              0.497395            1.492185               1.98958
+2026-04-10   AAOI 150.60 target_live_snapshot          1       0.010217          10000.0          66.401062             0.0           66.0              66.0          66.0        BUY          9939.6              9939.6              0.496980            1.490940               1.98792
+2026-04-10  BRK.B 479.90 target_live_snapshot          1      -0.010217         -10000.0         -20.837675             0.0          -20.0             -20.0         -20.0       SELL         -9598.0              9598.0              0.479900            1.439700               1.91960
+[ARTIFACT] artifacts\execution_loop\aggressive\orders.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\positions_mark_to_market.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\portfolio_state.json
+[ARTIFACT] artifacts\execution_loop\aggressive\execution_log.csv
+[FINAL] execution loop complete
+[EXEC_LOOP_AGGRESSIVE] OK
+
+=== STEP 2c: EXIT SCANNER ===
+
+============================================================
+[STEP] EXIT_SCANNER
+============================================================
+[EXIT_SCANNER] start date=2026-04-20 configs=['optimal', 'aggressive'] dry_run=False
+[EXIT_SCANNER] ivol loaded: 229 symbols from snapshot
+[EXIT_SCANNER] scores loaded: 229 symbols from snapshot (target_fwd_ret_1d)
+[EXIT_SCANNER][optimal] policy=ExitPolicy('optimal' sl=0.08 tp=0.25 trail_k=1.5 trail=[3%,20%] max_hold=30d)
+[EXIT_SCANNER][optimal] decay=DecayConfig('optimal' tau=4.0d hard_cap=15d floor=0.05 enabled=True)
+[EXIT_SCANNER] CPAPI price fetch error: HTTPSConnectionPool(host='localhost', port=5000): Max retries exceeded with url: /v1/api/iserver/marketdata/snapshot?conids=135423662&fields=31%2C84%2C86 (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: self-signed certificate (_ssl.c:1028)'))) — using state prices
+[EXIT_SCANNER][optimal] live prices: 0/2
+[EXIT_SCANNER][optimal] AXTI — entry initialized=64.1800 trail=18.47%(K=1.5x ivol=0.1231 raw=18.47%)
+[EXIT_SCANNER][optimal] AAOI — entry initialized=150.6000 trail=15.77%(K=1.5x ivol=0.1051 raw=15.77%)
+[EXIT_SCANNER][optimal] portfolio_state.json updated
+[EXIT_SCANNER][aggressive] policy=ExitPolicy('aggressive' sl=0.1 tp=0.3 trail_k=1.5 trail=[3%,20%] max_hold=20d)
+[EXIT_SCANNER][aggressive] decay=DecayConfig('aggressive' tau=3.0d hard_cap=10d floor=0.08 enabled=True)
+[EXIT_SCANNER] CPAPI price fetch error: HTTPSConnectionPool(host='localhost', port=5000): Max retries exceeded with url: /v1/api/iserver/marketdata/snapshot?conids=135423662&fields=31%2C84%2C86 (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: self-signed certificate (_ssl.c:1028)'))) — using state prices
+[EXIT_SCANNER][aggressive] live prices: 0/3
+[EXIT_SCANNER][aggressive] AXTI — entry initialized=64.1800 trail=18.47%(K=1.5x ivol=0.1231 raw=18.47%)
+[EXIT_SCANNER][aggressive] AAOI — entry initialized=150.6000 trail=15.77%(K=1.5x ivol=0.1051 raw=15.77%)
+[EXIT_SCANNER][aggressive] BRK.B — entry initialized=479.9000 trail=3.00%(K=1.5x ivol=0.0077 raw=1.15%, CLAMPED)
+[EXIT_SCANNER][aggressive] portfolio_state.json updated
+
+[EXIT_SCANNER] ── SUMMARY ──────────────────────────────────
+  [optimal] checked=2 exit_triggered=0 already_in_orders=0 skipped_no_price=0 skipped_no_entry=2 peak_updated=2 ivol_snap=2 ivol_state=0 ivol_missing=0 decay_exit=0 hard_expire=0 score_snap=2 score_state=0 score_missing=0 sig_updated=2 orders_appended=0
+  [aggressive] checked=3 exit_triggered=0 already_in_orders=0 skipped_no_price=0 skipped_no_entry=3 peak_updated=3 ivol_snap=3 ivol_state=0 ivol_missing=0 decay_exit=0 hard_expire=0 score_snap=3 score_state=0 score_missing=0 sig_updated=3 orders_appended=0
+[EXIT_SCANNER] total exits this cycle: 0
+[EXIT_SCANNER] OK
+
+=== STEP 2d: FREEZE GATE DIAGNOSTICS ===
+  [optimal] gate=PASSED reason=passed live_active_names=2 live_active_names_raw=2 replay_sharpe=3.8527 replay_cumret=0.0834 live_current_date=2026-04-10 use_regime_overlay=0 use_dynamic_side_budgets=0
+  [aggressive] gate=PASSED reason=passed live_active_names=3 live_active_names_raw=3 replay_sharpe=3.1300 replay_cumret=0.1024 live_current_date=2026-04-10 use_regime_overlay=1 use_dynamic_side_budgets=1
+  [ALL] live gate passed for all configs
+
+=== STEP 3: CPAPI HANDOFF (live BBO) ===
+
+============================================================
+[STEP] CPAPI_HANDOFF
+============================================================
+[CFG] execution_root=artifacts\execution_loop configs=['optimal', 'aggressive']
+[CFG] cpapi_url=https://localhost:5000 snapshot_fields=31,84,86,88 retries=3 wait=2.0s
+[CFG] enable_massive_fallback=1 force_massive_no_bbo=1
+[CPAPI] tickle loop started (interval=50s)
+[HANDOFF][optimal] total_rows=2 live_rows=2 symbols=2
+[HANDOFF][optimal][WARN] no conid for 1 symbols — will use massive: ['AXTI']
+[CPAPI][TICKLE] ok (total_ok=2)
+[HANDOFF][SNAPSHOT] attempt=1/3 missing_prices=1: ['AAOI']
+[HANDOFF][FALLBACK] symbols=1: ['AXTI']
+[MASSIVE] AXTI bid=0.0000 ask=0.0000 last=0.0000 close=75.0900
+[PRICE_SANITY_WARN] symbol=AXTI side=BUY model=64.1800 live=75.0900 dev=17.00 src=massive:close
+[HANDOFF][optimal][PREVIEW]
+symbol order_side  delta_shares  model_price_reference  price quote_provider quote_timeframe price_hint_source             quote_ts fallback_reason    bid    ask    mid   last  close_price  spread_bps  price_deviation_vs_model
+  AXTI        BUY         155.0                  64.18  75.09        massive         MASSIVE     massive_close 2026-04-20T17:21:38Z        no_conid   0.00   0.00   0.00   0.00        75.09    0.000000                 16.999065
+  AAOI        BUY          66.0                 150.60 157.66          cpapi            LIVE         cpapi_ask 2026-04-20T17:36:47Z                 157.12 157.66 157.39 157.26         0.00   34.309677                  4.687915
+[HANDOFF][optimal][SUMMARY] updated=2 cpapi_rows=1 massive_rows=1 price_sanity_fail=1
+[HANDOFF][aggressive] total_rows=3 live_rows=3 symbols=3
+[HANDOFF][aggressive][WARN] no conid for 2 symbols — will use massive: ['AXTI', 'BRK.B']
+[HANDOFF][FALLBACK] symbols=2: ['AXTI', 'BRK.B']
+[MASSIVE] AXTI bid=0.0000 ask=0.0000 last=0.0000 close=75.0900
+[MASSIVE] BRK.B bid=0.0000 ask=0.0000 last=0.0000 close=473.6201
+[PRICE_SANITY_WARN] symbol=AXTI side=BUY model=64.1800 live=75.0900 dev=17.00 src=massive:close
+[HANDOFF][aggressive][PREVIEW]
+symbol order_side  delta_shares  model_price_reference    price quote_provider quote_timeframe price_hint_source             quote_ts fallback_reason    bid    ask    mid   last  close_price  spread_bps  price_deviation_vs_model
+  AXTI        BUY         155.0                  64.18  75.0900        massive         MASSIVE     massive_close 2026-04-20T17:21:38Z        no_conid   0.00   0.00   0.00   0.00      75.0900    0.000000                 16.999065
+  AAOI        BUY          66.0                 150.60 157.6600          cpapi            LIVE         cpapi_ask 2026-04-20T17:36:48Z                 157.26 157.66 157.46 157.26       0.0000   25.403277                  4.687915
+ BRK.B       SELL         -20.0                 479.90 473.6201        massive         MASSIVE     massive_close 2026-04-20T17:21:47Z        no_conid   0.00   0.00   0.00   0.00     473.6201    0.000000                  1.308585
+[HANDOFF][aggressive][SUMMARY] updated=3 cpapi_rows=1 massive_rows=2 price_sanity_fail=1
+[CPAPI] tickle loop stopped
+[FINAL] CPAPI handoff complete
+[CPAPI_HANDOFF] OK
+
+=== STEP 4: CPAPI EXECUTION ===
+
+============================================================
+[STEP] CPAPI_EXEC_ORDERS
+============================================================
+[ENV] broker=MEXEM platform=IBKR_CPAPI account=DUP561175 cpapi_url=https://localhost:5000 execution_root=artifacts\execution_loop configs=optimal|aggressive whole_timeout=30.0s frac_timeout=20.0s parent_guard_pct=3.0% frac_slippage_min=5.0bps frac_slippage_max=30.0bps frac_slippage_addon=2.0bps
+[CPAPI] tickle loop started (interval=50s)
+[CFG] config=optimal orders_total=2 live_orders=2
+[CONID_CACHE] loaded 15 entries (CPAPI_RESOLVE_CONIDS=0)
+[SKIP][CONID_MISSING] symbol=AXTI: conid not found for symbol=AXTI. Run with CPAPI_RESOLVE_CONIDS=1 to populate conid_cache.json, or add a 'conid' column to orders.csv.
+[INTENT] symbol=AAOI side=BUY qty=66 ref=157.3900 (source=mid) mid=157.3900 ask=157.6600 bid=157.1200 price_col=157.6600
+[INTENT] symbol=AAOI spread_bps=34.31 frac_slippage_bps=19.15 (adaptive)
+[CFG] config=optimal to_execute=1 dup_skipped=0 conid_missing=1
+[CFG] config=optimal batch_frac_slippage_bps=19.15 (median of 1 symbols, min=19.15 max=19.15)
+[BATCH] symbol=AAOI side=BUY qty=66.00000000 ref_price=157.3900 conid=135423662 whole_timeout=30s whole_slippage=1.0bps frac_slippage=19.2bps
+[SM][AAOI] NEW → PRECHECK | starting execution
+[SM][AAOI] PRECHECK → SPLIT | splitting qty
+[SM][AAOI] SPLIT → WHOLE_SUBMIT | submitting whole leg
+[PRICING][AAOI] whole LMT: ref=157.3900 slippage=1.0bps raw=157.4057 clamped=157.4100 side=BUY
+[CPAPI][SUBMIT] cOID=pe-ae7c4e0b7113db5d0aa81ffc-W conid=135423662 side=BUY qty=66.0 orderType=LMT price=157.41 tif=DAY
+[CPAPI][TICKLE] ok (total_ok=2)
+[CPAPI][SUBMIT_RAW] cOID=pe-ae7c4e0b7113db5d0aa81ffc-W raw={"id": "627e20fe-475b-4b20-ba78-b9c27a8f0c6b", "message": ["You are submitting an order without market data. We strongly recommend against this as it may result in erroneous and unexpected trades.\nAre you sure you want to submit this order?"], "isSuppressed": false, "messageIds": ["o354"], "message
+[CPAPI][REPLY] cOID=pe-ae7c4e0b7113db5d0aa81ffc-W attempt=1/10 sent_id=627e20fe-475b-4b20-ba78-b9c27a8f0c6b raw=[{"order_id": "1914008816", "local_order_id": "pe-ae7c4e0b7113db5d0aa81ffc-W", "order_status": "Submitted", "encrypt_message": "1"}]
+[CPAPI][REPLY][DONE] cOID=pe-ae7c4e0b7113db5d0aa81ffc-W order_id=1914008816 chain=627e20fe-475b-4b20-ba78-b9c27a8f0c6b → 627e20fe-475b-4b20-ba78-b9c27a8f0c6b
+[SM][AAOI] WHOLE_SUBMIT → WHOLE_WORKING | whole LMT order_id=1914008816 limit_px=157.4100 ref=157.3900 slippage=1.0bps
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4100 elapsed=1.0s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4100 elapsed=2.1s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4100 elapsed=3.2s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4100 elapsed=4.3s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4100 elapsed=5.4s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4100 elapsed=6.5s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4100 elapsed=7.6s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4100 elapsed=8.7s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4100 elapsed=9.9s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4100 elapsed=11.0s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4100 elapsed=12.1s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4100 elapsed=13.2s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4100 elapsed=14.3s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4100 elapsed=15.4s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4100 elapsed=16.5s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4100 elapsed=17.6s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4100 elapsed=18.7s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4100 elapsed=19.8s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4100 elapsed=20.9s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4100 elapsed=22.1s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4100 elapsed=23.2s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4100 elapsed=24.3s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4100 elapsed=25.4s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4100 elapsed=26.5s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4100 elapsed=27.6s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4100 elapsed=28.7s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4100 elapsed=29.8s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4100 elapsed=30.9s
+[SM][AAOI] WHOLE_WORKING → WHOLE_TIMEOUT | timeout after 30s elapsed=31.0s filled_so_far=0.000000 order_id=1914008816
+[SM][AAOI] WHOLE_TIMEOUT → DONE | no frac leg required
+[BATCH][RESULT] symbol=AAOI state=DONE total_filled=0.00000000 avg_price=0.0000
+[BATCH][SUMMARY] total=1 done=1 failed=0
+[SEND] symbol=AAOI side=BUY qty=66.00000000 state=DONE filled=0.00000000 avg_px=0.0000
+[SUMMARY] config=optimal sent=1 errors=0 dup_skipped=0 conid_missing=1 fills_csv=artifacts\execution_loop\optimal\fills.csv broker_log=artifacts\execution_loop\optimal\broker_log.json
+[CFG] config=aggressive orders_total=3 live_orders=3
+[CONID_CACHE] loaded 1 entries (CPAPI_RESOLVE_CONIDS=0)
+[SKIP][CONID_MISSING] symbol=AXTI: conid not found for symbol=AXTI. Run with CPAPI_RESOLVE_CONIDS=1 to populate conid_cache.json, or add a 'conid' column to orders.csv.
+[INTENT] symbol=AAOI side=BUY qty=66 ref=157.4600 (source=mid) mid=157.4600 ask=157.6600 bid=157.2600 price_col=157.6600
+[INTENT] symbol=AAOI spread_bps=25.40 frac_slippage_bps=14.70 (adaptive)
+[SKIP][CONID_MISSING] symbol=BRK.B: conid not found for symbol=BRK.B. Run with CPAPI_RESOLVE_CONIDS=1 to populate conid_cache.json, or add a 'conid' column to orders.csv.
+[CFG] config=aggressive to_execute=1 dup_skipped=0 conid_missing=2
+[CFG] config=aggressive batch_frac_slippage_bps=14.70 (median of 1 symbols, min=14.70 max=14.70)
+[BATCH] symbol=AAOI side=BUY qty=66.00000000 ref_price=157.4600 conid=135423662 whole_timeout=30s whole_slippage=1.0bps frac_slippage=14.7bps
+[SM][AAOI] NEW → PRECHECK | starting execution
+[SM][AAOI] PRECHECK → SPLIT | splitting qty
+[SM][AAOI] SPLIT → WHOLE_SUBMIT | submitting whole leg
+[PRICING][AAOI] whole LMT: ref=157.4600 slippage=1.0bps raw=157.4757 clamped=157.4800 side=BUY
+[CPAPI][SUBMIT] cOID=pe-c60867dee966cc11d86729db-W conid=135423662 side=BUY qty=66.0 orderType=LMT price=157.48 tif=DAY
+[CPAPI][SUBMIT_RAW] cOID=pe-c60867dee966cc11d86729db-W raw={"id": "d0bc2dee-a8d2-4655-a587-c00548589780", "message": ["You are submitting an order without market data. We strongly recommend against this as it may result in erroneous and unexpected trades.\nAre you sure you want to submit this order?"], "isSuppressed": false, "messageIds": ["o354"], "message
+[CPAPI][REPLY] cOID=pe-c60867dee966cc11d86729db-W attempt=1/10 sent_id=d0bc2dee-a8d2-4655-a587-c00548589780 raw=[{"order_id": "1914008817", "local_order_id": "pe-c60867dee966cc11d86729db-W", "order_status": "Submitted", "encrypt_message": "1"}]
+[CPAPI][REPLY][DONE] cOID=pe-c60867dee966cc11d86729db-W order_id=1914008817 chain=d0bc2dee-a8d2-4655-a587-c00548589780 → d0bc2dee-a8d2-4655-a587-c00548589780
+[SM][AAOI] WHOLE_SUBMIT → WHOLE_WORKING | whole LMT order_id=1914008817 limit_px=157.4800 ref=157.4600 slippage=1.0bps
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4800 elapsed=1.0s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4800 elapsed=2.1s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4800 elapsed=3.2s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4800 elapsed=4.3s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4800 elapsed=5.4s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4800 elapsed=6.5s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4800 elapsed=7.6s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4800 elapsed=8.7s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4800 elapsed=9.8s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4800 elapsed=10.9s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4800 elapsed=12.0s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4800 elapsed=13.1s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4800 elapsed=14.2s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4800 elapsed=15.3s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4800 elapsed=16.4s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4800 elapsed=17.5s
+[CPAPI][TICKLE] ok (total_ok=3)
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4800 elapsed=18.6s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4800 elapsed=19.7s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4800 elapsed=20.8s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4800 elapsed=22.0s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4800 elapsed=23.1s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4800 elapsed=24.1s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4800 elapsed=25.2s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4800 elapsed=26.4s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4800 elapsed=27.5s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4800 elapsed=28.6s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4800 elapsed=29.8s
+[SM][AAOI][WHOLE_POLL] status=Submitted filled=0.000000 remaining=66.000000 avg_px=157.4800 elapsed=30.8s
+[SM][AAOI] WHOLE_WORKING → WHOLE_TIMEOUT | timeout after 30s elapsed=31.0s filled_so_far=0.000000 order_id=1914008817
+[SM][AAOI] WHOLE_TIMEOUT → DONE | no frac leg required
+[BATCH][RESULT] symbol=AAOI state=DONE total_filled=0.00000000 avg_price=0.0000
+[BATCH][SUMMARY] total=1 done=1 failed=0
+[SEND] symbol=AAOI side=BUY qty=66.00000000 state=DONE filled=0.00000000 avg_px=0.0000
+[SUMMARY] config=aggressive sent=1 errors=0 dup_skipped=0 conid_missing=2 fills_csv=artifacts\execution_loop\aggressive\fills.csv broker_log=artifacts\execution_loop\aggressive\broker_log.json
+[CPAPI_DEBUG] tickle_ok=3 tickle_fail=0 auth_ok=1 order_submit=2 poll_calls=58
+[FINAL] CPAPI execution complete
+[CPAPI] tickle loop stopped
+[CPAPI_EXEC_ORDERS] OK
+
+=== STEP 4b: CANCEL WORKING ORDERS (TD-2) ===
+[4b] cancelling working orders from current cycle...
+[CANCEL_WORKING] failed to fetch orders: HTTPSConnectionPool(host='localhost', port=5000): Max retries exceeded with url: /v1/api/iserver/account/orders (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: self-signed certificate (_ssl.c:1028)')))
+[4b] cancel working orders OK
+
+=== STEP 5: CPAPI RECONCILE (post-execution) ===
+
+============================================================
+[STEP] CPAPI_RECONCILE_POST
+============================================================
+[CFG] execution_root=artifacts\execution_loop configs=['optimal', 'aggressive']
+[CFG] cpapi_url=https://localhost:5000 account=DUP561175
+[CFG] require_broker_refresh=1 drift_tolerance=1e-06 prefer_state_over_orders=1
+[CPAPI] tickle loop started (interval=50s)
+[CPAPI][TICKLE] ok (total_ok=2)
+[RECON][optimal][SUMMARY] symbols_total=2 drift=2 missing_at_broker=1 unexpected_at_broker=0 pending_covers_drift=1 max_abs_drift_shares=155.00000000 cleanup_preview_rows=0
+[ARTIFACT] artifacts\execution_loop\optimal\portfolio_state.json
+[ARTIFACT] artifacts\execution_loop\optimal\orders.csv
+[ARTIFACT] artifacts\execution_loop\optimal\broker_positions.csv
+[ARTIFACT] artifacts\execution_loop\optimal\broker_open_orders.csv
+[ARTIFACT] artifacts\execution_loop\optimal\broker_pending.csv
+[ARTIFACT] artifacts\execution_loop\optimal\broker_reconcile.csv
+[ARTIFACT] artifacts\execution_loop\optimal\broker_reconcile_summary.json
+[ARTIFACT] artifacts\execution_loop\optimal\broker_cleanup_preview.csv
+[RECON][aggressive][SUMMARY] symbols_total=3 drift=3 missing_at_broker=2 unexpected_at_broker=0 pending_covers_drift=1 max_abs_drift_shares=155.00000000 cleanup_preview_rows=0
+[ARTIFACT] artifacts\execution_loop\aggressive\portfolio_state.json
+[ARTIFACT] artifacts\execution_loop\aggressive\orders.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\broker_positions.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\broker_open_orders.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\broker_pending.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\broker_reconcile.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\broker_reconcile_summary.json
+[ARTIFACT] artifacts\execution_loop\aggressive\broker_cleanup_preview.csv
+[CPAPI] tickle loop stopped
+[FINAL] CPAPI broker reconcile complete
+[CPAPI_RECONCILE_POST] OK
+
+=== STEP 5a: SYNC CLEANUP PREVIEW ===
+
+[STEP] CLEANUP_SYNC
+[SYNC][optimal] rows=0 -> broker_cleanup_orders.csv
+[SYNC][aggressive] rows=0 -> broker_cleanup_orders.csv
+[CLEANUP_SYNC] OK
+
+=== STEP 5b: RESOLVE CONIDS FOR CLEANUP ===
+
+[STEP] CONID_CLEANUP_RESOLVE
+[CONID_CLEANUP][optimal] empty -- skip
+[CONID_CLEANUP][aggressive] empty -- skip
+[CONID_CLEANUP_RESOLVE] OK
+
+=== STEP 6: CPAPI CLEANUP SEND ===
+
+============================================================
+[STEP] CPAPI_CLEANUP_SEND
+============================================================
+[CFG] execution_root=artifacts\execution_loop configs=['optimal', 'aggressive']
+[CFG] cpapi_url=https://localhost:5000 account=DUP561175
+[CFG] cleanup_send_preview_only=0 require_empty_pending=0
+[CPAPI] tickle loop started (interval=50s)
+[CLEANUP][optimal][PLAN] cleanup_rows=0 emitted_rows=0 preview_only=0 blocked_pending_refs=0
+[ARTIFACT] artifacts\execution_loop\optimal\broker_cleanup_send_plan.csv
+[ARTIFACT] artifacts\execution_loop\optimal\broker_cleanup_send_summary.json
+[CLEANUP][optimal] no rows after filters — adapter not called
+[CLEANUP][aggressive][PLAN] cleanup_rows=0 emitted_rows=0 preview_only=0 blocked_pending_refs=0
+[ARTIFACT] artifacts\execution_loop\aggressive\broker_cleanup_send_plan.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\broker_cleanup_send_summary.json
+[CLEANUP][aggressive] no rows after filters — adapter not called
+[CPAPI][TICKLE] ok (total_ok=2)
+[CPAPI] tickle loop stopped
+[FINAL] CPAPI cleanup send complete
+[CPAPI_CLEANUP_SEND] OK
+
+[LOCK] released
+
+=== PIPELINE COMPLETE ===
+  OK  optimal/orders.csv
+  --  optimal/fills.csv
+  OK  optimal/broker_log.json
+  OK  optimal/portfolio_state.json
+  OK  optimal/broker_reconcile_summary.json
+  OK  aggressive/orders.csv
+  --  aggressive/fills.csv
+  OK  aggressive/broker_log.json
+  OK  aggressive/portfolio_state.json
+  OK  aggressive/broker_reconcile_summary.json

@@ -71,14 +71,27 @@ CPAPI_BASE_URL    = _env_str("CPAPI_BASE_URL",    "https://localhost:5000")
 CPAPI_VERIFY_SSL  = _env_bool("CPAPI_VERIFY_SSL",  False)
 CPAPI_TIMEOUT_SEC = _env_float("CPAPI_TIMEOUT_SEC", 10.0)
 
-WHOLE_TIMEOUT_SEC  = _env_float("CPAPI_WHOLE_TIMEOUT_SEC",  30.0)
+WHOLE_TIMEOUT_SEC  = _env_float("CPAPI_WHOLE_TIMEOUT_SEC",  60.0)
 FRAC_TIMEOUT_SEC   = _env_float("CPAPI_FRAC_TIMEOUT_SEC",   20.0)
 TIF                = _env_str("CPAPI_TIF",                  "DAY")
+
+# Базовий frac slippage — використовується якщо spread_bps недоступний
+# або як мінімальна межа для адаптивного slippage
 FRAC_SLIPPAGE_BPS  = _env_float("CPAPI_FRAC_SLIPPAGE_BPS",   5.0)
 
+# Адаптивний slippage: frac_slippage = max(FRAC_SLIPPAGE_MIN, min(FRAC_SLIPPAGE_MAX, spread_bps/2 + FRAC_SLIPPAGE_ADDON))
+# Логіка: половина спреду + невеликий буфер, щоб LMT потрапив всередину спреду
+# Для AAOI spread=22.7bps → slippage=13.35bps → limit=mid*1.001335 (нижче ask)
+# Для wide spread 50bps → slippage=27bps → limit=mid*1.0027
+FRAC_SLIPPAGE_MIN    = _env_float("CPAPI_FRAC_SLIPPAGE_MIN",   5.0)   # floor
+FRAC_SLIPPAGE_MAX    = _env_float("CPAPI_FRAC_SLIPPAGE_MAX",  30.0)   # cap
+FRAC_SLIPPAGE_ADDON  = _env_float("CPAPI_FRAC_SLIPPAGE_ADDON", 2.0)   # buffer поверх half-spread
+
+# Parent guard: ±N% від mid (замість ±20% від ask/bid)
+# Достатньо широко щоб покрити внутрішньоденний рух, але не декоративно
+PARENT_GUARD_PCT = _env_float("CPAPI_PARENT_GUARD_PCT", 3.0)   # ±3% від mid
+
 RESET_BROKER_LOG      = _env_bool("RESET_BROKER_LOG",      False)
-# When True: call /iserver/secdef/search for symbols missing from cache
-# When False: only use what's already in conid_cache.json
 CPAPI_RESOLVE_CONIDS  = _env_bool("CPAPI_RESOLVE_CONIDS", True)
 
 REQUIRED_ORDER_COLUMNS = ["symbol", "order_side", "delta_shares"]
@@ -157,6 +170,31 @@ def _enable_line_buffering() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Adaptive slippage
+# ---------------------------------------------------------------------------
+
+def _adaptive_slippage_bps(spread_bps: float) -> float:
+    """
+    Розраховує frac slippage на основі реального спреду з orders.csv.
+
+    Логіка: half_spread + addon, обмежений [MIN, MAX].
+    Приклад:
+      spread=22.7bps → 22.7/2 + 2 = 13.35bps  (AAOI, liquid mid-cap)
+      spread=5bps    → 5/2  + 2 = 4.5 → floor=5bps  (large-cap)
+      spread=50bps   → 50/2 + 2 = 27bps  (illiquid)
+      spread=0bps    → fallback до FRAC_SLIPPAGE_BPS (close-only quote)
+
+    Результат: LMT ставиться всередині спреду відносно mid,
+    але достатньо близько до ask/bid щоб fill відбувся.
+    """
+    if spread_bps <= 0.0:
+        # Немає BBO — використовуємо базовий параметр
+        return float(FRAC_SLIPPAGE_BPS)
+    adaptive = spread_bps / 2.0 + float(FRAC_SLIPPAGE_ADDON)
+    return float(max(float(FRAC_SLIPPAGE_MIN), min(float(FRAC_SLIPPAGE_MAX), adaptive)))
+
+
+# ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
 
@@ -197,8 +235,6 @@ def _select_live_orders(df: pd.DataFrame) -> pd.DataFrame:
 
 # ---------------------------------------------------------------------------
 # conid resolution
-# Priority: orders.csv column "conid" / "broker_conid"  →  conid_cache.json
-# If nothing found → RuntimeError (explicit, counted in debug_conid_missing).
 # ---------------------------------------------------------------------------
 
 def _resolve_conid(
@@ -206,12 +242,10 @@ def _resolve_conid(
     symbol: str,
     conid_cache: Dict[str, str],
 ) -> str:
-    # 1. Explicit column in orders.csv
     for col in ("conid", "broker_conid"):
         val = str(row.get(col, "") or "").strip()
         if val and val not in {"nan", "None", "0"}:
             return val
-    # 2. Pre-resolved cache
     cached = conid_cache.get(symbol, "").strip()
     if cached:
         return cached
@@ -231,28 +265,86 @@ def _build_intent(
     row: Dict[str, Any],
     idempotency_key: str,
     conid_cache: Dict[str, str],
-) -> ExecutionIntent:
+) -> tuple[ExecutionIntent, float, float]:
+    """
+    Повертає (intent, reference_price, frac_slippage_bps).
+
+    reference_price:
+      Пріоритет: mid (BBO midpoint з handoff) → price (ask/bid або close fallback).
+      mid точніший за ask/bid як reference для frac LMT — ордер ставиться
+      відносно середини спреду, а не від краю.
+
+    frac_slippage_bps:
+      Адаптивний від spread_bps з orders.csv. Якщо spread недоступний —
+      fallback до FRAC_SLIPPAGE_BPS.
+
+    parent_cap/floor:
+      ±PARENT_GUARD_PCT% від reference_price (default 3%).
+      Замість ±20% від ask/bid — реальний захист від аномалій.
+    """
     symbol    = _normalize_symbol(str(row.get("symbol", "")))
     side_str  = _normalize_side(str(row.get("order_side", "")))
     qty       = abs(_to_float(row.get("delta_shares", 0.0)))
     conid     = _resolve_conid(row, symbol, conid_cache)
-    price     = _to_float(row.get("price", 0.0))
 
-    # Parent price guard — derive from price ± configured deviation
-    # Orders CSV may carry explicit cap/floor columns; otherwise derive
-    # from price with a generous 20% deviation (matches ibkr adapter default)
+    # ── Reference price: mid > price ──────────────────────────────────
+    mid_val   = _to_float(row.get("mid",       0.0))
+    mid_val   = _to_float(row.get("mid_price", 0.0)) if mid_val <= 0.0 else mid_val
+    ask_val   = _to_float(row.get("ask",       0.0))
+    ask_val   = _to_float(row.get("ask_price", 0.0)) if ask_val <= 0.0 else ask_val
+    bid_val   = _to_float(row.get("bid",       0.0))
+    bid_val   = _to_float(row.get("bid_price", 0.0)) if bid_val <= 0.0 else bid_val
+    price_col = _to_float(row.get("price",     0.0))
+
+    # mid як primary reference (найточніший для LMT offset)
+    if mid_val > 0.0:
+        reference_price = mid_val
+        ref_source = "mid"
+    elif price_col > 0.0:
+        reference_price = price_col
+        ref_source = "price_col"
+    else:
+        reference_price = 0.0
+        ref_source = "none"
+
+    print(
+        f"[INTENT] symbol={symbol} side={side_str} qty={qty:.0f} "
+        f"ref={reference_price:.4f} (source={ref_source}) "
+        f"mid={mid_val:.4f} ask={ask_val:.4f} bid={bid_val:.4f} price_col={price_col:.4f}"
+    )
+
+    # ── Adaptive frac slippage ─────────────────────────────────────────
+    spread_bps = _to_float(row.get("spread_bps", 0.0))
+    frac_slippage = _adaptive_slippage_bps(spread_bps)
+    print(
+        f"[INTENT] symbol={symbol} spread_bps={spread_bps:.2f} "
+        f"frac_slippage_bps={frac_slippage:.2f} (adaptive)"
+    )
+
+    # ── Parent guard ±PARENT_GUARD_PCT% від reference ─────────────────
+    guard_pct = float(PARENT_GUARD_PCT) / 100.0
     parent_cap: Optional[float]   = None
     parent_floor: Optional[float] = None
 
-    explicit_cap   = _to_float(row.get("parent_cap",   0.0))
-    explicit_floor = _to_float(row.get("parent_floor", 0.0))
-
-    if side_str == "BUY":
-        parent_cap = explicit_cap if explicit_cap > 0.0 else (price * 1.20 if price > 0.0 else None)
+    if reference_price > 0.0:
+        if side_str == "BUY":
+            parent_cap = reference_price * (1.0 + guard_pct)
+        else:
+            parent_floor = reference_price * (1.0 - guard_pct)
     else:
-        parent_floor = explicit_floor if explicit_floor > 0.0 else (price * 0.80 if price > 0.0 else None)
+        # Немає reference — fallback до старої логіки від price_col
+        explicit_cap   = _to_float(row.get("parent_cap",   0.0))
+        explicit_floor = _to_float(row.get("parent_floor", 0.0))
+        if side_str == "BUY":
+            parent_cap = explicit_cap if explicit_cap > 0.0 else (
+                price_col * 1.20 if price_col > 0.0 else None
+            )
+        else:
+            parent_floor = explicit_floor if explicit_floor > 0.0 else (
+                price_col * 0.80 if price_col > 0.0 else None
+            )
 
-    return ExecutionIntent(
+    intent = ExecutionIntent(
         symbol       = symbol,
         conid        = conid,
         side         = OrderSide(side_str),
@@ -262,6 +354,8 @@ def _build_intent(
         client_tag   = f"pe-{idempotency_key[:24]}",
         account_id   = BROKER_ACCOUNT_ID,
     )
+
+    return intent, reference_price, frac_slippage
 
 
 def _make_idempotency_key(config_name: str, row: Dict[str, Any]) -> str:
@@ -332,11 +426,13 @@ def _run_config(client: CpapiClient, config_name: str) -> None:
             f"(CPAPI_RESOLVE_CONIDS=0)"
         )
 
-    # ── Build intents and reference_prices, skip duplicates ───────────
-    intents:          List[ExecutionIntent]   = []
-    ikeys:            List[str]               = []
-    row_metas:        List[Dict[str, Any]]    = []   # price_hint, order_notional, date per row
-    reference_prices: Dict[str, float]        = {}
+    # ── Build intents ─────────────────────────────────────────────────
+    intents:           List[ExecutionIntent]  = []
+    ikeys:             List[str]              = []
+    row_metas:         List[Dict[str, Any]]   = []
+    reference_prices:  Dict[str, float]       = {}
+    # per-symbol slippage для engine_kwargs override
+    slippage_per_sym:  Dict[str, float]       = {}
     duplicate_entries: List[dict]             = []
 
     debug_total          = 0
@@ -380,29 +476,31 @@ def _run_config(client: CpapiClient, config_name: str) -> None:
             continue
 
         try:
-            intent = _build_intent(config_name, row_dict, ikey, conid_cache)
+            intent, ref_price, frac_slippage = _build_intent(
+                config_name, row_dict, ikey, conid_cache
+            )
         except RuntimeError as exc:
             debug_conid_missing += 1
             print(f"[SKIP][CONID_MISSING] symbol={symbol}: {exc}")
             continue
 
-        price = _to_float(row_dict.get("price", 0.0))
-        if price <= 0.0:
+        if ref_price <= 0.0:
             print(
-                f"[SKIP] symbol={symbol} price=0 — "
-                f"reference_price required for CPAPI execution"
+                f"[SKIP] symbol={symbol} reference_price=0 — "
+                f"no mid or price available for CPAPI execution"
             )
             continue
 
         intents.append(intent)
         ikeys.append(ikey)
         row_metas.append({
-            "price_hint":      price,
-            "order_notional":  _to_float(row_dict.get("order_notional", 0.0)),
-            "order_date":      str(row_dict.get("date", "")),
+            "price_hint":        _to_float(row_dict.get("price", 0.0)),
+            "order_notional":    _to_float(row_dict.get("order_notional", 0.0)),
+            "order_date":        str(row_dict.get("date", "")),
             "source_order_path": str(paths["orders_csv"]),
         })
-        reference_prices[symbol] = price
+        reference_prices[symbol]  = ref_price
+        slippage_per_sym[symbol]  = frac_slippage
 
     # Save duplicate fills before execution
     if duplicate_entries:
@@ -420,11 +518,28 @@ def _run_config(client: CpapiClient, config_name: str) -> None:
         return
 
     # ── Execute batch ──────────────────────────────────────────────────
+    # Примітка: slippage_per_sym передається через engine_kwargs як
+    # єдине значення — беремо median по всіх символах батчу.
+    # Для більш точного per-symbol slippage потрібна зміна run_batch API.
+    # Поточна архітектура: один engine на весь batch → один slippage.
+    # Median краще ніж mid оскільки не зміщується від outlier (wide spread).
+    import statistics
+    all_slippages = list(slippage_per_sym.values())
+    batch_slippage = statistics.median(all_slippages) if all_slippages else FRAC_SLIPPAGE_BPS
+
+    print(
+        f"[CFG] config={config_name} "
+        f"batch_frac_slippage_bps={batch_slippage:.2f} "
+        f"(median of {len(all_slippages)} symbols, "
+        f"min={min(all_slippages):.2f} max={max(all_slippages):.2f})"
+    )
+
     engine_kwargs = {
-        "whole_timeout_sec": WHOLE_TIMEOUT_SEC,
-        "frac_timeout_sec":  FRAC_TIMEOUT_SEC,
-        "tif":               TIF,
-        "frac_slippage_bps": FRAC_SLIPPAGE_BPS,
+        "whole_timeout_sec":  WHOLE_TIMEOUT_SEC,
+        "frac_timeout_sec":   FRAC_TIMEOUT_SEC,
+        "tif":                TIF,
+        "frac_slippage_bps":  batch_slippage,
+        "whole_slippage_bps": _env_float("CPAPI_WHOLE_SLIPPAGE_BPS", 1.0),
     }
     results = run_batch(client, intents, reference_prices, engine_kwargs)
 
@@ -497,7 +612,11 @@ def main() -> int:
         f"execution_root={EXECUTION_ROOT} "
         f"configs={'|'.join(CONFIG_NAMES)} "
         f"whole_timeout={WHOLE_TIMEOUT_SEC}s "
-        f"frac_timeout={FRAC_TIMEOUT_SEC}s"
+        f"frac_timeout={FRAC_TIMEOUT_SEC}s "
+        f"parent_guard_pct={PARENT_GUARD_PCT}% "
+        f"frac_slippage_min={FRAC_SLIPPAGE_MIN}bps "
+        f"frac_slippage_max={FRAC_SLIPPAGE_MAX}bps "
+        f"frac_slippage_addon={FRAC_SLIPPAGE_ADDON}bps"
     )
 
     if not BROKER_ACCOUNT_ID:
@@ -526,7 +645,6 @@ def main() -> int:
                 traceback.print_exc()
                 print(f"[ERR] config={config_name} failed: {exc}")
 
-        # Final tickle debug dump
         dbg = client.debug_summary()
         print(
             f"[CPAPI_DEBUG] tickle_ok={dbg['tickle_ok']} "

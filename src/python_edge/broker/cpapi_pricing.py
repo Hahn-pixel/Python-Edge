@@ -14,7 +14,7 @@ _DEFAULT_MIN_TICK: float = 0.01  # fallback tick when conid metadata absent
 
 
 # ---------------------------------------------------------------------------
-# Tick helpers  (mirror ibkr_pricing logic, no ibkr_models dependency)
+# Tick helpers
 # ---------------------------------------------------------------------------
 
 def _safe_float(value: object) -> float:
@@ -47,7 +47,6 @@ def round_to_tick(price: float, tick: float, side: OrderSide) -> float:
     else:
         rounded_steps = math.floor(steps + 1e-12)
     rounded = rounded_steps * t
-    # decimal precision: enough to represent the tick
     if t < 1.0:
         decimals = min(max(0, int(round(-math.log10(t))) + 2), 8)
     else:
@@ -75,7 +74,6 @@ def check_parent_guard(
     SELL → price must be >= parent_floor (if floor is set)
 
     Raises PriceGuardViolation explicitly — never silently passes.
-    Records the failure in intent.debug_guard_rejected.
     """
     px = _safe_float(proposed_price)
     tag = f"[{label}] " if label else ""
@@ -130,11 +128,10 @@ def split_qty(target_qty: float) -> tuple[float, float]:
     """
     Split target_qty into (whole_qty, frac_qty).
 
-    whole_qty = floor(target_qty)   → sent as MIDPRICE
-    frac_qty  = target_qty - whole  → sent as market/limit after whole fills
+    whole_qty = floor(target_qty)   → sent as LMT at mid price
+    frac_qty  = target_qty - whole  → sent as LMT with slippage after whole fills
 
     Returns (0.0, target_qty) when target_qty < 1.0 (pure fractional order).
-    Both values are rounded to 8 decimal places to avoid float noise.
     """
     qty = max(0.0, float(target_qty))
     whole = math.floor(qty)
@@ -142,25 +139,86 @@ def split_qty(target_qty: float) -> tuple[float, float]:
     return float(whole), frac
 
 
+# ---------------------------------------------------------------------------
+# Whole leg: LMT at mid (replaces MIDPRICE)
+# ---------------------------------------------------------------------------
+
+# Whole leg slippage: невеликий буфер від mid щоб підвищити ймовірність fill.
+# Менший ніж frac slippage — whole leg велика кількість акцій,
+# зайвий bps коштує дорожче. Default: 1 bps від mid.
+_WHOLE_SLIPPAGE_BPS_DEFAULT: float = 1.0
+
+
+def whole_limit_price(
+    intent: ExecutionIntent,
+    tick: float,
+    reference_price: float,
+    whole_slippage_bps: float = _WHOLE_SLIPPAGE_BPS_DEFAULT,
+) -> float:
+    """
+    Compute an explicit LMT price for the whole-qty leg.
+
+    Замінює MIDPRICE — дає явну ціну щоб:
+      1. Gateway не потребував market data streaming
+      2. tif=DAY працював як очікується (MIDPRICE → CLOSE поза RTH)
+      3. Ціна контрольована і логована
+
+    Логіка:
+      reference_price = mid з orders.csv (BBO midpoint від handoff)
+      BUY:  limit = mid * (1 + whole_slippage_bps/10000)  → трохи вище mid
+      SELL: limit = mid * (1 - whole_slippage_bps/10000)  → трохи нижче mid
+
+    whole_slippage_bps default=1bps — мінімальний буфер для fill probability.
+    Для whole leg це важливо: 66 акцій по $154 = $10164, 1bps = $1.02 переплата.
+
+    Raises PriceGuardViolation якщо ціна виходить за parent guard.
+    """
+    ref = _safe_float(reference_price)
+    if ref <= 0.0:
+        raise ValueError(
+            f"reference_price must be > 0 for whole_limit_price "
+            f"(symbol={intent.symbol}, got {ref})"
+        )
+
+    bps_bump = abs(float(whole_slippage_bps)) / 10_000.0
+
+    if intent.side is OrderSide.BUY:
+        raw = ref * (1.0 + bps_bump)
+    else:
+        raw = ref * max(0.0, 1.0 - bps_bump)
+
+    clamped = clamp_to_guard(intent, raw, tick)
+    check_parent_guard(intent, clamped, label="whole_limit_price")
+
+    print(
+        f"[PRICING][{intent.symbol}] whole LMT: "
+        f"ref={ref:.4f} slippage={whole_slippage_bps:.1f}bps "
+        f"raw={raw:.4f} clamped={clamped:.4f} side={intent.side.value}"
+    )
+
+    return clamped
+
+
+# ---------------------------------------------------------------------------
+# Legacy alias — зберігаємо для зворотної сумісності якщо є інші імпорти
+# ---------------------------------------------------------------------------
+
 def midprice_price(
     intent: ExecutionIntent,
     tick: float,
     reference_price: float,
 ) -> Optional[float]:
     """
-    Compute the MIDPRICE order price for the whole-qty leg.
-
-    CPAPI MIDPRICE orders do not take an explicit price — the broker
-    computes it from the spread.  We still validate the reference price
-    against the parent guard and return None to signal "no explicit price"
-    (CPAPI will use order_type=MIDPRICE without a price field).
-
-    Raises PriceGuardViolation if reference_price already violates the guard.
-    Returns None (= no explicit price, let broker compute mid).
+    Deprecated: використовувався для MIDPRICE order_type.
+    Залишено для зворотної сумісності — викликає whole_limit_price.
+    Повертає явну LMT ціну замість None.
     """
-    check_parent_guard(intent, reference_price, label="midprice_reference")
-    return None   # MIDPRICE order_type; broker computes the price
+    return whole_limit_price(intent, tick, reference_price)
 
+
+# ---------------------------------------------------------------------------
+# Fractional leg: LMT with adaptive slippage
+# ---------------------------------------------------------------------------
 
 def frac_limit_price(
     intent: ExecutionIntent,
@@ -171,8 +229,8 @@ def frac_limit_price(
     """
     Compute a limit price for the fractional remainder leg.
 
-    Applies a small slippage allowance (default 5 bps) to improve fill
-    probability, then clamps to the parent guard and rounds to tick.
+    slippage_bps тут адаптивний (передається з _build_intent):
+      = max(5, min(30, spread_bps/2 + 2))
 
     Raises PriceGuardViolation if even the clamped price violates the guard.
     """
@@ -191,6 +249,5 @@ def frac_limit_price(
         raw = ref * max(0.0, 1.0 - bps_bump)
 
     clamped = clamp_to_guard(intent, raw, tick)
-    # Final explicit guard check — raises if clamp was not enough
     check_parent_guard(intent, clamped, label="frac_limit_price")
     return clamped
