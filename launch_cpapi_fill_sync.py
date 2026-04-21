@@ -1,8 +1,9 @@
 """
 launch_cpapi_fill_sync.py — запуск fill sync після закриття
 
-Запускати о ~16:05 ET (через ~5 хвилин після закриття біржі)
-щоб синхронізувати fills з IBKR Gateway в broker_log.json і fills.csv.
+Запускати о ~16:05 ET (21:05 Київ).
+Якщо запускаєте після опівночі UTC — передайте дату явно:
+  set SYNC_DATE=2026-04-21 && python launch_cpapi_fill_sync.py
 
 Подвійний клік — вікно не закривається до натискання Enter.
 """
@@ -13,6 +14,7 @@ import os
 import subprocess
 import sys
 import traceback
+from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -20,15 +22,22 @@ ROOT = Path(__file__).resolve().parent
 IB_ACCOUNT_CODE = "DUP561175"
 CPAPI_BASE_URL  = "https://localhost:5000"
 
+# Залишити порожнім — використовує сьогоднішню дату UTC автоматично.
+# Встановити явно якщо запускаєте після опівночі UTC.
+SYNC_DATE = ""
+
 SCRIPT_FILL_SYNC = ROOT / "scripts" / "run_cpapi_fill_sync.py"
 
 
 def main() -> int:
+    date = SYNC_DATE or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
     print("=" * 60)
     print("  Python-Edge — Fill Sync")
     print("=" * 60)
     print(f"  ROOT:    {ROOT}")
     print(f"  ACCOUNT: {IB_ACCOUNT_CODE}")
+    print(f"  DATE:    {date}")
     print()
 
     if not SCRIPT_FILL_SYNC.exists():
@@ -43,21 +52,15 @@ def main() -> int:
         "CPAPI_BASE_URL":    CPAPI_BASE_URL,
         "CPAPI_VERIFY_SSL":  "0",
         "CPAPI_TIMEOUT_SEC": "10.0",
+        "SYNC_DATE":         date,
         "PAUSE_ON_EXIT":     "0",
     })
 
-    print(f"[RUN] {SCRIPT_FILL_SYNC.name}")
-    result = subprocess.run(
-        [sys.executable, str(SCRIPT_FILL_SYNC)],
-        cwd=str(ROOT),
-        env=env,
-    )
-
+    result = subprocess.run([sys.executable, str(SCRIPT_FILL_SYNC)], cwd=str(ROOT), env=env)
     if result.returncode == 0:
         print("\n[OK] Fill sync complete")
     else:
         print(f"\n[FAILED] exit={result.returncode}")
-
     return result.returncode
 
 
