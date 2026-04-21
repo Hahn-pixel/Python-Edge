@@ -74,10 +74,12 @@ def main() -> int:
         "LIVE_ALPHA_INTERACTION_ENABLE":            "1",
         "LIVE_ALPHA_INTERACTION_TOP_K":             "24",
         "LIVE_ALPHA_INTERACTION_GATES":             "oil_up|dollar_up|macro_risk_off",
-        # Freeze runner — вимикаємо date mismatch guard
-        # (universe builder може поставити календарну дату != остання торгова)
+        # Freeze runner
         "REQUIRE_UNIVERSE_CURRENT_DATE_MATCH":      "0",
-        "AUTO_REFRESH_LIVE_ALPHA_ON_DATE_MISMATCH": "0",
+        # AUTO_REFRESH: якщо live snapshot застарів (дата не збігається з
+        # поточною торговою датою) — автоматично перезапустити snapshot.
+        # Було "0" — через що aggressive торгував зі snapshot від 10 квітня.
+        "AUTO_REFRESH_LIVE_ALPHA_ON_DATE_MISMATCH": "1",
         # Massive
         "MASSIVE_API_KEY":                          MASSIVE_API_KEY,
         "MASSIVE_BASE_URL":                         MASSIVE_BASE_URL,

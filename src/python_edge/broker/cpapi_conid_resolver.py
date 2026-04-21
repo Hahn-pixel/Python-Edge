@@ -12,11 +12,50 @@ from python_edge.broker.cpapi_client import CpapiClient
 # Constants
 # ---------------------------------------------------------------------------
 
-_TRSRV_PATH        = "/v1/api/trsrv/stocks"   # preferred: clean US STK lookup
-_SEARCH_PATH       = "/v1/api/iserver/secdef/search"  # fallback
+_TRSRV_PATH        = "/v1/api/trsrv/stocks"
+_SEARCH_PATH       = "/v1/api/iserver/secdef/search"
 _INTER_REQUEST_SEC = 0.25
 _DEFAULT_SEC_TYPE  = "STK"
 _CACHE_FILENAME    = "conid_cache.json"
+
+# ---------------------------------------------------------------------------
+# Ticker alias table
+#
+# Деякі тікери мають нестандартні символи (крапка, слеш) які IBKR API
+# не розуміє напряму. Таблиця: {наш_тікер: [варіанти_для_lookup]}
+#
+# Правила lookup: перебираємо варіанти по порядку, беремо перший результат.
+# Якщо жоден не спрацював — повертаємо None.
+#
+# BRK.B → пробуємо "BRK B" (IBKR internal), "BRKB" (деякі провайдери)
+# BRK.A → аналогічно
+# Додавайте нові alias за потреби.
+# ---------------------------------------------------------------------------
+
+_TICKER_ALIASES: Dict[str, List[str]] = {
+    "BRK.B":  ["BRK B", "BRKB",  "BRK/B"],
+    "BRK.A":  ["BRK A", "BRKA",  "BRK/A"],
+    "BF.B":   ["BF B",  "BFB"],
+    "BF.A":   ["BF A",  "BFA"],
+    # Додайте інші нестандартні тікери тут
+}
+
+
+def _get_lookup_variants(symbol: str) -> List[str]:
+    """
+    Повертає список варіантів для lookup.
+    Якщо є в таблиці alias — повертає alias + оригінал як fallback.
+    Інакше повертає просто оригінал.
+    """
+    upper = symbol.upper().strip()
+    if upper in _TICKER_ALIASES:
+        variants = list(_TICKER_ALIASES[upper])
+        # Додаємо оригінал якщо його ще немає — на випадок
+        # якщо IBKR колись почне підтримувати крапковий формат
+        if upper not in variants:
+            variants.append(upper)
+        return variants
+    return [upper]
 
 
 # ---------------------------------------------------------------------------
@@ -27,6 +66,7 @@ def _lookup_trsrv(client: CpapiClient, symbol: str) -> Optional[str]:
     """
     GET /trsrv/stocks?symbols=SYMBOL
     Returns the conid of the first US STK contract.
+    symbol тут вже нормалізований (після alias lookup).
     """
     try:
         raw = client._get(f"{_TRSRV_PATH}?symbols={symbol}")
@@ -34,8 +74,8 @@ def _lookup_trsrv(client: CpapiClient, symbol: str) -> Optional[str]:
         print(f"[CONID][{symbol}] trsrv request failed: {exc}")
         return None
 
-    # Response: {"AAPL": [{"assetClass": "STK", "contracts": [{"conid": 265598, "isUS": true}, ...]}]}
-    data = raw if isinstance(raw, dict) else {}
+    data    = raw if isinstance(raw, dict) else {}
+    # Gateway повертає ключ рівно таким як відправили
     entries = data.get(symbol, data.get(symbol.upper(), []))
     if not isinstance(entries, list):
         return None
@@ -65,6 +105,7 @@ def _lookup_secdef(client: CpapiClient, symbol: str) -> Optional[str]:
     POST /iserver/secdef/search
     Fallback when trsrv returns nothing.
     conid is on the top-level row, not inside sections.
+    symbol тут вже нормалізований (після alias lookup).
     """
     try:
         raw = client._post(
@@ -79,12 +120,12 @@ def _lookup_secdef(client: CpapiClient, symbol: str) -> Optional[str]:
     for row in rows:
         if not isinstance(row, dict):
             continue
-        # Exact symbol match (case-insensitive)
-        if str(row.get("symbol", "")).upper() != symbol.upper():
+        row_symbol = str(row.get("symbol", "")).upper().strip()
+        # Приймаємо якщо символ відповідає будь-якому з варіантів
+        if row_symbol != symbol.upper().strip():
             continue
         conid = str(row.get("conid", "") or "")
         if conid and conid != "0":
-            # Verify STK section exists
             sections = row.get("sections", [])
             has_stk = any(
                 str(s.get("secType", "")).upper() == "STK"
@@ -98,16 +139,34 @@ def _lookup_secdef(client: CpapiClient, symbol: str) -> Optional[str]:
 
 
 # ---------------------------------------------------------------------------
-# Resolve one symbol
+# Resolve one symbol (з підтримкою alias)
 # ---------------------------------------------------------------------------
 
 def _resolve_one(client: CpapiClient, symbol: str) -> Optional[str]:
-    conid = _lookup_trsrv(client, symbol)
-    if conid:
-        return conid
-    # Fallback to secdef/search
-    conid = _lookup_secdef(client, symbol)
-    return conid
+    """
+    Перебирає всі варіанти тікера (оригінал + alias) і повертає
+    перший знайдений conid. Логує який саме варіант спрацював.
+    """
+    variants = _get_lookup_variants(symbol)
+    if len(variants) > 1:
+        print(f"[CONID][{symbol}] trying {len(variants)} variants: {variants}")
+
+    for variant in variants:
+        conid = _lookup_trsrv(client, variant)
+        if conid:
+            if variant != symbol.upper():
+                print(f"[CONID][{symbol}] resolved via alias '{variant}' → {conid}")
+            return conid
+        time.sleep(_INTER_REQUEST_SEC)
+
+        conid = _lookup_secdef(client, variant)
+        if conid:
+            if variant != symbol.upper():
+                print(f"[CONID][{symbol}] resolved via secdef alias '{variant}' → {conid}")
+            return conid
+        time.sleep(_INTER_REQUEST_SEC)
+
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -125,6 +184,7 @@ def resolve_conids(
     for symbol in symbols:
         conid = _resolve_one(client, symbol)
         if conid:
+            # Зберігаємо під оригінальним символом (BRK.B, не "BRK B")
             resolved[symbol] = conid
             print(f"[CONID][{symbol}] → {conid}")
         else:
