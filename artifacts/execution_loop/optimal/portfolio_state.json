@@ -1,43 +1,21 @@
 {
   "config": "optimal",
-  "nav": 978728.085,
-  "cash": 958840.585,
+  "nav": 978971.9375,
+  "cash": 978971.9375,
   "last_rebalanced_date": "2026-04-10",
-  "positions": {
-    "AXTI": {
-      "shares": 155.0,
-      "last_price": 64.18,
-      "market_value": 9947.900000000001,
-      "price_source": "live_snapshot",
-      "is_priced": 1
-    },
-    "AAOI": {
-      "shares": 66.0,
-      "last_price": 150.6,
-      "market_value": 9939.6,
-      "price_source": "live_snapshot",
-      "is_priced": 1
-    }
+  "positions": {},
+  "state_alignment": {
+    "source": "artifacts\\execution_loop\\optimal\\broker_positions.csv",
+    "cash_mode": "preserve_nav",
+    "positions_count": 0,
+    "market_value": 0.0,
+    "cash_after_alignment": 978971.9375,
+    "nav_after_alignment": 978971.9375,
+    "default_fallback_price_count": 0,
+    "state_fallback_price_count": 0,
+    "broker_price_count": 0,
+    "live_snapshot_price_count": 0,
+    "unpriced_count": 0
   },
-  "last_estimated_trading_cost": 3.9775,
-  "exit_meta": {
-    "AXTI": {
-      "ivol_20d_cached": 0.12313769022875187,
-      "signal_raw_score": 0.0167934093789448,
-      "signal_last_updated": "2026-04-20",
-      "signal_age_days": 0,
-      "entry_price": 64.18,
-      "entry_date": "2026-04-20",
-      "peak_price": 64.18
-    },
-    "AAOI": {
-      "ivol_20d_cached": 0.10510798304846003,
-      "signal_raw_score": 0.1297824456113943,
-      "signal_last_updated": "2026-04-20",
-      "signal_age_days": 0,
-      "entry_price": 150.6,
-      "entry_date": "2026-04-20",
-      "peak_price": 150.6
-    }
-  }
+  "last_estimated_trading_cost": 0.0
 }

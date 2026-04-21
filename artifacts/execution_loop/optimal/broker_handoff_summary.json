@@ -1,13 +1,10 @@
 {
   "config": "optimal",
-  "cpapi_rows": 2,
-  "cpapi_symbols": 2,
-  "fallback_needed": 0,
-  "live_rows": 2,
+  "rows": 0,
+  "live_rows": 0,
+  "symbols": 0,
+  "updated": 0,
+  "price_sanity_fail": 0,
   "massive_rows": 0,
-  "massive_used": 0,
-  "price_sanity_fail": 1,
-  "rows": 2,
-  "symbols": 2,
-  "updated": 2
+  "cpapi_rows": 0
 }

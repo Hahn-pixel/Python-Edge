@@ -1,0 +1,287 @@
+============================================================
+  Python-Edge — Full Cycle CPAPI (Execution)
+============================================================
+  ROOT:    C:\Users\Dmytro Govor\Documents\Python-Edge
+  ACCOUNT: DUP561175
+  CPAPI:   https://localhost:5000
+  DATE:    2026-04-21
+
+[CHECK] Gateway status...
+[GATEWAY] authenticated=True connected=True
+[NAV] Fetching current NAV...
+[NAV] 978971.9375 (from CPAPI)
+
+[PREFLIGHT] Checking scripts...
+[LOCK] created: C:\Users\Dmytro Govor\Documents\Python-Edge\artifacts\pipeline.lock
+
+=== STEP 0: CLEAN ARTIFACTS ===
+  [optimal] deleted orders.csv
+  [optimal] deleted target_book.csv
+  [optimal] deleted execution_log.csv
+  [optimal] deleted positions_mark_to_market.csv
+  [optimal] deleted broker_handoff_summary.json
+  [optimal] deleted broker_positions.csv
+  [optimal] deleted broker_open_orders.csv
+  [optimal] deleted broker_pending.csv
+  [optimal] deleted broker_reconcile.csv
+  [optimal] deleted broker_reconcile_summary.json
+  [optimal] deleted broker_cleanup_preview.csv
+  [optimal] deleted broker_cleanup_orders.csv
+  [optimal] deleted broker_cleanup_send_plan.csv
+  [optimal] deleted broker_cleanup_send_summary.json
+  [optimal] deleted state_alignment_once.json
+  [optimal] clean OK (portfolio_state.json preserved)
+  [aggressive] deleted orders.csv
+  [aggressive] deleted target_book.csv
+  [aggressive] deleted execution_log.csv
+  [aggressive] deleted positions_mark_to_market.csv
+  [aggressive] deleted broker_handoff_summary.json
+  [aggressive] deleted broker_positions.csv
+  [aggressive] deleted broker_open_orders.csv
+  [aggressive] deleted broker_pending.csv
+  [aggressive] deleted broker_reconcile.csv
+  [aggressive] deleted broker_reconcile_summary.json
+  [aggressive] deleted broker_cleanup_preview.csv
+  [aggressive] deleted broker_cleanup_orders.csv
+  [aggressive] deleted broker_cleanup_send_plan.csv
+  [aggressive] deleted broker_cleanup_send_summary.json
+  [aggressive] deleted state_alignment_once.json
+  [aggressive] clean OK (portfolio_state.json preserved)
+
+=== STEP 1: CPAPI RECONCILE (pre-alignment) ===
+  [optimal] created empty orders.csv stub
+  [aggressive] created empty orders.csv stub
+
+============================================================
+[STEP] CPAPI_RECONCILE_PRE
+============================================================
+[CFG] execution_root=artifacts\execution_loop configs=['optimal', 'aggressive']
+[CFG] cpapi_url=https://localhost:5000 account=DUP561175
+[CFG] require_broker_refresh=1 drift_tolerance=1e-06 prefer_state_over_orders=1
+[CPAPI] tickle loop started (interval=50s)
+[CPAPI][TICKLE] ok (total_ok=2)
+[RECON][optimal][SUMMARY] symbols_total=0 drift=0 missing_at_broker=0 unexpected_at_broker=0 pending_covers_drift=0 max_abs_drift_shares=0.00000000 cleanup_preview_rows=0
+[ARTIFACT] artifacts\execution_loop\optimal\portfolio_state.json
+[ARTIFACT] artifacts\execution_loop\optimal\orders.csv
+[ARTIFACT] artifacts\execution_loop\optimal\broker_positions.csv
+[ARTIFACT] artifacts\execution_loop\optimal\broker_open_orders.csv
+[ARTIFACT] artifacts\execution_loop\optimal\broker_pending.csv
+[ARTIFACT] artifacts\execution_loop\optimal\broker_reconcile.csv
+[ARTIFACT] artifacts\execution_loop\optimal\broker_reconcile_summary.json
+[ARTIFACT] artifacts\execution_loop\optimal\broker_cleanup_preview.csv
+[RECON][aggressive][SUMMARY] symbols_total=0 drift=0 missing_at_broker=0 unexpected_at_broker=0 pending_covers_drift=0 max_abs_drift_shares=0.00000000 cleanup_preview_rows=0
+[ARTIFACT] artifacts\execution_loop\aggressive\portfolio_state.json
+[ARTIFACT] artifacts\execution_loop\aggressive\orders.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\broker_positions.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\broker_open_orders.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\broker_pending.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\broker_reconcile.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\broker_reconcile_summary.json
+[ARTIFACT] artifacts\execution_loop\aggressive\broker_cleanup_preview.csv
+[CPAPI] tickle loop stopped
+[FINAL] CPAPI broker reconcile complete
+[CPAPI_RECONCILE_PRE] OK
+[1b] removing portfolio_state.json for fresh alignment
+
+=== STEP 2: EXECUTION LOOP ===
+[2a] optimal
+
+============================================================
+[STEP] EXEC_LOOP_OPTIMAL
+============================================================
+[CFG] live_feature_snapshot_file=artifacts\live_alpha\live_feature_snapshot.parquet freeze_root=artifacts\freeze_runner execution_root=artifacts\execution_loop account_nav=978971.94 fractional_mode=integer allow_fractional_shares=0
+[CFG] min_order_notional=25.00 default_price_fallback=100.00 topk_print=50 reset_state=0 config_names=optimal
+[CFG] require_freeze_date_match_live_prices=1 skip_empty_freeze_configs=1 min_price_to_trade=1.0 max_price_to_trade=1000000.0
+[CFG] max_single_name_weight=0.050000 max_single_name_notional=10000.00 commission_bps=0.5000 commission_min_per_order=0.3500 slippage_bps=1.5000
+[CFG] align_state_from_broker_once=1 align_state_require_broker_positions=0 align_state_cash_mode=preserve_nav skip_legacy_symbols_not_in_target=1
+[CFG] use_state_price_fallback_for_legacy=1 use_state_price_fallback_for_mtm=1 use_broker_positions_price_fallback_for_legacy=1 use_broker_positions_price_fallback_for_mtm=1
+[CFG] sanitize_state_prices=1 persist_default_fallback_to_state=0
+[LIVE_PRICES] current_date=2026-04-10 symbols=229 price_col=close snapshot_fallback_count=0
+[EXEC][optimal] loading freeze artifacts
+[EXEC][optimal][ALIGN] requested=1 applied=1 reason=applied_from_broker_positions marker=artifacts\execution_loop\optimal\state_alignment_once.json broker_fallback_symbols=0
+[EXEC][optimal][STATE_SANITY] sanitized=0 updated_from_live=0 updated_from_broker_positions=0 cleared_default_like=0 missing_live_price=0 missing_broker_price=0
+[EXEC][optimal] starting_nav=978971.94 ending_nav=978971.94 cash_after=978971.94 market_value_after=0.00 nav_recon_error=0.000000 order_count=0 active_names=2 gross_target=0.0204 price_col=close merged_missing_prices=0 fallback_price_rows=0 mtm_default_fallback_count=0 mtm_state_fallback_count=0 mtm_broker_positions_fallback_count=0 mtm_unpriced_count=0 fractional_enabled_effective=0 bootstrap_only=1 skip_reason=aligned_state_bootstrap_only
+[EXEC][optimal][RISK] dropped_price_below_min=0 dropped_price_above_max=0 clipped_weight_cap=0 clipped_notional_cap=2
+[EXEC][optimal][DIAG] already_at_target=0 below_min_notional=0 rounded_to_zero_from_nonzero_target=0 entered_new_position=0 exited_position=0 increased_existing_position=0 decreased_existing_position=0 symbol_only_in_state=0 symbol_only_in_target=0 legacy_state_price_fallback=0 legacy_broker_positions_price_fallback=0 legacy_default_price_fallback=0 legacy_unpriced=0
+[EXEC][optimal][COST] estimated_commission_total=0.0000 estimated_slippage_total=0.0000 estimated_total_cost=0.0000
+[EXEC][optimal][BOOTSTRAP_ONLY] state aligned from broker_positions.csv; skipping live order generation on this run
+[ARTIFACT] artifacts\execution_loop\optimal\orders.csv
+[ARTIFACT] artifacts\execution_loop\optimal\positions_mark_to_market.csv
+[ARTIFACT] artifacts\execution_loop\optimal\portfolio_state.json
+[ARTIFACT] artifacts\execution_loop\optimal\execution_log.csv
+[FINAL] execution loop complete
+[EXEC_LOOP_OPTIMAL] OK
+[2b] aggressive
+
+============================================================
+[STEP] EXEC_LOOP_AGGRESSIVE
+============================================================
+[CFG] live_feature_snapshot_file=artifacts\live_alpha\live_feature_snapshot.parquet freeze_root=artifacts\freeze_runner execution_root=artifacts\execution_loop account_nav=978971.94 fractional_mode=integer allow_fractional_shares=0
+[CFG] min_order_notional=25.00 default_price_fallback=100.00 topk_print=50 reset_state=0 config_names=aggressive
+[CFG] require_freeze_date_match_live_prices=1 skip_empty_freeze_configs=1 min_price_to_trade=1.0 max_price_to_trade=1000000.0
+[CFG] max_single_name_weight=0.050000 max_single_name_notional=10000.00 commission_bps=0.5000 commission_min_per_order=0.3500 slippage_bps=1.5000
+[CFG] align_state_from_broker_once=1 align_state_require_broker_positions=0 align_state_cash_mode=preserve_nav skip_legacy_symbols_not_in_target=1
+[CFG] use_state_price_fallback_for_legacy=1 use_state_price_fallback_for_mtm=1 use_broker_positions_price_fallback_for_legacy=1 use_broker_positions_price_fallback_for_mtm=1
+[CFG] sanitize_state_prices=1 persist_default_fallback_to_state=0
+[LIVE_PRICES] current_date=2026-04-10 symbols=229 price_col=close snapshot_fallback_count=0
+[EXEC][aggressive] loading freeze artifacts
+[EXEC][aggressive][ALIGN] requested=1 applied=1 reason=applied_from_broker_positions marker=artifacts\execution_loop\aggressive\state_alignment_once.json broker_fallback_symbols=0
+[EXEC][aggressive][STATE_SANITY] sanitized=0 updated_from_live=0 updated_from_broker_positions=0 cleared_default_like=0 missing_live_price=0 missing_broker_price=0
+[EXEC][aggressive] starting_nav=978971.94 ending_nav=978971.94 cash_after=978971.94 market_value_after=0.00 nav_recon_error=0.000000 order_count=0 active_names=3 gross_target=0.0306 price_col=close merged_missing_prices=0 fallback_price_rows=0 mtm_default_fallback_count=0 mtm_state_fallback_count=0 mtm_broker_positions_fallback_count=0 mtm_unpriced_count=0 fractional_enabled_effective=0 bootstrap_only=1 skip_reason=aligned_state_bootstrap_only
+[EXEC][aggressive][RISK] dropped_price_below_min=0 dropped_price_above_max=0 clipped_weight_cap=3 clipped_notional_cap=3
+[EXEC][aggressive][DIAG] already_at_target=0 below_min_notional=0 rounded_to_zero_from_nonzero_target=0 entered_new_position=0 exited_position=0 increased_existing_position=0 decreased_existing_position=0 symbol_only_in_state=0 symbol_only_in_target=0 legacy_state_price_fallback=0 legacy_broker_positions_price_fallback=0 legacy_default_price_fallback=0 legacy_unpriced=0
+[EXEC][aggressive][COST] estimated_commission_total=0.0000 estimated_slippage_total=0.0000 estimated_total_cost=0.0000
+[EXEC][aggressive][BOOTSTRAP_ONLY] state aligned from broker_positions.csv; skipping live order generation on this run
+[ARTIFACT] artifacts\execution_loop\aggressive\orders.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\positions_mark_to_market.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\portfolio_state.json
+[ARTIFACT] artifacts\execution_loop\aggressive\execution_log.csv
+[FINAL] execution loop complete
+[EXEC_LOOP_AGGRESSIVE] OK
+
+=== STEP 2c: EXIT SCANNER ===
+
+============================================================
+[STEP] EXIT_SCANNER
+============================================================
+[EXIT_SCANNER] start date=2026-04-21 configs=['optimal', 'aggressive'] dry_run=False
+[EXIT_SCANNER] ivol loaded: 229 symbols from snapshot
+[EXIT_SCANNER] scores loaded: 229 symbols from snapshot (target_fwd_ret_1d)
+[EXIT_SCANNER][optimal] no positions — skip
+[EXIT_SCANNER][aggressive] no positions — skip
+
+[EXIT_SCANNER] ── SUMMARY ──────────────────────────────────
+  [optimal] checked=0 exit_triggered=0 already_in_orders=0 skipped_no_price=0 skipped_no_entry=0 peak_updated=0 ivol_snap=0 ivol_state=0 ivol_missing=0 decay_exit=0 hard_expire=0 score_snap=0 score_state=0 score_missing=0 sig_updated=0 orders_appended=0
+  [aggressive] checked=0 exit_triggered=0 already_in_orders=0 skipped_no_price=0 skipped_no_entry=0 peak_updated=0 ivol_snap=0 ivol_state=0 ivol_missing=0 decay_exit=0 hard_expire=0 score_snap=0 score_state=0 score_missing=0 sig_updated=0 orders_appended=0
+[EXIT_SCANNER] total exits this cycle: 0
+[EXIT_SCANNER] OK
+
+=== STEP 2d: FREEZE GATE DIAGNOSTICS ===
+  [optimal] gate=PASSED reason=passed live_active=2(raw=2) sharpe=2.847 cumret=0.049 date=2026-04-10
+  [aggressive] gate=PASSED reason=passed live_active=3(raw=3) sharpe=3.781 cumret=0.096 date=2026-04-10
+  [ALL] live gate passed
+
+=== STEP 3: CPAPI HANDOFF (live BBO) ===
+
+============================================================
+[STEP] CPAPI_HANDOFF
+============================================================
+[CFG] execution_root=artifacts\execution_loop configs=['optimal', 'aggressive']
+[CFG] cpapi_url=https://localhost:5000 snapshot_fields=31,84,86,88 retries=3 wait=2.0s
+[CFG] enable_massive_fallback=1 force_massive_no_bbo=1
+[CPAPI] tickle loop started (interval=50s)
+[HANDOFF][optimal] total_rows=0 live_rows=0 symbols=0
+[HANDOFF][aggressive] total_rows=0 live_rows=0 symbols=0
+[CPAPI][TICKLE] ok (total_ok=2)
+[CPAPI] tickle loop stopped
+[FINAL] CPAPI handoff complete
+[CPAPI_HANDOFF] OK
+
+=== STEP 4: CPAPI EXECUTION ===
+
+============================================================
+[STEP] CPAPI_EXEC_ORDERS
+============================================================
+[ENV] broker=MEXEM account=DUP561175 whole_timeout=60.0s whole_slippage=20.0bps frac_slippage_min=5.0bps frac_slippage_max=30.0bps parent_guard=3.0%
+[CPAPI] tickle loop started (interval=50s)
+[CFG] config=optimal orders_total=0 live_orders=0
+[CONID_CACHE] all 0 symbols already cached
+[CFG] config=optimal to_execute=0 dup_skipped=0 conid_missing=0
+[CFG] config=optimal no intents to execute
+[CFG] config=aggressive orders_total=0 live_orders=0
+[CONID_CACHE] all 0 symbols already cached
+[CFG] config=aggressive to_execute=0 dup_skipped=0 conid_missing=0
+[CFG] config=aggressive no intents to execute
+[CPAPI_DEBUG] tickle_ok=1 tickle_fail=0 order_submit=0 poll_calls=0
+[FINAL] CPAPI execution complete
+[CPAPI][TICKLE] ok (total_ok=2)
+[CPAPI] tickle loop stopped
+[CPAPI_EXEC_ORDERS] OK
+
+=== STEP 4b: CANCEL WORKING ORDERS (TD-2) ===
+[CANCEL_WORKING] fetch failed: HTTPSConnectionPool(host='localhost', port=5000): Max retries exceeded with url: /v1/api/iserver/account/orders (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: self-signed certificate (_ssl.c:1028)')))
+[4b] OK
+
+=== STEP 5: CPAPI RECONCILE (post-execution) ===
+
+============================================================
+[STEP] CPAPI_RECONCILE_POST
+============================================================
+[CFG] execution_root=artifacts\execution_loop configs=['optimal', 'aggressive']
+[CFG] cpapi_url=https://localhost:5000 account=DUP561175
+[CFG] require_broker_refresh=1 drift_tolerance=1e-06 prefer_state_over_orders=1
+[CPAPI] tickle loop started (interval=50s)
+[CPAPI][TICKLE] ok (total_ok=2)
+[RECON][optimal][SUMMARY] symbols_total=0 drift=0 missing_at_broker=0 unexpected_at_broker=0 pending_covers_drift=0 max_abs_drift_shares=0.00000000 cleanup_preview_rows=0
+[ARTIFACT] artifacts\execution_loop\optimal\portfolio_state.json
+[ARTIFACT] artifacts\execution_loop\optimal\orders.csv
+[ARTIFACT] artifacts\execution_loop\optimal\broker_positions.csv
+[ARTIFACT] artifacts\execution_loop\optimal\broker_open_orders.csv
+[ARTIFACT] artifacts\execution_loop\optimal\broker_pending.csv
+[ARTIFACT] artifacts\execution_loop\optimal\broker_reconcile.csv
+[ARTIFACT] artifacts\execution_loop\optimal\broker_reconcile_summary.json
+[ARTIFACT] artifacts\execution_loop\optimal\broker_cleanup_preview.csv
+[RECON][aggressive][SUMMARY] symbols_total=0 drift=0 missing_at_broker=0 unexpected_at_broker=0 pending_covers_drift=0 max_abs_drift_shares=0.00000000 cleanup_preview_rows=0
+[ARTIFACT] artifacts\execution_loop\aggressive\portfolio_state.json
+[ARTIFACT] artifacts\execution_loop\aggressive\orders.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\broker_positions.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\broker_open_orders.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\broker_pending.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\broker_reconcile.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\broker_reconcile_summary.json
+[ARTIFACT] artifacts\execution_loop\aggressive\broker_cleanup_preview.csv
+[CPAPI] tickle loop stopped
+[FINAL] CPAPI broker reconcile complete
+[CPAPI_RECONCILE_POST] OK
+
+=== STEP 5a: SYNC CLEANUP PREVIEW ===
+
+[STEP] CLEANUP_SYNC
+[SYNC][optimal] rows=0 -> broker_cleanup_orders.csv
+[SYNC][aggressive] rows=0 -> broker_cleanup_orders.csv
+[CLEANUP_SYNC] OK
+
+=== STEP 5b: RESOLVE CONIDS FOR CLEANUP ===
+
+[STEP] CONID_CLEANUP_RESOLVE
+[CONID_CLEANUP][optimal] empty -- skip
+[CONID_CLEANUP][aggressive] empty -- skip
+[CONID_CLEANUP_RESOLVE] OK
+
+=== STEP 6: CPAPI CLEANUP SEND ===
+
+============================================================
+[STEP] CPAPI_CLEANUP_SEND
+============================================================
+[CFG] execution_root=artifacts\execution_loop configs=['optimal', 'aggressive']
+[CFG] cpapi_url=https://localhost:5000 account=DUP561175
+[CFG] cleanup_send_preview_only=0 require_empty_pending=0
+[CPAPI] tickle loop started (interval=50s)
+[CLEANUP][optimal][PLAN] cleanup_rows=0 emitted_rows=0 preview_only=0 blocked_pending_refs=0
+[ARTIFACT] artifacts\execution_loop\optimal\broker_cleanup_send_plan.csv
+[ARTIFACT] artifacts\execution_loop\optimal\broker_cleanup_send_summary.json
+[CLEANUP][optimal] no rows after filters — adapter not called
+[CLEANUP][aggressive][PLAN] cleanup_rows=0 emitted_rows=0 preview_only=0 blocked_pending_refs=0
+[ARTIFACT] artifacts\execution_loop\aggressive\broker_cleanup_send_plan.csv
+[ARTIFACT] artifacts\execution_loop\aggressive\broker_cleanup_send_summary.json
+[CLEANUP][aggressive] no rows after filters — adapter not called
+[CPAPI][TICKLE] ok (total_ok=2)
+[CPAPI] tickle loop stopped
+[FINAL] CPAPI cleanup send complete
+[CPAPI_CLEANUP_SEND] OK
+
+[LOCK] released
+
+=== PIPELINE COMPLETE ===
+  OK  optimal/orders.csv
+  --  optimal/fills.csv
+  --  optimal/broker_log.json
+  --  optimal/broker_log_2026-04-21.json
+  OK  optimal/portfolio_state.json
+  OK  optimal/broker_reconcile_summary.json
+  OK  aggressive/orders.csv
+  --  aggressive/fills.csv
+  --  aggressive/broker_log.json
+  --  aggressive/broker_log_2026-04-21.json
+  OK  aggressive/portfolio_state.json
+  OK  aggressive/broker_reconcile_summary.json
