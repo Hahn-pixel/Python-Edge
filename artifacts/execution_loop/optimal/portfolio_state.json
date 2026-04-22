@@ -1,9 +1,24 @@
 {
   "config": "optimal",
-  "nav": 978971.9375,
-  "cash": 978971.9375,
+  "nav": 978968.02998,
+  "cash": 978626.42998,
   "last_rebalanced_date": "2026-04-10",
-  "positions": {},
+  "positions": {
+    "AAOI": {
+      "shares": 66.0,
+      "last_price": 150.6,
+      "market_value": 9939.6,
+      "price_source": "live_snapshot",
+      "is_priced": 1
+    },
+    "BRK.B": {
+      "shares": -20.0,
+      "last_price": 479.9,
+      "market_value": -9598.0,
+      "price_source": "live_snapshot",
+      "is_priced": 1
+    }
+  },
   "state_alignment": {
     "source": "artifacts\\execution_loop\\optimal\\broker_positions.csv",
     "cash_mode": "preserve_nav",

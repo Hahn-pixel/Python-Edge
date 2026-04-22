@@ -4,12 +4,16 @@ launch_full_cycle_cpapi.py — повний цикл виконання (CPAPI)
 Замінює run_full_cycle_cpapi.ps1. Запускає всі кроки pipeline
 напряму через subprocess без PowerShell.
 
+КОНФІГУРАЦІЇ:
+  ACTIVE_CONFIGS = ["aggressive"]        ← тільки paper account (DUP561175)
+  ACTIVE_CONFIGS = ["optimal"]           ← тільки real account (після відкриття)
+  ACTIVE_CONFIGS = ["optimal", "aggressive"] ← обидва (різні акаунти)
+
 PIPELINE:
   0)  Очищення артефактів execution_loop
   1)  run_cpapi_reconcile.py   — positions -> broker_positions.csv
   1b) умовне видалення portfolio_state.json (тільки якщо немає позицій)
-  2a) run_execution_loop.py    — optimal
-  2b) run_execution_loop.py    — aggressive
+  2a) run_execution_loop.py    — по кожному активному конфігу
   2c) run_exit_scanner.py      — price-based exits
   2d) freeze gate diagnostics
   3)  run_cpapi_handoff.py     — live BBO
@@ -41,7 +45,18 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # ── Налаштування ──────────────────────────────────────────────
 ROOT = Path(__file__).resolve().parent
 
-IB_ACCOUNT_CODE  = "DUP561175"
+# Які конфіги торгують зараз.
+# Варіант B (paper only): тільки aggressive на DUP561175.
+# Коли з'явиться real account — додати "optimal" і прописати його номер нижче.
+ACTIVE_CONFIGS: list[str] = ["aggressive"]
+
+# Акаунт per-config. Якщо конфіг відсутній — використовується ACCOUNT_DEFAULT.
+ACCOUNT_DEFAULT  = "DUP561175"
+ACCOUNT_BY_CONFIG: dict[str, str] = {
+    "aggressive": "DUP561175",
+    # "optimal": "U1234567",  # ← розкоментувати після відкриття real account
+}
+
 MASSIVE_API_KEY  = os.getenv("MASSIVE_API_KEY", "")
 MASSIVE_BASE_URL = "https://api.massive.com"
 CPAPI_BASE_URL   = "https://localhost:5000"
@@ -156,7 +171,7 @@ def _clean_artifacts(env: dict) -> None:
         "broker_cleanup_send_summary.json", "orders_exec_backup.csv",
         "orders_pre_cleanup_backup.csv", "state_alignment_once.json",
     ]
-    for cfg in ["optimal", "aggressive"]:
+    for cfg in ACTIVE_CONFIGS:
         cfg_dir = ROOT / "artifacts" / "execution_loop" / cfg
         if not cfg_dir.exists():
             continue
@@ -169,7 +184,7 @@ def _clean_artifacts(env: dict) -> None:
 
 
 def _create_orders_stubs() -> None:
-    for cfg in ["optimal", "aggressive"]:
+    for cfg in ACTIVE_CONFIGS:
         cfg_dir = ROOT / "artifacts" / "execution_loop" / cfg
         cfg_dir.mkdir(parents=True, exist_ok=True)
         orders = cfg_dir / "orders.csv"
@@ -221,7 +236,7 @@ def _conditional_remove_state_for_alignment() -> None:
     і система вважала що вже "на цілі".
     """
     print("[1b] conditional state removal for alignment")
-    for cfg in ["optimal", "aggressive"]:
+    for cfg in ACTIVE_CONFIGS:
         has_positions = _broker_positions_has_data(cfg)
         cfg_dir = ROOT / "artifacts" / "execution_loop" / cfg
         if has_positions:
@@ -251,7 +266,10 @@ def main() -> int:
     print("  Python-Edge — Full Cycle CPAPI (Execution)")
     print("=" * 60)
     print(f"  ROOT:    {ROOT}")
-    print(f"  ACCOUNT: {IB_ACCOUNT_CODE}")
+    print(f"  CONFIGS: {ACTIVE_CONFIGS}")
+    for cfg in ACTIVE_CONFIGS:
+        acct = ACCOUNT_BY_CONFIG.get(cfg, ACCOUNT_DEFAULT)
+        print(f"  ACCOUNT[{cfg}]: {acct}")
     print(f"  CPAPI:   {CPAPI_BASE_URL}")
     print(f"  DATE:    {today_str}")
     print()
@@ -284,11 +302,10 @@ def main() -> int:
             print(f"  MISSING: {s}")
         return 1
 
-    # Базовий env — спільний для всіх кроків
+    # Базовий env — спільний для всіх кроків (без BROKER_ACCOUNT_ID — він per-config)
     base_env = os.environ.copy()
     base_env.update({
         "EXECUTION_ROOT":    "artifacts/execution_loop",
-        "BROKER_ACCOUNT_ID": IB_ACCOUNT_CODE,
         "CPAPI_BASE_URL":    CPAPI_BASE_URL,
         "CPAPI_VERIFY_SSL":  "0",
         "CPAPI_TIMEOUT_SEC": "10.0",
@@ -328,8 +345,15 @@ def main() -> int:
         print("\n=== STEP 1: CPAPI RECONCILE (pre-alignment) ===")
         _create_orders_stubs()
 
+        configs_pipe = "|".join(ACTIVE_CONFIGS)
+        # Для reconcile використовуємо акаунт першого конфігу (або default).
+        # Reconcile читає позиції з брокера — якщо конфіги на одному акаунті,
+        # достатньо одного виклику; якщо на різних — потрібні окремі виклики.
+        # Зараз ACTIVE_CONFIGS=[aggressive] → один акаунт → один виклик.
+        reconcile_account = ACCOUNT_BY_CONFIG.get(ACTIVE_CONFIGS[0], ACCOUNT_DEFAULT)
         env1 = {**base_env, **{
-            "CONFIG_NAMES":                        "optimal|aggressive",
+            "CONFIG_NAMES":                        configs_pipe,
+            "BROKER_ACCOUNT_ID":                   reconcile_account,
             "DRIFT_TOLERANCE_SHARES":              "0.000001",
             "PREFER_STATE_OVER_ORDERS":            "1",
             "REQUIRE_BROKER_REFRESH":              "1",
@@ -347,9 +371,9 @@ def main() -> int:
         # ── STEP 1b: умовне видалення state ───────────────────
         _conditional_remove_state_for_alignment()
 
-        # ── STEP 2a: Execution loop optimal ───────────────────
+        # ── STEP 2: Execution loop ────────────────────────────
         print("\n=== STEP 2: EXECUTION LOOP ===")
-        env2 = {**base_env, **{
+        env2_base = {**base_env, **{
             "LIVE_FEATURE_SNAPSHOT_FILE":               "artifacts/live_alpha/live_feature_snapshot.parquet",
             "FREEZE_ROOT":                              "artifacts/freeze_runner",
             "ACCOUNT_NAV":                              nav,
@@ -380,19 +404,21 @@ def main() -> int:
             "TOPK_PRINT":                               "50",
         }}
 
-        env2_optimal    = {**env2, "CONFIG_NAMES": "optimal"}
-        env2_aggressive = {**env2, "CONFIG_NAMES": "aggressive"}
-
-        print("[2a] optimal")
-        _run("EXEC_LOOP_OPTIMAL", SCRIPT_EXEC, env2_optimal)
-
-        print("[2b] aggressive")
-        _run("EXEC_LOOP_AGGRESSIVE", SCRIPT_EXEC, env2_aggressive)
+        for idx, cfg in enumerate(ACTIVE_CONFIGS):
+            label = f"[{idx + 1}/{len(ACTIVE_CONFIGS)}]"
+            print(f"{label} {cfg}")
+            env2_cfg = {
+                **env2_base,
+                "CONFIG_NAMES":    cfg,
+                "BROKER_ACCOUNT_ID": ACCOUNT_BY_CONFIG.get(cfg, ACCOUNT_DEFAULT),
+            }
+            _run(f"EXEC_LOOP_{cfg.upper()}", SCRIPT_EXEC, env2_cfg)
 
         # ── STEP 2c: Exit scanner ─────────────────────────────
         print("\n=== STEP 2c: EXIT SCANNER ===")
         env2c = {**base_env, **{
-            "CONFIG_NAMES":                   "optimal|aggressive",
+            "CONFIG_NAMES":                   configs_pipe,
+            "BROKER_ACCOUNT_ID":              reconcile_account,
             "LIVE_FEATURE_SNAPSHOT_FILE":     "artifacts/live_alpha/live_feature_snapshot.parquet",
             "EXIT_SCANNER_DRY_RUN":           "0",
             "EXIT_SCANNER_USE_STATE_PRICE":   "0",
@@ -402,7 +428,7 @@ def main() -> int:
         # ── STEP 2d: Freeze gate diagnostics ──────────────────
         print("\n=== STEP 2d: FREEZE GATE DIAGNOSTICS ===")
         gate_ok_all = True
-        for cfg in ["optimal", "aggressive"]:
+        for cfg in ACTIVE_CONFIGS:
             freeze_summary = (
                 ROOT / "artifacts" / "freeze_runner" / cfg
                 / "freeze_current_summary.json"
@@ -439,7 +465,8 @@ def main() -> int:
         # ── STEP 3: Handoff ───────────────────────────────────
         print("\n=== STEP 3: CPAPI HANDOFF (live BBO) ===")
         env3 = {**base_env, **{
-            "CONFIG_NAMES":                       "optimal|aggressive",
+            "CONFIG_NAMES":                       configs_pipe,
+            "BROKER_ACCOUNT_ID":                  reconcile_account,
             "CPAPI_SNAPSHOT_FIELDS":              "31,84,86,88",
             "CPAPI_SNAPSHOT_WAIT_SEC":            "2.0",
             "CPAPI_SNAPSHOT_RETRIES":             "3",
@@ -457,7 +484,8 @@ def main() -> int:
         # ── STEP 4: Execution ─────────────────────────────────
         print("\n=== STEP 4: CPAPI EXECUTION ===")
         env4 = {**base_env, **{
-            "CONFIG_NAMES":            "optimal|aggressive",
+            "CONFIG_NAMES":            configs_pipe,
+            "BROKER_ACCOUNT_ID":       reconcile_account,
             "BROKER_NAME":             "MEXEM",
             "BROKER_PLATFORM":         "IBKR_CPAPI",
             "CPAPI_WHOLE_TIMEOUT_SEC": "60.0",
@@ -507,7 +535,7 @@ try:
 except Exception as exc:
     print(f"[CANCEL_WORKING] fetch failed: {exc}")
 """
-        cancel_env = {**base_env, "CONFIG_NAMES": "optimal|aggressive"}
+        cancel_env = {**base_env, "CONFIG_NAMES": configs_pipe, "BROKER_ACCOUNT_ID": reconcile_account}
         try:
             _run_inline("CANCEL_WORKING", cancel_code, cancel_env)
         except RuntimeError as exc:
@@ -520,20 +548,21 @@ except Exception as exc:
 
         # ── STEP 5a: Sync cleanup preview ─────────────────────
         print("\n=== STEP 5a: SYNC CLEANUP PREVIEW ===")
-        sync_code = """
+        active_configs_repr = repr(ACTIVE_CONFIGS)
+        sync_code = f"""
 import pandas as pd
 from pathlib import Path
-for cfg in ["optimal", "aggressive"]:
-    preview = Path(f"artifacts/execution_loop/{cfg}/broker_cleanup_preview.csv")
-    orders  = Path(f"artifacts/execution_loop/{cfg}/broker_cleanup_orders.csv")
+for cfg in {active_configs_repr}:
+    preview = Path(f"artifacts/execution_loop/{{cfg}}/broker_cleanup_preview.csv")
+    orders  = Path(f"artifacts/execution_loop/{{cfg}}/broker_cleanup_orders.csv")
     if not preview.exists():
-        print(f"[SYNC][{cfg}] preview not found -- skip")
+        print(f"[SYNC][{{cfg}}] preview not found -- skip")
         continue
     df = pd.read_csv(preview)
     if "cleanup_side" in df.columns:
-        df = df.rename(columns={"cleanup_side": "order_side", "cleanup_qty": "delta_shares"})
+        df = df.rename(columns={{"cleanup_side": "order_side", "cleanup_qty": "delta_shares"}})
     df.to_csv(orders, index=False)
-    print(f"[SYNC][{cfg}] rows={len(df)} -> broker_cleanup_orders.csv")
+    print(f"[SYNC][{{cfg}}] rows={{len(df)}} -> broker_cleanup_orders.csv")
 """
         _run_inline("CLEANUP_SYNC", sync_code, base_env)
 
@@ -554,7 +583,7 @@ base_url   = os.getenv("CPAPI_BASE_URL", "https://localhost:5000")
 verify_ssl = os.getenv("CPAPI_VERIFY_SSL", "0").lower() not in {"1","true","yes","on"}
 timeout    = float(os.getenv("CPAPI_TIMEOUT_SEC", "30.0"))
 exec_root  = Path(os.getenv("EXECUTION_ROOT", "artifacts/execution_loop"))
-configs    = [x for x in os.getenv("CONFIG_NAMES","optimal|aggressive").split("|") if x]
+configs    = [x for x in os.getenv("CONFIG_NAMES","aggressive").split("|") if x]
 client = CpapiClient(base_url, timeout, verify_ssl)
 for cfg in configs:
     cleanup_csv = exec_root / cfg / "broker_cleanup_orders.csv"
@@ -573,13 +602,14 @@ for cfg in configs:
         print(f"[CONID_CLEANUP][{cfg}] UNRESOLVED: {unresolved}", file=sys.stderr)
     print(f"[CONID_CLEANUP][{cfg}] cache_size={len(cache)} unresolved={len(unresolved)}")
 """
-        resolve_env = {**base_env, "CONFIG_NAMES": "optimal|aggressive"}
+        resolve_env = {**base_env, "CONFIG_NAMES": configs_pipe, "BROKER_ACCOUNT_ID": reconcile_account}
         _run_inline("CONID_CLEANUP_RESOLVE", resolve_code, resolve_env)
 
         # ── STEP 6: Cleanup send ──────────────────────────────
         print("\n=== STEP 6: CPAPI CLEANUP SEND ===")
         env6 = {**base_env, **{
-            "CONFIG_NAMES":                            "optimal|aggressive",
+            "CONFIG_NAMES":                            configs_pipe,
+            "BROKER_ACCOUNT_ID":                       reconcile_account,
             "BROKER_NAME":                             "MEXEM",
             "BROKER_PLATFORM":                         "IBKR_CPAPI",
             "CPAPI_WHOLE_TIMEOUT_SEC":                 "90.0",
@@ -606,7 +636,7 @@ for cfg in configs:
     # ── Summary ───────────────────────────────────────────────
     print("\n=== PIPELINE COMPLETE ===")
     dated_log = f"broker_log_{today_str}.json"
-    for cfg in ["optimal", "aggressive"]:
+    for cfg in ACTIVE_CONFIGS:
         cfg_dir = ROOT / "artifacts" / "execution_loop" / cfg
         for fname in [
             "orders.csv", "fills.csv",
