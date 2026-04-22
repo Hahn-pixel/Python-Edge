@@ -1,20 +1,26 @@
 """
 launch_full_cycle_cpapi.py — повний цикл виконання (CPAPI)
 
+Замінює run_full_cycle_cpapi.ps1. Запускає всі кроки pipeline
+напряму через subprocess без PowerShell.
+
 PIPELINE:
-  0)  Очищення артефактів + auto-delete broker_log старше 30 днів
+  0)  Очищення артефактів execution_loop
   1)  run_cpapi_reconcile.py   — positions -> broker_positions.csv
+  1b) умовне видалення portfolio_state.json (тільки якщо немає позицій)
   2a) run_execution_loop.py    — optimal
   2b) run_execution_loop.py    — aggressive
   2c) run_exit_scanner.py      — price-based exits
-  2d) freeze gate diagnostics  — live_gate_reason per config (TD-5)
+  2d) freeze gate diagnostics
   3)  run_cpapi_handoff.py     — live BBO
   4)  run_cpapi_execution.py   — відправка ордерів
-  4b) cancel working orders    — скасування незакритих ордерів (TD-2)
   5)  run_cpapi_reconcile.py   — post-execution reconcile
   5a) sync cleanup preview -> orders
   5b) resolve conids for cleanup
-  6)  run_cpapi_cleanup.py     — cleanup send (timeout=90s, TD-3)
+  6)  run_cpapi_cleanup.py     — cleanup send
+
+Передумова: Client Portal Gateway запущений на https://localhost:5000
+            і авторизований через браузер.
 
 Подвійний клік — вікно не закривається до натискання Enter.
 """
@@ -26,7 +32,7 @@ import os
 import subprocess
 import sys
 import traceback
-from datetime import datetime, timezone, timedelta
+from datetime import date
 from pathlib import Path
 
 import urllib3
@@ -40,22 +46,22 @@ MASSIVE_API_KEY  = os.getenv("MASSIVE_API_KEY", "")
 MASSIVE_BASE_URL = "https://api.massive.com"
 CPAPI_BASE_URL   = "https://localhost:5000"
 
-# Кількість днів зберігання broker_log_YYYY-MM-DD.json
-BROKER_LOG_RETAIN_DAYS = 30
+# Exit policy (порожнє = використовувати дефолти з exit_policy.py)
+EXIT_OPTIMAL_STOP_LOSS_PCT     = ""   # default: 0.08
+EXIT_OPTIMAL_TAKE_PROFIT_PCT   = ""   # default: 0.25
+EXIT_OPTIMAL_TRAIL_K           = ""   # default: 1.5
+EXIT_OPTIMAL_TRAIL_MIN         = ""   # default: 0.03
+EXIT_OPTIMAL_TRAIL_MAX         = ""   # default: 0.20
+EXIT_OPTIMAL_MAX_HOLD_DAYS     = ""   # default: 30
 
-# Exit policy
-EXIT_OPTIMAL_STOP_LOSS_PCT        = ""
-EXIT_OPTIMAL_TAKE_PROFIT_PCT      = ""
-EXIT_OPTIMAL_TRAIL_K              = ""
-EXIT_OPTIMAL_TRAIL_MIN            = ""
-EXIT_OPTIMAL_TRAIL_MAX            = ""
-EXIT_OPTIMAL_MAX_HOLD_DAYS        = ""
-EXIT_AGGRESSIVE_STOP_LOSS_PCT     = ""
-EXIT_AGGRESSIVE_TAKE_PROFIT_PCT   = ""
-EXIT_AGGRESSIVE_TRAIL_K           = ""
-EXIT_AGGRESSIVE_TRAIL_MIN         = ""
-EXIT_AGGRESSIVE_TRAIL_MAX         = ""
-EXIT_AGGRESSIVE_MAX_HOLD_DAYS     = ""
+EXIT_AGGRESSIVE_STOP_LOSS_PCT     = ""   # default: 0.10
+EXIT_AGGRESSIVE_TAKE_PROFIT_PCT   = ""   # default: 0.30
+EXIT_AGGRESSIVE_TRAIL_K           = ""   # default: 1.5
+EXIT_AGGRESSIVE_TRAIL_MIN         = ""   # default: 0.03
+EXIT_AGGRESSIVE_TRAIL_MAX         = ""   # default: 0.20
+EXIT_AGGRESSIVE_MAX_HOLD_DAYS     = ""   # default: 20
+
+# ──────────────────────────────────────────────────────────────
 
 LOCK_FILE = ROOT / "artifacts" / "pipeline.lock"
 
@@ -70,11 +76,6 @@ SCRIPT_CLEANUP      = ROOT / "scripts" / "run_cpapi_cleanup.py"
 # ──────────────────────────────────────────────────────────────
 # Helpers
 # ──────────────────────────────────────────────────────────────
-
-def _utc_today() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
-
-
 def _check_gateway() -> bool:
     try:
         import requests
@@ -113,61 +114,33 @@ def _fetch_nav() -> str:
 
 
 def _run(label: str, script: Path, env: dict) -> None:
+    """Запустити скрипт. При ненульовому exitcode — raise."""
     if not script.exists():
         raise FileNotFoundError(f"Script not found: {script}")
     print(f"\n{'='*60}")
     print(f"[STEP] {label}")
     print(f"{'='*60}")
-    result = subprocess.run([sys.executable, str(script)], cwd=str(ROOT), env=env)
+    result = subprocess.run(
+        [sys.executable, str(script)],
+        cwd=str(ROOT),
+        env=env,
+    )
     if result.returncode != 0:
         raise RuntimeError(f"[{label}] FAILED exit={result.returncode}")
     print(f"[{label}] OK")
 
 
 def _run_inline(label: str, code: str, env: dict) -> None:
+    """Запустити Python-код inline через -c."""
     print(f"\n[STEP] {label}")
-    result = subprocess.run([sys.executable, "-c", code], cwd=str(ROOT), env=env)
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=str(ROOT),
+        env=env,
+    )
     if result.returncode != 0:
         raise RuntimeError(f"[{label}] FAILED exit={result.returncode}")
     print(f"[{label}] OK")
-
-
-# ──────────────────────────────────────────────────────────────
-# broker_log з датою + auto-delete
-# ──────────────────────────────────────────────────────────────
-
-def _rotate_broker_logs(today: str) -> None:
-    """
-    Для кожного конфігу:
-      1. Копіює broker_log.json → broker_log_YYYY-MM-DD.json (архів поточного дня)
-      2. Видаляє broker_log_*.json старші BROKER_LOG_RETAIN_DAYS днів
-    Викликається після STEP 4 (коли broker_log.json вже записаний execution).
-    """
-    cutoff = datetime.now(timezone.utc) - timedelta(days=BROKER_LOG_RETAIN_DAYS)
-    for cfg in ["optimal", "aggressive"]:
-        cfg_dir = ROOT / "artifacts" / "execution_loop" / cfg
-        log_current = cfg_dir / "broker_log.json"
-
-        # Копіюємо поточний лог з датою
-        if log_current.exists():
-            dated = cfg_dir / f"broker_log_{today}.json"
-            import shutil
-            shutil.copy2(str(log_current), str(dated))
-            print(f"[BROKER_LOG] [{cfg}] archived → broker_log_{today}.json")
-
-        # Видаляємо застарілі
-        deleted = 0
-        for old in cfg_dir.glob("broker_log_????-??-??.json"):
-            try:
-                date_str = old.stem.replace("broker_log_", "")
-                file_date = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
-                if file_date < cutoff:
-                    old.unlink()
-                    deleted += 1
-            except Exception:
-                pass
-        if deleted:
-            print(f"[BROKER_LOG] [{cfg}] deleted {deleted} logs older than {BROKER_LOG_RETAIN_DAYS}d")
 
 
 def _clean_artifacts(env: dict) -> None:
@@ -208,140 +181,71 @@ def _create_orders_stubs() -> None:
             print(f"  [{cfg}] created empty orders.csv stub")
 
 
-def _remove_state_for_alignment() -> None:
-    print("[1b] removing portfolio_state.json for fresh alignment")
+def _broker_positions_has_data(cfg: str) -> bool:
+    """
+    Повертає True якщо broker_positions.csv для config містить >=1 рядок з позицією.
+    Використовується для вирішення: видаляти state чи ні.
+    """
+    p = ROOT / "artifacts" / "execution_loop" / cfg / "broker_positions.csv"
+    if not p.exists():
+        return False
+    try:
+        import csv
+        with p.open(encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                # Будь-який рядок з непустим symbol — це реальна позиція
+                sym = (row.get("symbol") or "").strip()
+                if sym:
+                    return True
+    except Exception:
+        pass
+    return False
+
+
+def _conditional_remove_state_for_alignment() -> None:
+    """
+    STEP 1b — умовне видалення portfolio_state.json.
+
+    Логіка:
+    - Якщо broker_positions.csv порожній (paper account без позицій):
+        → видаляємо state → STEP 2 зробить bootstrap alignment,
+          але потім ЗМОЖЕ генерувати ордери на вхід у нові позиції
+          (бо broker_positions порожній = стан 0, ціль > 0 → order_count > 0).
+    - Якщо broker_positions.csv має реальні позиції:
+        → НЕ видаляємо state → STEP 2 порівняє state з broker_positions
+          і згенерує тільки drift-ордери.
+
+    Старий підхід (завжди видаляти) призводив до bootstrap_only=1 і нуль ордерів
+    коли broker_positions порожній, бо після alignment state = 0 позицій,
+    і система вважала що вже "на цілі".
+    """
+    print("[1b] conditional state removal for alignment")
     for cfg in ["optimal", "aggressive"]:
+        has_positions = _broker_positions_has_data(cfg)
         cfg_dir = ROOT / "artifacts" / "execution_loop" / cfg
-        for fname in ["portfolio_state.json", "state_alignment_once.json"]:
-            p = cfg_dir / fname
-            if p.exists():
-                p.unlink()
+        if has_positions:
+            # Є реальні позиції → зберігаємо state, видаляємо тільки маркер alignment
+            marker = cfg_dir / "state_alignment_once.json"
+            if marker.exists():
+                marker.unlink()
+                print(f"  [{cfg}] broker has positions → keeping state, removed alignment marker")
+            else:
+                print(f"  [{cfg}] broker has positions → keeping state (no marker)")
+        else:
+            # Порожній broker → видаляємо state щоб alignment пройшов коректно,
+            # але STEP 2 все одно згенерує ордери бо поточний стан = 0, ціль > 0
+            for fname in ["portfolio_state.json", "state_alignment_once.json"]:
+                p = cfg_dir / fname
+                if p.exists():
+                    p.unlink()
+                    print(f"  [{cfg}] broker empty → removed {fname}")
+                else:
+                    print(f"  [{cfg}] broker empty → {fname} already absent")
 
-
-# ──────────────────────────────────────────────────────────────
-# TD-5: Freeze gate diagnostics
-# ──────────────────────────────────────────────────────────────
-
-def _print_freeze_gate_diagnostics() -> None:
-    print("\n=== STEP 2d: FREEZE GATE DIAGNOSTICS ===")
-    freeze_root = ROOT / "artifacts" / "freeze_runner"
-    configs_warned: list[str] = []
-    for cfg_name in ["optimal", "aggressive"]:
-        summary_path = freeze_root / cfg_name / "freeze_current_summary.json"
-        if not summary_path.exists():
-            print(f"  [{cfg_name}] freeze_current_summary.json not found")
-            continue
-        try:
-            s = json.loads(summary_path.read_text(encoding="utf-8"))
-        except Exception as exc:
-            print(f"  [{cfg_name}] failed to read: {exc}")
-            continue
-
-        live_gate_passed  = int(s.get("live_gate_passed", -1))
-        live_gate_reason  = str(s.get("live_gate_reason", "unknown"))
-        live_active_names = int(s.get("live_active_names", 0))
-        live_active_raw   = int(s.get("live_active_names_raw", 0))
-        replay_sharpe     = float(s.get("replay_sharpe_last_fold", float("nan")))
-        replay_cumret     = float(s.get("replay_cumret_last_fold", float("nan")))
-        live_current_date = str(s.get("live_current_date", ""))
-
-        gate_str = "PASSED" if live_gate_passed == 1 else ("BLOCKED" if live_gate_passed == 0 else "UNKNOWN")
-        print(
-            f"  [{cfg_name}] gate={gate_str} reason={live_gate_reason} "
-            f"live_active={live_active_names}(raw={live_active_raw}) "
-            f"sharpe={replay_sharpe:.3f} cumret={replay_cumret:.3f} "
-            f"date={live_current_date}"
-        )
-        if live_gate_passed == 0:
-            configs_warned.append(cfg_name)
-            print(
-                f"  [{cfg_name}] *** LIVE GATE BLOCKED *** — orders.csv empty for this config\n"
-                f"             Fix: lower FREEZE_MIN_REPLAY_SHARPE or FREEZE_MIN_LIVE_ACTIVE_NAMES"
-            )
-    if not configs_warned:
-        print("  [ALL] live gate passed")
-
-
-# ──────────────────────────────────────────────────────────────
-# TD-2: Cancel working orders
-# ──────────────────────────────────────────────────────────────
-
-def _cancel_working_orders(base_env: dict) -> None:
-    print("\n=== STEP 4b: CANCEL WORKING ORDERS (TD-2) ===")
-    cancel_code = r"""
-import os, sys, time, json
-from pathlib import Path
-ROOT = Path(".").resolve()
-SRC_DIR = ROOT / "src"
-for p in [str(ROOT), str(SRC_DIR)]:
-    if p not in sys.path:
-        sys.path.insert(0, p)
-from python_edge.broker.cpapi_client import CpapiClient
-base_url   = os.getenv("CPAPI_BASE_URL", "https://localhost:5000")
-account_id = os.getenv("BROKER_ACCOUNT_ID", "")
-verify_ssl = os.getenv("CPAPI_VERIFY_SSL", "0").lower() not in {"1","true","yes","on"}
-timeout    = float(os.getenv("CPAPI_TIMEOUT_SEC", "30.0"))
-client = CpapiClient(base_url, timeout, verify_ssl)
-WORKING = {"Submitted","PreSubmitted","PendingSubmit","SUBMITTED","PRESUBMITTED","PENDINGSUBMIT"}
-try:
-    raw = client._get("/v1/api/iserver/account/orders")
-    orders_list = raw.get("orders", raw) if isinstance(raw, dict) else raw
-    if not isinstance(orders_list, list):
-        orders_list = []
-except Exception as exc:
-    print(f"[CANCEL_WORKING] fetch failed: {exc}")
-    sys.exit(0)
-working = [
-    o for o in orders_list
-    if str(o.get("status","")).strip() in WORKING
-    and str(o.get("orderRef","") or o.get("order_ref","") or o.get("cOID","") or "").startswith("pe-")
-]
-debug_found = len(working)
-debug_sent = debug_ok = debug_still = 0
-print(f"[CANCEL_WORKING] found={debug_found} working pe-* orders")
-for order in working:
-    oid    = str(order.get("orderId","") or order.get("order_id","")).strip()
-    symbol = str(order.get("ticker","") or order.get("symbol","")).strip()
-    qty    = order.get("remainingQuantity", "?")
-    if not oid:
-        continue
-    try:
-        result = client._delete(f"/v1/api/iserver/account/{account_id}/order/{oid}")
-        debug_sent += 1
-        debug_ok += 1
-        print(f"[CANCEL_WORKING] sent cancel order_id={oid} symbol={symbol} remaining={qty}")
-    except Exception as exc:
-        print(f"[CANCEL_WORKING] cancel failed order_id={oid}: {exc}")
-if debug_sent > 0:
-    print("[CANCEL_WORKING] waiting 5s...")
-    time.sleep(5)
-    try:
-        raw2 = client._get("/v1/api/iserver/account/orders")
-        ol2 = raw2.get("orders", raw2) if isinstance(raw2, dict) else raw2
-        still = [o for o in (ol2 if isinstance(ol2, list) else [])
-                 if str(o.get("status","")).strip() in WORKING
-                 and str(o.get("orderRef","") or o.get("order_ref","") or "").startswith("pe-")]
-        debug_still = len(still)
-        for o in still:
-            print(f"[CANCEL_WORKING][WARN] still working: {o.get('orderId')} {o.get('ticker')} {o.get('status')}")
-    except Exception as exc:
-        print(f"[CANCEL_WORKING] post-check failed: {exc}")
-print(f"[CANCEL_WORKING][SUMMARY] found={debug_found} sent={debug_sent} ok={debug_ok} still_working={debug_still}")
-sys.exit(0)
-"""
-    result = subprocess.run([sys.executable, "-c", cancel_code], cwd=str(ROOT), env=base_env)
-    if result.returncode != 0:
-        print(f"[4b][WARN] exit={result.returncode} — continuing")
-    else:
-        print("[4b] OK")
-
-
-# ──────────────────────────────────────────────────────────────
-# Main
-# ──────────────────────────────────────────────────────────────
 
 def main() -> int:
-    today = _utc_today()
+    today_str = date.today().isoformat()
 
     print("=" * 60)
     print("  Python-Edge — Full Cycle CPAPI (Execution)")
@@ -349,23 +253,27 @@ def main() -> int:
     print(f"  ROOT:    {ROOT}")
     print(f"  ACCOUNT: {IB_ACCOUNT_CODE}")
     print(f"  CPAPI:   {CPAPI_BASE_URL}")
-    print(f"  DATE:    {today}")
+    print(f"  DATE:    {today_str}")
     print()
 
+    # Pre-flight checks
     print("[CHECK] Gateway status...")
     if not _check_gateway():
         print("[ERROR] Gateway not authenticated")
+        print("        Відкрийте браузер: https://localhost:5000")
+        print("        та авторизуйтесь через IBKR")
         return 1
 
     print("[NAV] Fetching current NAV...")
     nav = _fetch_nav()
     if not nav:
-        print("[WARN] Could not fetch NAV")
+        print("[WARN] Could not fetch NAV — pipeline will use freeze-based sizing")
         nav = "0"
 
     if not MASSIVE_API_KEY:
-        print("[WARN] MASSIVE_API_KEY not set")
+        print("[WARN] MASSIVE_API_KEY not set — massive fallback disabled")
 
+    # Preflight scripts check
     print("\n[PREFLIGHT] Checking scripts...")
     missing = [s for s in [
         SCRIPT_RECONCILE, SCRIPT_EXEC, SCRIPT_EXIT_SCANNER,
@@ -376,6 +284,7 @@ def main() -> int:
             print(f"  MISSING: {s}")
         return 1
 
+    # Базовий env — спільний для всіх кроків
     base_env = os.environ.copy()
     base_env.update({
         "EXECUTION_ROOT":    "artifacts/execution_loop",
@@ -388,23 +297,25 @@ def main() -> int:
         "PAUSE_ON_EXIT":     "0",
     })
 
+    # Exit policy env
     for k, v in {
-        "EXIT_OPTIMAL_STOP_LOSS_PCT":      EXIT_OPTIMAL_STOP_LOSS_PCT,
-        "EXIT_OPTIMAL_TAKE_PROFIT_PCT":    EXIT_OPTIMAL_TAKE_PROFIT_PCT,
-        "EXIT_OPTIMAL_TRAIL_K":            EXIT_OPTIMAL_TRAIL_K,
-        "EXIT_OPTIMAL_TRAIL_MIN":          EXIT_OPTIMAL_TRAIL_MIN,
-        "EXIT_OPTIMAL_TRAIL_MAX":          EXIT_OPTIMAL_TRAIL_MAX,
-        "EXIT_OPTIMAL_MAX_HOLD_DAYS":      EXIT_OPTIMAL_MAX_HOLD_DAYS,
-        "EXIT_AGGRESSIVE_STOP_LOSS_PCT":   EXIT_AGGRESSIVE_STOP_LOSS_PCT,
-        "EXIT_AGGRESSIVE_TAKE_PROFIT_PCT": EXIT_AGGRESSIVE_TAKE_PROFIT_PCT,
-        "EXIT_AGGRESSIVE_TRAIL_K":         EXIT_AGGRESSIVE_TRAIL_K,
-        "EXIT_AGGRESSIVE_TRAIL_MIN":       EXIT_AGGRESSIVE_TRAIL_MIN,
-        "EXIT_AGGRESSIVE_TRAIL_MAX":       EXIT_AGGRESSIVE_TRAIL_MAX,
-        "EXIT_AGGRESSIVE_MAX_HOLD_DAYS":   EXIT_AGGRESSIVE_MAX_HOLD_DAYS,
+        "EXIT_OPTIMAL_STOP_LOSS_PCT":        EXIT_OPTIMAL_STOP_LOSS_PCT,
+        "EXIT_OPTIMAL_TAKE_PROFIT_PCT":      EXIT_OPTIMAL_TAKE_PROFIT_PCT,
+        "EXIT_OPTIMAL_TRAIL_K":              EXIT_OPTIMAL_TRAIL_K,
+        "EXIT_OPTIMAL_TRAIL_MIN":            EXIT_OPTIMAL_TRAIL_MIN,
+        "EXIT_OPTIMAL_TRAIL_MAX":            EXIT_OPTIMAL_TRAIL_MAX,
+        "EXIT_OPTIMAL_MAX_HOLD_DAYS":        EXIT_OPTIMAL_MAX_HOLD_DAYS,
+        "EXIT_AGGRESSIVE_STOP_LOSS_PCT":     EXIT_AGGRESSIVE_STOP_LOSS_PCT,
+        "EXIT_AGGRESSIVE_TAKE_PROFIT_PCT":   EXIT_AGGRESSIVE_TAKE_PROFIT_PCT,
+        "EXIT_AGGRESSIVE_TRAIL_K":           EXIT_AGGRESSIVE_TRAIL_K,
+        "EXIT_AGGRESSIVE_TRAIL_MIN":         EXIT_AGGRESSIVE_TRAIL_MIN,
+        "EXIT_AGGRESSIVE_TRAIL_MAX":         EXIT_AGGRESSIVE_TRAIL_MAX,
+        "EXIT_AGGRESSIVE_MAX_HOLD_DAYS":     EXIT_AGGRESSIVE_MAX_HOLD_DAYS,
     }.items():
         if v:
             base_env[k] = v
 
+    # LOCK
     LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
     LOCK_FILE.write_text(f"pid={os.getpid()}", encoding="utf-8")
     print(f"[LOCK] created: {LOCK_FILE}")
@@ -413,7 +324,7 @@ def main() -> int:
         # ── STEP 0 ────────────────────────────────────────────
         _clean_artifacts(base_env)
 
-        # ── STEP 1 ────────────────────────────────────────────
+        # ── STEP 1: Reconcile pre-alignment ───────────────────
         print("\n=== STEP 1: CPAPI RECONCILE (pre-alignment) ===")
         _create_orders_stubs()
 
@@ -423,7 +334,6 @@ def main() -> int:
             "PREFER_STATE_OVER_ORDERS":            "1",
             "REQUIRE_BROKER_REFRESH":              "1",
             "ALLOW_EXISTING_BROKER_POSITIONS_CSV": "1",
-            "ALLOW_MISSING_STATE_JSON":            "1",
             "CLEANUP_PREVIEW_MODE":                "1",
             "CLEANUP_INCLUDE_UNEXPECTED":          "1",
             "CLEANUP_INCLUDE_DRIFT":               "1",
@@ -433,106 +343,184 @@ def main() -> int:
             "TOPK_PRINT":                          "50",
         }}
         _run("CPAPI_RECONCILE_PRE", SCRIPT_RECONCILE, env1)
-        _remove_state_for_alignment()
 
-        # ── STEP 2 ────────────────────────────────────────────
+        # ── STEP 1b: умовне видалення state ───────────────────
+        _conditional_remove_state_for_alignment()
+
+        # ── STEP 2a: Execution loop optimal ───────────────────
         print("\n=== STEP 2: EXECUTION LOOP ===")
         env2 = {**base_env, **{
-            "LIVE_FEATURE_SNAPSHOT_FILE":                     "artifacts/live_alpha/live_feature_snapshot.parquet",
-            "FREEZE_ROOT":                                    "artifacts/freeze_runner",
-            "ACCOUNT_NAV":                                    nav,
-            "ALLOW_FRACTIONAL_SHARES":                        "0",
-            "FRACTIONAL_MODE":                                "integer",
-            "MIN_ORDER_NOTIONAL":                             "25.0",
-            "DEFAULT_PRICE_FALLBACK":                         "100.0",
-            "RESET_STATE":                                    "0",
-            "SKIP_EMPTY_FREEZE_CONFIGS":                      "1",
-            "REQUIRE_FREEZE_DATE_MATCH_LIVE_PRICES":          "1",
-            "MAX_SINGLE_NAME_WEIGHT":                         "0.05",
-            "MAX_SINGLE_NAME_NOTIONAL":                       "10000.0",
-            "MIN_PRICE_TO_TRADE":                             "1.0",
-            "MAX_PRICE_TO_TRADE":                             "1000000.0",
-            "COMMISSION_BPS":                                 "0.50",
-            "COMMISSION_MIN_PER_ORDER":                       "0.35",
-            "SLIPPAGE_BPS":                                   "1.50",
-            "ALIGN_STATE_FROM_BROKER_ONCE":                   "1",
-            "ALIGN_STATE_REQUIRE_BROKER_POSITIONS":           "0",
-            "ALIGN_STATE_CASH_MODE":                          "preserve_nav",
-            "SKIP_LEGACY_SYMBOLS_NOT_IN_TARGET":              "1",
-            "USE_STATE_PRICE_FALLBACK_FOR_LEGACY":            "1",
-            "USE_STATE_PRICE_FALLBACK_FOR_MTM":               "1",
+            "LIVE_FEATURE_SNAPSHOT_FILE":               "artifacts/live_alpha/live_feature_snapshot.parquet",
+            "FREEZE_ROOT":                              "artifacts/freeze_runner",
+            "ACCOUNT_NAV":                              nav,
+            "ALLOW_FRACTIONAL_SHARES":                  "0",
+            "FRACTIONAL_MODE":                          "integer",
+            "MIN_ORDER_NOTIONAL":                       "25.0",
+            "DEFAULT_PRICE_FALLBACK":                   "100.0",
+            "RESET_STATE":                              "0",
+            "SKIP_EMPTY_FREEZE_CONFIGS":                "1",
+            "REQUIRE_FREEZE_DATE_MATCH_LIVE_PRICES":    "1",
+            "MAX_SINGLE_NAME_WEIGHT":                   "0.05",
+            "MAX_SINGLE_NAME_NOTIONAL":                 "10000.0",
+            "MIN_PRICE_TO_TRADE":                       "1.0",
+            "MAX_PRICE_TO_TRADE":                       "1000000.0",
+            "COMMISSION_BPS":                           "0.50",
+            "COMMISSION_MIN_PER_ORDER":                 "0.35",
+            "SLIPPAGE_BPS":                             "1.50",
+            "ALIGN_STATE_FROM_BROKER_ONCE":             "1",
+            "ALIGN_STATE_REQUIRE_BROKER_POSITIONS":     "0",
+            "ALIGN_STATE_CASH_MODE":                    "preserve_nav",
+            "SKIP_LEGACY_SYMBOLS_NOT_IN_TARGET":        "1",
+            "USE_STATE_PRICE_FALLBACK_FOR_LEGACY":      "1",
+            "USE_STATE_PRICE_FALLBACK_FOR_MTM":         "1",
             "USE_BROKER_POSITIONS_PRICE_FALLBACK_FOR_LEGACY": "1",
             "USE_BROKER_POSITIONS_PRICE_FALLBACK_FOR_MTM":    "1",
-            "SANITIZE_STATE_PRICES":                          "1",
-            "PERSIST_DEFAULT_FALLBACK_TO_STATE":              "0",
-            "TOPK_PRINT":                                     "50",
+            "SANITIZE_STATE_PRICES":                    "1",
+            "PERSIST_DEFAULT_FALLBACK_TO_STATE":        "0",
+            "TOPK_PRINT":                               "50",
         }}
 
+        env2_optimal    = {**env2, "CONFIG_NAMES": "optimal"}
+        env2_aggressive = {**env2, "CONFIG_NAMES": "aggressive"}
+
         print("[2a] optimal")
-        _run("EXEC_LOOP_OPTIMAL", SCRIPT_EXEC, {**env2, "CONFIG_NAMES": "optimal"})
+        _run("EXEC_LOOP_OPTIMAL", SCRIPT_EXEC, env2_optimal)
+
         print("[2b] aggressive")
-        _run("EXEC_LOOP_AGGRESSIVE", SCRIPT_EXEC, {**env2, "CONFIG_NAMES": "aggressive"})
+        _run("EXEC_LOOP_AGGRESSIVE", SCRIPT_EXEC, env2_aggressive)
 
-        # ── STEP 2c ───────────────────────────────────────────
+        # ── STEP 2c: Exit scanner ─────────────────────────────
         print("\n=== STEP 2c: EXIT SCANNER ===")
-        _run("EXIT_SCANNER", SCRIPT_EXIT_SCANNER, {**base_env, **{
-            "CONFIG_NAMES":                 "optimal|aggressive",
-            "LIVE_FEATURE_SNAPSHOT_FILE":   "artifacts/live_alpha/live_feature_snapshot.parquet",
-            "EXIT_SCANNER_DRY_RUN":         "0",
-            "EXIT_SCANNER_USE_STATE_PRICE": "0",
-        }})
+        env2c = {**base_env, **{
+            "CONFIG_NAMES":                   "optimal|aggressive",
+            "LIVE_FEATURE_SNAPSHOT_FILE":     "artifacts/live_alpha/live_feature_snapshot.parquet",
+            "EXIT_SCANNER_DRY_RUN":           "0",
+            "EXIT_SCANNER_USE_STATE_PRICE":   "0",
+        }}
+        _run("EXIT_SCANNER", SCRIPT_EXIT_SCANNER, env2c)
 
-        # ── STEP 2d ───────────────────────────────────────────
-        _print_freeze_gate_diagnostics()
+        # ── STEP 2d: Freeze gate diagnostics ──────────────────
+        print("\n=== STEP 2d: FREEZE GATE DIAGNOSTICS ===")
+        gate_ok_all = True
+        for cfg in ["optimal", "aggressive"]:
+            freeze_summary = (
+                ROOT / "artifacts" / "freeze_runner" / cfg
+                / "freeze_current_summary.json"
+            )
+            if freeze_summary.exists():
+                try:
+                    data = json.loads(freeze_summary.read_text(encoding="utf-8"))
+                    gate    = data.get("live_gate_status", "UNKNOWN")
+                    reason  = data.get("live_gate_reason", "n/a")
+                    active  = data.get("live_active_names", "?")
+                    raw_n   = data.get("live_active_names_raw", active)
+                    sharpe  = data.get("live_sharpe", "?")
+                    cumret  = data.get("live_cumret", "?")
+                    snap_dt = data.get("live_snapshot_current_date", "?")
+                    print(
+                        f"  [{cfg}] gate={gate} reason={reason} "
+                        f"live_active={active}(raw={raw_n}) "
+                        f"sharpe={sharpe} cumret={cumret} date={snap_dt}"
+                    )
+                    if gate != "PASSED":
+                        gate_ok_all = False
+                except Exception as exc:
+                    print(f"  [{cfg}] WARN freeze summary parse error: {exc}")
+                    gate_ok_all = False
+            else:
+                print(f"  [{cfg}] WARN freeze_current_summary.json not found")
+                gate_ok_all = False
 
-        # ── STEP 3 ────────────────────────────────────────────
+        if gate_ok_all:
+            print("  [ALL] live gate passed")
+        else:
+            print("  [WARN] one or more configs did not pass live gate — orders may be empty")
+
+        # ── STEP 3: Handoff ───────────────────────────────────
         print("\n=== STEP 3: CPAPI HANDOFF (live BBO) ===")
-        _run("CPAPI_HANDOFF", SCRIPT_HANDOFF, {**base_env, **{
-            "CONFIG_NAMES":                     "optimal|aggressive",
-            "CPAPI_SNAPSHOT_FIELDS":            "31,84,86,88",
-            "CPAPI_SNAPSHOT_WAIT_SEC":          "2.0",
-            "CPAPI_SNAPSHOT_RETRIES":           "3",
-            "CPAPI_INTER_REQ_SEC":              "0.1",
-            "MAX_PRICE_DEVIATION_PCT":          "8.0",
-            "ALLOW_LAST_FALLBACK":              "1",
-            "FORCE_MASSIVE_WHEN_IB_NO_BBO":     "1",
-            "FORCE_MASSIVE_WHEN_IB_CLOSE_ONLY": "1",
-            "ENABLE_MASSIVE_FALLBACK":          "1",
-            "MASSIVE_TIMEOUT_SEC":              "20.0",
-            "TOPK_PRINT":                       "50",
-        }})
+        env3 = {**base_env, **{
+            "CONFIG_NAMES":                       "optimal|aggressive",
+            "CPAPI_SNAPSHOT_FIELDS":              "31,84,86,88",
+            "CPAPI_SNAPSHOT_WAIT_SEC":            "2.0",
+            "CPAPI_SNAPSHOT_RETRIES":             "3",
+            "CPAPI_INTER_REQ_SEC":                "0.1",
+            "MAX_PRICE_DEVIATION_PCT":            "8.0",
+            "ALLOW_LAST_FALLBACK":                "1",
+            "FORCE_MASSIVE_WHEN_IB_NO_BBO":       "1",
+            "FORCE_MASSIVE_WHEN_IB_CLOSE_ONLY":   "1",
+            "ENABLE_MASSIVE_FALLBACK":            "1",
+            "MASSIVE_TIMEOUT_SEC":                "20.0",
+            "TOPK_PRINT":                         "50",
+        }}
+        _run("CPAPI_HANDOFF", SCRIPT_HANDOFF, env3)
 
-        # ── STEP 4 ────────────────────────────────────────────
+        # ── STEP 4: Execution ─────────────────────────────────
         print("\n=== STEP 4: CPAPI EXECUTION ===")
         env4 = {**base_env, **{
-            "CONFIG_NAMES":             "optimal|aggressive",
-            "BROKER_NAME":              "MEXEM",
-            "BROKER_PLATFORM":          "IBKR_CPAPI",
-            "CPAPI_WHOLE_TIMEOUT_SEC":  "60.0",
-            "CPAPI_FRAC_TIMEOUT_SEC":   "20.0",
-            "CPAPI_TIF":                "DAY",
-            "CPAPI_FRAC_SLIPPAGE_BPS":  "5.0",
-            "CPAPI_WHOLE_SLIPPAGE_BPS": "20.0",
-            "CPAPI_PARENT_GUARD_PCT":   "3.0",
-            "CPAPI_FRAC_SLIPPAGE_MIN":  "5.0",
-            "CPAPI_FRAC_SLIPPAGE_MAX":  "30.0",
-            "CPAPI_FRAC_SLIPPAGE_ADDON":"2.0",
-            "CPAPI_RESOLVE_CONIDS":     "1",
-            "RESET_BROKER_LOG":         "1",
+            "CONFIG_NAMES":            "optimal|aggressive",
+            "BROKER_NAME":             "MEXEM",
+            "BROKER_PLATFORM":         "IBKR_CPAPI",
+            "CPAPI_WHOLE_TIMEOUT_SEC": "60.0",
+            "CPAPI_FRAC_TIMEOUT_SEC":  "20.0",
+            "CPAPI_TIF":               "DAY",
+            "CPAPI_FRAC_SLIPPAGE_BPS": "5.0",
+            "CPAPI_RESOLVE_CONIDS":    "1",
+            "RESET_BROKER_LOG":        "1",
         }}
         _run("CPAPI_EXEC_ORDERS", SCRIPT_EXEC_CPAPI, env4)
 
-        # ── STEP 4b: rotate logs + cancel working ─────────────
-        _rotate_broker_logs(today)
-        _cancel_working_orders(base_env)
+        # ── STEP 4b: Cancel working orders (TD-2) ─────────────
+        print("\n=== STEP 4b: CANCEL WORKING ORDERS (TD-2) ===")
+        cancel_code = """
+import os, sys, time
+from pathlib import Path
+ROOT = Path(".").resolve()
+SRC_DIR = ROOT / "src"
+for p in [str(ROOT), str(SRC_DIR)]:
+    if p not in sys.path:
+        sys.path.insert(0, p)
+from python_edge.broker.cpapi_client import CpapiClient
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+base_url   = os.getenv("CPAPI_BASE_URL", "https://localhost:5000")
+verify_ssl = os.getenv("CPAPI_VERIFY_SSL", "0").lower() not in {"1","true","yes","on"}
+timeout    = float(os.getenv("CPAPI_TIMEOUT_SEC", "10.0"))
+account    = os.getenv("BROKER_ACCOUNT_ID", "")
+client = CpapiClient(base_url, timeout, verify_ssl)
+try:
+    resp = client._get(f"/iserver/account/orders?accountId={account}")
+    orders = resp if isinstance(resp, list) else (resp.get("orders") or [])
+    pe_orders = [o for o in orders if str(o.get("orderId","")).startswith("pe-")]
+    print(f"[CANCEL_WORKING] found {len(pe_orders)} pe-* orders")
+    cancelled = 0
+    for o in pe_orders:
+        oid = o.get("orderId")
+        status = o.get("status","")
+        if status in ("Submitted","PreSubmitted","Working","Filled_partially"):
+            try:
+                client._delete(f"/iserver/account/{account}/order/{oid}")
+                print(f"[CANCEL_WORKING] cancelled {oid} (status={status})")
+                cancelled += 1
+            except Exception as ex:
+                print(f"[CANCEL_WORKING] cancel {oid} error: {ex}")
+    print(f"[CANCEL_WORKING] cancelled={cancelled}")
+except Exception as exc:
+    print(f"[CANCEL_WORKING] fetch failed: {exc}")
+"""
+        cancel_env = {**base_env, "CONFIG_NAMES": "optimal|aggressive"}
+        try:
+            _run_inline("CANCEL_WORKING", cancel_code, cancel_env)
+        except RuntimeError as exc:
+            print(f"[4b] non-fatal: {exc}")
+        print("[4b] OK")
 
-        # ── STEP 5 ────────────────────────────────────────────
+        # ── STEP 5: Reconcile post ────────────────────────────
         print("\n=== STEP 5: CPAPI RECONCILE (post-execution) ===")
         _run("CPAPI_RECONCILE_POST", SCRIPT_RECONCILE, env1)
 
-        # ── STEP 5a ───────────────────────────────────────────
+        # ── STEP 5a: Sync cleanup preview ─────────────────────
         print("\n=== STEP 5a: SYNC CLEANUP PREVIEW ===")
-        _run_inline("CLEANUP_SYNC", """
+        sync_code = """
 import pandas as pd
 from pathlib import Path
 for cfg in ["optimal", "aggressive"]:
@@ -546,11 +534,12 @@ for cfg in ["optimal", "aggressive"]:
         df = df.rename(columns={"cleanup_side": "order_side", "cleanup_qty": "delta_shares"})
     df.to_csv(orders, index=False)
     print(f"[SYNC][{cfg}] rows={len(df)} -> broker_cleanup_orders.csv")
-""", base_env)
+"""
+        _run_inline("CLEANUP_SYNC", sync_code, base_env)
 
-        # ── STEP 5b ───────────────────────────────────────────
+        # ── STEP 5b: Resolve conids for cleanup ───────────────
         print("\n=== STEP 5b: RESOLVE CONIDS FOR CLEANUP ===")
-        _run_inline("CONID_CLEANUP_RESOLVE", """
+        resolve_code = """
 import json, sys, os
 from pathlib import Path
 ROOT = Path(".").resolve()
@@ -583,11 +572,13 @@ for cfg in configs:
     if unresolved:
         print(f"[CONID_CLEANUP][{cfg}] UNRESOLVED: {unresolved}", file=sys.stderr)
     print(f"[CONID_CLEANUP][{cfg}] cache_size={len(cache)} unresolved={len(unresolved)}")
-""", {**base_env, "CONFIG_NAMES": "optimal|aggressive"})
+"""
+        resolve_env = {**base_env, "CONFIG_NAMES": "optimal|aggressive"}
+        _run_inline("CONID_CLEANUP_RESOLVE", resolve_code, resolve_env)
 
-        # ── STEP 6: Cleanup (TD-3: timeout=90s) ──────────────
+        # ── STEP 6: Cleanup send ──────────────────────────────
         print("\n=== STEP 6: CPAPI CLEANUP SEND ===")
-        _run("CPAPI_CLEANUP_SEND", SCRIPT_CLEANUP, {**base_env, **{
+        env6 = {**base_env, **{
             "CONFIG_NAMES":                            "optimal|aggressive",
             "BROKER_NAME":                             "MEXEM",
             "BROKER_PLATFORM":                         "IBKR_CPAPI",
@@ -595,8 +586,6 @@ for cfg in configs:
             "CPAPI_FRAC_TIMEOUT_SEC":                  "20.0",
             "CPAPI_TIF":                               "DAY",
             "CPAPI_FRAC_SLIPPAGE_BPS":                 "5.0",
-            "CPAPI_WHOLE_SLIPPAGE_BPS":                "20.0",
-            "CPAPI_PARENT_GUARD_PCT":                  "3.0",
             "CLEANUP_SEND_PREVIEW_ONLY":               "0",
             "CLEANUP_SEND_ONLY_SYMBOLS":               "",
             "CLEANUP_SEND_EXCLUDE_SYMBOLS":            "",
@@ -606,7 +595,8 @@ for cfg in configs:
             "CLEANUP_SEND_REASON_TAG":                 "broker_cleanup_send",
             "RESET_BROKER_LOG":                        "0",
             "TOPK_PRINT":                              "50",
-        }})
+        }}
+        _run("CPAPI_CLEANUP_SEND", SCRIPT_CLEANUP, env6)
 
     finally:
         if LOCK_FILE.exists():
@@ -615,13 +605,17 @@ for cfg in configs:
 
     # ── Summary ───────────────────────────────────────────────
     print("\n=== PIPELINE COMPLETE ===")
+    dated_log = f"broker_log_{today_str}.json"
     for cfg in ["optimal", "aggressive"]:
         cfg_dir = ROOT / "artifacts" / "execution_loop" / cfg
-        for fname in ["orders.csv", "fills.csv", "broker_log.json",
-                      f"broker_log_{today}.json",
-                      "portfolio_state.json", "broker_reconcile_summary.json"]:
+        for fname in [
+            "orders.csv", "fills.csv",
+            "broker_log.json", dated_log,
+            "portfolio_state.json", "broker_reconcile_summary.json",
+        ]:
             p = cfg_dir / fname
-            print(f"  {'OK ' if p.exists() else '-- '} {cfg}/{fname}")
+            status = "OK " if p.exists() else "-- "
+            print(f"  {status} {cfg}/{fname}")
 
     return 0
 
