@@ -1,43 +1,21 @@
 {
   "config": "aggressive",
-  "nav": 979050.39425,
-  "cash": 969439.56425,
-  "last_rebalanced_date": "2026-04-10",
-  "positions": {
-    "AAOI": {
-      "shares": 66.0,
-      "last_price": 150.6,
-      "market_value": 9939.6,
-      "price_source": "live_snapshot",
-      "is_priced": 1
-    },
-    "AGX": {
-      "shares": 16.0,
-      "last_price": 603.84,
-      "market_value": 9661.44,
-      "price_source": "live_snapshot",
-      "is_priced": 1
-    },
-    "ACLX": {
-      "shares": -87.0,
-      "last_price": 114.83,
-      "market_value": -9990.21,
-      "price_source": "live_snapshot",
-      "is_priced": 1
-    }
-  },
+  "nav": 978339.1871460001,
+  "cash": 978339.1871460001,
+  "last_rebalanced_date": "2026-04-23",
+  "positions": {},
   "state_alignment": {
     "source": "artifacts\\execution_loop\\aggressive\\broker_positions.csv",
     "cash_mode": "preserve_nav",
     "positions_count": 0,
     "market_value": 0.0,
-    "cash_after_alignment": 979056.3125,
-    "nav_after_alignment": 979056.3125,
+    "cash_after_alignment": 978339.1871460001,
+    "nav_after_alignment": 978339.1871460001,
     "default_fallback_price_count": 0,
     "state_fallback_price_count": 0,
     "broker_price_count": 0,
     "live_snapshot_price_count": 0,
     "unpriced_count": 0
   },
-  "last_estimated_trading_cost": 5.91825
+  "last_estimated_trading_cost": 0.0
 }

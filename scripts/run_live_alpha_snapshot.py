@@ -42,6 +42,8 @@ UNIVERSE_SNAPSHOT_FILE = Path(os.getenv(
     "UNIVERSE_SNAPSHOT_FILE",
     str(_UNIVERSE_DIR / "universe_snapshot.parquet"),
 ))
+# DYNAMIC_UNIVERSE_FILE зберігаємо для backward compat (broad_sector fallback),
+# але більше не використовуємо як основне джерело символів.
 DYNAMIC_UNIVERSE_FILE = Path(os.getenv(
     "DYNAMIC_UNIVERSE_FILE",
     str(_UNIVERSE_DIR / "dynamic_universe.parquet"),
@@ -160,10 +162,14 @@ def _symbol_column(snap: pd.DataFrame) -> str:
 
 def _load_broad_sector_map() -> Dict[str, str]:
     """
-    Load symbol → broad_sector from dynamic_universe.parquet or universe_snapshot.parquet.
+    Load symbol → broad_sector from universe_snapshot.parquet.
+    Falls back to dynamic_universe.parquet only if snapshot lacks broad_sector.
     Returns empty dict if broad_sector column not found in either file.
     """
-    for path in [DYNAMIC_UNIVERSE_FILE, UNIVERSE_SNAPSHOT_FILE]:
+    # PATCHED: universe_snapshot.parquet is now the primary source.
+    # dynamic_universe.parquet is only used as a fallback for broad_sector,
+    # never as the primary symbol source.
+    for path in [UNIVERSE_SNAPSHOT_FILE, DYNAMIC_UNIVERSE_FILE]:
         if not path.exists():
             continue
         try:
@@ -205,49 +211,16 @@ def _attach_broad_sector(panel: pd.DataFrame, broad_sector_map: Dict[str, str]) 
 # Universe loaders
 # ---------------------------------------------------------------------------
 
-def _load_from_dynamic_universe() -> tuple[list[str], str] | None:
-    path = DYNAMIC_UNIVERSE_FILE
-    if not path.exists():
-        return None
-    try:
-        snap = pd.read_parquet(path)
-        if snap.empty:
-            print("[UNIVERSE][WARN] dynamic_universe.parquet is empty, falling back")
-            return None
-        symbol_col = _symbol_column(snap)
-        snap[symbol_col] = snap[symbol_col].astype(str).str.strip().str.upper()
-        snap = snap.loc[snap[symbol_col].ne("") & snap[symbol_col].ne("NAN")].copy()
-        sort_candidates = [c for c in ["selected_rank", "liquidity_rank", symbol_col] if c in snap.columns]
-        if sort_candidates:
-            snap = snap.sort_values(sort_candidates, ascending=[True] * len(sort_candidates), na_position="last")
-        snap = snap.drop_duplicates(subset=[symbol_col], keep="first").reset_index(drop=True)
-        symbols = snap[symbol_col].astype(str).tolist()[:LIVE_ALPHA_MAX_SYMBOLS]
-        if not symbols:
-            return None
-        date_str = ""
-        for col in ["trade_date", "as_of_date", "date", "session_date"]:
-            if col in snap.columns:
-                val = pd.to_datetime(snap[col], errors="coerce").dropna()
-                if not val.empty:
-                    date_str = val.max().date().isoformat()
-                    break
-        if not date_str:
-            date_str = datetime.utcnow().date().isoformat()
-        print(
-            f"[UNIVERSE][LOAD] source=dynamic_universe.parquet"
-            f" symbol_col={symbol_col} latest_date={date_str}"
-            f" selected={len(symbols)} max_symbols={LIVE_ALPHA_MAX_SYMBOLS}"
-        )
-        return symbols, date_str
-    except Exception as exc:
-        print(f"[UNIVERSE][WARN] failed to load dynamic_universe.parquet: {exc!r}, falling back")
-        return None
-
-
 def _load_selected_universe() -> tuple[list[str], str]:
-    dynamic_result = _load_from_dynamic_universe()
-    if dynamic_result is not None:
-        return dynamic_result
+    """
+    Load selected symbols and as_of_date from universe_snapshot.parquet.
+
+    PATCHED: removed _load_from_dynamic_universe() priority.
+    Previously dynamic_universe.parquet was always preferred, causing the
+    snapshot date to be stuck at its creation date (2026-04-10) even after
+    universe_snapshot.parquet was refreshed daily. Now we always read from
+    universe_snapshot.parquet which is updated by run_universe_builder.py.
+    """
     if not UNIVERSE_SNAPSHOT_FILE.exists():
         raise FileNotFoundError(f"Universe snapshot not found: {UNIVERSE_SNAPSHOT_FILE}")
     snap = pd.read_parquet(UNIVERSE_SNAPSHOT_FILE)
@@ -279,7 +252,7 @@ def _load_selected_universe() -> tuple[list[str], str]:
     if not symbols:
         raise RuntimeError("Universe snapshot produced zero selected symbols after filtering current date")
     print(
-        "[UNIVERSE][LOAD] source=universe_snapshot.parquet (fallback)"
+        "[UNIVERSE][LOAD] source=universe_snapshot.parquet"
         f" snapshot={UNIVERSE_SNAPSHOT_FILE} symbol_col={symbol_col} date_col={date_col}"
         f" latest_date={latest_date.date().isoformat()}"
         f" rows_current={len(snap)} selected_current={len(selected)} max_symbols={LIVE_ALPHA_MAX_SYMBOLS}"
@@ -565,13 +538,11 @@ def _build_proxy_context(end_date: str) -> tuple[pd.DataFrame, Dict[str, object]
 
 def main() -> int:
     print(f"[CFG] universe_snapshot_file={UNIVERSE_SNAPSHOT_FILE}")
-    print(f"[CFG] dynamic_universe_file={DYNAMIC_UNIVERSE_FILE}")
     print(f"[CFG] live_alpha_out_dir={LIVE_ALPHA_OUT_DIR}")
     print(f"[CFG] live_alpha_scope={LIVE_ALPHA_SCOPE} survivor_top_n={LIVE_ALPHA_SURVIVOR_TOP_N}")
     print(f"[CFG] lookback_days={LIVE_ALPHA_LOOKBACK_DAYS} max_symbols={LIVE_ALPHA_MAX_SYMBOLS}")
     print(f"[CFG] proxy_enable={int(LIVE_ALPHA_PROXY_ENABLE)} interaction_enable={int(LIVE_ALPHA_INTERACTION_ENABLE)} interaction_top_k={LIVE_ALPHA_INTERACTION_TOP_K} interaction_gates={'|'.join(LIVE_ALPHA_INTERACTION_GATES)}")
 
-    # Load broad_sector map (symbol → sector)
     broad_sector_map = _load_broad_sector_map()
 
     symbols, end_date = _load_selected_universe()
@@ -584,7 +555,6 @@ def main() -> int:
     feature_panel = derive_base_factory_inputs(enriched_panel)
     feature_panel = _add_target(feature_panel)
 
-    # Attach broad_sector BEFORE alpha factory so it flows into the snapshot
     feature_panel = _attach_broad_sector(feature_panel, broad_sector_map)
 
     recipes, recipe_detail, recipe_source = _build_recipes()
@@ -606,7 +576,6 @@ def main() -> int:
         manifest=build_result.manifest,
     )
 
-    # Propagate broad_sector into alpha snapshot (if not already there)
     if "broad_sector" in feature_panel.columns and "broad_sector" not in interaction_frame.columns:
         if "symbol" in interaction_frame.columns:
             sector_lookup = (
