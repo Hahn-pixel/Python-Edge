@@ -1,7 +1,7 @@
 {
   "config": "optimal",
-  "nav": 978968.02998,
-  "cash": 978626.42998,
+  "nav": 978966.031938,
+  "cash": 988614.641938,
   "last_rebalanced_date": "2026-04-10",
   "positions": {
     "AAOI": {
@@ -15,6 +15,13 @@
       "shares": -20.0,
       "last_price": 479.9,
       "market_value": -9598.0,
+      "price_source": "live_snapshot",
+      "is_priced": 1
+    },
+    "ACLX": {
+      "shares": -87.0,
+      "last_price": 114.83,
+      "market_value": -9990.21,
       "price_source": "live_snapshot",
       "is_priced": 1
     }
@@ -32,5 +39,5 @@
     "live_snapshot_price_count": 0,
     "unpriced_count": 0
   },
-  "last_estimated_trading_cost": 0.0
+  "last_estimated_trading_cost": 1.9980419999999997
 }

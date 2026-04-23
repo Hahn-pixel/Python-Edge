@@ -196,23 +196,30 @@ def _create_orders_stubs() -> None:
             print(f"  [{cfg}] created empty orders.csv stub")
 
 
-def _broker_positions_has_data(cfg: str) -> bool:
+def _state_has_positions(cfg: str) -> bool:
     """
-    Повертає True якщо broker_positions.csv для config містить >=1 рядок з позицією.
-    Використовується для вирішення: видаляти state чи ні.
+    Повертає True якщо portfolio_state.json для config містить >=1 позицію
+    з ненульовою кількістю акцій.
+
+    Це єдиний надійний критерій для вирішення: видаляти state чи ні.
+    broker_positions.csv не підходить — він порожній і на paper account
+    без fillів, і на першому запуску, тобто не дозволяє розрізнити ці випадки.
     """
-    p = ROOT / "artifacts" / "execution_loop" / cfg / "broker_positions.csv"
+    p = ROOT / "artifacts" / "execution_loop" / cfg / "portfolio_state.json"
     if not p.exists():
         return False
     try:
-        import csv
-        with p.open(encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                # Будь-який рядок з непустим symbol — це реальна позиція
-                sym = (row.get("symbol") or "").strip()
-                if sym:
-                    return True
+        data = json.loads(p.read_text(encoding="utf-8"))
+        positions = data.get("positions", {})
+        if not isinstance(positions, dict):
+            return False
+        for pos in positions.values():
+            try:
+                shares = float(pos.get("shares", 0.0))
+            except Exception:
+                shares = 0.0
+            if abs(shares) > 1e-9:
+                return True
     except Exception:
         pass
     return False
@@ -222,41 +229,42 @@ def _conditional_remove_state_for_alignment() -> None:
     """
     STEP 1b — умовне видалення portfolio_state.json.
 
-    Логіка:
-    - Якщо broker_positions.csv порожній (paper account без позицій):
-        → видаляємо state → STEP 2 зробить bootstrap alignment,
-          але потім ЗМОЖЕ генерувати ордери на вхід у нові позиції
-          (бо broker_positions порожній = стан 0, ціль > 0 → order_count > 0).
-    - Якщо broker_positions.csv має реальні позиції:
-        → НЕ видаляємо state → STEP 2 порівняє state з broker_positions
-          і згенерує тільки drift-ордери.
+    Логіка (перевіряємо STATE, не broker_positions):
+    - Якщо state має позиції (попередній цикл вже будував портфель):
+        → НЕ видаляємо state → STEP 2 порівняє state з цільовими вагами
+          і згенерує тільки delta-ордери (вхід/вихід/drift).
+        → Видаляємо тільки маркер state_alignment_once.json щоб alignment
+          міг пройти заново (broker може мати нові позиції після fills).
+    - Якщо state порожній (справжній перший запуск або RESET_STATE):
+        → Видаляємо state і маркер → STEP 2 зробить fresh alignment
+          з broker_positions (порожній на paper → стан 0),
+          після чого відразу згенерує ордери на вхід (ціль > 0).
 
-    Старий підхід (завжди видаляти) призводив до bootstrap_only=1 і нуль ордерів
-    коли broker_positions порожній, бо після alignment state = 0 позицій,
-    і система вважала що вже "на цілі".
+    Стара логіка (перевіряти broker_positions) була хибною: broker_positions
+    порожній і на першому запуску, і після кожного щоденного запуску до fills,
+    тому завжди видаляла state → bootstrap_only=1 → нуль ордерів.
     """
     print("[1b] conditional state removal for alignment")
     for cfg in ACTIVE_CONFIGS:
-        has_positions = _broker_positions_has_data(cfg)
+        has_positions = _state_has_positions(cfg)
         cfg_dir = ROOT / "artifacts" / "execution_loop" / cfg
         if has_positions:
-            # Є реальні позиції → зберігаємо state, видаляємо тільки маркер alignment
+            # State має позиції → зберігаємо, видаляємо тільки маркер alignment
             marker = cfg_dir / "state_alignment_once.json"
             if marker.exists():
                 marker.unlink()
-                print(f"  [{cfg}] broker has positions → keeping state, removed alignment marker")
+                print(f"  [{cfg}] state has positions → keeping state, removed alignment marker")
             else:
-                print(f"  [{cfg}] broker has positions → keeping state (no marker)")
+                print(f"  [{cfg}] state has positions → keeping state (marker already absent)")
         else:
-            # Порожній broker → видаляємо state щоб alignment пройшов коректно,
-            # але STEP 2 все одно згенерує ордери бо поточний стан = 0, ціль > 0
+            # State порожній → справжній перший запуск → видаляємо все
             for fname in ["portfolio_state.json", "state_alignment_once.json"]:
                 p = cfg_dir / fname
                 if p.exists():
                     p.unlink()
-                    print(f"  [{cfg}] broker empty → removed {fname}")
+                    print(f"  [{cfg}] state empty → removed {fname}")
                 else:
-                    print(f"  [{cfg}] broker empty → {fname} already absent")
+                    print(f"  [{cfg}] state empty → {fname} already absent")
 
 
 def main() -> int:
@@ -436,13 +444,22 @@ def main() -> int:
             if freeze_summary.exists():
                 try:
                     data = json.loads(freeze_summary.read_text(encoding="utf-8"))
-                    gate    = data.get("live_gate_status", "UNKNOWN")
+                    # live_gate_status — рядок ("PASSED"/"FAILED"), або відсутній.
+                    # Fallback: live_gate_passed (int 0/1) який завжди є у freeze runner.
+                    gate_status = data.get("live_gate_status", "")
+                    if not gate_status:
+                        gate_passed_int = int(data.get("live_gate_passed", 0))
+                        gate_status = "PASSED" if gate_passed_int else "FAILED"
+                    gate    = gate_status
                     reason  = data.get("live_gate_reason", "n/a")
                     active  = data.get("live_active_names", "?")
                     raw_n   = data.get("live_active_names_raw", active)
-                    sharpe  = data.get("live_sharpe", "?")
-                    cumret  = data.get("live_cumret", "?")
-                    snap_dt = data.get("live_snapshot_current_date", "?")
+                    sharpe  = data.get("live_sharpe",
+                              data.get("replay_sharpe_last_fold", "?"))
+                    cumret  = data.get("live_cumret",
+                              data.get("replay_cumret_last_fold", "?"))
+                    snap_dt = data.get("live_snapshot_current_date",
+                              data.get("live_current_date", "?"))
                     print(
                         f"  [{cfg}] gate={gate} reason={reason} "
                         f"live_active={active}(raw={raw_n}) "
