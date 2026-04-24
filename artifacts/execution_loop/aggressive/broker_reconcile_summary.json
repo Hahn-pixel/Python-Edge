@@ -1,12 +1,12 @@
 {
   "config": "aggressive",
-  "generated_at_utc": "2026-04-23T19:50:15Z",
-  "symbols_total": 0,
-  "drift": 0,
-  "missing_at_broker": 0,
+  "generated_at_utc": "2026-04-24T19:50:14Z",
+  "symbols_total": 3,
+  "drift": 3,
+  "missing_at_broker": 3,
   "unexpected_at_broker": 0,
   "pending_covers_drift": 0,
-  "max_abs_drift_shares": 0.0,
+  "max_abs_drift_shares": 86.0,
   "cleanup_preview_rows": 0,
   "cleanup_preview_enabled": 1,
   "source": "cpapi"

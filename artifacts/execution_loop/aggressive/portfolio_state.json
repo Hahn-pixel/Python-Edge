@@ -1,9 +1,31 @@
 {
   "config": "aggressive",
-  "nav": 978339.1871460001,
-  "cash": 978339.1871460001,
-  "last_rebalanced_date": "2026-04-23",
-  "positions": {},
+  "nav": 978333.2457804001,
+  "cash": 968411.9217804001,
+  "last_rebalanced_date": "2026-04-24",
+  "positions": {
+    "AAOI": {
+      "shares": 61.0,
+      "last_price": 163.05,
+      "market_value": 9946.050000000001,
+      "price_source": "live_snapshot",
+      "is_priced": 1
+    },
+    "CAR": {
+      "shares": 47.0,
+      "last_price": 209.958,
+      "market_value": 9868.026,
+      "price_source": "live_snapshot",
+      "is_priced": 1
+    },
+    "ACLX": {
+      "shares": -86.0,
+      "last_price": 115.032,
+      "market_value": -9892.752,
+      "price_source": "live_snapshot",
+      "is_priced": 1
+    }
+  },
   "state_alignment": {
     "source": "artifacts\\execution_loop\\aggressive\\broker_positions.csv",
     "cash_mode": "preserve_nav",
@@ -17,5 +39,34 @@
     "live_snapshot_price_count": 0,
     "unpriced_count": 0
   },
-  "last_estimated_trading_cost": 0.0
+  "last_estimated_trading_cost": 0.0,
+  "exit_meta": {
+    "AAOI": {
+      "ivol_20d_cached": 0.087685364724559,
+      "signal_raw_score": 0.1838379438030846,
+      "signal_last_updated": "2026-04-24",
+      "signal_age_days": 0,
+      "entry_price": 163.05,
+      "entry_date": "2026-04-24",
+      "peak_price": 163.05
+    },
+    "CAR": {
+      "ivol_20d_cached": 0.18691176018073288,
+      "signal_raw_score": -0.08371301387798247,
+      "signal_last_updated": "2026-04-24",
+      "signal_age_days": 0,
+      "entry_price": 209.958,
+      "entry_date": "2026-04-24",
+      "peak_price": 209.958
+    },
+    "ACLX": {
+      "ivol_20d_cached": 0.0005812929058750472,
+      "signal_raw_score": -0.00015645371578443257,
+      "signal_last_updated": "2026-04-24",
+      "signal_age_days": 0,
+      "entry_price": 115.032,
+      "entry_date": "2026-04-24",
+      "peak_price": 115.032
+    }
+  }
 }

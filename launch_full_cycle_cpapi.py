@@ -399,7 +399,7 @@ def main() -> int:
             "COMMISSION_BPS":                           "0.50",
             "COMMISSION_MIN_PER_ORDER":                 "0.35",
             "SLIPPAGE_BPS":                             "1.50",
-            "ALIGN_STATE_FROM_BROKER_ONCE":             "1",
+            "ALIGN_STATE_FROM_BROKER_ONCE":             "0",
             "ALIGN_STATE_REQUIRE_BROKER_POSITIONS":     "0",
             "ALIGN_STATE_CASH_MODE":                    "preserve_nav",
             "SKIP_LEGACY_SYMBOLS_NOT_IN_TARGET":        "1",
