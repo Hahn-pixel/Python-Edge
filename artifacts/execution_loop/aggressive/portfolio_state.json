@@ -1,27 +1,27 @@
 {
   "config": "aggressive",
-  "nav": 978333.2457804001,
-  "cash": 968411.9217804001,
+  "nav": 977999.3005804002,
+  "cash": 968003.5105804001,
   "last_rebalanced_date": "2026-04-24",
   "positions": {
     "AAOI": {
       "shares": 61.0,
-      "last_price": 163.05,
-      "market_value": 9946.050000000001,
+      "last_price": 162.17,
+      "market_value": 9892.369999999999,
       "price_source": "live_snapshot",
       "is_priced": 1
     },
     "CAR": {
-      "shares": 47.0,
-      "last_price": 209.958,
-      "market_value": 9868.026,
+      "shares": 49.0,
+      "last_price": 204.0,
+      "market_value": 9996.0,
       "price_source": "live_snapshot",
       "is_priced": 1
     },
     "ACLX": {
       "shares": -86.0,
-      "last_price": 115.032,
-      "market_value": -9892.752,
+      "last_price": 115.03,
+      "market_value": -9892.58,
       "price_source": "live_snapshot",
       "is_priced": 1
     }
@@ -39,7 +39,7 @@
     "live_snapshot_price_count": 0,
     "unpriced_count": 0
   },
-  "last_estimated_trading_cost": 0.0,
+  "last_estimated_trading_cost": 0.41119999999999995,
   "exit_meta": {
     "AAOI": {
       "ivol_20d_cached": 0.087685364724559,

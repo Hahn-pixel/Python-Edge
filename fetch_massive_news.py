@@ -2,7 +2,7 @@
 fetch_massive_news.py
 ─────────────────────────────────────────────────────────────────────
 Отримує новинний sentiment по всьому universe з massive.com
-і зберігає результат у news_risk_flags.json.
+і зберігає результат у news_risk_flags.json + архівну копію.
 
 Використання (standalone):
     python fetch_massive_news.py
@@ -18,32 +18,12 @@ Env vars:
     NEWS_NEGATIVE_THRESHOLD  — мін кількість negative insights щоб флагнути (default: 1)
     NEWS_BATCH_MODE          — "1" = один великий запит без ticker (default: 0)
     NEWS_REQUEST_DELAY_MS    — затримка між запитами в ms (default: 200)
+    NEWS_ARCHIVE_KEEP_DAYS   — скільки архівних файлів зберігати (default: 90)
+    NEWS_TRADE_DATE          — явна дата YYYY-MM-DD (default: UTC today)
 
-Output: artifacts/news/news_risk_flags.json
-    {
-      "generated_utc": "2026-04-25T14:00:00Z",
-      "lookback_hours": 24,
-      "symbol_count": 229,
-      "flagged_count": 3,
-      "symbols": {
-        "AAPL": {
-          "n_articles": 3,
-          "n_negative": 0,
-          "n_positive": 2,
-          "n_neutral": 1,
-          "flagged": false,
-          "articles": [
-            {
-              "title": "...",
-              "published_utc": "...",
-              "sentiment": "positive",
-              "sentiment_reasoning": "..."
-            }
-          ]
-        },
-        ...
-      }
-    }
+Output:
+    artifacts/news/news_risk_flags.json                        — поточний
+    artifacts/news/archive/news_risk_flags_YYYY-MM-DD.json     — архів per day
 ─────────────────────────────────────────────────────────────────────
 """
 
@@ -59,24 +39,24 @@ from pathlib import Path
 
 # ── конфігурація ──────────────────────────────────────────────────────────────
 
-MASSIVE_API_KEY       = os.environ.get("MASSIVE_API_KEY", "")
-NEWS_LOOKBACK_HOURS   = int(os.environ.get("NEWS_LOOKBACK_HOURS", "24"))
-NEWS_LIMIT_PER_SYMBOL = int(os.environ.get("NEWS_LIMIT_PER_SYMBOL", "10"))
+MASSIVE_API_KEY        = os.environ.get("MASSIVE_API_KEY", "")
+NEWS_LOOKBACK_HOURS    = int(os.environ.get("NEWS_LOOKBACK_HOURS", "24"))
+NEWS_LIMIT_PER_SYMBOL  = int(os.environ.get("NEWS_LIMIT_PER_SYMBOL", "10"))
 NEWS_NEGATIVE_THRESHOLD = int(os.environ.get("NEWS_NEGATIVE_THRESHOLD", "1"))
-NEWS_BATCH_MODE       = os.environ.get("NEWS_BATCH_MODE", "0") == "1"
-NEWS_REQUEST_DELAY_MS = int(os.environ.get("NEWS_REQUEST_DELAY_MS", "200"))
+NEWS_BATCH_MODE        = os.environ.get("NEWS_BATCH_MODE", "0") == "1"
+NEWS_REQUEST_DELAY_MS  = int(os.environ.get("NEWS_REQUEST_DELAY_MS", "200"))
+NEWS_ARCHIVE_KEEP_DAYS = int(os.environ.get("NEWS_ARCHIVE_KEEP_DAYS", "90"))
 
 BASE_URL = "https://api.massive.com/v2/reference/news"
 
-# Дефолтний universe якщо запускається standalone
 DEFAULT_UNIVERSE_PATH = Path("artifacts/daily_cycle/universe/universe_snapshot.parquet")
 DEFAULT_OUTPUT_PATH   = Path("artifacts/news/news_risk_flags.json")
+DEFAULT_ARCHIVE_DIR   = Path("artifacts/news/archive")
 
-# debug counters
 _counters = {
-    "requests_sent": 0,
+    "requests_sent":   0,
     "requests_failed": 0,
-    "articles_total": 0,
+    "articles_total":  0,
     "symbols_flagged": 0,
     "symbols_no_news": 0,
 }
@@ -89,10 +69,6 @@ def _get_headers() -> dict:
 
 
 def _fetch_news_for_ticker(ticker: str, since_utc: str) -> list[dict]:
-    """
-    Повертає список статей з insights для заданого тікера.
-    Кожен елемент: {"title", "published_utc", "sentiment", "sentiment_reasoning"}
-    """
     params = {
         "ticker": ticker,
         "limit":  NEWS_LIMIT_PER_SYMBOL,
@@ -101,34 +77,21 @@ def _fetch_news_for_ticker(ticker: str, since_utc: str) -> list[dict]:
     }
     try:
         _counters["requests_sent"] += 1
-        resp = requests.get(
-            BASE_URL,
-            params=params,
-            headers=_get_headers(),
-            timeout=15,
-        )
+        resp = requests.get(BASE_URL, params=params, headers=_get_headers(), timeout=15)
         if resp.status_code != 200:
             print(f"  [WARN] {ticker}: HTTP {resp.status_code} — {resp.text[:200]}")
             _counters["requests_failed"] += 1
             return []
-
-        data = resp.json()
+        data    = resp.json()
         results = data.get("results", [])
         articles = []
         for art in results:
             insights = art.get("insights") or []
-            # знайти insight для нашого тікера
-            matched = [
-                ins for ins in insights
-                if ins.get("ticker", "").upper() == ticker.upper()
-            ]
+            matched  = [i for i in insights if i.get("ticker", "").upper() == ticker.upper()]
             if not matched:
-                # якщо немає точного матчу — беремо перший available
                 matched = insights[:1]
-
-            sentiment         = matched[0].get("sentiment", "unknown") if matched else "unknown"
-            sentiment_reason  = matched[0].get("sentiment_reasoning", "") if matched else ""
-
+            sentiment        = matched[0].get("sentiment", "unknown") if matched else "unknown"
+            sentiment_reason = matched[0].get("sentiment_reasoning", "") if matched else ""
             articles.append({
                 "title":               art.get("title", ""),
                 "published_utc":       art.get("published_utc", ""),
@@ -136,9 +99,7 @@ def _fetch_news_for_ticker(ticker: str, since_utc: str) -> list[dict]:
                 "sentiment_reasoning": sentiment_reason,
             })
             _counters["articles_total"] += 1
-
         return articles
-
     except requests.exceptions.Timeout:
         print(f"  [WARN] {ticker}: timeout")
         _counters["requests_failed"] += 1
@@ -150,10 +111,6 @@ def _fetch_news_for_ticker(ticker: str, since_utc: str) -> list[dict]:
 
 
 def _fetch_news_batch(since_utc: str) -> dict[str, list[dict]]:
-    """
-    Batch режим: один запит з limit=1000, без ticker фільтра.
-    Повертає dict: ticker -> [articles].
-    """
     params = {
         "limit": 1000,
         "order": "desc",
@@ -161,33 +118,23 @@ def _fetch_news_batch(since_utc: str) -> dict[str, list[dict]]:
     }
     try:
         _counters["requests_sent"] += 1
-        resp = requests.get(
-            BASE_URL,
-            params=params,
-            headers=_get_headers(),
-            timeout=30,
-        )
+        resp = requests.get(BASE_URL, params=params, headers=_get_headers(), timeout=30)
         if resp.status_code != 200:
             print(f"  [WARN] batch: HTTP {resp.status_code} — {resp.text[:200]}")
             _counters["requests_failed"] += 1
             return {}
-
-        data = resp.json()
+        data    = resp.json()
         results = data.get("results", [])
         by_ticker: dict[str, list[dict]] = {}
-
         for art in results:
             tickers_in_art = [t.upper() for t in (art.get("tickers") or [])]
             insights       = art.get("insights") or []
-
             for ticker in tickers_in_art:
                 matched = [i for i in insights if i.get("ticker", "").upper() == ticker]
                 if not matched:
                     matched = insights[:1]
-
                 sentiment        = matched[0].get("sentiment", "unknown") if matched else "unknown"
                 sentiment_reason = matched[0].get("sentiment_reasoning", "") if matched else ""
-
                 entry = {
                     "title":               art.get("title", ""),
                     "published_utc":       art.get("published_utc", ""),
@@ -196,9 +143,7 @@ def _fetch_news_batch(since_utc: str) -> dict[str, list[dict]]:
                 }
                 by_ticker.setdefault(ticker, []).append(entry)
                 _counters["articles_total"] += 1
-
         return by_ticker
-
     except Exception as e:
         print(f"  [WARN] batch fetch: {type(e).__name__}: {e}")
         _counters["requests_failed"] += 1
@@ -208,14 +153,11 @@ def _fetch_news_batch(since_utc: str) -> dict[str, list[dict]]:
 # ── universe loader ───────────────────────────────────────────────────────────
 
 def _load_symbols(universe_path: Path | None) -> list[str]:
-    """
-    Завантажує список символів з universe_snapshot.parquet або повертає дефолтний список.
-    """
     path = universe_path or DEFAULT_UNIVERSE_PATH
     if path.exists():
         try:
             import pandas as pd
-            df = pd.read_parquet(path)
+            df  = pd.read_parquet(path)
             col = next((c for c in ["symbol", "ticker"] if c in df.columns), None)
             if col:
                 syms = sorted(df[col].dropna().str.upper().unique().tolist())
@@ -223,21 +165,57 @@ def _load_symbols(universe_path: Path | None) -> list[str]:
                 return syms
         except Exception as e:
             print(f"  [WARN] не вдалося прочитати universe: {e}")
-
-    print(f"  [WARN] universe_snapshot.parquet не знайдено — використовується порожній список")
+    print(f"  [WARN] universe_snapshot.parquet не знайдено")
     return []
+
+
+# ── archive helpers ───────────────────────────────────────────────────────────
+
+def _resolve_trade_date(now_utc: datetime) -> str:
+    explicit = os.environ.get("NEWS_TRADE_DATE", "").strip()
+    if explicit:
+        return explicit
+    return now_utc.strftime("%Y-%m-%d")
+
+
+def _save_archive(result: dict, archive_dir: Path, trade_date: str) -> Path:
+    archive_dir.mkdir(parents=True, exist_ok=True)
+    archive_path = archive_dir / f"news_risk_flags_{trade_date}.json"
+    with open(archive_path, "w", encoding="utf-8") as f:
+        json.dump(result, f, indent=2, ensure_ascii=False)
+    print(f"  [ARCHIVE] збережено: {archive_path}")
+    return archive_path
+
+
+def _cleanup_archive(archive_dir: Path, keep_days: int) -> int:
+    if not archive_dir.exists():
+        return 0
+    cutoff  = datetime.now(timezone.utc) - timedelta(days=keep_days)
+    deleted = 0
+    for f in sorted(archive_dir.glob("news_risk_flags_*.json")):
+        stem     = f.stem          # news_risk_flags_2026-04-25
+        date_str = stem.split("news_risk_flags_")[-1]
+        try:
+            file_date = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+        if file_date < cutoff:
+            try:
+                f.unlink()
+                deleted += 1
+            except Exception as e:
+                print(f"  [WARN] не вдалося видалити {f}: {e}")
+    return deleted
 
 
 # ── core ──────────────────────────────────────────────────────────────────────
 
 def run_news_fetch(
-    symbols: list[str] | None = None,
-    output_path: Path | None  = None,
-    universe_path: Path | None = None,
+    symbols: list[str] | None      = None,
+    output_path: Path | None       = None,
+    archive_dir: Path | None       = None,
+    universe_path: Path | None     = None,
 ) -> dict:
-    """
-    Головна функція. Повертає dict з результатами (також зберігає JSON).
-    """
     if not MASSIVE_API_KEY:
         raise RuntimeError(
             "MASSIVE_API_KEY не знайдено в середовищі. "
@@ -245,36 +223,37 @@ def run_news_fetch(
         )
 
     out_path = output_path or DEFAULT_OUTPUT_PATH
+    arch_dir = archive_dir or DEFAULT_ARCHIVE_DIR
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    now_utc   = datetime.now(timezone.utc)
-    since_utc = (now_utc - timedelta(hours=NEWS_LOOKBACK_HOURS)).strftime("%Y-%m-%dT%H:%M:%SZ")
-    now_str   = now_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+    now_utc    = datetime.now(timezone.utc)
+    since_utc  = (now_utc - timedelta(hours=NEWS_LOOKBACK_HOURS)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    now_str    = now_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+    trade_date = _resolve_trade_date(now_utc)
 
     print(f"\n[NEWS] fetch_massive_news — старт")
-    print(f"  lookback:  {NEWS_LOOKBACK_HOURS}h  (since {since_utc})")
-    print(f"  mode:      {'batch (1 запит)' if NEWS_BATCH_MODE else 'per-ticker'}")
-    print(f"  threshold: flagged якщо negative >= {NEWS_NEGATIVE_THRESHOLD}")
+    print(f"  lookback:    {NEWS_LOOKBACK_HOURS}h  (since {since_utc})")
+    print(f"  trade_date:  {trade_date}")
+    print(f"  mode:        {'batch (1 запит)' if NEWS_BATCH_MODE else 'per-ticker'}")
+    print(f"  threshold:   flagged якщо negative >= {NEWS_NEGATIVE_THRESHOLD}")
 
-    # завантажити символи
     if symbols is None:
         symbols = _load_symbols(universe_path)
     if not symbols:
-        print("  [ERROR] символи не передані і universe не знайдено — виходимо")
+        print("  [ERROR] символи не передані і universe не знайдено")
         return {}
 
-    print(f"  symbols:   {len(symbols)}")
+    print(f"  symbols:     {len(symbols)}")
 
     # отримати новини
     symbol_articles: dict[str, list[dict]] = {}
-
     if NEWS_BATCH_MODE:
         print(f"\n  → batch запит...")
         batch_result = _fetch_news_batch(since_utc)
         for sym in symbols:
             symbol_articles[sym] = batch_result.get(sym.upper(), [])
     else:
-        print(f"\n  → per-ticker запити (затримка {NEWS_REQUEST_DELAY_MS}ms між запитами)...")
+        print(f"\n  → per-ticker запити (затримка {NEWS_REQUEST_DELAY_MS}ms)...")
         for i, sym in enumerate(symbols):
             arts = _fetch_news_for_ticker(sym, since_utc)
             symbol_articles[sym] = arts
@@ -288,10 +267,10 @@ def run_news_fetch(
     flagged_count = 0
 
     for sym in symbols:
-        arts = symbol_articles.get(sym, [])
-        n_neg  = sum(1 for a in arts if a["sentiment"] == "negative")
-        n_pos  = sum(1 for a in arts if a["sentiment"] == "positive")
-        n_neu  = sum(1 for a in arts if a["sentiment"] == "neutral")
+        arts    = symbol_articles.get(sym, [])
+        n_neg   = sum(1 for a in arts if a["sentiment"] == "negative")
+        n_pos   = sum(1 for a in arts if a["sentiment"] == "positive")
+        n_neu   = sum(1 for a in arts if a["sentiment"] == "neutral")
         flagged = n_neg >= NEWS_NEGATIVE_THRESHOLD
 
         if not arts:
@@ -310,17 +289,28 @@ def run_news_fetch(
         }
 
     result = {
-        "generated_utc":     now_str,
-        "lookback_hours":    NEWS_LOOKBACK_HOURS,
-        "since_utc":         since_utc,
-        "symbol_count":      len(symbols),
-        "flagged_count":     flagged_count,
+        "generated_utc":      now_str,
+        "trade_date":         trade_date,
+        "lookback_hours":     NEWS_LOOKBACK_HOURS,
+        "since_utc":          since_utc,
+        "symbol_count":       len(symbols),
+        "flagged_count":      flagged_count,
         "negative_threshold": NEWS_NEGATIVE_THRESHOLD,
-        "symbols":           symbols_out,
+        "symbols":            symbols_out,
     }
 
+    # зберегти поточний
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(result, f, indent=2, ensure_ascii=False)
+    print(f"\n  [OUTPUT]  {out_path}")
+
+    # зберегти архівну копію
+    _save_archive(result, arch_dir, trade_date)
+
+    # очистити старі архіви
+    deleted = _cleanup_archive(arch_dir, NEWS_ARCHIVE_KEEP_DAYS)
+    if deleted:
+        print(f"  [ARCHIVE] видалено старих: {deleted}")
 
     # summary
     print(f"\n[NEWS] summary")
@@ -329,7 +319,7 @@ def run_news_fetch(
     print(f"  articles_total:   {_counters['articles_total']}")
     print(f"  symbols_no_news:  {_counters['symbols_no_news']}")
     print(f"  symbols_flagged:  {_counters['symbols_flagged']}")
-    print(f"  output:           {out_path}")
+    print(f"  archive_dir:      {arch_dir}")
 
     if flagged_count:
         print(f"\n  ⚠  FLAGGED ({flagged_count}):")

@@ -51,6 +51,15 @@ SANITIZE_STATE_PRICES = str(os.getenv("SANITIZE_STATE_PRICES", "1")).strip().low
 STATE_FALLBACK_PRICE_TOLERANCE = float(os.getenv("STATE_FALLBACK_PRICE_TOLERANCE", "0.000001"))
 PERSIST_DEFAULT_FALLBACK_TO_STATE = str(os.getenv("PERSIST_DEFAULT_FALLBACK_TO_STATE", "0")).strip().lower() not in {"0", "false", "no", "off"}
 
+# ── News sentiment multiplier ──────────────────────────────────────────────────
+NEWS_ALPHA_WEIGHT   = float(os.getenv("NEWS_ALPHA_WEIGHT",   "0.2"))
+NEWS_MIN_MULTIPLIER = float(os.getenv("NEWS_MIN_MULTIPLIER", "0.0"))
+NEWS_MAX_MULTIPLIER = float(os.getenv("NEWS_MAX_MULTIPLIER", "1.5"))
+NEWS_FLAGS_PATH     = Path(os.getenv("NEWS_FLAGS_PATH", "artifacts/news/news_risk_flags.json"))
+# 0 = вимкнено (pass-through), 1 = увімкнено
+NEWS_SENTIMENT_ENABLED = str(os.getenv("NEWS_SENTIMENT_ENABLED", "1")).strip().lower() not in {"0", "false", "no", "off"}
+# ──────────────────────────────────────────────────────────────────────────────
+
 PRICE_COL_CANDIDATES = [
     "close",
     "adj_close",
@@ -444,6 +453,126 @@ def _apply_execution_risk_guards(target: pd.DataFrame, price_col: str, nav: floa
 
     return out, counters
 
+
+# ── News sentiment multiplier ──────────────────────────────────────────────────
+
+def _load_news_multipliers(symbols: list[str]) -> Tuple[Dict[str, float], Dict[str, int]]:
+    """
+    Читає news_risk_flags.json і обчислює news_multiplier per symbol.
+
+    news_score(s)  = (n_positive - n_negative) / max(n_articles, 1)  ∈ [-1, +1]
+    news_zscore(s) = cross-sectional z-score по symbols що мають статті
+    news_multiplier = clip(1 + NEWS_ALPHA_WEIGHT * news_zscore,
+                           NEWS_MIN_MULTIPLIER, NEWS_MAX_MULTIPLIER)
+
+    Symbols без новин → multiplier = 1.0 (pass-through).
+    Якщо JSON відсутній або NEWS_SENTIMENT_ENABLED=0 → всі 1.0.
+
+    Повертає:
+        multipliers: Dict[symbol -> float]
+        counters:    Dict з debug лічильниками
+    """
+    default_multipliers = {s: 1.0 for s in symbols}
+    counters = {
+        "news_flags_missing":  0,
+        "news_flags_loaded":   0,
+        "news_no_articles":    0,
+        "news_boosted":        0,
+        "news_reduced":        0,
+        "news_blocked":        0,
+        "news_neutral":        0,
+    }
+
+    if not NEWS_SENTIMENT_ENABLED:
+        print(f"[NEWS] NEWS_SENTIMENT_ENABLED=0 — multipliers вимкнено (pass-through)")
+        return default_multipliers, counters
+
+    flags_path = ROOT / NEWS_FLAGS_PATH
+    if not flags_path.exists():
+        counters["news_flags_missing"] = 1
+        print(f"[NEWS] {flags_path} не знайдено — multipliers = 1.0 (pass-through)")
+        return default_multipliers, counters
+
+    try:
+        with open(flags_path, encoding="utf-8") as f:
+            flags = json.load(f)
+    except Exception as e:
+        counters["news_flags_missing"] = 1
+        print(f"[NEWS] не вдалося прочитати {flags_path}: {e} — pass-through")
+        return default_multipliers, counters
+
+    counters["news_flags_loaded"] = 1
+    symbols_data = flags.get("symbols", {})
+
+    # 1. обчислити raw news_score per symbol
+    scores: Dict[str, float] = {}
+    for sym in symbols:
+        entry = symbols_data.get(sym)
+        if entry is None or entry.get("n_articles", 0) == 0:
+            counters["news_no_articles"] += 1
+            continue
+        n_pos = int(entry.get("n_positive", 0))
+        n_neg = int(entry.get("n_negative", 0))
+        n_art = int(entry.get("n_articles", 1))
+        scores[sym] = (n_pos - n_neg) / max(n_art, 1)
+
+    if not scores:
+        print(f"[NEWS] жодного символу з новинами — multipliers = 1.0")
+        return default_multipliers, counters
+
+    # 2. cross-sectional z-score
+    score_values = list(scores.values())
+    mean_s = sum(score_values) / len(score_values)
+    var_s  = sum((v - mean_s) ** 2 for v in score_values) / max(len(score_values) - 1, 1)
+    std_s  = math.sqrt(var_s) if var_s > 0.0 else 1.0
+
+    multipliers = dict(default_multipliers)  # старт з 1.0 для всіх
+    for sym, score in scores.items():
+        zscore = (score - mean_s) / std_s
+        raw_mult = 1.0 + NEWS_ALPHA_WEIGHT * zscore
+        mult = max(NEWS_MIN_MULTIPLIER, min(NEWS_MAX_MULTIPLIER, raw_mult))
+        multipliers[sym] = mult
+
+        if mult <= 0.0:
+            counters["news_blocked"] += 1
+        elif mult < 1.0 - 1e-6:
+            counters["news_reduced"] += 1
+        elif mult > 1.0 + 1e-6:
+            counters["news_boosted"] += 1
+        else:
+            counters["news_neutral"] += 1
+
+    return multipliers, counters
+
+
+def _apply_news_multipliers(
+    target: pd.DataFrame,
+    multipliers: Dict[str, float],
+    price_col: str,
+    fractional_enabled: bool,
+) -> pd.DataFrame:
+    """
+    Застосовує news_multiplier до target_shares і перераховує похідні колонки.
+    Знак позиції зберігається. Записує news_multiplier в окрему колонку.
+    """
+    out = target.copy()
+    mults = out["symbol"].map(multipliers).fillna(1.0)
+    out["news_multiplier"] = mults.values
+
+    # масштабуємо target_shares_raw → target_shares
+    new_raw = _num(out["target_shares_raw"]) * mults
+    out["target_shares_raw"] = new_raw
+    out["target_shares"] = new_raw.map(
+        lambda x: _round_shares(float(x), fractional_enabled=fractional_enabled)
+    )
+    # перерахувати target_notional з нового target_shares
+    price_s = _num(out[price_col]).fillna(float(DEFAULT_PRICE_FALLBACK))
+    out["target_notional"] = _num(out["target_shares"]) * price_s
+
+    return out
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 
 def _build_target_table(book: pd.DataFrame, price_df: pd.DataFrame, price_col: str, nav: float, fractional_enabled: bool) -> Tuple[pd.DataFrame, int, Dict[str, int]]:
     target = book[["symbol", "weight"]].copy()
@@ -1046,6 +1175,13 @@ def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, 
                 "state_prices_cleared_default_like": 0,
                 "state_positions_missing_live_price": 0,
                 "state_positions_missing_broker_price": 0,
+                "news_flags_missing": 0,
+                "news_flags_loaded": 0,
+                "news_no_articles": 0,
+                "news_boosted": 0,
+                "news_reduced": 0,
+                "news_blocked": 0,
+                "news_neutral": 0,
             },
         )
         print(f"[ARTIFACT] {execution_log_csv}")
@@ -1071,6 +1207,21 @@ def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, 
     )
 
     target, merged_missing, risk_counters = _build_target_table(book, price_df, price_col, starting_nav, fractional_enabled=fractional_enabled)
+
+    # ── news sentiment multiplier ─────────────────────────────────────────────
+    symbols_in_target = target["symbol"].astype(str).tolist()
+    news_multipliers, news_counters = _load_news_multipliers(symbols_in_target)
+    target = _apply_news_multipliers(target, news_multipliers, price_col, fractional_enabled)
+    print(
+        f"[EXEC][{paths.name}][NEWS] enabled={int(NEWS_SENTIMENT_ENABLED)} "
+        f"weight={NEWS_ALPHA_WEIGHT} min={NEWS_MIN_MULTIPLIER} max={NEWS_MAX_MULTIPLIER} "
+        f"flags_loaded={news_counters['news_flags_loaded']} flags_missing={news_counters['news_flags_missing']} "
+        f"no_articles={news_counters['news_no_articles']} "
+        f"boosted={news_counters['news_boosted']} reduced={news_counters['news_reduced']} "
+        f"blocked={news_counters['news_blocked']} neutral={news_counters['news_neutral']}"
+    )
+    # ─────────────────────────────────────────────────────────────────────────
+
     live_active_names = int(len(target.loc[target["target_shares"].abs() > 0.0]))
     gross_target = float(target["target_notional"].abs().sum() / (starting_nav + 1e-12)) if len(target) else 0.0
     fallback_price_rows = int((_num(target[price_col]) == float(DEFAULT_PRICE_FALLBACK)).sum()) if len(target) else 0
@@ -1177,6 +1328,13 @@ def _run_one_config(paths: ConfigPaths, price_df: pd.DataFrame, price_col: str, 
         "state_prices_cleared_default_like": int(sanitation_diag.get("state_prices_cleared_default_like", 0)),
         "state_positions_missing_live_price": int(sanitation_diag.get("state_positions_missing_live_price", 0)),
         "state_positions_missing_broker_price": int(sanitation_diag.get("state_positions_missing_broker_price", 0)),
+        "news_flags_missing": int(news_counters.get("news_flags_missing", 0)),
+        "news_flags_loaded": int(news_counters.get("news_flags_loaded", 0)),
+        "news_no_articles": int(news_counters.get("news_no_articles", 0)),
+        "news_boosted": int(news_counters.get("news_boosted", 0)),
+        "news_reduced": int(news_counters.get("news_reduced", 0)),
+        "news_blocked": int(news_counters.get("news_blocked", 0)),
+        "news_neutral": int(news_counters.get("news_neutral", 0)),
     }
     _append_execution_log(execution_log_csv, log_row)
 
@@ -1257,6 +1415,11 @@ def main() -> int:
     )
     print(
         f"[CFG] sanitize_state_prices={int(SANITIZE_STATE_PRICES)} persist_default_fallback_to_state={int(PERSIST_DEFAULT_FALLBACK_TO_STATE)}"
+    )
+    print(
+        f"[CFG] news_sentiment_enabled={int(NEWS_SENTIMENT_ENABLED)} news_alpha_weight={NEWS_ALPHA_WEIGHT} "
+        f"news_min_multiplier={NEWS_MIN_MULTIPLIER} news_max_multiplier={NEWS_MAX_MULTIPLIER} "
+        f"news_flags_path={NEWS_FLAGS_PATH}"
     )
 
     feature_df = _load_live_feature_frame()

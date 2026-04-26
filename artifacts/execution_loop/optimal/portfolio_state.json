@@ -1,34 +1,34 @@
 {
   "config": "optimal",
-  "nav": 978928.7122585,
-  "cash": 968114.2282585,
+  "nav": 978598.1370585,
+  "cash": 967705.8170585,
   "last_rebalanced_date": "2026-04-24",
   "positions": {
     "AAOI": {
       "shares": 66.0,
-      "last_price": 163.05,
-      "market_value": 10761.300000000001,
+      "last_price": 162.17,
+      "market_value": 10703.22,
       "price_source": "live_snapshot",
       "is_priced": 1
     },
     "BRK.B": {
       "shares": -21.0,
-      "last_price": 469.69,
-      "market_value": -9863.49,
+      "last_price": 469.32,
+      "market_value": -9855.72,
       "price_source": "live_snapshot",
       "is_priced": 1
     },
     "ACLX": {
       "shares": -86.0,
-      "last_price": 115.032,
-      "market_value": -9892.752,
+      "last_price": 115.03,
+      "market_value": -9892.58,
       "price_source": "live_snapshot",
       "is_priced": 1
     },
     "CAR": {
-      "shares": 47.0,
-      "last_price": 209.958,
-      "market_value": 9868.026,
+      "shares": 49.0,
+      "last_price": 204.0,
+      "market_value": 9996.0,
       "price_source": "live_snapshot",
       "is_priced": 1
     },
@@ -53,5 +53,5 @@
     "live_snapshot_price_count": 0,
     "unpriced_count": 0
   },
-  "last_estimated_trading_cost": 0.7487485
+  "last_estimated_trading_cost": 0.41119999999999995
 }
