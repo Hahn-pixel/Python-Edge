@@ -5,7 +5,7 @@ launch_daily_update.py — щоденне оновлення даних
   1. run_universe_builder.py   )
   2. run_live_alpha_snapshot.py) через run_daily_cycle.py
   3. run_freeze_runner.py      )
-  4. fetch_massive_news.py     — news sentiment для universe
+  4. fetch_massive_news.py     — news sentiment для universe (не фатально)
 
 Запускати щодня перед launch_full_cycle_cpapi.py
 Час запуску: ~15:30-15:40 ET
@@ -62,12 +62,13 @@ def _run_news_fetch(env: dict) -> int:
 
     news_env = env.copy()
     news_env.update({
-        "NEWS_LOOKBACK_HOURS":    os.getenv("NEWS_LOOKBACK_HOURS",    "24"),
-        "NEWS_LIMIT_PER_SYMBOL":  os.getenv("NEWS_LIMIT_PER_SYMBOL",  "10"),
+        "NEWS_LOOKBACK_HOURS":     os.getenv("NEWS_LOOKBACK_HOURS",     "24"),
+        "NEWS_LIMIT_PER_SYMBOL":   os.getenv("NEWS_LIMIT_PER_SYMBOL",   "10"),
         "NEWS_NEGATIVE_THRESHOLD": os.getenv("NEWS_NEGATIVE_THRESHOLD", "1"),
-        "NEWS_BATCH_MODE":        os.getenv("NEWS_BATCH_MODE",        "0"),
-        "NEWS_REQUEST_DELAY_MS":  os.getenv("NEWS_REQUEST_DELAY_MS",  "200"),
-        # CHILD_PAUSE_ON_EXIT вже 0 — вікно не чекає
+        "NEWS_BATCH_MODE":         os.getenv("NEWS_BATCH_MODE",         "0"),
+        "NEWS_REQUEST_DELAY_MS":   os.getenv("NEWS_REQUEST_DELAY_MS",   "200"),
+        "PAUSE_ON_EXIT":           "0",
+        "CHILD_PAUSE_ON_EXIT":     "0",
     })
 
     result = subprocess.run(
@@ -78,9 +79,8 @@ def _run_news_fetch(env: dict) -> int:
 
     if result.returncode != 0:
         print(f"[WARN] {script} завершився з кодом {result.returncode} — продовжуємо")
-        return result.returncode  # не фатально
 
-    return 0
+    return result.returncode
 
 
 def main() -> int:
@@ -113,7 +113,7 @@ def main() -> int:
         "LIVE_ALPHA_INTERACTION_ENABLE":            "1",
         "LIVE_ALPHA_INTERACTION_TOP_K":             "24",
         "LIVE_ALPHA_INTERACTION_GATES":             "oil_up|dollar_up|macro_risk_off",
-        # Freeze runner — вимикаємо date mismatch guard
+        # Freeze runner
         "REQUIRE_UNIVERSE_CURRENT_DATE_MATCH":      "0",
         "AUTO_REFRESH_LIVE_ALPHA_ON_DATE_MISMATCH": "0",
         # Massive
@@ -141,8 +141,7 @@ def main() -> int:
 
     print("\n[OK] run_daily_cycle.py complete")
 
-    # STEP 4: news sentiment fetch
-    # Не фатально — якщо впав, pipeline все одно вважається успішним
+    # STEP 4: news sentiment fetch (не фатально)
     _run_news_fetch(env)
 
     print()
